@@ -297,10 +297,14 @@
       "title": "Гарри Поттер",
       "group": "franchise",
       "icon": "film",
+      "cover": "/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 1241
+          "id": 1241,
+          "also": [
+            435259
+          ]
         },
         "tv": {
           "type": "discover",
@@ -316,10 +320,15 @@
       "title": "Властелин колец",
       "group": "franchise",
       "icon": "film",
+      "cover": "/oiwc338EoBgS4sEI2ixAny4KQKg.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 119
+          "id": 119,
+          "movies": [
+            123,
+            839033
+          ]
         },
         "tv": {
           "type": "discover",
@@ -347,10 +356,14 @@
       "title": "Джон Уик",
       "group": "franchise",
       "icon": "film",
+      "cover": "/ff2ti5DkA9UYLzyqhQfI2kZqEuh.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 404609
+          "id": 404609,
+          "movies": [
+            541671
+          ]
         }
       }
     },
@@ -390,6 +403,43 @@
         "movie": {
           "type": "collection",
           "id": 528
+        }
+      }
+    },
+    {
+      "id": "robocop",
+      "title": "Робокоп",
+      "i18n": {
+        "en": "RoboCop",
+        "uk": "Робокоп"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/pRSTtNlcADoQkfeBGtFQNE1FDpb.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 5547,
+          "movies": [
+            97020
+          ]
+        }
+      }
+    },
+    {
+      "id": "mad-max",
+      "title": "Безумный Макс",
+      "i18n": {
+        "en": "Mad Max",
+        "uk": "Скажений Макс"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/nlCHUWjY9XWbuEUQauCBgnY8ymF.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 8945
         }
       }
     },
@@ -487,10 +537,14 @@
       "title": "Люди Икс",
       "group": "franchise",
       "icon": "film",
+      "cover": "/3QUVzbcNyfGe3ocWkYAT8emK8Co.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 748
+          "id": 748,
+          "also": [
+            453993
+          ]
         }
       }
     },
@@ -684,6 +738,84 @@
       }
     },
     {
+      "id": "halloween-myers",
+      "title": "Хэллоуин: Майкл Майерс",
+      "i18n": {
+        "en": "Halloween: Michael Myers",
+        "uk": "Гелловін: Майкл Маєрс"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/6Io0gvfEVpMQsB46yXOKCpSJOoJ.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 91361,
+          "also": [
+            126209
+          ]
+        }
+      }
+    },
+    {
+      "id": "friday-13th",
+      "title": "Пятница 13-е",
+      "i18n": {
+        "en": "Friday the 13th",
+        "uk": "П'ятниця, 13-те"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/edVRp9npNwQwJtD05KyZlzp1J2p.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 9735,
+          "movies": [
+            13207
+          ]
+        }
+      }
+    },
+    {
+      "id": "elm-street",
+      "title": "Кошмар на улице Вязов",
+      "i18n": {
+        "en": "A Nightmare on Elm Street",
+        "uk": "Жах на вулиці В'язів"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/OyrL7LifPjrj7eDm5FtF8qPH8R.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 8581,
+          "movies": [
+            6466,
+            23437
+          ]
+        }
+      }
+    },
+    {
+      "id": "saw",
+      "title": "Пила",
+      "i18n": {
+        "en": "Saw",
+        "uk": "Пила"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/qtWjZgCmslPwjP4DFUcLBUj13GV.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 656
+        }
+      }
+    },
+    {
       "id": "jurassic-park",
       "title": "Парк Юрского периода",
       "group": "franchise",
@@ -696,6 +828,61 @@
       }
     },
     {
+      "id": "godzilla",
+      "title": "Годзилла",
+      "i18n": {
+        "en": "Godzilla",
+        "uk": "Ґодзілла"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/bWIIWhnaoWx3FTVXv6GkYDv3djL.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 535313,
+          "also": [
+            374509,
+            374511,
+            374512,
+            535790,
+            1474814,
+            1539140
+          ],
+          "movies": [
+            929,
+            315011
+          ]
+        }
+      }
+    },
+    {
+      "id": "king-kong",
+      "title": "Кинг-Конг",
+      "i18n": {
+        "en": "King Kong",
+        "uk": "Кінг-Конг"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/fvvyJm0EKDXl6xrGYOosV9IMPHd.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 135495,
+          "also": [
+            135498,
+            1539140
+          ],
+          "movies": [
+            254,
+            1680,
+            399566
+          ]
+        }
+      }
+    },
+    {
       "id": "indiana-jones",
       "title": "Индиана Джонс",
       "group": "franchise",
@@ -704,6 +891,28 @@
         "movie": {
           "type": "collection",
           "id": 84
+        }
+      }
+    },
+    {
+      "id": "mummy",
+      "title": "Мумия",
+      "i18n": {
+        "en": "The Mummy",
+        "uk": "Мумія"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/pwOVw2PEHwqypHbhBJFQe158Ljb.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 1733,
+          "movies": [
+            15849,
+            9334,
+            282035
+          ]
         }
       }
     },
@@ -797,10 +1006,14 @@
       "title": "Голодные игры",
       "group": "franchise",
       "icon": "film",
+      "cover": "/3sndNmvdF0R8AeyCmVoNv8LKtNy.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 131635
+          "id": 131635,
+          "also": [
+            1701563
+          ]
         }
       }
     },
@@ -824,10 +1037,14 @@
       "title": "Шрек",
       "group": "franchise",
       "icon": "film",
+      "cover": "/w0eKUOEog2ImtktCHAMUZws8qif.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 2150
+          "id": 2150,
+          "also": [
+            94602
+          ]
         }
       }
     },
@@ -836,10 +1053,14 @@
       "title": "История игрушек",
       "group": "franchise",
       "icon": "film",
+      "cover": "/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 10194
+          "id": 10194,
+          "movies": [
+            718789
+          ]
         }
       }
     },
@@ -848,10 +1069,14 @@
       "title": "Гадкий я",
       "group": "franchise",
       "icon": "film",
+      "cover": "/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 86066
+          "id": 86066,
+          "also": [
+            544669
+          ]
         }
       }
     },
@@ -882,10 +1107,14 @@
       "title": "Мадагаскар",
       "group": "franchise",
       "icon": "film",
+      "cover": "/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 14740
+          "id": 14740,
+          "movies": [
+            270946
+          ]
         }
       }
     },

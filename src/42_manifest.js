@@ -92,7 +92,7 @@
          без ключа плитка обязана сказать «нужен ключ». */
       collections: [
 
-        /* === FRANCHISE (38 подборок) === */
+        /* === FRANCHISE (47 подборок) === */
 
         /* Существующие (8) */
         /* Сериальная половина франшиз — по СТУДИЯМ, а не по ключевому слову
@@ -160,7 +160,20 @@
            фильмов) и HBO (3268) — ровно «Гарри Поттер» (224377, 2026);
            New Line Cinema (12, студия трилогии) и Amazon Studios (20580) —
            ровно «Кольца власти» (84773). Новые сезоны живут под тем же id,
-           новый сериал тех же двух студий попадёт сам. */
+           новый сериал тех же двух студий попадёт сам.
+
+           Правка 2026-09-27 (второй проход по франшизам; живые запросы TMDB
+           через Lampa на стенде, ru-RU): недостающие части у плиток, которые
+           уже есть. «Гарри Поттер» — + «Фантастические твари» (коллекция
+           435259, 2016-2022, 3): мир один (Wizarding World), а отдельной
+           плитке трёх фильмов мало. «Властелин колец» — + мультфильм Бакши
+           1978 года (123) и «Война рохирримов» (839033, 2024), обе вне
+           коллекций TMDB; «Хоббит» остаётся своей плиткой, как был.
+           «Джон Уик» — + «Балерина» (541671, 2025, вне коллекции 404609).
+           Кадры плиток — прежние (основной кадр первого по дате фильма, его
+           же плитка брала из выдачи): заданы, чтобы плитка не стоила всех
+           запросов набора; у «Властелина колец» первым по дате стал бы
+           мультфильм 1978 года. */
         {
           id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
           sources: {
@@ -169,16 +182,16 @@
           }
         },
         {
-          id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film',
+          id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film', cover: '/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg',
           sources: {
-            movie: { type: 'collection', id: 1241 },
+            movie: { type: 'collection', id: 1241, also: [435259] },
             tv:    { type: 'discover',   params: { companies: '437,3268', sort_by: 'popularity.desc' } }
           }
         },
         {
-          id: 'lotr', title: 'Властелин колец', group: 'franchise', icon: 'film',
+          id: 'lotr', title: 'Властелин колец', group: 'franchise', icon: 'film', cover: '/oiwc338EoBgS4sEI2ixAny4KQKg.jpg',
           sources: {
-            movie: { type: 'collection', id: 119 },
+            movie: { type: 'collection', id: 119, movies: [123, 839033] },
             tv:    { type: 'discover',   params: { companies: '12,20580', sort_by: 'popularity.desc' } }
           }
         },
@@ -187,8 +200,8 @@
           sources: { movie: { type: 'collection', id: 121938 } }
         },
         {
-          id: 'john-wick', title: 'Джон Уик', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 404609 } }
+          id: 'john-wick', title: 'Джон Уик', group: 'franchise', icon: 'film', cover: '/ff2ti5DkA9UYLzyqhQfI2kZqEuh.jpg',
+          sources: { movie: { type: 'collection', id: 404609, movies: [541671] } }
         },
         {
           id: 'mission-impossible', title: 'Миссия невыполнима', group: 'franchise', icon: 'film',
@@ -203,6 +216,29 @@
         {
           id: 'terminator', title: 'Терминатор', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 528 } }
+        },
+        /* Правка 2026-09-27 (второй проход): новые плитки — только
+           известные франшизы от четырёх фильмов, только коллекции TMDB и
+           отдельные фильмы (сетка открывается чипом «По годам»), у каждой
+           кадр (cover — не основной кадр фильма, без надписей, от 1280 px;
+           плитка без запроса) и перевод. Живые запросы TMDB через Lampa на
+           стенде, ru-RU, 2026-09-27.
+           «Робокоп» — трилогия (5547, 1987-1993) и ремейк 2014 года (97020,
+           вне коллекций) — 4 фильма, 2 запроса.
+           «Безумный Макс» — коллекция 8945: трилогия 1979-1985, «Дорога
+           ярости» (2015), «Фуриоса» (2024) — 5 фильмов. Шестой в коллекции —
+           анонс «Безумный Макс: Пустошь» (340023) без даты и кадра (постер
+           есть): «По годам» ставит его последним, метки у него нет. Убрать
+           его без правки кода нельзя — у набора нет исключений, а коллекция
+           другая у франшизы одна (так же у «Парка Юрского периода» с 2026:
+           анонс сиквела «Возрождения» без даты). */
+        {
+          id: 'robocop', title: 'Робокоп', i18n: { en: 'RoboCop', uk: 'Робокоп' }, group: 'franchise', icon: 'film', cover: '/pRSTtNlcADoQkfeBGtFQNE1FDpb.jpg',
+          sources: { movie: { type: 'collection', id: 5547, movies: [97020] } }
+        },
+        {
+          id: 'mad-max', title: 'Безумный Макс', i18n: { en: 'Mad Max', uk: 'Скажений Макс' }, group: 'franchise', icon: 'film', cover: '/nlCHUWjY9XWbuEUQauCBgnY8ymF.jpg',
+          sources: { movie: { type: 'collection', id: 8945 } }
         },
         /* Правка 2026-09-27 («в ЧП добавь старые фильмы про него, как и в
            Бэтмена и прочее, например старый Марвел до КВМ»). Классические
@@ -266,9 +302,13 @@
           id: 'avengers', title: 'Мстители', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 86311 } }
         },
+        /* Правка 2026-09-27 (второй проход): + трилогия «Росомахи» (453993:
+           «Люди Икс: Начало. Росомаха», «Росомаха: Бессмертный», «Логан») —
+           10 фильмов, 2 запроса. «Дэдпул» (своя франшиза, третий фильм — уже
+           КВМ) и «Новые мутанты» не взяты. Кадр — прежний («Люди Икс», 2000). */
         {
-          id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 748 } }
+          id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film', cover: '/3QUVzbcNyfGe3ocWkYAT8emK8Co.jpg',
+          sources: { movie: { type: 'collection', id: 748, also: [453993] } }
         },
         /* Правка 2026-09-27: «Классика Marvel» — Marvel до КВМ. Состав —
            фильмы по комиксам Marvel, вышедшие до «Железного человека»
@@ -386,13 +426,85 @@
           id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film', cover: '/YL3GPOiDcNraIJOVDCZsoOBoDy.jpg',
           sources: { movie: { type: 'collection', id: 399, also: [115762], movies: [1376434] } }
         },
+        /* Правка 2026-09-27 (второй проход): классика ужасов — четыре
+           франшизы, у каждой коллекция TMDB и то, что в неё не входит.
+           «Хэллоуин» — 91361 (1978-2022, 11, включая «Сезон ведьм» 1982 года
+           без Майерса — часть серии) и дилогия Роба Зомби (126209, 2007 и
+           2009) — 13 фильмов, 2 запроса. Название и id — с Майерсом:
+           «Хэллоуин» (id halloween) — уже сезонная тема, и в октябре два ряда
+           главной с одним названием стояли бы рядом.
+           «Пятница 13-е» — 9735 (1980-2003, 11, с «Фредди против Джейсона»)
+           и ремейк 2009 года (13207) — 12 фильмов, 2 запроса.
+           «Кошмар на улице Вязов» — 8581 (1984-1994, 7), «Фредди против
+           Джейсона» (6466 — кроссовер, он и в «Пятнице 13-е», как «Чужой
+           против Хищника» в обеих своих плитках) и ремейк 2010 года (23437) —
+           9 фильмов, 3 запроса.
+           «Пила» — 656 (2004-2023, 10), один запрос; анонс без даты (1509671)
+           в коллекцию не входит.
+           «Крик» не добавлен: в коллекции 2602 (7 фильмов, 1996-2026) восьмым
+           стоит «Scream 8» (1650066) без даты, постера и русского названия —
+           пустая карточка в конце сетки; другой коллекции у франшизы нет. */
+        {
+          id: 'halloween-myers', title: 'Хэллоуин: Майкл Майерс', i18n: { en: 'Halloween: Michael Myers', uk: 'Гелловін: Майкл Маєрс' }, group: 'franchise', icon: 'film', cover: '/6Io0gvfEVpMQsB46yXOKCpSJOoJ.jpg',
+          sources: { movie: { type: 'collection', id: 91361, also: [126209] } }
+        },
+        {
+          id: 'friday-13th', title: 'Пятница 13-е', i18n: { en: 'Friday the 13th', uk: 'П\'ятниця, 13-те' }, group: 'franchise', icon: 'film', cover: '/edVRp9npNwQwJtD05KyZlzp1J2p.jpg',
+          sources: { movie: { type: 'collection', id: 9735, movies: [13207] } }
+        },
+        {
+          id: 'elm-street', title: 'Кошмар на улице Вязов', i18n: { en: 'A Nightmare on Elm Street', uk: 'Жах на вулиці В\'язів' }, group: 'franchise', icon: 'film', cover: '/OyrL7LifPjrj7eDm5FtF8qPH8R.jpg',
+          sources: { movie: { type: 'collection', id: 8581, movies: [6466, 23437] } }
+        },
+        {
+          id: 'saw', title: 'Пила', i18n: { en: 'Saw', uk: 'Пила' }, group: 'franchise', icon: 'film', cover: '/qtWjZgCmslPwjP4DFUcLBUj13GV.jpg',
+          sources: { movie: { type: 'collection', id: 656 } }
+        },
         {
           id: 'jurassic-park', title: 'Парк Юрского периода', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 328 } }
         },
+        /* Правка 2026-09-27 (второй проход): «Годзилла» и «Кинг-Конг».
+           «Годзилла» — все эпохи Toho и американские фильмы: Сёва (374509,
+           1954-1975, 15), Хэйсэй (374511, 1984-1995, 7), Миллениум (374512,
+           1999-2004, 6), «Годзилла: Возрождение» (315011, 2016, вне
+           коллекций), аниме-трилогия Netflix/Toho (535790, 2017-2018, 3),
+           «Минус один» (1474814: 2023 и анонс «Минус ноль», 2026-11-03);
+           «Годзилла» Эммериха (929, 1998, вне коллекций); MonsterVerse —
+           535313 (2014, 2019, 2021) и 1539140 («Конг: Остров черепа» 2017 —
+           часть MonsterVerse, «Новая империя» 2024, анонс «Сверхновая»
+           2027) — 41 позиция, 9 запросов. Не взяты американские перемонтажи
+           японских фильмов (коллекция 813157: «Годзилла, король монстров!»
+           1956, «Gigantis», «Кинг-Конг против Годзиллы» 1963, «Годзилла
+           1985») — это те же фильмы.
+           «Кинг-Конг» — 1933 с «Сыном Кинг-Конга» (135495), 1976 с «Кинг-Конг
+           жив» (135498, 1986), Джексон (254, 2005), «Кинг-Конг против
+           Годзиллы» (1680, 1962, из Сёва), MonsterVerse — 1539140 и
+           «Годзилла против Конга» (399566, 2021) — 10 позиций, 6 запросов.
+           Кроссоверы стоят в обеих плитках — как «Чужой против Хищника».
+           Не взят «Побег Кинг-Конга» (39276, Toho 1967, 116 голосов). */
+        {
+          id: 'godzilla', title: 'Годзилла', i18n: { en: 'Godzilla', uk: 'Ґодзілла' }, group: 'franchise', icon: 'film', cover: '/bWIIWhnaoWx3FTVXv6GkYDv3djL.jpg',
+          sources: { movie: { type: 'collection', id: 535313, also: [374509, 374511, 374512, 535790, 1474814, 1539140], movies: [929, 315011] } }
+        },
+        {
+          id: 'king-kong', title: 'Кинг-Конг', i18n: { en: 'King Kong', uk: 'Кінг-Конг' }, group: 'franchise', icon: 'film', cover: '/fvvyJm0EKDXl6xrGYOosV9IMPHd.jpg',
+          sources: { movie: { type: 'collection', id: 135495, also: [135498, 1539140], movies: [254, 1680, 399566] } }
+        },
         {
           id: 'indiana-jones', title: 'Индиана Джонс', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 84 } }
+        },
+        /* Правка 2026-09-27 (второй проход): «Мумия» — трилогия с Фрейзером
+           (1733: 1999, 2001, 2008 и анонс «Мумия 4», 2027-10-14), её
+           спин-офф «Царь скорпионов» (9334, 2002; продолжения 2008-2018 —
+           direct-to-video, не взяты), «Мумия» Universal 1932 года (15849) и
+           2017 года (282035) — 7 позиций, 4 запроса. Не взяты сиквелы
+           1940-1944 годов (221544, 83-104 голоса) и серия Hammer (138965) —
+           другие истории под тем же названием. */
+        {
+          id: 'mummy', title: 'Мумия', i18n: { en: 'The Mummy', uk: 'Мумія' }, group: 'franchise', icon: 'film', cover: '/pwOVw2PEHwqypHbhBJFQe158Ljb.jpg',
+          sources: { movie: { type: 'collection', id: 1733, movies: [15849, 9334, 282035] } }
         },
         {
           id: 'back-to-future', title: 'Назад в будущее', group: 'franchise', icon: 'film',
@@ -426,9 +538,12 @@
           id: 'twilight', title: 'Сумерки. Сага', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 33514 } }
         },
+        /* Правка 2026-09-27 (второй проход): + новая трилогия (1701563:
+           «Баллада о змеях и певчих птицах» 2023 и анонс «Рассвет жатвы»,
+           2026-11-18) — 6 позиций. Кадр — прежний («Голодные игры», 2012). */
         {
-          id: 'hunger-games', title: 'Голодные игры', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 131635 } }
+          id: 'hunger-games', title: 'Голодные игры', group: 'franchise', icon: 'film', cover: '/3sndNmvdF0R8AeyCmVoNv8LKtNy.jpg',
+          sources: { movie: { type: 'collection', id: 131635, also: [1701563] } }
         },
         /* Правка 2026-09-27: + «Дюна» Линча (841, 1984) — у TMDB она вне
            коллекций. Кадр плитки теперь от неё (первая по дате). */
@@ -436,17 +551,23 @@
           id: 'dune', title: 'Дюна', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 726871, movies: [841] } }
         },
+        /* Правка 2026-09-27 (второй проход): спин-оффы в плитку своей
+           франшизы. «Шрек» — + «Кот в сапогах» (94602: 2011, 2022) — 7
+           позиций (с анонсом «Шрек 5», 2027). «История игрушек» — + «Базз
+           Лайтер» (718789, 2022, вне коллекций) — 6. «Гадкий я» — +
+           «Миньоны» (544669: 2015, 2022, 2026) — 7. «Мадагаскар» (ниже) — +
+           «Пингвины Мадагаскара» (270946, 2014) — 4. Кадры — прежние. */
         {
-          id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 2150 } }
+          id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film', cover: '/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
+          sources: { movie: { type: 'collection', id: 2150, also: [94602] } }
         },
         {
-          id: 'toy-story', title: 'История игрушек', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 10194 } }
+          id: 'toy-story', title: 'История игрушек', group: 'franchise', icon: 'film', cover: '/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
+          sources: { movie: { type: 'collection', id: 10194, movies: [718789] } }
         },
         {
-          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 86066 } }
+          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film', cover: '/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
+          sources: { movie: { type: 'collection', id: 86066, also: [544669] } }
         },
         /* Правка 2026-09-27: «Человек-паук» — все игровые фильмы и
            «Через вселенные», а не только КВМ: Рэйми (556, 2002-2007), Уэбб
@@ -463,8 +584,8 @@
           sources: { movie: { type: 'collection', id: 531241, also: [556, 125574, 573436] } }
         },
         {
-          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 14740 } }
+          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film', cover: '/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
+          sources: { movie: { type: 'collection', id: 14740, movies: [270946] } }
         },
         {
           id: 'ice-age', title: 'Ледниковый период', group: 'franchise', icon: 'film',

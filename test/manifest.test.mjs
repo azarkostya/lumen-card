@@ -339,7 +339,7 @@ test('франшизы: «Киновселенная Marvel» и «Вселен�
   assert.ok(typeof dc.cover === 'string' && dc.cover, 'кадр задан: первым по дате идёт «Бэтмен: Начало», как у «Тёмного рыцаря»');
 
   const franchises = M.DEFAULT.collections.filter(c => c.group === 'franchise');
-  assert.equal(franchises.length, 38, 'две добавлены, две сняты (2026-09-25); +4 классики (2026-09-27)');
+  assert.equal(franchises.length, 47, 'две добавлены, две сняты (2026-09-25); +4 классики, +9 франшиз второго прохода (2026-09-27)');
   assert.ok(franchises.findIndex(c => c.id === 'mcu') < franchises.findIndex(c => c.id === 'avengers'));
   assert.ok(franchises.findIndex(c => c.id === 'dc-universe') < franchises.findIndex(c => c.id === 'dark-knight'));
 });
@@ -380,7 +380,7 @@ test('темы: 15 новых, у каждой перевод, кадр и то�
     }
   }
   assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 52, 'раунд holB: +5 сезонных');
-  assert.equal(M.DEFAULT.collections.length, 174, '+4 франшизы 2026-09-27');
+  assert.equal(M.DEFAULT.collections.length, 183, '+4 франшизы 2026-09-27, +9 вторым проходом');
 });
 
 /* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
@@ -607,6 +607,61 @@ test('франшизы: «Человек-паук» и «Бэтмен» — вс
     assert.ok(n <= 16, c.id + ': ' + n + ' запросов на сетку');
   }
   assert.deepEqual(byId['dune'].sources.movie.movies, [841], '«Дюна» Линча');
+});
+
+/* Второй проход по франшизам 2026-09-27: новые плитки — только наборы
+   коллекций и фильмов (сетка открывается «По годам»), с переводом и кадром;
+   у плиток, которые уже были, id и базовая коллекция прежние (их помнят
+   ряды главной, рулетка и плагин без поддержки also), добавки — ровно те,
+   что проверены живыми запросами (разбор у подборок в src/42_manifest.js). */
+test('франшизы, второй проход: «Годзилла», «Кинг-Конг», ужасы, «Мумия»; спин-оффы к своим плиткам', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  const all = (c) => { const s = c.sources.movie; return [s.id].concat(s.also || [], s.movies || []).map(Number); };
+
+  const fresh = {
+    'godzilla':        [535313, 374509, 374511, 374512, 535790, 1474814, 1539140, 929, 315011],
+    'king-kong':       [135495, 135498, 1539140, 254, 1680, 399566],
+    'mummy':           [1733, 15849, 9334, 282035],
+    'robocop':         [5547, 97020],
+    'mad-max':         [8945],
+    'halloween-myers': [91361, 126209],
+    'friday-13th':     [9735, 13207],
+    'elm-street':      [8581, 6466, 23437],
+    'saw':             [656]
+  };
+  for (const id in fresh) {
+    const c = byId[id];
+    assert.ok(c, 'нет плитки ' + id);
+    assert.equal(c.group, 'franchise', id);
+    assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'нет перевода у ' + id);
+    assert.ok(typeof c.cover === 'string', 'нет кадра у ' + id);
+    assert.deepEqual(Object.keys(c.sources), ['movie'], id + ': только фильмы');
+    assert.equal(c.sources.movie.type, 'collection', id + ': «По годам» — только у коллекций');
+    assert.deepEqual(all(c).sort((a, b) => a - b), fresh[id].slice().sort((a, b) => a - b), id);
+    assert.ok(all(c).length <= 16, id + ': ' + all(c).length + ' запросов на сетку');
+  }
+  assert.equal(byId['halloween'].group, 'theme', 'сезонная тема «Хэллоуин» на месте, франшиза — под своим id');
+  assert.notEqual(byId['halloween-myers'].title, byId['halloween'].title);
+
+  const grown = {
+    'harry-potter':  [1241, 435259],
+    'lotr':          [119, 123, 839033],
+    'john-wick':     [404609, 541671],
+    'xmen':          [748, 453993],
+    'hunger-games':  [131635, 1701563],
+    'shrek':         [2150, 94602],
+    'toy-story':     [10194, 718789],
+    'despicable-me': [86066, 544669],
+    'madagascar':    [14740, 270946]
+  };
+  for (const id in grown) {
+    const c = byId[id];
+    assert.equal(c.sources.movie.id, grown[id][0], id + ': базовая коллекция прежняя');
+    assert.deepEqual(all(c), grown[id], id);
+    assert.ok(typeof c.cover === 'string', id + ': кадр задан — плитка не стоит всех запросов набора');
+  }
+  assert.ok(byId['harry-potter'].sources.tv && byId['lotr'].sources.tv, 'сериалы у «Гарри Поттера» и «Властелина колец» на месте');
 });
 
 /* Загрузка с настоящим LC.manifest: Lampa.Storage и Lampa.Reguest — моки. */
