@@ -574,6 +574,12 @@
        полноэкранных слоя — src/30_css.js) не рисуется. Ставит и снимает
        рантайм на старте активности (src/90_runtime.js, markScreenBody). */
     var STAGE_BODY = 'lumen-screen-on';
+    /* Снятие кадра со слоя — заменой адреса на пустой GIF (data:, в сеть не
+       ходит), а не removeAttr('src'): Chromium держит <img>, у которого
+       адрес сняли во время или после загрузки (тот же приём и разбор —
+       BLANK_SRC в src/57_thumbs.js). Пустой src = '' — запрос к адресу
+       страницы в старых движках. */
+    var STAGE_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 
     function stageMotion() {
       try { return LC.motionMode(); } catch (e) { return 'full'; }
@@ -791,7 +797,7 @@
           color = null;
         }
         if (node) {
-          try { node.find('.lumen-screen-stage__img').removeAttr('src'); } catch (e) { }
+          try { node.find('.lumen-screen-stage__img').attr('src', STAGE_BLANK); } catch (e) { }
           try { node.remove(); } catch (e2) { }
         }
         node = null;

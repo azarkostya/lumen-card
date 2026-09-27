@@ -119,6 +119,15 @@
     var DARK_MED = 0.25;
     var DARK_P75 = 0.35;
     var LOAD_MS = 8000;
+    /* Отмена загрузки миниатюры — заменой адреса на пустой GIF (data:, в
+       сеть не ходит), а не removeAttribute('src'): Chromium держит <img>,
+       у которого адрес сняли во время или после загрузки, — отсоединённые
+       картинки копились на перемещениях фокуса главной (стенд, 4 × 400
+       шагов: узлы 3998 → 9359, 860 отсоединённых <img> с пустым src, все
+       отсюда; опыт на 40 картинках: removeAttribute — удержаны 40,
+       data:-GIF или без отмены — 0). Пустой src = '' не годится: старые
+       движки шлют с ним запрос к адресу страницы. */
+    var BLANK_SRC = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
     /* Потолок ожидания простоя: задача не ждёт дольше, даже если браузер
        всё это время занят. */
     var IDLE_MS = 120;
@@ -650,9 +659,11 @@
           if (i !== -1) fl.subs.splice(i, 1);
           if (fl.subs.length || flights[path] !== fl) return;
           delete flights[path];
+          /* Обработчики — до замены адреса: onload/onerror пустого GIF
+             не должны прийти результатом. */
           unhook(fl);
           try {
-            if (fl.img && typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+            if (fl.img) fl.img.src = BLANK_SRC;
           } catch (e) { }
         }
       };

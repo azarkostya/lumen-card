@@ -3057,7 +3057,9 @@ test('фон подборок: хаб — кадр плитки, одна сме
     assert.equal(images.length, 2, 'возврат на показанный кадр не грузит его заново');
     s.comp.destroy();
     assert.equal(s.act.all('lumen-screen-stage').length, 0, 'destroy снимает слой фона');
-    assert.equal(L.a.attr('src'), undefined, 'и отпускает растр кадра');
+    /* Находка Н1 (стенд 17e5a3d): снятый removeAttr адрес держит <img> в
+       памяти Chromium — растр отпускается заменой на пустой data:-GIF. */
+    assert.equal(L.a.attr('src'), 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', 'и отпускает растр кадра пустым GIF, а не снятием адреса');
   });
   assert.deepEqual(warnLog, []);
 });

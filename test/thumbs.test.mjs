@@ -212,6 +212,8 @@ test('п.D: toneStats/darkOf — чёрный и тёмно-красный тё�
 /* Рантайм: фейковые Image, canvas и простой браузера                     */
 /* ====================================================================== */
 
+const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
 function env(opts) {
   opts = opts || {};
   const images = [];
@@ -223,11 +225,14 @@ function env(opts) {
     this.srcSetAfterCors = null;
     images.push(this);
   }
+  /* Находка Н1 (стенд 17e5a3d): загрузка снимается заменой адреса на пустой
+     data:-GIF — removed; снятие адреса removeAttribute Chromium держит в
+     памяти, и загрузку оно здесь снятой не считает (attrRemoved). */
   Object.defineProperty(FakeImage.prototype, 'src', {
     get() { return this._src || ''; },
-    set(v) { this._src = v; if (v) this.corsAtSrc = this.crossOrigin; }
+    set(v) { this._src = v; if (v) this.corsAtSrc = this.crossOrigin; if (v === BLANK_GIF) { this.removed = true; this.blankHandlers = [this.onload, this.onerror]; } }
   });
-  FakeImage.prototype.removeAttribute = function (n) { if (n === 'src') { this._src = ''; this.removed = true; } };
+  FakeImage.prototype.removeAttribute = function (n) { if (n === 'src') { this._src = ''; this.attrRemoved = true; } };
   globalThis.Image = FakeImage;
   globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, done: false }); return timers.length; };
   globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].done = true; };
@@ -548,6 +553,28 @@ test('п.C2: отмена — колбэка нет, недоехавшие ми
   h.cancel();
   assert.equal(e.img('/p.jpg') === undefined, true, 'после отмены адрес остался');
   assert.ok(e.images.every((i) => i.removed), 'загрузка не снята');
+  assert.deepEqual(got, []);
+  assert.equal(e.T.stats().fly, 0);
+});
+
+/* Находка Н1 (стенд 17e5a3d, 4 × 400 шагов по главной: 860 отсоединённых
+   <img> с пустым src, все из fetchImage): отмена ставит пустой data:-GIF,
+   обработчики сняты ДО замены адреса, колбэк результата не зовётся. */
+test('Н1: отмена миниатюры — адрес заменён пустым data:-GIF, не снят; обработчики сняты до замены; колбэка нет', () => {
+  const e = env();
+  const got = [];
+  const h = e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  const imgs = e.images.slice();
+  assert.equal(imgs.length, 2);
+  h.cancel();
+  for (const im of imgs) {
+    assert.equal(im.src, BLANK_GIF, 'адрес — пустой GIF');
+    assert.ok(!im.attrRemoved, 'removeAttribute(src) держит <img> в памяти Chromium');
+    assert.deepEqual(im.blankHandlers, [null, null], 'onload/onerror сняты до замены адреса');
+  }
+  /* Пустой GIF «доехал» или «сломался» — это не результат сравнения. */
+  for (const im of imgs) { if (im.onload) im.onload(); if (im.onerror) im.onerror(); }
+  e.idleAll();
   assert.deepEqual(got, []);
   assert.equal(e.T.stats().fly, 0);
 });
