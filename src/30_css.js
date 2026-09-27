@@ -6338,8 +6338,14 @@
        полупрозрачная, в фокусе — инверсия и подъём: у Apple TV кнопка
        становится белой именно в фокусе, и это же правило фокуса во всём
        плагине. Фокус на экран приходит сюда (focusTarget), так что первым
-       взглядом кнопка белая. */
-    css.push(ATV + ' .lumen-roulette__spin{-webkit-align-self:flex-start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;height:2.9em;padding:0 1.7em;margin:1.1em 0 0;border-radius:1.45em;border:0;background:' + P.buttonBg + ';color:' + P.text + ';font-weight:700}');
+       взглядом кнопка белая.
+       2026-09-27 (полоса «фокус на всех экранах»): подъём растёт от левого
+       нижнего угла. Кнопка стоит вплотную к левому и нижнему краю колонки,
+       а у колонки overflow:hidden (разбор у .lumen-roulette__lead выше):
+       от центра scale(1.06) в «Полных» уводил левую кромку пилюли за край
+       на 2.7 CSS px (замер на стенде 960×540@2), и заливка фокуса
+       обрезалась прямым срезом. */
+    css.push(ATV + ' .lumen-roulette__spin{-webkit-align-self:flex-start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;height:2.9em;padding:0 1.7em;margin:1.1em 0 0;border-radius:1.45em;border:0;background:' + P.buttonBg + ';color:' + P.text + ';font-weight:700;-webkit-transform-origin:0 100%;transform-origin:0 100%}');
     /* outline:0 — кольцо стандартного вида (правило .lumen-roulette
        .lumen-roulette__spin.focus выше) здесь лишнее: заливка кнопки вне
        фокуса тёмная, и инверсия выделяет её сама, как любую кнопку. */

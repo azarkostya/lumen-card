@@ -8822,6 +8822,13 @@ test('фокус на всех экранах: «Крутить» — кольц
      там лишнее. */
   const atv = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__spin.focus');
   assert.ok(/(^|;)outline:0(;|$)/.test(atv), 'кольцо стандартного вида протекло в вид «как Apple TV»: ' + atv);
+  /* Там же: подъём растёт от левого нижнего угла — кнопка стоит вплотную к
+     краям колонки с overflow:hidden, и от центра scale уводил кромку
+     пилюли за край (2.7 CSS px на ТВ в «Полных»). */
+  const atvBase = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__spin');
+  assert.ok(/(^|;)transform-origin:0 100%(;|$)/.test(atvBase), 'подъём «Крутить» режется краем колонки: ' + atvBase);
+  const lead = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__lead');
+  assert.ok(/(^|;)overflow:hidden(;|$)/.test(lead), 'у колонки сняли overflow — тогда и origin пересмотреть');
 });
 
 test('фокус на всех экранах: пункты настроек плагина — инверсия, и только наши', () => {
