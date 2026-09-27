@@ -589,20 +589,48 @@
        Navigator.move (событие фокуса, класс focus, Scroll.update ряда).
        Тот же стенд: 48-52 fps, lat95 20-25 мс при той же дальности, что с
        двумя шагами. Не ряд главной, нет карточки через одну (край ряда,
-       не достроено), фокус не переехал — прежний путь. */
+       не достроено), фокус не переехал — прежний путь.
+
+       Ревью этапа 1: скрытая карточка (display:none — сторонний плагин
+       «скрыть просмотренное», класс hide) в счёт не идёт.
+       Controller.collectionFocus на цели с offsetParent === null ставит
+       фокус на ПЕРВУЮ карточку ряда (app.min.js:46474-46490), и фокус
+       улетал в начало ряда. Проверка — те же два признака, что у Lampa;
+       чтение offsetParent раскладку не удорожает: collectionFocus читает
+       его у цели сразу следом. */
+    function shown(el) {
+      return el.offsetParent !== null && !el.classList.contains('hide');
+    }
+
     function sibling(el, dir, n) {
       var cur = el;
       var left = n;
       while (cur && left > 0) {
         cur = dir === 'right' ? cur.nextElementSibling : cur.previousElementSibling;
-        if (cur && cur.classList && cur.classList.contains('selector')) left--;
+        if (cur && cur.classList && cur.classList.contains('selector') && shown(cur)) left--;
       }
       return left === 0 ? cur : null;
+    }
+
+    /* Ревью этапа 1: звук перехода Lampa играет keydownTrigger сам, после
+       проверки defaultPrevented (Sound.play('hover') перед Controller.move,
+       app.min.js:3534-3545; играет он, только когда включён тумблер
+       «Системные звуки → Переходы», Storage.field('interface_sound_play'),
+       app.min.js:3463). Отменённый штатный шаг уносил бы и звук — при
+       включённом звуке ускорение идёт прежним путём. */
+    function soundOn() {
+      try {
+        return !!(window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function' &&
+          Lampa.Storage.field('interface_sound_play'));
+      } catch (e) {
+        return false;
+      }
     }
 
     function jump(dir, ev) {
       if (!ev || typeof ev.preventDefault !== 'function') return false;
       if (controllerName() !== 'items_line') return false;
+      if (soundOn()) return false;
       try {
         /* Только ряды главной: на других экранах items_line (карточка
            фильма, категории) — прежний путь. */

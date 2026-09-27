@@ -776,6 +776,14 @@ test('hud: без LC.prefetch — «pf n/a»', () => {
 /* ====================================================================== */
 
 const FOCUS_SRC = readFileSync(new URL('../src/11_focus.js', import.meta.url), 'utf8');
+/* Настоящий выбор названия героя (src/48_hero.js, heroTitle): зонд
+   сравнивает текст с тем, что герой ПИШЕТ, а для чужого письма это не
+   card.title. */
+const HERO_TITLE = (function () {
+  const m = { exports: null, lumen: true };
+  new Function('LC', 'module', readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8'))({}, m);
+  return m.exports.heroTitle;
+})();
 
 /* Три фильма: у каждого свой ключевой арт, кадр из деталей, постер и
    логотип. Пути уникальны — по ним зонд и узнаёт «картинку этого фильма». */
@@ -867,7 +875,7 @@ function heroEnv(opts) {
   const heroState = { details: null };
   const pf = { hits: 0 };
   const LC = {
-    hero: { details: (id) => (heroState.details && heroState.details.id === id ? heroState.details : null) },
+    hero: { details: (id) => (heroState.details && heroState.details.id === id ? heroState.details : null), heroTitle: HERO_TITLE },
     prefetch: opts.prefetch === false ? undefined : { stats: () => ({ fly: 0, queue: 0, hits: pf.hits }) }
   };
   new Function('LC', 'module', UTIL_SRC)(LC, { exports: null, lumen: true });
@@ -1149,6 +1157,33 @@ test('телеметрия: stop() снимает всё — наблюдате�
   e.at(500);
   e.showTitle('Дюна');
   assert.equal(p.summary().n, 0);
+});
+
+/* Ревью этапа 1: у фильма без перевода (movie/1556321, тайское название)
+   герой пишет читаемый вариант — оригинальное латиницей или альтернативное
+   из деталей; такие показы раньше в T_title не попадали вовсе. */
+test('телеметрия: название чужим письмом — показ засчитывается по тому, что пишет герой (heroTitle), а не по card.title', () => {
+  const THAI = { id: 7, title: 'ธี่หยด: สมิงเขาขวาง', original_title: 'ธี่หยด: สมิงเขาขวาง', backdrop_path: '/thai-key.jpg' };
+  const THAI_D = { id: 7, backdrop_path: '/thai-key.jpg', images: { backdrops: [], logos: [] },
+    alternative_titles: { titles: [{ iso_3166_1: 'TH', title: 'Saming Kao Kwang' }, { iso_3166_1: 'US', title: 'Saming the Werebeast' }] } };
+  const LATIN = { id: 8, title: 'ปอบ', original_title: 'Pob' };
+  const e = heroEnv();
+  const p = e.api.probe({ keys: false });
+  e.at(0);
+  e.focus(THAI);
+  /* Детали пришли, герой пишет альтернативное название США. */
+  e.heroState.details = THAI_D;
+  e.at(640);
+  e.showTitle('Saming the Werebeast');
+  assert.deepEqual(p.summary().title, [640, 640]);
+  /* Деталей ещё нет — оригинальное латиницей. */
+  e.at(1000);
+  e.focus(LATIN);
+  e.at(1300);
+  e.showTitle('Pob');
+  assert.equal(p.summary().n, 2);
+  assert.deepEqual(p.summary().title, [300, 640]);
+  p.stop();
 });
 
 test('телеметрия: главная смонтировалась заново — sync() переподписывается на нового героя', () => {

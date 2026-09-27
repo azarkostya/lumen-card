@@ -141,13 +141,22 @@
       return Math.min(total, (Math.round(at / view) + 2) * view + 1);
     }
 
+    /* Карточку, которую Lampa создать не может, Create.onCreateAndAppend
+       глотает сам (try/catch и console.warn, app.min.js:19135-19146): items
+       не растёт, и следующая единица строила бы тот же results[have] снова —
+       бесконечно (ревью этапа 1: 545 попыток и 597 предупреждений за 3 с,
+       ряд застрял на 9 из 20). Не выросло — ряд помечается и больше не
+       достраивается: карточки после битой дописать нельзя, не сбив счёт
+       built() с индексами results. Его Layer.visible остаётся. */
     function lineWork(line, full) {
       if (!isLine(line)) return false;
       var have = built(line);
-      if (have < wanted(line, full)) {
+      if (!line.lumen_prefill_stuck && have < wanted(line, full)) {
+        var before = line.items.length;
         line.emit('createAndAppend', line.data.results[have]);
         line.lumen_prefill_dirty = true;
-        state.stats.cards++;
+        if (line.items.length > before) state.stats.cards++;
+        else { line.lumen_prefill_stuck = true; state.stats.stuck++; }
         return true;
       }
       if (line.lumen_prefill_dirty) {
@@ -235,7 +244,7 @@
         if (!root || !root.length || !root[0]) return;
         if (state && state.root && state.root[0] === root[0]) { poke(); return; }
         unmount();
-        state = { root: root, timer: null, focusAt: now(), failed: 0, handler: poke, keys: null, stats: { cards: 0, visible: 0, rows: 0 } };
+        state = { root: root, timer: null, focusAt: now(), failed: 0, handler: poke, keys: null, stats: { cards: 0, visible: 0, rows: 0, stuck: 0 } };
         if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
         var k = keypad();
         if (k) { k.follow('keydown', poke); state.keys = k; }
@@ -292,7 +301,7 @@
       wanted: wanted, built: built,
       mount: mount, unmount: unmount, detach: detach, owns: owns, mountCurrent: mountCurrent, poke: poke, tick: tick,
       active: function () { return !!state; },
-      stats: function () { return state ? { cards: state.stats.cards, visible: state.stats.visible, rows: state.stats.rows } : null; },
+      stats: function () { return state ? { cards: state.stats.cards, visible: state.stats.visible, rows: state.stats.rows, stuck: state.stats.stuck } : null; },
       /* Хуки тестов: часы и пара таймеров. */
       _now: function () { return Date.now(); },
       _timers: null

@@ -336,6 +336,9 @@ function makeEnv(opts) {
       move: (dir) => env.moves.push(dir)
     }
   };
+  /* Тумблер Lampa «Системные звуки → Переходы» (Storage.field отдаёт
+     булево). Без опции Storage нет вовсе — как было во всех тестах. */
+  if ('sound' in o) Lampa.Storage = { field: (name) => (name === 'interface_sound_play' ? o.sound : undefined) };
   env.activity = { component: 'main', activity: { render: () => env.main } };
 
   globalThis.window = { Lampa: Lampa };
@@ -558,7 +561,7 @@ test('S1: openSearch — названия найденных подборок э
 function makeRow(n, focusAt) {
   const row = { cards: [] };
   for (let i = 0; i < n; i++) {
-    const c = { i: i, cls: ['card', 'selector'], parentNode: row };
+    const c = { i: i, cls: ['card', 'selector'], parentNode: row, offsetParent: row };
     c.classList = { contains: (x) => c.cls.indexOf(x) !== -1 };
     row.cards.push(c);
   }
@@ -583,8 +586,11 @@ function withRow(env, row, opts) {
     }
     return prev$(sel, ctx);
   };
+  /* Как у Lampa (app.min.js:46474-46490): цель с offsetParent === null
+     подменяется первой карточкой ряда без класса hide. */
   Lampa.Controller.collectionFocus = (target, parent) => {
     env.focused.push({ target: target.i, parent: parent });
+    if (target.offsetParent === null) target = row.cards.filter((c) => !c.classList.contains('hide'))[0];
     if (!o.refuse) row.focus(target);
   };
 }
@@ -664,4 +670,82 @@ test('ускорение: не главная (карточка фильма, к
   assert.equal(ev.prevented, 0);
   assert.deepEqual(env.moves, ['right']);
   env.nav.uninstall();
+});
+
+/* Ревью этапа 1: скрытая соседняя карточка (display:none — сторонний
+   плагин «скрыть просмотренное», или класс hide). Раньше она шла в счёт,
+   collectionFocus на ней ставил фокус на ПЕРВУЮ карточку ряда, а резервная
+   ветка делала от неё ещё два шага. */
+test('ускорение: скрытая карточка (display:none или класс hide) в счёт не идёт — фокус через одну ВИДИМУЮ, не в начало ряда', () => {
+  for (const how of ['none', 'hide']) {
+    const env = makeEnv();
+    const row = makeRow(20, 5);
+    if (how === 'none') row.cards[6].offsetParent = null;
+    /* Класс hide сам по себе (у Lampa это display:none !important, css/app.css:265;
+       здесь offsetParent нарочно не обнулён — проверяется именно класс, как
+       в фильтре collectionFocus). */
+    else row.cards[7].cls.push('hide');
+    withRow(env, row);
+    env.nav.install();
+    for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+    const ev = keyEvent();
+    downWith(env, 39, ev);
+    assert.equal(ev.prevented, 1, how);
+    assert.deepEqual(env.focused.map((f) => f.target), [8], how + ': 6 и 7 минус скрытая — цель 8');
+    assert.ok(row.cards[8].classList.contains('focus'), how);
+    assert.deepEqual(env.moves, [], how + ': резервных шагов нет');
+    env.nav.uninstall();
+  }
+});
+
+test('ускорение: влево через скрытую — так же; дальше видимых нет — прежний путь без preventDefault', () => {
+  const env = makeEnv();
+  const row = makeRow(20, 12);
+  row.cards[11].offsetParent = null;
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 6; i++) { downWith(env, 37, keyEvent()); env.now += 100; }
+  assert.deepEqual(env.focused.map((f) => f.target), [9]);
+  env.nav.uninstall();
+
+  const end = makeEnv();
+  const tail = makeRow(20, 17);
+  tail.cards[18].offsetParent = null;
+  tail.cards[19].offsetParent = null;
+  withRow(end, tail);
+  end.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(end, 39, keyEvent()); end.now += 100; }
+  const ev = keyEvent();
+  downWith(end, 39, ev);
+  assert.equal(ev.prevented, 0, 'цели нет — штатный шаг не отменяется');
+  assert.deepEqual(end.focused, []);
+  assert.deepEqual(end.moves, ['right']);
+  end.nav.uninstall();
+});
+
+/* Ревью этапа 1: keydownTrigger играет звук перехода ПОСЛЕ проверки
+   defaultPrevented (app.min.js:3534-3545) — отменённый шаг уносил звук. */
+test('ускорение: включён звук переходов Lampa — штатный шаг не отменяется (звук остаётся), добавочный — прежним путём', () => {
+  const env = makeEnv({ sound: true });
+  const row = makeRow(20, 5);
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+  const ev = keyEvent();
+  downWith(env, 39, ev);
+  assert.equal(ev.prevented, 0);
+  assert.deepEqual(env.focused, []);
+  assert.deepEqual(env.moves, ['right']);
+  env.nav.uninstall();
+
+  const quiet = makeEnv({ sound: false });
+  const r2 = makeRow(20, 5);
+  withRow(quiet, r2);
+  quiet.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(quiet, 39, keyEvent()); quiet.now += 100; }
+  const ev2 = keyEvent();
+  downWith(quiet, 39, ev2);
+  assert.equal(ev2.prevented, 1, 'звук выключен — ускоренный путь');
+  assert.deepEqual(quiet.focused.map((f) => f.target), [7]);
+  quiet.nav.uninstall();
 });
