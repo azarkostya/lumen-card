@@ -235,8 +235,9 @@ test('prefetch: фокусы чаще 250 мс — ноль запросов; п
   assert.equal(env.requests.length, 0, 'план окна раньше 250 мс покоя');
   env.advance(1);
   /* Раунд «без ожидания», п.1: первой — сама карточка под фокусом (108),
-     потом соседи. */
-  assert.deepEqual(env.requests.map((r) => idOf(r.url)), [108, 109], 'покой фокуса — первые запросы окна');
+     потом соседи. Оркестровка простоя, O1: она — мимо лимита SLOTS, оба
+     места — соседям. */
+  assert.deepEqual(env.requests.map((r) => idOf(r.url)), [108, 109, 110], 'покой фокуса — первые запросы окна');
   assert.deepEqual(warnLog, []);
 });
 
@@ -246,7 +247,7 @@ test('prefetch: мышь заводит окно так же, как пульт'
   env.advance(100);
   focus(main, main.rows[0][3], 'hover:hover');
   env.advance(250);
-  assert.deepEqual(env.requests.map((r) => idOf(r.url)), [104, 105]);
+  assert.deepEqual(env.requests.map((r) => idOf(r.url)), [104, 105, 106]);
 });
 
 /* Раунд «Листание», F1: серия нажатий шагом 400 мс (шаг самотеста). Герой
@@ -333,18 +334,21 @@ test('prefetch: край ряда и последний ряд — только 
 /* Очередь: не больше двух, герой — вне очереди, склейка                   */
 /* ====================================================================== */
 
-test('prefetch: одновременно в пути не больше двух запросов', () => {
+test('prefetch: одновременно в пути не больше двух запросов соседей; детали карточки под фокусом — сверх лимита', () => {
   const { env, main } = mounted({ mode: 'full' });
   focus(main, main.rows[0][2]);
   env.advance(100);
   focus(main, main.rows[0][3]);
   env.advance(250);
-  assert.equal(pending(env).length, 2);
-  /* Раунд «без ожидания», п.1: в очереди и сама карточка — 1 + 8 соседей. */
-  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 7, hits: 0 });
-  answer(pending(env)[0], {});
-  assert.equal(pending(env).length, 2, 'освободилось место — ушёл ровно один следующий');
+  /* Оркестровка простоя, O1: сама карточка (104) — мимо SLOTS, два места —
+     соседям, в очереди — остальные 6 из 8. */
+  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 105, 106]);
   assert.deepEqual(env.pf.stats(), { fly: 2, queue: 6, hits: 0 });
+  answer(pending(env)[0], {});
+  assert.equal(pending(env).length, 2, 'ответ карточки под фокусом место соседа не освобождает');
+  answer(pending(env)[0], {});
+  assert.equal(pending(env).length, 2, 'освободилось место соседа — ушёл ровно один следующий');
+  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 5, hits: 0 });
 });
 
 test('prefetch: собственный запрос героя идёт сверх лимита, в обход очереди', () => {
@@ -353,7 +357,8 @@ test('prefetch: собственный запрос героя идёт свер
   env.advance(100);
   focus(main, main.rows[0][3]);
   env.advance(250);
-  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 105], 'подготовка: оба места заняты предзагрузкой, первой — сама карточка');
+  /* Оркестровка простоя, O1: сама карточка — сверх лимита, оба места — соседям. */
+  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 105, 106], 'подготовка: оба места заняты предзагрузкой, первой — сама карточка');
   /* Запрос карточки под фокусом не доехал — показу нужен свой, и оба места
      предзагрузки заняты соседями. */
   fail(pending(env)[0]);
@@ -450,14 +455,14 @@ test('prefetch: логотип соседа грузится следом за �
   env.advance(250);
   answer(pending(env).find((r) => idOf(r.url) === 105), withLogo(105));
   assert.equal(logoImgs(env, 105).length, 1, 'логотип соседа не запрошен');
-  /* Раунд «без ожидания», п.1: первое место — у запроса самой карточки
-     под фокусом (104). */
-  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104], 'детали следующего соседа обогнали логотип');
-  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 6, hits: 0 }, 'в очереди — остаток окна «Лёгких» (+3 вперёд — этап 2в)');
+  /* Раунд «без ожидания», п.1: карточка под фокусом (104) — своим запросом,
+     сверх лимита (оркестровка простоя, O1); места — логотип 105 и 106. */
+  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 106], 'детали следующего соседа обогнали логотип');
+  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 5, hits: 0 }, 'в очереди — остаток окна «Лёгких» (+3 вперёд — этап 2в)');
   assert.equal(env.hero.logoState('/l105.png'), 'load');
   land(logoImgs(env, 105)[0]);
   assert.equal(env.hero.logoState('/l105.png'), 'ok');
-  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 106], 'место логотипа занял следующий');
+  assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104, 106, 107], 'место логотипа занял следующий');
 });
 
 test('prefetch: логотип из памяти — в ПЕРВОМ выводе названия, без текста и без ожидания', () => {
@@ -505,9 +510,10 @@ test('prefetch: известный логотип соседа освежает�
   focus(main, main.rows[0][5]);
   pending(env).forEach((r) => answer(r, {}));
   env.advance(250);
-  /* Окно 106: 107, 108, 105 (назад) и следующий ряд. */
-  answer(pending(env).find((r) => idOf(r.url) === 107), withLogo(107));
-  land(logoImgs(env, 107)[0]);
+  /* Окно 106: 107 (детали уже в памяти — ответ прошлого окна), 108, 109,
+     105 (назад) и следующий ряд. */
+  answer(pending(env).find((r) => idOf(r.url) === 108), withLogo(108));
+  land(logoImgs(env, 108)[0]);
   assert.equal(env.hero.logoState('/l105.png'), 'ok', 'логотип соседа из окна вытеснен логотипом того же окна');
   assert.equal(env.hero.logoState('/k1.png'), '', 'вытеснен не самый старый вне окна');
 });
@@ -631,6 +637,9 @@ test('prefetch: stop — очередь пуста, логотипы в пути
   const before = env.requests.length;
   const imgs = env.images.length;
   answer(pending(env).find((r) => idOf(r.url) === 104), withLogo(104));
+  /* Оркестровка простоя, O1: 104 — запрос карточки под фокусом мимо
+     лимита, место соседа (106) доживает до своего ответа. */
+  answer(pending(env).find((r) => idOf(r.url) === 106), withLogo(106));
   assert.equal(env.images.length, imgs, 'ответ после stop завёл загрузку логотипа');
   assert.equal(env.requests.length, before, 'ответ после stop завёл следующий запрос');
   assert.deepEqual(env.pf.stats(), { fly: 0, queue: 0, hits: 0 });
@@ -1051,14 +1060,13 @@ test('цвет сразу / C3: известный цвет и нерешённ�
   /* warmDetails — детали 101…105 (окно 102); 106 (+3 от 103, этап 2в) — нет. */
   assert.deepEqual(acc.calls, [103, 105], 'цвет 104 известен — пропущен; у 106 деталей нет — кадр не решён, ждёт');
 
-  /* Фокус ушёл дальше, расчёт 105 ещё идёт: он доживает, а очередь старого
-     окна (102, 201…) выброшена. */
+  /* Фокус ушёл дальше: очередь старого окна (102, 201…) выброшена, и
+     расчёт 105 в пути снят (оркестровка простоя, O2: прежде он доживал и
+     держал дорожку — цвет карточки под фокусом ждал соседа прошлого окна). */
   focus(main, main.rows[0][6]);
+  assert.equal(acc.jobs[1].cancelled, true, 'перевод фокуса не снял расчёт цвета прошлого окна');
   env.advance(250);
   drain(env);
-  env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 105], 'новый расчёт — только после текущего');
-  acc.jobs[1].finish();
   env.advance(COLOR_GAP);
   /* Раунд «без ожидания», п.1: детали самой карточки под фокусом (107)
      предзагрузка заказала первыми — её кадр решён, и её цвет — первый. */
@@ -1927,5 +1935,89 @@ test('этап 2в: отменённая загрузка — src = BLANK (не 
   assert.equal(g.length, 2, 'предусловие: кадр и подложка');
   env.hero.dropFrame('/g1.jpg');
   assert.deepEqual(g.map((i) => i.src), [BLANK, BLANK], 'dropFrame снимает не пустой GIF');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Оркестровка простоя (проверка координатора, orch.test.mjs O1, O1b, O2,  */
+/* O8 — там дефект воспроизводился; здесь — наоборот)                      */
+/* ====================================================================== */
+
+test('оркестровка O1: логотипы прошлого окна не держат места — перевод фокуса их снимает (логотип показанной карточки держит герой); детали карточки под фокусом — через IDLE, мимо лимита', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  /* Сосед (место освободилось — его логотип первым в очередь), затем
+     сама карточка (её логотип — сразу, сверх лимита). */
+  answer(pending(env).find((r) => idOf(r.url) === 104), withLogo(104));
+  answer(pending(env).find((r) => idOf(r.url) === 103), withLogo(103));
+  const l103 = logoImgs(env, 103)[0];
+  const l104 = logoImgs(env, 104)[0];
+  assert.ok(l103 && l104, 'предусловие: логотипы 103 и 104 в пути');
+  env.advance(1000);
+  /* Одиночный шаг на 107 (дальше окна 103): новое окно. */
+  focus(main, main.rows[0][6]);
+  assert.equal(l104.removed, true, 'перевод фокуса не снял логотип соседа прошлого окна');
+  assert.equal(l103.removed, false, 'снят логотип показанной карточки — его ждёт герой');
+  env.advance(249);
+  assert.equal(pending(env).filter((r) => idOf(r.url) === 107).length, 0, 'детали раньше IDLE');
+  env.advance(1);
+  assert.equal(pending(env).filter((r) => idOf(r.url) === 107).length, 1, 'детали карточки под фокусом не ушли через IDLE');
+  assert.equal(env.pf.stats().fly, 2, 'места — соседям нового окна');
+  answer(pending(env).find((r) => idOf(r.url) === 107), withLogo(107));
+  assert.equal(logoImgs(env, 107).length, 1, 'логотип карточки под фокусом ждёт места в очереди');
+  assert.deepEqual(warnLog, []);
+});
+
+test('оркестровка O1b: в серии нажатий детали карточки, где серия кончилась, — через IDLE, а не показом через BURST_DELAY', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), withLogo(103));
+  answer(pending(env).find((r) => idOf(r.url) === 104), withLogo(104));
+  env.advance(1000);
+  /* Серия: 108 → 109 → 110 шагом 150 мс (дальше окна 103). */
+  focus(main, main.rows[0][7]); env.advance(150);
+  focus(main, main.rows[0][8]); env.advance(150);
+  focus(main, main.rows[0][9]); env.advance(249);
+  assert.equal(env.requests.filter((r) => idOf(r.url) === 110).length, 0);
+  env.advance(1);
+  assert.equal(env.requests.filter((r) => idOf(r.url) === 110).length, 1, 'детали 110 не ушли через IDLE после серии');
+  assert.deepEqual(warnLog, []);
+});
+
+test('оркестровка O2: расчёт цвета соседа прошлого окна снимается переводом фокуса — цвет карточки под фокусом не ждёт его', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  warmDetails(env, main, main.rows[0][1]);
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  drain(env);
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103], 'предусловие: расчёт 103 в пути');
+  focus(main, main.rows[0][3]);
+  assert.equal(acc.jobs[0].cancelled, true, 'перевод фокуса не снял расчёт прошлого окна');
+  env.advance(250);
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103, 104], 'цвет карточки под фокусом ждёт расчёт прошлого окна');
+  assert.deepEqual(warnLog, []);
+});
+
+test('оркестровка O8: миниатюры кандидатов заранее — срочно (high) только тот, чей ответ выбор ждёт первым, остальные — обычным порядком', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.deepEqual(th.primes.map((p) => p.kind + ':' + p.path + ':' + p.urgent),
+    ['poster:/p103.jpg:true', 'frame:/a103.jpg:true', 'frame:/b103.jpg:false']);
+  /* Ответ первого известен (похож) — срочный второй. */
+  const th2 = fakeLook();
+  th2.verdicts['/p103.jpg|/a103.jpg'] = true;
+  const b = mounted({ thumbs: th2 });
+  focus(b.main, b.main.rows[0][2]);
+  b.env.advance(250);
+  answer(pending(b.env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.deepEqual(th2.primes.map((p) => p.kind + ':' + p.path + ':' + p.urgent), ['poster:/p103.jpg:true', 'frame:/b103.jpg:true']);
   assert.deepEqual(warnLog, []);
 });

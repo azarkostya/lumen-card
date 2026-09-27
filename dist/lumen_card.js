@@ -33770,6 +33770,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.prefetch = (function () {
 
 
@@ -33793,6 +33795,7 @@ var BURST_GAP = 700;
 var LEAD_CALM = 450;
 var focusAt = 0;
 var leadAt = 0;
+
 
 
 var SLOTS = 2;
@@ -34141,7 +34144,6 @@ warn('prefetch: job failed', e);
 function plan(cards, lead) {
 var seen = {};
 var logos = [];
-var head = [];
 for (var i = 0; i < queue.length; i++) if (queue[i].req) seen[queue[i].req.key] = true;
 var lreq = lead ? requestOf(lead) : null;
 if (lreq && !seen[lreq.key]) {
@@ -34149,9 +34151,9 @@ seen[lreq.key] = true;
 var ljson = recall(lreq.key);
 if (ljson) {
 var ljob = logoJob(ljson);
-if (ljob) head.push(ljob);
+if (ljob) runLogo(ljob);
 } else if (!flight[lreq.key]) {
-head.push({ req: lreq });
+leadDetails(lreq);
 }
 }
 for (var c = 0; c < cards.length; c++) {
@@ -34166,8 +34168,30 @@ if (job) logos.push(job);
 queue.push({ req: req });
 }
 }
-queue = head.concat(logos, queue);
+queue = logos.concat(queue);
 pump();
+}
+
+
+
+
+
+
+
+
+
+
+
+function leadDetails(req) {
+var captured = gen;
+send(req, {
+ok: function (j) {
+if (captured !== gen) return;
+var job = logoJob(j);
+if (job) runLogo(job);
+},
+err: function () {}
+});
 }
 
 function colorAllowed() {
@@ -34540,8 +34564,14 @@ leadPrimes.push(LC.thumbs.prime('poster', poster, true));
 if (!json || job.framesPrimed) return;
 job.framesPrimed = true;
 var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+
+
+
+var first = true;
 for (var i = 0; i < cands.paths.length; i++) {
-if (LC.thumbs.verdict(poster, cands.paths[i]) === undefined) leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], true));
+if (LC.thumbs.verdict(poster, cands.paths[i]) !== undefined) continue;
+leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], first));
+first = false;
 }
 } catch (e) {
 warn('prefetch: lead prime failed', e);
@@ -34774,6 +34804,31 @@ if (up) out.push(up.card_data);
 return out;
 }
 
+
+
+
+function stopColorJob() {
+if (!colorJob) return;
+var job = colorJob;
+colorJob = null;
+job.over = true;
+try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: color cancel failed', e); }
+}
+
+
+
+
+function stopLogoJobs() {
+var jobs = logoJobs;
+logoJobs = [];
+for (var i = 0; i < jobs.length; i++) {
+if (jobs[i].over) continue;
+jobs[i].over = true;
+busy--;
+try { if (jobs[i].handle) jobs[i].handle.cancel(); } catch (e) { warn('prefetch: logo cancel failed', e); }
+}
+}
+
 function stopIdle() {
 if (idleTimer) {
 clearTimeout(idleTimer);
@@ -34797,6 +34852,8 @@ queue.length = 0;
 colors.length = 0;
 stopFrames();
 stopColorWait();
+stopColorJob();
+stopLogoJobs();
 stopLooks();
 stopIdle();
 if (!el) return;
@@ -34864,12 +34921,7 @@ colors.length = 0;
 stopFrames();
 stopColorWait();
 stopLooks();
-if (colorJob) {
-var job = colorJob;
-colorJob = null;
-job.over = true;
-try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: stop failed', eColor); }
-}
+stopColorJob();
 focusEl = null;
 prevEl = null;
 focusAt = 0;
@@ -34878,14 +34930,7 @@ visited.length = 0;
 
 
 warmed = null;
-var jobs = logoJobs;
-logoJobs = [];
-for (var i = 0; i < jobs.length; i++) {
-if (jobs[i].over) continue;
-jobs[i].over = true;
-busy--;
-try { if (jobs[i].handle) jobs[i].handle.cancel(); } catch (e) { warn('prefetch: stop failed', e); }
-}
+stopLogoJobs();
 }
 
 

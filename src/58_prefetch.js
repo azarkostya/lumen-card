@@ -31,7 +31,9 @@
   /* Задача окна — детали карточки, а за ними, первым делом в очереди, её  */
   /* логотип (если настройка «Логотип названия» включена, а логотип        */
   /* незнаком или не доехал один раз; известный освежается в памяти).     */
-  /* Одновременно в пути не больше SLOTS запросов предзагрузки.            */
+  /* Одновременно в пути не больше SLOTS запросов предзагрузки соседей;   */
+  /* детали и логотип самой карточки под фокусом — сверх лимита           */
+  /* (оркестровка простоя, O1, leadDetails).                              */
   /* Раунд «Цвет сразу» (2026-09-26): своя дорожка — цвет фильма          */
   /* (src/57_color.js): карточка под фокусом и то же окно, по одному, в    */
   /* простое браузера (requestIdleCallback), канвас 16×16. Герой ставит   */
@@ -87,7 +89,8 @@
     var focusAt = 0;
     var leadAt = 0;
     /* Запросов предзагрузки в пути одновременно. Собственные запросы
-       героя сюда не входят. */
+       героя сюда не входят, детали карточки под фокусом — тоже
+       (оркестровка простоя, O1). */
     var SLOTS = 2;
     /* Окно в ряду: вперёд по направлению движения и назад. В «Полном» —
        +3/−2, в «Лёгких» и «Выкл» (слабые устройства) — +3/−1.
@@ -434,7 +437,6 @@
     function plan(cards, lead) {
       var seen = {};
       var logos = [];
-      var head = [];
       for (var i = 0; i < queue.length; i++) if (queue[i].req) seen[queue[i].req.key] = true;
       var lreq = lead ? requestOf(lead) : null;
       if (lreq && !seen[lreq.key]) {
@@ -442,9 +444,9 @@
         var ljson = recall(lreq.key);
         if (ljson) {
           var ljob = logoJob(ljson);
-          if (ljob) head.push(ljob);
+          if (ljob) runLogo(ljob);
         } else if (!flight[lreq.key]) {
-          head.push({ req: lreq });
+          leadDetails(lreq);
         }
       }
       for (var c = 0; c < cards.length; c++) {
@@ -459,8 +461,30 @@
           queue.push({ req: req });
         }
       }
-      queue = head.concat(logos, queue);
+      queue = logos.concat(queue);
       pump();
+    }
+
+    /* Оркестровка простоя, O1 (проверка координатора, orch.test.mjs): детали
+       карточки под фокусом шли через ту же очередь с лимитом SLOTS, что и
+       соседи, — два логотипа прошлого окна (или два запроса деталей warm) в
+       пути держали оба места, и детали lead через IDLE не уходили: их
+       запрашивал сам показ героя мимо лимита, на 100 мс (одиночное) или
+       450 мс (серия) позже. Теперь детали lead — сразу, мимо SLOTS (как
+       запрос самого героя, details), и его логотип — тоже сразу, мимо
+       очереди (runLogo сверх лимита; из памяти — в plan, по ответу — здесь,
+       если поколение то же); места прошлого окна around() освобождает
+       (stopLogoJobs). */
+    function leadDetails(req) {
+      var captured = gen;
+      send(req, {
+        ok: function (j) {
+          if (captured !== gen) return;
+          var job = logoJob(j);
+          if (job) runLogo(job);
+        },
+        err: function () {}
+      });
     }
 
     function colorAllowed() {
@@ -833,8 +857,14 @@
         if (!json || job.framesPrimed) return;
         job.framesPrimed = true;
         var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+        /* Оркестровка простоя, O8: срочно (fetchPriority 'high') — только
+           кандидат, чей ответ выбор ждёт первым; pickFrame дальше первого
+           чистого не идёт, остальные могут не понадобиться. */
+        var first = true;
         for (var i = 0; i < cands.paths.length; i++) {
-          if (LC.thumbs.verdict(poster, cands.paths[i]) === undefined) leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], true));
+          if (LC.thumbs.verdict(poster, cands.paths[i]) !== undefined) continue;
+          leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], first));
+          first = false;
         }
       } catch (e) {
         warn('prefetch: lead prime failed', e);
@@ -1067,6 +1097,31 @@
       return out;
     }
 
+    /* Оркестровка простоя, O2: расчёт цвета в пути — один на дорожку; не
+       снятый переводом фокуса, он держал её, и цвет карточки под фокусом
+       нового окна ждал w300 соседа прошлого. */
+    function stopColorJob() {
+      if (!colorJob) return;
+      var job = colorJob;
+      colorJob = null;
+      job.over = true;
+      try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: color cancel failed', e); }
+    }
+
+    /* Оркестровка простоя, O1: логотипы прошлого окна в пути занимают места
+       SLOTS — перевод фокуса их снимает (и в сети, если их больше никто не
+       ждёт: показ героя подписан на свой логотип сам). */
+    function stopLogoJobs() {
+      var jobs = logoJobs;
+      logoJobs = [];
+      for (var i = 0; i < jobs.length; i++) {
+        if (jobs[i].over) continue;
+        jobs[i].over = true;
+        busy--;
+        try { if (jobs[i].handle) jobs[i].handle.cancel(); } catch (e) { warn('prefetch: logo cancel failed', e); }
+      }
+    }
+
     function stopIdle() {
       if (idleTimer) {
         clearTimeout(idleTimer);
@@ -1090,6 +1145,8 @@
       colors.length = 0;
       stopFrames();
       stopColorWait();
+      stopColorJob();
+      stopLogoJobs();
       stopLooks();
       stopIdle();
       if (!el) return;
@@ -1157,12 +1214,7 @@
       stopFrames();
       stopColorWait();
       stopLooks();
-      if (colorJob) {
-        var job = colorJob;
-        colorJob = null;
-        job.over = true;
-        try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: stop failed', eColor); }
-      }
+      stopColorJob();
       focusEl = null;
       prevEl = null;
       focusAt = 0;
@@ -1171,14 +1223,7 @@
          снятой главной не держим в памяти; на возврате warm спланирует
          первый экран заново — всё, что уже в памяти, из неё. */
       warmed = null;
-      var jobs = logoJobs;
-      logoJobs = [];
-      for (var i = 0; i < jobs.length; i++) {
-        if (jobs[i].over) continue;
-        jobs[i].over = true;
-        busy--;
-        try { if (jobs[i].handle) jobs[i].handle.cancel(); } catch (e) { warn('prefetch: stop failed', e); }
-      }
+      stopLogoJobs();
     }
 
     /* Для HUD: fly — в пути, queue — в очереди, hits — детали героя из
