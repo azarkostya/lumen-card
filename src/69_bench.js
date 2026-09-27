@@ -4,12 +4,15 @@
   /*                                                                       */
   /* Консоли на телевизоре нет, и серии фото HUD (src/69_hud.js) читались  */
   /* гаданием: какой режим стоял и что в этот момент делал экран. Тест сам */
-  /* гоняет главную по восьми стадиям — покой и листание в «Лёгком» и в    */
-  /* «Полном», по одному тяжёлому эффекту за раз — и в конце рисует ОДНУ   */
+  /* гоняет главную по девяти стадиям — покой и листание в «Лёгком» и в   */
+  /* «Полном», по одному тяжёлому эффекту за раз, и листание с остановками, */
+  /* где меряется ожидание героя (T_title/T_frame, серый фон, сеть под     */
+  /* нажатиями — зонд LC.hud.probe) — и в конце рисует ОДНУ                */
   /* таблицу во весь экран: её фото отвечает на вопрос «что именно стоит    */
   /* кадров на этом телевизоре».                                           */
   /*                                                                       */
-  /* Стадия — 1 с прогрева и 5 с замера. Кадры считает свой rAF-цикл        */
+  /* Стадия — 1 с прогрева и 5 с замера (stop scroll — 18,4 с). Кадры      */
+  /* считает свой rAF-цикл                                                 */
   /* (только в окне замера): fps, p50/p95 дельты, пропуски «−1» (дельта     */
   /* > 1,5·P) и «−2+» (> 2,5·P), где P — обычный интервал кадра, медиана   */
   /* первой стадии; lat95 — p95 задержки колбэка rAF; долгие кадры          */
@@ -45,6 +48,15 @@
     /* Листание: 6 шагов вправо и столько же обратно, шаг 400 мс. */
     var MOVE_MS = 400;
     var MOVES = 6;
+    /* Полоса телеметрии (исследование 2026-09-27, п.5.8): стадия 9 «stop
+       scroll» — листание с остановками, как у человека с пультом: группа
+       из STOP_STEPS шагов вправо через MOVE_MS (серия — герой ждёт её
+       конца), остановка STOP_MS от последнего шага, STOP_GROUPS раз. Замер
+       — вся последовательность: 4 × (4 × 400 + 3000) = 18,4 с. */
+    var STOP_STEPS = 5;
+    var STOP_MS = 3000;
+    var STOP_GROUPS = 4;
+    var STOP_STAGE_MS = STOP_GROUPS * ((STOP_STEPS - 1) * MOVE_MS + STOP_MS);
     /* Как часто спрашивать getAnimations() в окне замера. */
     var ANIM_MS = 500;
     /* Сколько раз поднимать фокус к первому ряду до старта. */
@@ -54,10 +66,13 @@
        строка — LINE_EM кегля, поля PAD_PX. MAX_COLS — сколько символов
        строки влезает в 960 CSS px (ширина окна телевизора при DPR 2),
        MAX_LINES — сколько строк в 540 (раунд «Листание»: вторая таблица
-       обязана поместиться на тот же экран, фото одно). */
+       обязана поместиться на тот же экран, фото одно).
+       Полоса телеметрии: девятая стадия добавила по строке в обе таблицы и
+       строку героя — 25 строк; межстрочный 1.45 → 1.3 (19,5 px на строку,
+       кегль прежний), и все 25 встают в 540. */
     var FONT_PX = 15;
     var CHAR_EM = 0.6;
-    var LINE_EM = 1.45;
+    var LINE_EM = 1.3;
     var PAD_PX = 24;
     var SCREEN_W = 960;
     var SCREEN_H = 540;
@@ -76,7 +91,11 @@
       { id: '+tint', motion: 'full', heavy: true, fx: true, flip: true, tint: true },
       { id: 'lite scroll', motion: 'lite', scroll: true },
       { id: 'full scroll', motion: 'full', heavy: true, scroll: true },
-      { id: 'all', motion: 'full', heavy: true, fx: true, flip: true, tint: true, scroll: true }
+      { id: 'all', motion: 'full', heavy: true, fx: true, flip: true, tint: true, scroll: true },
+      /* Полоса телеметрии: ожидание героя — T_title, T_frame, серый фон,
+         предзагрузка и сеть под нажатиями (зонд LC.hud.probe). «Лёгкие» —
+         режим пользователя на ТВ. */
+      { id: 'stop scroll', motion: 'lite', stops: true, ms: STOP_STAGE_MS }
     ];
 
     /* ------------------------------------------------------------------ */
@@ -194,6 +213,17 @@
         Math.round(tp.sl), Math.round(tp.forced), Math.round(tp.other), tp.script || '-']);
     }
 
+    /* Полоса телеметрии: строка героя стадии «stop scroll» — сразу под её
+       строкой первой таблицы: «9 hero 12: T_title 880/1480 · T_frame
+       1650/2900 (11) · gray 3 · pf h/m 8/4 · net-in-burst 0» — тот же
+       формат, что вторая строка HUD (LC.hud.heroText; расшифровка — у зонда
+       в src/69_hud.js). n/a — зонда не было. */
+    function heroLine(row) {
+      var hud = LC.hud;
+      if (!row.hero || !hud || typeof hud.heroText !== 'function') return row.n + ' hero: n/a';
+      return row.n + ' ' + hud.heroText(row.hero);
+    }
+
     function rowLine(row) {
       return line([
         '' + row.n, row.id + (row.partial ? '*' : ''),
@@ -216,11 +246,12 @@
 
     /* Строки экрана таблицы. Шапка — чем снято: мажор Chromium, железо,
        окно, P, время, версия плагина. Дальше — по строке на стадию
-       (недомеренная — со звёздочкой); раунд «Листание»: вторая таблица —
+       (недомеренная — со звёздочкой), под ними строка героя стадии «stop
+       scroll» (heroLine); раунд «Листание»: вторая таблица —
        самый длинный кадр каждой стадии по фазам (partsOf), если браузер
        умеет LoAF; худший по блокировке кадр со скриптом, причина прерывания
        и подсказка «Назад» — одной строкой. Каждая — не длиннее MAX_COLS,
-       всех — не больше MAX_LINES (22 на экране 960×540): пустой строки под
+       всех — не больше MAX_LINES (25 на экране 960×540): пустой строки под
        шапкой ради второй таблицы больше нет. */
     function table(result) {
       var out = [];
@@ -229,12 +260,15 @@
       out.push(line(COLS.map(function (c) { return c[0]; })));
       var worst = null;
       var loaf = false;
+      var heroRow = null;
       for (var i = 0; i < result.rows.length; i++) {
         var row = result.rows[i];
         out.push(rowLine(row));
         if (row.worst && (!worst || row.worst.ms > worst.ms)) worst = { ms: row.worst.ms, host: row.worst.host, n: row.n, id: row.id };
         if (row.loafN !== null && typeof row.loafN !== 'undefined') loaf = true;
+        if (typeof row.hero !== 'undefined') heroRow = row;
       }
+      if (heroRow) out.push(cut(heroLine(heroRow), MAX_COLS));
       out.push('');
       if (loaf) {
         out.push(line2(['#', 'max', 'blk', 'js', 'r+ev', 'st+l', 'frc', 'other', 'script']));
@@ -560,8 +594,9 @@
         every(r, TINT_MS, function () { LC.accent.drive(TINTS[k++ % TINTS.length]); });
       }
       later(r, WARM_MS, function () { measure(r, st); });
-      later(r, WARM_MS + MEASURE_MS, function () {
+      later(r, WARM_MS + (st.ms || MEASURE_MS), function () {
         r.rows.push(rowOf(r, false));
+        dropProbe(r);
         next(r);
       });
     }
@@ -577,6 +612,62 @@
         if (n > r.anim) r.anim = n;
       });
       if (st.scroll) scroll(r);
+      if (st.stops) {
+        r.probe = heroProbe();
+        stopScroll(r);
+      }
+    }
+
+    /* Полоса телеметрии: зонд героя (src/69_hud.js) — только на стадию
+       «stop scroll». Клавиш у теста нет (листает Controller.move), поэтому
+       нажатия зонд получает от самого теста (stopScroll). */
+    function heroProbe() {
+      try {
+        if (LC.hud && typeof LC.hud.probe === 'function') return LC.hud.probe({ keys: false });
+      } catch (e) {
+        warn('bench: hero probe failed', e);
+      }
+      return null;
+    }
+
+    function dropProbe(r) {
+      var p = r.probe;
+      r.probe = null;
+      if (p) p.stop();
+    }
+
+    /* Стадия 9: группы по STOP_STEPS шагов через MOVE_MS и остановка
+       STOP_MS. Вправо — новые карточки; конец ряда — обратно влево, но не
+       левее исходной карточки: влево из первой карточки ряда Lampa
+       открывает меню (то же правило, что у scroll выше). Вернуть фокус на
+       исходную карточку — дело уборки (refocus): ряд тот же. */
+    function stopScroll(r) {
+      var L = lampa();
+      var pos = 0;
+      var dir = 1;
+      var k = 0;
+      var group = 0;
+      function move() {
+        var before = heroFocused();
+        if (dir < 0 && pos <= 0) dir = 1;
+        if (r.probe) r.probe.key(perfNow());
+        L.Controller.move(dir > 0 ? 'right' : 'left');
+        if (heroFocused() !== before) { pos += dir; return; }
+        if (dir > 0 && pos > 0) {
+          dir = -1;
+          L.Controller.move('left');
+          if (heroFocused() !== before) pos--;
+        }
+      }
+      function step() {
+        move();
+        k++;
+        if (k < STOP_STEPS) { later(r, MOVE_MS, step); return; }
+        k = 0;
+        group++;
+        if (group < STOP_GROUPS) later(r, STOP_MS, step);
+      }
+      step();
     }
 
     /* Шесть шагов вправо и ровно столько же обратно, сколько вправо
@@ -609,12 +700,22 @@
          достаточным числом кадров («Лёгкий» в покое — ровнее некуда). */
       if (!r.P && r.deltas.length >= 10) r.P = period(r.deltas);
       var s = summarize(r.deltas, r.lats, r.P || period(r.deltas));
-      return {
+      var row = {
         n: r.step + 1, id: st.id, partial: !!partial, frames: s.frames, fps: s.fps, p50: s.p50, p95: s.p95,
         miss1: s.miss1, miss2: s.miss2, lat95: s.lat95,
         loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst, top: r.loaf.top,
         anim: r.anim, fxMs: fxAvg(r.fx0, fxStats())
       };
+      /* Полоса телеметрии: окно показов зонда (LC.hud.heroStats) и сами
+         показы — в JSON результата; null — зонда не было. */
+      if (st.stops) {
+        row.hero = null;
+        if (r.probe) {
+          row.hero = r.probe.summary();
+          row.hero.shows = r.probe.shows();
+        }
+      }
+      return row;
     }
 
     function pad2(n) { return n < 10 ? '0' + n : '' + n; }
@@ -658,6 +759,7 @@
       }
       run = null;
       clearStage(r);
+      safe(function () { dropProbe(r); });
       unraf(r.raf);
       try { if (r.obs) r.obs.disconnect(); } catch (e1) { }
       unlisten(r);
@@ -734,7 +836,7 @@
       var r = {
         step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
         loaf: { n: 0, ms: 0, worst: null, top: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
-        startEl: heroFocused(), tintSaved: null, tag: null
+        startEl: heroFocused(), tintSaved: null, tag: null, probe: null
       };
       run = r;
       try {

@@ -21,6 +21,9 @@ globalThis.warn = function () { };
 /* Пресеты движка частиц — сверка, что стадия «+fx» меряет существующую
    сцену (src/52_fx.js). */
 const FX_PRESETS = load('52_fx.js').presets;
+/* Полоса телеметрии: строку героя стадии «stop scroll» таблица берёт у
+   HUD (LC.hud.heroText) — формат один на HUD и самотест. */
+const HUD = load('69_hud.js');
 
 function fresh(LC) {
   LC = LC || {};
@@ -55,9 +58,9 @@ test('bench: period — медиана дельт', () => {
   assert.equal(api.period([]), 0);
 });
 
-test('bench: стадии — восемь, в порядке ТЗ; тяжёлые эффекты только в «Полном»', () => {
+test('bench: стадии — девять, в порядке ТЗ; тяжёлые эффекты только в «Полном»', () => {
   const { api } = fresh();
-  assert.deepEqual(api.STAGES.map((s) => s.id), ['lite idle', 'full idle', '+fx', '+frames', '+tint', 'lite scroll', 'full scroll', 'all']);
+  assert.deepEqual(api.STAGES.map((s) => s.id), ['lite idle', 'full idle', '+fx', '+frames', '+tint', 'lite scroll', 'full scroll', 'all', 'stop scroll']);
   for (const s of api.STAGES) {
     if (s.heavy || s.fx || s.flip || s.tint) assert.equal(s.motion, 'full', s.id);
   }
@@ -70,19 +73,29 @@ test('bench: стадии — восемь, в порядке ТЗ; тяжёлы
   assert.equal(o.lumen_trailer, 'off');
   assert.equal(o.lumen_hero_media, 'frames');
   assert.equal(api.overridesFor(api.STAGES[0]).lumen_fx_heavy, false);
+  /* Полоса телеметрии: девятая — листание с остановками в «Лёгких», без
+     тяжёлых эффектов; замер — вся последовательность 4 × (4 × 400 + 3000). */
+  const stops = api.STAGES[8];
+  assert.equal(stops.stops, true);
+  assert.equal(stops.motion, 'lite');
+  assert.ok(!stops.heavy && !stops.fx && !stops.flip && !stops.tint && !stops.scroll, JSON.stringify(stops));
+  assert.equal(stops.ms, 18400);
 });
 
-/* Самый широкий случай: все восемь строк с большими числами, долгий кадр с
-   длинным адресом скрипта, прерывание. Экран — 960 CSS px, моноширинный
-   шрифт FONT_PX, символ — CHAR_EM его кегля, поля PAD_PX с обеих сторон. */
+/* Самый широкий случай: все девять строк с большими числами, долгий кадр с
+   длинным адресом скрипта, строка героя с пятизначными мс, прерывание.
+   Экран — 960 CSS px, моноширинный шрифт FONT_PX, символ — CHAR_EM его
+   кегля, поля PAD_PX с обеих сторон. */
+const WIDE_HERO = { n: 20, title: [12345, 12345], frame: [12345, 12345], frameN: 20, gray: 20, pf: true, hit: 20, miss: 20, net: 999 };
+
 function wideResult(api) {
-  const rows = api.STAGES.map((s, i) => ({
+  const rows = api.STAGES.map((s, i) => Object.assign({
     n: i + 1, id: s.id, partial: i === 7, frames: 300, fps: 59.9, p50: 16.7, p95: 1234.5, miss1: 1234, miss2: 999,
     loafN: 123, loafMs: 98765, worst: { ms: 4321, host: 'very-long-cdn-hostname.example.com setTimeout handler with a long name' },
     lat95: 123.4, anim: 1234, fxMs: 12.34,
     top: { ms: 12345.6, block: 9876.5, js: 1234.4, rev: 2345.6, sl: 3456.7, forced: 456.7, other: 12345.6,
       script: 'very-long-cdn-hostname.example.com someVeryLongFunctionName@1234567 DIV.onwebkitTransitionEnd' }
-  }));
+  }, s.stops ? { hero: WIDE_HERO } : {}));
   return {
     version: '0.2.0', cr: '153', hw: '4c/n/a', w: 960, h: 540, dpr: 2, P: 16.7, time: '21:05',
     reason: 'key', stoppedAt: 8, rows
@@ -90,7 +103,7 @@ function wideResult(api) {
 }
 
 test('bench: таблица — каждая строка не шире экрана 960 CSS px', () => {
-  const { api } = fresh({ lang: (k) => k });
+  const { api } = fresh({ lang: (k) => k, hud: HUD });
   assert.ok(api.MAX_COLS * api.FONT_PX * api.CHAR_EM + 2 * api.PAD_PX <= 960, 'геометрия экрана таблицы');
   const lines = api.table(wideResult(api));
   assert.ok(lines.length >= 12, 'шапка, заголовок, восемь строк, подвал: ' + lines.length);
@@ -100,7 +113,7 @@ test('bench: таблица — каждая строка не шире экра
 });
 
 test('bench: таблица — шапка cr · hw · 960×540@2 · P · время · версия, строки стадий, худший LoAF и прерывание', () => {
-  const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k });
+  const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k, hud: HUD });
   const r = wideResult(api);
   const lines = api.table(r);
   assert.equal(lines[0], 'cr 153 · hw 4c/n/a · 960×540@2 · P 16.7 · 21:05 · v0.2.0');
@@ -111,7 +124,7 @@ test('bench: таблица — шапка cr · hw · 960×540@2 · P · вре
   assert.ok(text.indexOf('прервано') !== -1, 'причина прерывания');
   /* Раунд «Листание»: вторая таблица съела строки экрана — причина
      прерывания и «Назад» делят одну строку. */
-  assert.equal(lines[lines.length - 1], 'прервано: key · 8/8 · Назад — закрыть');
+  assert.equal(lines[lines.length - 1], 'прервано: key · 8/9 · Назад — закрыть');
   const done = api.table(Object.assign({}, r, { reason: 'done' }));
   assert.equal(done[done.length - 1], 'Назад — закрыть');
   /* Без LoAF — «n/a», а не ноль. */
@@ -158,18 +171,21 @@ test('bench: partsOf — фазы долгого кадра: js, r+ev, st+l, frc
 });
 
 test('bench: вторая таблица — самый длинный кадр каждой стадии по фазам; обе таблицы — на одном экране 960×540', () => {
-  const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k });
+  const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k, hud: HUD });
   const lines = api.table(wideResult(api));
-  /* Экран: кегль FONT_PX, межстрочный LINE_EM, поля PAD_PX — 22 строки на
-     540 CSS px (телевизор 960×540@2). */
+  /* Экран: кегль FONT_PX, межстрочный LINE_EM, поля PAD_PX — 25 строк на
+     540 CSS px (телевизор 960×540@2); полоса телеметрии: девятая стадия и
+     строка героя, межстрочный 1.3. */
   assert.equal(api.MAX_LINES, Math.floor((540 - 2 * api.PAD_PX) / (api.FONT_PX * api.LINE_EM)));
-  assert.equal(api.MAX_LINES, 22);
+  assert.equal(api.MAX_LINES, 25);
+  assert.equal(lines.length, 25, 'самый длинный случай занимает экран целиком:\n' + lines.join('\n'));
   assert.ok(lines.length <= api.MAX_LINES, 'таблица длиннее экрана: ' + lines.length + ' строк\n' + lines.join('\n'));
   for (const line of lines) assert.ok(line.length <= api.MAX_COLS, 'строка шире экрана: «' + line + '»');
   const head = lines.findIndex((l) => /^\s*#\s+max\s+blk\s+js\s+r\+ev\s+st\+l\s+frc\s+other\s+script$/.test(l));
   assert.ok(head > 0, 'заголовка второй таблицы нет:\n' + lines.join('\n'));
-  const rows = lines.slice(head + 1, head + 9);
-  assert.equal(rows.length, 8);
+  const rows = lines.slice(head + 1, head + 10);
+  assert.equal(rows.length, 9);
+  assert.ok(/^\s*9\s+12346\s/.test(rows[8]), 'у стадии stop scroll — своя строка фаз: «' + rows[8] + '»');
   const cells = rows[0].trim().split(/\s+/);
   assert.deepEqual(cells.slice(0, 8), ['1', '12346', '9877', '1234', '2346', '3457', '457', '12346'], rows[0]);
   assert.ok(rows[0].indexOf('very-long-cdn-hostname') !== -1, 'скрипта нет: ' + rows[0]);
@@ -301,7 +317,8 @@ function makeEnv(opts) {
     },
     perf: { hold: (on) => log.push('perf.hold ' + on) },
     fx: { stats: () => ({ frames: 0, avgMs: 0 }) },
-    hud: { chrome: () => '153', hardware: () => '4c/n/a' }
+    hud: Object.assign({ chrome: () => '153', hardware: () => '4c/n/a' },
+      opts.probe ? { probe: opts.probe, heroText: HUD.heroText } : {})
   };
   const { api } = fresh(LC);
   api._timers = {
@@ -347,9 +364,12 @@ function makeEnv(opts) {
   };
 }
 
-/* Полный прогон: 8 стадий по 6 с, плюс выход из настроек. */
+/* Полный прогон: 8 стадий по 6 с и stop scroll (1 + 18,4 с), плюс выход
+   из настроек. */
 const LEAVE = 600;
 const STAGE = 6000;
+const STOP_STAGE = 1000 + 18400;
+const RUN = 8 * STAGE + STOP_STAGE;
 
 /* Уборка — одна на все пути выхода: подмены сняты, режим применён заново,
    принудительный канвас снят, смена кадров героя отпущена, цвет подкраски
@@ -380,10 +400,10 @@ test('bench: полный прогон — восемь стадий, подме
   assert.ok(e.log.indexOf('perf.hold true') !== -1, 'автодетект не мерит на время теста');
   assert.ok(e.log.indexOf('hero.benchHold true') !== -1, 'смена кадров героя стоит на время теста');
   assert.equal(e.api.running(), true);
-  e.advance(8 * STAGE + 100);
+  e.advance(RUN + 100);
 
-  assert.deepEqual(e.overrides.map((o) => o.lumen_motion), ['lite', 'full', 'full', 'full', 'full', 'lite', 'full', 'full']);
-  assert.deepEqual(e.overrides.map((o) => o.lumen_fx_heavy), [false, false, true, true, true, false, true, true]);
+  assert.deepEqual(e.overrides.map((o) => o.lumen_motion), ['lite', 'full', 'full', 'full', 'full', 'lite', 'full', 'full', 'lite']);
+  assert.deepEqual(e.overrides.map((o) => o.lumen_fx_heavy), [false, false, true, true, true, false, true, true, false]);
   assert.ok(e.overrides.every((o) => o.lumen_trailer === 'off' && o.lumen_hero_media === 'frames'), 'трейлер выключен подменой');
   /* Ревью ba6a3ac..6a1c364 (~60): праздничные темы рисуют сцены
      (winter/halloween — спрайты свечения, src/52_fx.js), и дороже всего на
@@ -399,7 +419,10 @@ test('bench: полный прогон — восемь стадий, подме
   assertCleanup(e, 'конец');
   const r = e.api.last();
   assert.equal(r.reason, 'done');
-  assert.equal(r.rows.length, 8);
+  assert.equal(r.rows.length, 9);
+  assert.equal(r.rows[8].hero, null, 'зонда нет (LC.hud без probe) — строка героя n/a');
+  assert.ok(e.api.table(r).indexOf('9 hero: n/a') !== -1, e.api.table(r).join('\n'));
+  assert.equal(r.rows[0].hero, undefined, 'у прочих стадий строки героя нет');
   assert.ok(r.rows[0].frames > 250, 'кадры считаются только в окне замера (5 с): ' + r.rows[0].frames);
   assert.ok(r.rows[0].frames < 320, 'прогрев в замер не идёт: ' + r.rows[0].frames);
   assert.equal(r.P, 16.7);
@@ -478,7 +501,7 @@ test('bench: листание в коротком ряду возвращает 
   const e = makeEnv({ rowLength: 3 });
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(8 * STAGE + 100);
+  e.advance(RUN + 100);
   assert.equal(e.focusIdx(), 0);
   /* Влево из первой карточки Lampa открывает меню — тест туда не ходит. */
   const lefts = e.log.filter((x) => x === 'move left').length;
@@ -492,7 +515,7 @@ test('bench: фокус не в первом ряду — поднимается
   e.advance(LEAVE + 10);
   assert.ok(e.log.indexOf('move up') !== -1, 'фокус не подняли');
   assert.equal(e.api.running(), true);
-  e.advance(8 * STAGE + 100);
+  e.advance(RUN + 100);
 });
 
 test('bench: не главная (герой запаркован) — тест не стартует, подмен и уборки нет, уведомление', () => {
@@ -515,7 +538,7 @@ test('bench: long-animation-frame — число, сумма blockingDuration и
     { startTime: 1e9, duration: 120, blockingDuration: 70, scripts: [{ duration: 60, sourceURL: 'https://cdn.example.org/app.min.js', invoker: 'TimerHandler:setTimeout' }] },
     { startTime: 1e9, duration: 90, blockingDuration: 30, scripts: [] }
   ]);
-  e.advance(8 * STAGE);
+  e.advance(RUN);
   const row = e.api.last().rows[0];
   assert.equal(row.loafN, 2);
   assert.equal(row.loafMs, 100);
@@ -529,7 +552,7 @@ test('bench: long-animation-frame — число, сумма blockingDuration и
   quiet.advance(LEAVE + 10);
   quiet.advance(1500);
   quiet.loaf([{ startTime: 1e9, duration: 60, blockingDuration: 0, scripts: [] }]);
-  quiet.advance(8 * STAGE);
+  quiet.advance(RUN);
   assert.equal(quiet.api.last().rows[0].loafN, 1);
   assert.equal(quiet.api.last().rows[0].worst, null);
   assert.equal(quiet.api.table(quiet.api.last()).filter((l) => l.indexOf('loaf max') === 0).length, 0);
@@ -552,7 +575,7 @@ test('bench: самый длинный кадр стадии — по duration, 
     { startTime: 1e9 + 100, duration: 150, blockingDuration: 10, renderStart: 1e9 + 120, styleAndLayoutStart: 1e9 + 200,
       scripts: [{ startTime: 1e9 + 125, duration: 70, sourceURL: 'https://cdn.example.org/app.min.js', sourceFunctionName: 'frameVisible', sourceCharPosition: 32024, invoker: 'DIV.onwebkitTransitionEnd' }] }
   ]);
-  e.advance(8 * STAGE);
+  e.advance(RUN);
   const row = e.api.last().rows[0];
   assert.equal(row.worst.ms, 50, 'подвал — по блокировке');
   assert.equal(row.top.ms, 150, 'фазы — самого длинного кадра');
@@ -560,4 +583,120 @@ test('bench: самый длинный кадр стадии — по duration, 
   assert.equal(row.top.sl, 50);
   assert.equal(row.top.script, 'cdn.example.org frameVisible@32024 DIV.onwebkitTransitionEnd');
   assert.equal(e.api.last().rows[1].top, null, 'чужая стадия не получила кадра');
+});
+
+/* ====================================================================== */
+/* Полоса телеметрии: стадия 9 «stop scroll» — листание с остановками и    */
+/* ожидание героя (зонд LC.hud.probe, src/69_hud.js).                      */
+/* ====================================================================== */
+
+function fakeProbe(log) {
+  const f = { made: [], keys: [], stops: 0 };
+  f.make = (opts) => {
+    f.made.push(opts);
+    log.push('probe.make');
+    return {
+      sync() {},
+      key: (t) => { f.keys.push(t); log.push('probe.key'); },
+      stop: () => { f.stops++; log.push('probe.stop'); },
+      summary: () => ({ n: 4, title: [880, 1480], frame: [1650, 2900], frameN: 3, gray: 1, pf: true, hit: 3, miss: 1, net: 0 }),
+      shows: () => [{ id: 7, at: 1, title: 880, frame: 1650, gray: false, hit: true }]
+    };
+  };
+  return f;
+}
+
+test('stop scroll: 4 группы по 5 шагов через 400 мс и остановка 3 с; у конца ряда — обратно, не левее исходной карточки', () => {
+  let f = null;
+  const e = makeEnv({ probe: (opts) => f.make(opts) });
+  f = fakeProbe(e.log);
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(8 * STAGE + 1000 + 10);
+  const at = e.log.lastIndexOf('probe.make');
+  assert.ok(at !== -1, 'зонд не создан к началу замера девятой стадии');
+  assert.deepEqual(f.made, [{ keys: false }], 'клавиш у теста нет — нажатия зонду даёт сам тест');
+  e.advance(18400 + 100);
+  const moves = e.log.slice(at).filter((x) => x.indexOf('move ') === 0).map((x) => (x === 'move right' ? 'R' : 'L')).join('');
+  /* Ряд из 8 карточек, старт — первая: 5 вправо; 2 вправо, упёрлись —
+     влево; влево до исходной, на ней — снова вправо; 5 вправо. */
+  assert.equal(moves, 'RRRRR' + 'RRRLLL' + 'LLLLR' + 'RRRRR');
+  assert.equal(f.keys.length, 20, 'одно нажатие на шаг, повтор у конца ряда — не нажатие');
+  const gaps = f.keys.slice(1).map((t, i) => Math.round(t - f.keys[i]));
+  assert.deepEqual(gaps, [400, 400, 400, 400, 3000, 400, 400, 400, 400, 3000, 400, 400, 400, 400, 3000, 400, 400, 400, 400]);
+  assert.equal(f.stops, 1, 'зонд снят в конце стадии, уборка второй раз его не трогает');
+  assert.ok(e.log.indexOf('probe.stop') < e.log.lastIndexOf('clearOverride'), 'зонд снят до уборки');
+  const r = e.api.last();
+  assert.equal(r.reason, 'done');
+  assert.equal(r.rows.length, 9);
+  const row = r.rows[8];
+  assert.equal(row.id, 'stop scroll');
+  assert.ok(row.frames > 1000, 'кадры считаются все 18,4 с замера: ' + row.frames);
+  assert.deepEqual(row.hero.title, [880, 1480]);
+  assert.equal(row.hero.shows.length, 1, 'сами показы — в JSON результата');
+  assert.equal(e.focusIdx(), 0, 'уборка вернула фокус на исходную карточку');
+  const lines = e.api.table(r);
+  const i = lines.findIndex((l) => /^\s*9\s+stop scroll/.test(l));
+  assert.ok(i > 0, lines.join('\n'));
+  assert.equal(lines[i + 1], '9 hero 4: T_title 880/1480 · T_frame 1650/2900 (3) · gray 1 · pf h/m 3/1 · net-in-burst 0',
+    'строка героя — сразу под строкой стадии');
+  assert.ok(lines.length <= e.api.MAX_LINES, lines.length + ' строк');
+});
+
+test('stop scroll: прерывание посреди стадии — строка недомеренная, но со строкой героя; зонд снят той же уборкой', () => {
+  let f = null;
+  const e = makeEnv({ probe: (opts) => f.make(opts) });
+  f = fakeProbe(e.log);
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(8 * STAGE + 1000 + 6000);
+  e.key();
+  assertCleanup(e, 'клавиша в stop scroll');
+  assert.equal(f.stops, 1);
+  const r = e.api.last();
+  assert.equal(r.rows.length, 9);
+  assert.equal(r.rows[8].partial, true);
+  assert.deepEqual(r.rows[8].hero.frame, [1650, 2900]);
+  assert.ok(e.api.table(r).some((l) => l.indexOf('9 hero 4: ') === 0));
+});
+
+test('stop scroll: ни один шаг не уходит левее исходной карточки даже в ряду из двух', () => {
+  let f = null;
+  const e = makeEnv({ rowLength: 2, probe: (opts) => f.make(opts) });
+  f = fakeProbe(e.log);
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(8 * STAGE + 1000 + 10);
+  const at = e.log.lastIndexOf('probe.make');
+  let pos = 0;
+  let min = 0;
+  const seq = [];
+  e.advance(18400 + 100);
+  for (const x of e.log.slice(at)) {
+    if (x === 'move right') { if (pos < 1) pos++; seq.push('R'); }
+    if (x === 'move left') { pos--; seq.push('L'); }
+    if (pos < min) min = pos;
+  }
+  assert.equal(min, 0, 'ушли левее исходной: ' + seq.join(''));
+  assert.equal(f.keys.length, 20);
+});
+
+test('stop scroll: зонд снимается в конце СВОЕЙ стадии — следующая стадия его уже не видит', () => {
+  let f = null;
+  const e = makeEnv({ probe: (opts) => f.make(opts) });
+  f = fakeProbe(e.log);
+  /* Стадия после stop scroll — на случай, если порядок стадий изменится. */
+  e.api.STAGES.push({ id: 'tail', motion: 'lite' });
+  try {
+    e.api.start();
+    e.advance(LEAVE + 10);
+    e.advance(RUN + STAGE + 100);
+    const overrides = e.log.map((x, i) => [x, i]).filter((x) => x[0].indexOf('override ') === 0);
+    assert.equal(overrides.length, 10);
+    const stop = e.log.indexOf('probe.stop');
+    assert.ok(stop !== -1 && stop < overrides[9][1], 'зонд жил и в следующей стадии');
+    assert.equal(f.stops, 1);
+  } finally {
+    e.api.STAGES.pop();
+  }
 });
