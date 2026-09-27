@@ -7866,3 +7866,62 @@ test('этап 2а, п.2: цвет кадров не читает (подкра�
   bare.hero.preloadFrame('/f3.jpg', false);
   assert.equal(w300Of(bare, '/f3.jpg')[0].crossOrigin, undefined, 'без LC.accent — без CORS');
 });
+
+/* Раунд «без лагов», этап 2а (предложение полосы 2б): подпись плитки в ряду
+   для названия чужим письмом. Читаемое название есть только в деталях
+   (alternative_titles) — когда они пришли для показанной карточки, оно
+   записывается в данные карточки и в подпись плитки под фокусом; год и
+   оценка (.card__age) не трогаются. */
+test('этап 2а: название чужим письмом — детали принесли читаемое: подпись плитки под фокусом и card.lumen_title; год не тронут; своё название — ничего', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const title = new FakeEl(['card__title']);
+  title.text('ธี่หยด: สมิงเขาขวาง');
+  const age = new FakeEl(['card__age']);
+  age.text('2026 · ★ 6.1');
+  main.card2.append(title);
+  main.card2.append(age);
+  main.card2.card_data = { id: 1556321, title: 'ธี่หยด: สมิงเขาขวาง', original_title: 'ธี่หยด: สมิงเขาขวาง', original_language: 'th', backdrop_path: '/b2.jpg', poster_path: '/p2.jpg', overview: 'о тайском', release_date: '2026-01-01' };
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  assert.equal(title.text(), 'ธี่หยด: สมิงเขาขวาง', 'до деталей подпись не трогается');
+  detailsOf(env, 1556321).ok({ id: 1556321, alternative_titles: { titles: [{ iso_3166_1: 'TH', title: 'Saming Kao Kwang' }, { iso_3166_1: 'US', title: 'Saming the Werebeast' }] } });
+  assert.equal(title.text(), 'Saming the Werebeast', 'подпись плитки под фокусом не сменилась на читаемое название');
+  assert.equal(main.card2.card_data.lumen_title, 'Saming the Werebeast', 'читаемое название не записано в данные карточки');
+  assert.equal(age.text(), '2026 · ★ 6.1', 'подпись «год · ★» тронута');
+  assert.equal(heroOf(main.activity).find('.lumen-hero__title').text(), 'Saming the Werebeast');
+
+  /* Своё название (детали его не меняют) — ни поля, ни записи. */
+  const env2 = makeEnv({ fxHeavy: () => false });
+  const main2 = makeMain();
+  const own = new FakeEl(['card__title']);
+  own.text('Второй');
+  main2.card2.append(own);
+  env2.hero.mount(main2.activity);
+  shownFrame(env2, main2);
+  fireFocus(main2.activity, main2.card2);
+  env2.advance(350);
+  detailsOf(env2, 22).ok({ id: 22 });
+  assert.equal(own.text(), 'Второй');
+  assert.equal(Object.prototype.hasOwnProperty.call(main2.card2.card_data, 'lumen_title'), false, 'своё название записано в lumen_title');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а: детали пришли, когда фокус уже на другой плитке, — чужая подпись не трогается, данные карточки получают читаемое название', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = new FakeEl(['card__title']);
+  other.text('Первый');
+  main.card1.append(other);
+  main.card2.card_data = { id: 1556321, title: 'ธี่หยด: สมิงเขาขวาง', original_title: 'ธี่หยด: สมิงเขาขวาง', backdrop_path: '/b2.jpg', poster_path: '/p2.jpg', overview: 'о тайском', release_date: '2026-01-01' };
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  fireFocus(main.activity, main.card1);
+  detailsOf(env, 1556321).ok({ id: 1556321, alternative_titles: { titles: [{ iso_3166_1: 'US', title: 'Saming the Werebeast' }] } });
+  assert.equal(other.text(), 'Первый', 'подпись плитки другого фильма переписана');
+  assert.equal(main.card2.card_data.lumen_title, 'Saming the Werebeast');
+});

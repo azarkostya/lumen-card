@@ -3201,6 +3201,8 @@
           if (!isMounted()) return;
           state.details = json || null;
           var model = heroModel(card, state.details, words());
+          /* Раунд «без лагов», этап 2а (от полосы 2б): подпись плитки. */
+          relabelTile(card, model.title);
           /* Пустой ответ — тот же исход, что и ошибка: ждать больше нечего,
              скелетон гасим (иначе он горел бы до следующей карточки). */
           if (!state.details) model.pending = false;
@@ -3240,6 +3242,29 @@
         Lampa.Api.sources.tmdb.get(req.url, req.params, onOk, onErr, { life: req.life });
       } catch (e) {
         warn('hero: details failed', e);
+      }
+    }
+
+    /* Раунд «без лагов», этап 2а (предложение полосы 2б: подписи плиток
+       «ธี่หยด: สมิงเขาขวาง», «仙逆剧场版» в ряду). Читаемое название
+       (heroTitle — оригинальное латиницей или alternative_titles) есть
+       только в ответе деталей, а своих запросов на каждую плитку ряда ради
+       подписи нет. Детали показанной карточки пришли, и её название для
+       героя не то, что в данных ряда, — оно записывается в данные карточки
+       (card.lumen_title — его может взять и оформление подписей,
+       src/62_badges.js) и в подпись плитки под фокусом (.card__title: в
+       шаблоне Lampa там только название, год и оценка — в .card__age, их
+       не трогаем). Плитки того же фильма в других рядах — со своим показом.
+       Название то же — ничего не пишется. */
+    function relabelTile(card, title) {
+      if (!card || !title || title === (card.title || card.name || '')) return;
+      card.lumen_title = title;
+      var el = state && state.focusEl;
+      if (!el || el.card_data !== card) return;
+      try {
+        $(el).find('.card__title').text(title);
+      } catch (e) {
+        warn('hero: tile title failed', e);
       }
     }
 

@@ -20524,6 +20524,8 @@ if (!isMounted()) return;
 state.details = json || null;
 var model = heroModel(card, state.details, words());
 
+relabelTile(card, model.title);
+
 
 if (!state.details) model.pending = false;
 render(model, false);
@@ -20562,6 +20564,29 @@ var req = detailsRequest(mediaOf(card), card.id, langCode());
 Lampa.Api.sources.tmdb.get(req.url, req.params, onOk, onErr, { life: req.life });
 } catch (e) {
 warn('hero: details failed', e);
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function relabelTile(card, title) {
+if (!card || !title || title === (card.title || card.name || '')) return;
+card.lumen_title = title;
+var el = state && state.focusEl;
+if (!el || el.card_data !== card) return;
+try {
+$(el).find('.card__title').text(title);
+} catch (e) {
+warn('hero: tile title failed', e);
 }
 }
 
