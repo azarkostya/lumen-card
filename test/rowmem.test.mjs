@@ -58,7 +58,9 @@ function line(n, opts) {
 function makeEnv(opts) {
   opts = opts || {};
   const timers = [];
-  const root = { listeners: [], addEventListener(name, fn, cap) { root.listeners.push([name, fn, cap]); }, removeEventListener(name, fn, cap) { root.listeners = root.listeners.filter((l) => !(l[0] === name && l[1] === fn && l[2] === cap)); } };
+  /* Фаза захвата — как в DOM: третий аргумент — булево или {capture}. */
+  const capOf = (cap) => (cap && typeof cap === 'object' ? !!cap.capture : !!cap);
+  const root = { listeners: [], addEventListener(name, fn, cap) { root.listeners.push([name, fn, capOf(cap), cap]); }, removeEventListener(name, fn, cap) { root.listeners = root.listeners.filter((l) => !(l[0] === name && l[1] === fn && l[2] === capOf(cap))); } };
   root.contains = (x) => x === root;
   const lines = [];
   for (let i = 0; i < (opts.rows || 16); i++) lines.push(line(opts.cards || 6, { tag: 'r' + i + '_', height: opts.height }));
@@ -84,7 +86,8 @@ function makeEnv(opts) {
       due.done = true; due.fn();
       return due;
     },
-    focus(at) { comp.active = at; root.listeners.filter((l) => l[0] === 'hover:focus' && l[2] === true).forEach((l) => l[1]({})); }
+    focus(at) { comp.active = at; root.listeners.filter((l) => l[0] === 'hover:focus' && l[2] === true).forEach((l) => l[1]({})); },
+    touch() { root.listeners.filter((l) => l[0] === 'touchstart').forEach((l) => l[1]({})); }
   };
   globalThis.addEventListener = (name, fn) => env.winListeners.push([name, fn]);
   globalThis.removeEventListener = (name, fn) => { env.winListeners = env.winListeners.filter((l) => !(l[0] === name && l[1] === fn)); };
@@ -303,6 +306,67 @@ test('rowmem: смена размера окна и выключение — в�
   assert.equal(env.root.listeners.length, 0);
   assert.equal(env.winListeners.length, 0);
   assert.equal(R.active(), false);
+});
+
+/* Финальное ревью R8-1: на ТВ-экране с сенсором (планшет 1280x800 — для
+   Lampa «tv») лента главной едет пальцем без смены фокуса (Scroll,
+   app.min.js:31929-31935), а 'hover:touch' в LC.focus.EVENTS нет — спящий
+   ряд въезжал пустой полосой. Первое касание будит все ряды (и
+   припаркованной главной) и выключает сон до конца сеанса. */
+test('rowmem: первое касание экрана — все ряды просыпаются, дальше не засыпают, и на новой главной тоже', () => {
+  const env = makeEnv({ rows: 16, active: 15 });
+  const R = env.api;
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  assert.ok(env.lines.filter(asleep).length >= 10);
+  const touch = env.root.listeners.filter((l) => l[0] === 'touchstart');
+  assert.equal(touch.length, 1);
+  assert.deepEqual([touch[0][2], touch[0][3].passive], [true, true], 'пассивный, в фазе захвата');
+  env.touch();
+  assert.equal(env.lines.filter(asleep).length, 0, 'касание будит все ряды сразу');
+  assert.ok(env.lines.every((l) => l.cards.every((c) => c.img.getAttribute('src'))), 'и байты');
+  assert.equal(env.pending().length, 0, 'работа простоя снята');
+  env.focus(15); env.focus(3);
+  env.advance(R.QUIET_MS + 20000);
+  assert.equal(env.lines.filter(asleep).length, 0, 'дальше не засыпают');
+  assert.equal(env.pending().length, 0, 'и таймер «не тот экран» не крутится');
+  /* Новая главная в том же сеансе — касание помнится. */
+  R.detach([{ contains: () => false }]);
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 20000);
+  assert.equal(env.lines.filter(asleep).length, 0);
+  R.uninstall();
+  assert.equal(env.root.listeners.length, 0, 'слушатель касания снят');
+});
+
+test('rowmem: касание будит и главную, от которой ушли вглубь', () => {
+  const env = makeEnv({ rows: 16, active: 15 });
+  const R = env.api;
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  const linesA = env.lines;
+  env.component = 'full';
+  R.detach([{ contains: () => false }]);
+  /* Новая главная B — касание на ней. */
+  const envB = makeEnv({ rows: 4, active: 0 });
+  R._timers = envB.api._timers; R._idle = envB.api._idle;
+  R.mount([envB.root]);
+  envB.touch();
+  assert.equal(linesA.filter(asleep).length, 0, 'ряды A проснулись');
+});
+
+/* Экран не-ТВ по мерке Lampa (Platform.screen, app.min.js:32740): телефон,
+   планшет портретом — лента главной на нативной прокрутке, фокус за ней не
+   ходит. ПК с мышью Lampa считает «tv» — модуль там работает. */
+test('rowmem: экран не-ТВ (Platform.screen) — ни одного изменения; ПК («tv») — работает', () => {
+  for (const tv of [false, true]) {
+    const env = makeEnv({ rows: 16, active: 15 });
+    globalThis.Lampa.Platform = { screen: (need) => (need === 'tv' ? tv : !tv) };
+    const R = env.api;
+    R.mount([env.root]);
+    env.advance(R.QUIET_MS + 10000);
+    assert.equal(env.lines.filter(asleep).length > 0, tv, 'screen(tv) = ' + tv);
+  }
 });
 
 test('rowmem: незнакомая форма компонента — молчит без исключений', () => {

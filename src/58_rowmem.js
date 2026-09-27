@@ -40,7 +40,14 @@
   /*     Lampa обновляет после захвата события — вторая проверка таймером 0.*/
   /* Спящий ряд никогда не бывает рядом с фокусом: переход вверх-вниз идёт  */
   /* на соседний ряд (Items$1.onDown/onUp, :35152-35166), а соседи в        */
-  /* пределах NEAR разбужены на прошлом шаге.                               */
+  /* пределах NEAR разбужены на прошлом шаге. Это верно для пульта и мыши   */
+  /* (колесо тоже переводит фокус: Items$1 scroll.onWheel → down/up), но не */
+  /* для тача: на ТВ-экране с сенсором (планшет 1280x800 для Lampa — «tv»)  */
+  /* лента главной едет пальцем без смены фокуса (Scroll, :31929-31935), и  */
+  /* спящий ряд въехал бы пустой полосой. Поэтому первое касание будит все  */
+  /* ряды и выключает сон до конца сеанса (touched). На экране не-ТВ        */
+  /* (Platform.screen — телефон, планшет портретом: нативная прокрутка      */
+  /* ленты) модуль не работает вовсе.                                       */
   /*                                                                       */
   /* Переходы лент Lampa модуль не трогает (урок B1). Незнакомая форма      */
   /* компонента или ряда — тихий отказ.                                     */
@@ -83,6 +90,9 @@
     /* Главные, от которых ушли вглубь: [{root, comp}] (см. шапку). В истории
        Lampa их может быть больше одной — «Главная» из меню делает push. */
     var parked = [];
+    /* Было касание экрана — сон выключен до конца сеанса (см. шапку). Флаг
+       модуля, а не state: новая главная того же сеанса его помнит. */
+    var touched = false;
 
     function setT(fn, ms) {
       var hook = api._timers;
@@ -117,7 +127,12 @@
 
     function on() {
       try {
+        if (touched) return false;
         if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
+        /* Только ТВ-экран Lampa (Platform.screen, app.min.js:32740-32763). ПК
+           с мышью — тоже «tv»: не tv()/desktop(), но и не тач, is_tv остаётся
+           true. Без Platform (тесты, старые сборки) — ТВ. */
+        if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.screen === 'function' && Lampa.Platform.screen('tv') === false) return false;
         return LC.pref ? LC.pref('lumen_rowmem', true) !== false : true;
       } catch (e) {
         return false;
@@ -351,7 +366,7 @@
       if (!state) return false;
       /* Выключили посреди сеанса (lumen_rowmem из консоли) — спящих рядов
          не оставляем: без модуля их больше никто не разбудит. */
-      if (!on()) { wakeAll(); arm(REST_MS); return false; }
+      if (!on()) { wakeAll(); if (!touched) arm(REST_MS); return false; }
       if ((typeof document !== 'undefined' && document.hidden) || !onRows()) { arm(REST_MS); return false; }
       var c = component();
       if (!c) { arm(REST_MS); return false; }
@@ -425,6 +440,21 @@
       arm(QUIET_MS);
     }
 
+    /* Все известные главные: открытая (по её компоненту) и припаркованные. */
+    function wakeKnown() {
+      if (state) wakeAllOf(state.comp || component());
+      for (var i = 0; i < parked.length; i++) wakeAllOf(parked[i].comp);
+    }
+
+    /* Первое касание экрана (см. шапку): всё разбудить, работу снять; дальше
+       on() — false до конца сеанса. */
+    function onTouch() {
+      if (touched) return;
+      touched = true;
+      stopWork();
+      wakeKnown();
+    }
+
     function mount(root) {
       try {
         if (!root || !root.length || !root[0]) return;
@@ -432,9 +462,10 @@
         unmount();
         /* Вернулись на припаркованную главную — дальше она снова наша. */
         forget(root);
-        state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize,
+        state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize, touch: onTouch,
           stats: { slept: 0, woke: 0, cards: 0, dropped: 0, back: 0 } };
         if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
+        try { root[0].addEventListener('touchstart', state.touch, { capture: true, passive: true }); } catch (eT) { state.touch = null; }
         try { window.addEventListener('resize', state.resize); } catch (eR) { state.resize = null; }
         state.comp = component();
         arm(QUIET_MS);
@@ -451,6 +482,7 @@
       state = null;
       try { if (s.handler) LC.focus.release(s.root[0], s.handler); } catch (e) { warn('rowmem: unmount failed', e); }
       try { if (s.resize) window.removeEventListener('resize', s.resize); } catch (e2) { warn('rowmem: unmount failed', e2); }
+      try { if (s.touch) s.root[0].removeEventListener('touchstart', s.touch, true); } catch (e3) { warn('rowmem: unmount failed', e3); }
     }
 
     /* Корень root — это render или лежит в нём. */
@@ -500,8 +532,7 @@
     /* Выключение плагина: всё разбудить — и открытую главную, и те, от
        которых ушли вглубь, — потом снять. */
     function uninstall() {
-      if (state) wakeAllOf(state.comp || component());
-      for (var i = 0; i < parked.length; i++) wakeAllOf(parked[i].comp);
+      wakeKnown();
       parked = [];
       unmount();
     }
