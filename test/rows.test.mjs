@@ -1328,7 +1328,11 @@ test('partAhead: следующая часть берётся после пос�
   var next = w.s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
   assert.equal(w.calls.length, 0, 'сразу после построения — ничего');
   assert.equal(w.timers.length, 1);
-  assert.equal(w.timers[0].ms, w.s.R.AHEAD_MS);
+  /* Проверка оркестровки простоя, O4а: первая заготовка — не через
+     AHEAD_MS, а через AHEAD_FIRST_MS: первый экран и герой уходят в сеть
+     раньше шести запросов partNext. */
+  assert.equal(w.timers[0].ms, w.s.R.AHEAD_FIRST_MS, 'первая заготовка — после паузы первого экрана');
+  assert.ok(w.s.R.AHEAD_FIRST_MS >= 1500 && w.s.R.AHEAD_FIRST_MS > w.s.R.AHEAD_MS);
   w.run();
   assert.equal(w.calls.length, 1, 'заготовка — один вызов next');
   w.calls[0].ok([mkRow('B', [1, 2, 6, 7, 8, 9])]);
@@ -1337,13 +1341,35 @@ test('partAhead: следующая часть берётся после пос�
   next(function (d) { lampa.push(d); }, function () { lampa.push('reject'); });
   assert.equal(lampa.length, 0, 'не внутри обработчика конца прокрутки');
   assert.equal(w.calls.length, 1, 'второго запроса нет');
-  w.run();
+  assert.equal(w.timers.length, 1);
+  w.timers.shift().fn();
   assert.equal(lampa.length, 1);
   assert.deepEqual(idsOf(lampa[0][0]), [6, 7, 8, 9]);
   assert.deepEqual(w.s.R.ahead(), [], 'отданная часть из заготовки ушла');
-  /* после выдачи — заготовка следующей */
+  /* после выдачи — заготовка следующей, уже через короткую паузу */
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].ms, w.s.R.AHEAD_MS, 'следующие заготовки — через AHEAD_MS');
   w.run();
   assert.equal(w.calls.length, 2);
+});
+
+/* O4а: первая часть пришла из сети — после возврата из Api.main; первая
+   заготовка и тогда ждёт AHEAD_FIRST_MS. */
+test('partAhead: первая часть пришла позже (из сети) — первая заготовка тоже через AHEAD_FIRST_MS', function () {
+  var s = setupDedupeRuntime({ batches: [] });
+  var first = null;
+  s.Lampa.Api.main = function (params, oncomplite) {
+    first = function () { oncomplite([mkRow('A', [1, 2, 3, 4])]); };
+    return function () {};
+  };
+  var timers = [];
+  s.R._timers = { set: function (fn, ms) { timers.push({ fn: fn, ms: ms }); return timers.length; } };
+  s.R.installDedupe();
+  s.Lampa.Api.main({}, function () {}, function () {});
+  assert.equal(timers.length, 0, 'до первой части — ничего');
+  first();
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].ms, s.R.AHEAD_FIRST_MS);
 });
 
 test('partAhead: Lampa попросила, пока заготовка в пути, — ждёт её же, второго next нет; вторая просьба до ответа — отказ', function () {

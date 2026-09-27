@@ -44,11 +44,12 @@
   /* в обход прокси пользователя отдавал TMDB его IP, а где TMDB закрыт —  */
   /* ждал до LOAD_MS на каждую миниатюру; без прокси адрес и так прямой.    */
   /* Прокси без CORS даёт отказ каждой миниатюре — после FAIL_LIMIT подряд */
-  /* модуль молчит до конца сеанса. Размер w92 выбран ещё и потому,         */
-  /* что сама Lampa его не грузит (ряды — w200…w500, логотипы героя и       */
-  /* карточки — w500/w780, все без CORS): тот же адрес в другом режиме      */
-  /* CORS — это второй ресурс в кэше браузера и, без HTTP-кэша на ТВ,       */
-  /* вторая загрузка. Своих адресов модуль с чужими не делит.               */
+  /* модуль молчит BLOCK_MS, затем проба (разбор у FAIL_LIMIT). Размер w92 */
+  /* выбран ещё и потому, что сама Lampa его не грузит (ряды — w200…w500,  */
+  /* логотипы героя и карточки — w500/w780, все без CORS): тот же адрес в  */
+  /* другом режиме CORS — это второй ресурс в кэше браузера и, без         */
+  /* HTTP-кэша на ТВ, вторая загрузка. Своих адресов модуль с чужими не    */
+  /* делит.                                                                */
   /* -------------------------------------------------------------------- */
 
   LC.thumbs = (function () {
@@ -838,18 +839,48 @@
     /* Отказы подряд. Прокси без CORS-заголовка (или сеть, где недоступен и
        запасной image.tmdb.org) отказывает КАЖДОЙ миниатюре, и каждый показ
        героя тратил бы на это две-три загрузки впустую. После FAIL_LIMIT
-       отказов подряд модуль до конца сеанса не грузит ничего и отвечает
+       отказов подряд модуль BLOCK_MS не грузит ничего и отвечает
        «сравнить нельзя» / 'none' сразу — кадр и логотип тогда как без
-       модуля. Любая удача счёт сбрасывает. */
+       модуля. Любая удача счёт сбрасывает.
+       Проверка оркестровки простоя, O3: блок был до конца сеанса, а сброс
+       счёта — только удачей, которой без загрузок взяться неоткуда; отказ
+       сети (onerror, таймаут LOAD_MS) считается тем же счётом, и обрыв
+       Wi-Fi или прокси на минуту выключал сравнение «кадр ≈ постер» и тон
+       логотипа до перезапуска Lampa. Не считать сетевые отказы нельзя:
+       миниатюра с crossOrigin от прокси без заголовка ACAO — тот же
+       onerror, что и обрыв сети. Поэтому блок — на срок: вышел —
+       проба (счёт на единицу ниже порога), удача сбрасывает счёт, отказ
+       снова блокирует на BLOCK_MS; прокси без CORS стоит одной-двух
+       загрузок в минуту. Ответы «сравнить нельзя», запомненные за время
+       блока (compare ниже), с пробой забываются — пару спросят заново. */
     var FAIL_LIMIT = 6;
+    var BLOCK_MS = 60000;
     var failRow = 0;
+    var blockedAt = 0;
+    var blockNulls = [];
 
     function blocked() {
-      return failRow >= FAIL_LIMIT;
+      if (failRow < FAIL_LIMIT) return false;
+      if (Date.now() - blockedAt < BLOCK_MS) return true;
+      failRow = FAIL_LIMIT - 1;
+      for (var i = 0; i < blockNulls.length; i++) {
+        var key = blockNulls[i];
+        if (Object.prototype.hasOwnProperty.call(verdicts, key) && verdicts[key] === null) {
+          delete verdicts[key];
+          verdictCount--;
+        }
+      }
+      blockNulls = [];
+      return false;
     }
 
     function score(ok) {
-      failRow = ok ? 0 : failRow + 1;
+      if (ok) {
+        failRow = 0;
+        return;
+      }
+      failRow++;
+      if (failRow === FAIL_LIMIT) blockedAt = Date.now();
     }
 
     function remember(table, key, value) {
@@ -954,6 +985,7 @@
         if (known === undefined) {
           known = null;
           remember(verdicts, key, known);
+          if (blockNulls.length < TABLE_MAX) blockNulls.push(key);
         }
         cb(known);
         return { cancel: function () { } };
@@ -1102,6 +1134,7 @@
       corrFast: corrFast,
       STEP_MS: STEP_MS,
       SLICE_MS: SLICE_MS,
+      BLOCK_MS: BLOCK_MS,
       /* Для стенда и тестов: признаки растров так же, как их считает рантайм. */
       posterPixels: posterPixels,
       framePixels: framePixels,

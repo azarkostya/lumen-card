@@ -737,14 +737,14 @@
         var next = _mainOriginal(params, function (data) {
           oncomplite(pass(data));
           built = true;
-          if (part) part.arm();
+          if (part) part.arm(AHEAD_FIRST_MS);
         }, onerror);
         if (typeof next !== 'function') return next;
         /* Первая часть могла прийти синхронно (все ряды из кэша Lampa) —
            тогда part ещё не было, и заготовку следующей ставим здесь. */
         part = partAhead(next, pass, _homeGen);
         _ahead = part;
-        if (built) part.arm();
+        if (built) part.arm(AHEAD_FIRST_MS);
         return part.take;
       };
       try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _mainOriginal = null; }
@@ -793,6 +793,17 @@
     /* (постеры, кадр героя) уходит в сеть раньше. Коротко — на стенде     */
     /* Lampa просит вторую часть уже на первом конце прокрутки.            */
     var AHEAD_MS = 400;
+    /* Первая заготовка на заходе на главную — после первой части, но не   */
+    /* раньше этой паузы (проверка оркестровки простоя, O4а): через        */
+    /* AHEAD_MS partNext Lampa (до 6 запросов разом) шёл в сеть вместе с   */
+    /* деталями и кадром героя, warm первого экрана и его постерами.       */
+    /* Признака «герой показал первый кадр» наружу нет (warm зовёт сам     */
+    /* герой, src/48_hero.js), поэтому пауза. Стенд (+400 мс / 10 Мбит,    */
+    /* от вызова Api.main, по 3 прогона): CPU×1 — первая часть 0.5 с, кадр */
+    /* героя 2.1-2.4 с, заготовка была на 0.9 с, стала на 2.0 с; CPU×10 —  */
+    /* заготовка и так ждёт простоя и уходит на 3.5-4.0 с (кадр героя —    */
+    /* 4.3-5.6 с), пауза её не сдвигает.                                   */
+    var AHEAD_FIRST_MS = 1500;
     /* Потолок ожидания простоя браузера (requestIdleCallback). */
     var AHEAD_IDLE_MAX = 1000;
     /* Шаг проверки «главная снова на экране», пока сверху другой экран:  */
@@ -1576,6 +1587,7 @@
       /* Этап 2б: заготовленная часть рядов (для src/58_posters.js). */
       ahead: ahead,
       AHEAD_MS: AHEAD_MS,
+      AHEAD_FIRST_MS: AHEAD_FIRST_MS,
       AHEAD_PARK_MS: AHEAD_PARK_MS,
       /* Хук тестов: пара таймеров заготовки. */
       _timers: null

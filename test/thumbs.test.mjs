@@ -717,7 +717,7 @@ test('п.D: tone — пиксели закрыты или SVG без разме�
   assert.deepEqual(got, ['none', 'none']);
 });
 
-test('п.C2/D: шесть отказов подряд (прокси без CORS) — до конца сеанса миниатюры не грузятся', () => {
+test('п.C2/D: шесть отказов подряд (прокси без CORS) — BLOCK_MS миниатюры не грузятся', () => {
   const e = env();
   const got = [];
   for (let i = 0; i < 6; i++) {
@@ -754,6 +754,66 @@ test('ревью d97cffc п.1: заблокированный compare запом
   assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), null, 'ответ «нельзя» не лёг в память — выбор кадра спросит снова');
   e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
   assert.deepEqual(got, [null, null], 'повтор — из памяти, тот же ответ');
+});
+
+/* Проверка оркестровки простоя, O3: блок был до конца сеанса, а сетевой
+   отказ (onerror, таймаут) считается тем же счётом — обрыв сети на минуту
+   выключал сравнение и тон логотипа до перезапуска Lampa. Блок — на срок
+   BLOCK_MS, потом проба. */
+test('O3: шесть сетевых отказов — блок на BLOCK_MS; вышел срок — сравнение снова грузит, «нельзя» за время блока забыто', () => {
+  const e = env();
+  const got = [];
+  for (let i = 0; i < 6; i++) {
+    e.T.compare('/p' + i + '.jpg', '/f' + i + '.jpg', (v) => got.push(v));
+    e.images[e.images.length - 2].onerror();
+    e.idleAll();
+  }
+  assert.deepEqual(got, [null, null, null, null, null, null]);
+  assert.equal(e.T.stats().blocked, true, 'шесть сетевых отказов — блок');
+  const before = e.images.length;
+  const during = [];
+  e.T.compare('/q.jpg', '/g.jpg', (v) => during.push(v));
+  e.T.tone('/l.png', (t) => during.push(t));
+  e.clock.now += e.T.BLOCK_MS - 1;
+  e.T.compare('/q2.jpg', '/g2.jpg', (v) => during.push(v));
+  assert.deepEqual(during, [null, 'none', null], 'во время блока — «нельзя» сразу');
+  assert.equal(e.images.length, before, 'во время блока загрузок нет');
+  assert.equal(e.T.verdict('/q.jpg', '/g.jpg'), null);
+  e.clock.now += 1;
+  assert.equal(e.T.stats().blocked, false, 'срок вышел — проба');
+  assert.equal(e.T.verdict('/q.jpg', '/g.jpg'), undefined, '«нельзя» за время блока забыто — пару спросят заново');
+  const after = [];
+  e.T.compare('/q.jpg', '/g.jpg', (v) => after.push(v));
+  assert.equal(e.images.length, before + 2, 'сеть вернулась — миниатюры пары грузятся');
+  e.arrive(e.img('/q.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/g.jpg'), scene(2), 92, 52);
+  e.idleAll();
+  assert.equal(typeof after[0], 'boolean', 'сравнение снова работает');
+  assert.equal(e.T.stats().blocked, false);
+});
+
+test('O3: шесть CORS-отказов — блок; проба после срока снова отказ — блок сразу, ещё BLOCK_MS без загрузок', () => {
+  const e = env();
+  for (let i = 0; i < 6; i++) {
+    e.T.tone('/l' + i + '.png', () => {});
+    e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
+    e.idleAll();
+  }
+  assert.equal(e.T.stats().blocked, true);
+  e.clock.now += e.T.BLOCK_MS;
+  const before = e.images.length;
+  e.T.tone('/probe.png', () => {});
+  assert.equal(e.images.length, before + 1, 'проба — одна загрузка');
+  e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
+  e.idleAll();
+  assert.equal(e.T.stats().blocked, true, 'проба не прошла — снова блок');
+  const got = [];
+  e.T.tone('/next.png', (t) => got.push(t));
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  e.clock.now += e.T.BLOCK_MS - 1;
+  e.T.tone('/next2.png', (t) => got.push(t));
+  assert.deepEqual(got, ['none', null, 'none']);
+  assert.equal(e.images.length, before + 1, 'до конца нового срока — ни одной загрузки');
 });
 
 test('п.C2/D: удача сбрасывает счёт отказов; SVG без размеров — не отказ', () => {
