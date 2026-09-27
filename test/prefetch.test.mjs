@@ -27,6 +27,14 @@ FakeEl.prototype.index = function () {
   const p = this._parentEl;
   return p ? p._children.indexOf(this) : -1;
 };
+/* Этап 2а, п.3: ряд выше — соседний узел перед рядом (jQuery prev). */
+if (!FakeEl.prototype.prev) {
+  FakeEl.prototype.prev = function () {
+    const p = this._parentEl;
+    if (!p) return { length: 0 };
+    return p._children[p._children.indexOf(this) - 1] || { length: 0 };
+  };
+}
 Object.defineProperty(FakeEl.prototype, 'classList', {
   configurable: true,
   get() { const self = this; return { contains: (c) => self.hasClass(c) }; }
@@ -275,7 +283,7 @@ for (const type of ['hover:focus', 'hover:hover']) {
 /* Окно: по направлению движения, затем назад, затем следующий ряд         */
 /* ====================================================================== */
 
-test('prefetch: порядок окна в «Лёгких» — +1, +2, −1 и три первых карточки следующего ряда', () => {
+test('prefetch: порядок окна в «Лёгких» — +1, +2, −1 и три карточки ряда ниже от той, куда встанет фокус (фокуса там не было — первые)', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][2]);
   env.advance(100);
@@ -284,7 +292,7 @@ test('prefetch: порядок окна в «Лёгких» — +1, +2, −1 и 
   assert.deepEqual(drain(env, 104), [105, 106, 103, 201, 202, 203]);
 });
 
-test('prefetch: порядок окна в «Полном» — +1…+3, −1…−2 и следующий ряд', () => {
+test('prefetch: порядок окна в «Полном» — +1…+3, −1…−2 и ряд ниже от цели', () => {
   const { env, main } = mounted({ mode: 'full' });
   focus(main, main.rows[0][2]);
   env.advance(100);
@@ -308,7 +316,7 @@ test('prefetch: край ряда и последний ряд — только 
   env.advance(100);
   focus(main, main.rows[1][1]);
   env.advance(250);
-  assert.deepEqual(drain(env, 202), [201], 'вперёд некуда, следующего ряда нет');
+  assert.deepEqual(drain(env, 202), [201, 101], 'вперёд некуда, следующего ряда нет; выше — первая карточка (фокуса там не было)');
 });
 
 /* ====================================================================== */
@@ -971,7 +979,7 @@ test('C3: дорожка цвета — низ решённого кадра; к
   env.advance(1000);
   assert.deepEqual(acc.calls, [103], 'пока идёт расчёт, следующий не стартует');
   drainColors(env, acc);
-  /* Окно в «Лёгких»: +2 вперёд, −1 назад, три карточки следующего ряда. */
+  /* Окно в «Лёгких»: +2 вперёд, −1 назад, три карточки ряда ниже от цели. */
   assert.deepEqual(acc.calls, [103, 104, 105, 102, 201, 202, 203]);
   assert.deepEqual(acc.frames, ['/b103.jpg', '/b104.jpg', '/b105.jpg', '/b102.jpg', '/b201.jpg', '/b202.jpg', '/b203.jpg']);
   assert.deepEqual(warnLog, []);
@@ -1182,7 +1190,7 @@ test('E3: дорожка вердиктов — соседи окна по од�
     const open = th.calls.find((c) => th.verdict(c.p, c.f) === undefined && !c.cancelled);
     if (open) th.answer(open, false);
   }
-  /* Окно «Лёгких»: +2 вперёд, −1 назад, три карточки следующего ряда. */
+  /* Окно «Лёгких»: +2 вперёд, −1 назад, три карточки ряда ниже от цели. */
   assert.deepEqual(th.pairs().slice(3), ['105:a105', '102:a102', '201:a201', '202:a202', '203:a203']);
   assert.deepEqual(warnLog, []);
 });
@@ -1574,4 +1582,44 @@ test('этап 2а, п.1: миниатюры заранее — постер в�
   focus(main, main.rows[0][3]);
   assert.ok(th.primes.every((p) => p.cancelled), 'перевод фокуса не снял миниатюры');
   assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Раунд «без лагов», этап 2а, п.3: цель вверх/вниз — карточка, куда       */
+/* Lampa поставит фокус (последняя посещённая в ряду, иначе первая)        */
+/* ====================================================================== */
+
+test('этап 2а, п.3: окно берёт в рядах выше и ниже последнюю посещённую карточку — туда Lampa вернёт фокус, — а не первые карточки ряда', () => {
+  const { env, main } = mounted();
+  /* Серия без покоя: деталей никто не просил, но посещения помнятся. */
+  for (let i = 0; i < 5; i++) {
+    focus(main, main.rows[0][i]);
+    env.advance(100);
+  }
+  focus(main, main.rows[1][4]);
+  env.advance(100);
+  focus(main, main.rows[2][2]);
+  env.advance(100);
+  focus(main, main.rows[1][2]);
+  env.advance(250);
+  /* 203: вперёд 204, 205, назад 202, ниже — от 303 (был фокус): 303, 304
+     (дальше ряда нет), выше — 105. */
+  const order = drain(env, 203);
+  assert.deepEqual(order, [204, 205, 202, 303, 304, 105], 'окно: ' + order);
+  assert.deepEqual([101, 102, 103, 301, 302].filter((id) => order.indexOf(id) !== -1), [], 'первые карточки рядов, куда фокус не встанет');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.3: в ряду без посещений — первая карточка (туда Lampa ставит фокус); stop забывает посещения', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][3]);
+  env.advance(100);
+  focus(main, main.rows[1][1]);
+  env.advance(250);
+  assert.deepEqual(drain(env, 202), [203, 204, 201, 301, 302, 303, 104], 'ряд ниже без посещений — от первой карточки, выше — посещённая');
+  env.pf.stop();
+  focus(main, main.rows[1][3]);
+  env.advance(250);
+  const order = drain(env, 204);
+  assert.ok(order.indexOf(101) !== -1 && order.indexOf(104) === -1, 'после stop посещения прошлой главной остались: ' + order);
 });

@@ -33151,6 +33151,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.prefetch = (function () {
 
 
@@ -33165,6 +33167,7 @@ var SLOTS = 2;
 
 var AHEAD = { full: 3, lite: 2 };
 var BEHIND = { full: 2, lite: 1 };
+
 
 var NEXT_ROW = 3;
 
@@ -33990,18 +33993,46 @@ return out;
 }
 
 
-function nextLine(line) {
-var next = line.next();
-for (var guard = 0; next && next.length && guard < 4; guard++) {
-if (next.hasClass('items-line')) return next;
-next = next.next();
+
+function lineBeside(line, way) {
+var near = line[way]();
+for (var guard = 0; near && near.length && guard < 4; guard++) {
+if (near.hasClass('items-line')) return near;
+near = near[way]();
 }
 return null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var VISITED_MAX = 64;
+var visited = [];
+
+function targetIn(line) {
+if (!line) return null;
+var nodes = cardsIn(line);
+if (!nodes.length) return null;
+for (var i = visited.length - 1; i >= 0; i--) {
+if (nodes.indexOf(visited[i]) !== -1) return visited[i];
+}
+return nodes[0];
 }
 
 function dataOf(nodes, from, count, out) {
 for (var i = from; i < nodes.length && i < from + count; i++) out.push(nodes[i].card_data);
 }
+
 
 
 
@@ -34025,8 +34056,23 @@ var out = [];
 var k;
 for (k = 1; k <= AHEAD[m]; k++) if (nodes[at + dir * k]) out.push(nodes[at + dir * k].card_data);
 for (k = 1; k <= BEHIND[m]; k++) if (nodes[at - dir * k]) out.push(nodes[at - dir * k].card_data);
-var next = nextLine(line);
-if (next) dataOf(cardsIn(next), 0, NEXT_ROW, out);
+
+
+
+
+
+
+
+
+
+var nextRow = lineBeside(line, 'next');
+var down = targetIn(nextRow);
+if (down) {
+var below = cardsIn(nextRow);
+dataOf(below, below.indexOf(down), NEXT_ROW, out);
+}
+var up = targetIn(lineBeside(line, 'prev'));
+if (up) out.push(up.card_data);
 return out;
 }
 
@@ -34059,6 +34105,9 @@ if (!el) return;
 posters('around');
 prevEl = focusEl;
 focusEl = el;
+
+visited.push(el);
+if (visited.length > VISITED_MAX) visited.shift();
 var captured = gen;
 idleTimer = setTimeout(function () {
 idleTimer = null;
@@ -34120,6 +34169,7 @@ try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: st
 }
 focusEl = null;
 prevEl = null;
+visited.length = 0;
 
 
 

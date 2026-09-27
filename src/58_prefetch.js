@@ -16,7 +16,9 @@
   /*     прошлого окна выкидывается сразу, а новое окно планируется после  */
   /*     IDLE покоя: при зажатой стрелке (шаг ~100 мс) не уходит ни одного */
   /*     запроса. Окно — соседи в ряду по направлению движения (вперёд     */
-  /*     AHEAD, назад BEHIND) и первые NEXT_ROW карточек следующего ряда;  */
+  /*     AHEAD, назад BEHIND), в ряду ниже — карточка, куда Lampa        */
+  /*     поставит фокус (последняя посещённая, иначе первая), и две за ней, */
+  /*     в ряду выше — она одна;                                           */
   /*   details(card, ok, err) — запрос деталей самого героя: из памяти —    */
   /*     синхронно, запрос того же фильма в пути — склейка, иначе запрос   */
   /*     сразу, мимо очереди и лимита (герою ждать соседей нельзя);        */
@@ -71,7 +73,8 @@
        шире — +3/−2, в «Лёгких» и «Выкл» (слабые устройства) — +2/−1. */
     var AHEAD = { full: 3, lite: 2 };
     var BEHIND = { full: 2, lite: 1 };
-    /* Первые карточки следующего ряда — туда фокус уходит стрелкой вниз. */
+    /* Ряд ниже — карточка, куда уйдёт фокус стрелкой вниз, и две за ней
+       (этап 2а, п.3: windowOf, targetIn). */
     var NEXT_ROW = 3;
     /* warm: первый экран главной — около семи карточек первого ряда и три
        второго. */
@@ -895,14 +898,41 @@
       return out;
     }
 
-    /* Следующий ряд главной — ближайший сосед .items-line ниже. */
-    function nextLine(line) {
-      var next = line.next();
-      for (var guard = 0; next && next.length && guard < 4; guard++) {
-        if (next.hasClass('items-line')) return next;
-        next = next.next();
+    /* Соседний ряд главной — ближайший сосед .items-line ниже (way
+       'next') или выше ('prev'). */
+    function lineBeside(line, way) {
+      var near = line[way]();
+      for (var guard = 0; near && near.length && guard < 4; guard++) {
+        if (near.hasClass('items-line')) return near;
+        near = near[way]();
       }
       return null;
+    }
+
+    /* Раунд «без лагов», этап 2а, п.3 (исследование preload, 5.6): куда
+       встанет фокус в соседнем ряду. Lampa помнит в каждом ряду последнюю
+       карточку под фокусом (Items: onAppend, hover:focus → this.last,
+       vendor/lampa/app.min.js:18989) и на переходе вверх-вниз ставит фокус
+       на неё (toggle → Controller.collectionFocus(this.last), :35288), а в
+       ряду, где фокуса не было, — на первую карточку (collectionFocus без
+       цели, :46483). Окно прежде брало первые три карточки ряда ниже: при
+       возврате в пройденный ряд цель в окно не попадала, и вверх окна не
+       было вовсе. Теперь три карточки ряда ниже считаются от цели, а в ряду
+       выше берётся цель. Помним последние VISITED_MAX переводов фокуса
+       (на горячем пути — только push, без поиска ряда); ряд цели ищется
+       раз на покой фокуса, в windowOf. stop() их забывает — вместе с
+       корнем снятой главной. */
+    var VISITED_MAX = 64;
+    var visited = [];
+
+    function targetIn(line) {
+      if (!line) return null;
+      var nodes = cardsIn(line);
+      if (!nodes.length) return null;
+      for (var i = visited.length - 1; i >= 0; i--) {
+        if (nodes.indexOf(visited[i]) !== -1) return visited[i];
+      }
+      return nodes[0];
     }
 
     function dataOf(nodes, from, count, out) {
@@ -910,9 +940,10 @@
     }
 
     /* Окно вокруг карточки под фокусом: вперёд по направлению последнего
-       шага в ряду, назад, первые карточки следующего ряда. Направление
-       считается здесь, раз на покой фокуса, а не на каждое нажатие: на
-       горячем пути фокуса модуль только переставляет таймер. */
+       шага в ряду, назад, в рядах ниже и выше — от карточки, куда встанет
+       фокус (targetIn, этап 2а). Направление считается здесь, раз на покой
+       фокуса, а не на каждое нажатие: на горячем пути фокуса модуль только
+       переставляет таймер и помнит карточку. */
     function windowOf(el) {
       rowStep = false;
       nextCard = null;
@@ -931,8 +962,23 @@
       var k;
       for (k = 1; k <= AHEAD[m]; k++) if (nodes[at + dir * k]) out.push(nodes[at + dir * k].card_data);
       for (k = 1; k <= BEHIND[m]; k++) if (nodes[at - dir * k]) out.push(nodes[at - dir * k].card_data);
-      var next = nextLine(line);
-      if (next) dataOf(cardsIn(next), 0, NEXT_ROW, out);
+      /* Вниз ходят чаще, чем вверх: ряд ниже — цель и NEXT_ROW - 1 карточек
+         за ней (в ряду без посещений это первые три, как прежде), ряд выше —
+         одна цель. Первый вариант этапа — одна цель и внизу — стенд
+         опроверг (шаг вниз 2 с + вправо 1.5 с, 3 + 3 прогона: кадр на шаге
+         вниз p50/p95 740/1180 → 854/1573 мс, серых 0 → 5 из 12): вторая и
+         третья карточки ряда ниже — это шаги вправо после шага вниз, и,
+         доехав заранее, они освобождали окно следующей остановки под цель
+         следующего ряда; без них её детали шли третьими-четвёртыми, и
+         сравнение с постером не успевало до показа. */
+      var nextRow = lineBeside(line, 'next');
+      var down = targetIn(nextRow);
+      if (down) {
+        var below = cardsIn(nextRow);
+        dataOf(below, below.indexOf(down), NEXT_ROW, out);
+      }
+      var up = targetIn(lineBeside(line, 'prev'));
+      if (up) out.push(up.card_data);
       return out;
     }
 
@@ -965,6 +1011,9 @@
       posters('around');
       prevEl = focusEl;
       focusEl = el;
+      /* Этап 2а, п.3: посещения рядов (targetIn) — только запись. */
+      visited.push(el);
+      if (visited.length > VISITED_MAX) visited.shift();
       var captured = gen;
       idleTimer = setTimeout(function () {
         idleTimer = null;
@@ -1026,6 +1075,7 @@
       }
       focusEl = null;
       prevEl = null;
+      visited.length = 0;
       /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): корень
          снятой главной не держим в памяти; на возврате warm спланирует
          первый экран заново — всё, что уже в памяти, из неё. */
