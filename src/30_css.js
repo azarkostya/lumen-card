@@ -4274,6 +4274,21 @@
     css.push('.lumen-full .card .card__view:after{display:none}');
     css.push('.lumen-full.lumen-dim .card .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:1em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(GRID_DIM) + ')}');
     css.push('.lumen-full .card.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
+    /* Прогон 2026-09-27 (Н3): в такой сетке Lampa ставит ряд в фокусе к
+       верху ленты — на свой отступ LAMPA_ROW_PAD ниже кромки области
+       (.scroll--mask .scroll__content{padding:2.5em 0}), а маска .scroll--mask
+       набирает непрозрачность к 8 % ВЫСОТЫ области (app.css:2781-2786).
+       На стенде 960×540@2 это 85.3 CSS px при верхе кольца 74.1: верх кольца
+       шёл с прозрачностью ~.7, кромка 179–188 против 228 по бокам — в любом
+       ряду, не только в первом. Верхнее затухание здесь — в em, как
+       отступ: прозрачно до (LAMPA_ROW_PAD − .5)em, полная непрозрачность — к
+       LAMPA_ROW_PAD, то есть ровно к верху ряда в фокусе; хвост подписей
+       уходящего ряда в этой полосе (годы — на 1–1.7em от кромки) скрыт, как
+       на главной до Task 38. Низ — как у Lampa. Раскладку и прокрутку
+       правило не трогает (отступ .scroll__content прежний); сетки, которые
+       Lampa открывает сама, класса .lumen-full не несут. */
+    var fullMask = 'rgba(255,255,255,0) 0,rgba(255,255,255,0) ' + round2(LAMPA_ROW_PAD - 0.5) + 'em,#fff ' + LAMPA_ROW_PAD + 'em,#fff 92%,rgba(255,255,255,0) 100%';
+    css.push('.lumen-full .scroll--mask:not(.scroll--horizontal){-webkit-mask-image:-webkit-linear-gradient(top,' + fullMask + ');mask-image:linear-gradient(to bottom,' + fullMask + ')}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
        что у строки «Продолжить» в карточке — Lampa.Timeline. */
     css.push('.lumen-grid .lumen-gcard__bar{position:absolute;left:.53em;right:.53em;bottom:.53em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden}');

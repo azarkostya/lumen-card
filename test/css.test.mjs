@@ -8964,3 +8964,35 @@ test('фокус на всех экранах: ни одно правило фо
   }
   assert.deepEqual(bad, []);
 });
+
+/* Прогон 2026-09-27 (Н3): в штатной сетке из плагина верх кольца фокуса
+   гасила маска .scroll--mask — непрозрачной она становится к 8 % высоты
+   области, а ряд в фокусе Lampa ставит на свой отступ 2.5em ниже кромки
+   (960×540@2: 85.3 против 74.1 CSS px, кромка кольца 179–188 против 228).
+   Под .lumen-full верхнее затухание кончается не ниже этого отступа, низ —
+   штатный; на экранах Lampa маска не тронута. */
+test('прогон 2026-09-27 (Н3): штатная сетка из плагина — маска ленты непрозрачна к верху ряда в фокусе, кольцо не гаснет', () => {
+  const lampa = lampaCss();
+  const pad = lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding');
+  const rules = ruleBodies(css).filter((r) => r.selectors.some((s) => /scroll--mask/.test(s)));
+  assert.ok(rules.length, 'правила маски под .lumen-full нет');
+  for (const r of rules) {
+    assert.ok(r.selectors.every((s) => /^\.lumen-full /.test(s)), 'маска Lampa тронута вне .lumen-full: ' + r.selectors.join(','));
+    assert.ok(r.selectors.every((s) => /:not\(\.scroll--horizontal\)/.test(s)), 'правило задевает горизонтальные ленты: ' + r.selectors.join(','));
+  }
+  const decl = rules[rules.length - 1].decl;
+  const mask = declProp(decl, 'mask-image');
+  assert.ok(mask && declProp(decl, '-webkit-mask-image'), 'маска без префиксной копии: ' + decl);
+  /* Стопы: первый полностью непрозрачный — в em и не ниже отступа Lampa
+     (там верх ряда в фокусе, а кольцо лежит внутри кромки постера). */
+  const stops = [];
+  const re = /(rgba\(255,255,255,0\)|#fff)\s+([0-9.]+)(em|%)?/g;
+  let m;
+  while ((m = re.exec(mask))) stops.push({ opaque: m[1] === '#fff', at: parseFloat(m[2]), unit: m[3] || '' });
+  const firstOpaque = stops.find((s) => s.opaque);
+  assert.ok(firstOpaque && firstOpaque.unit === 'em', 'непрозрачность наступает не в em: ' + mask);
+  assert.ok(firstOpaque.at <= pad, 'маска непрозрачна на ' + firstOpaque.at + 'em — ниже отступа Lampa ' + pad + 'em: кольцо гаснет');
+  const clear = stops.filter((s) => !s.opaque && s.unit === 'em' && s.at > 0).pop();
+  assert.ok(clear && clear.at < firstOpaque.at && clear.at >= pad - 1, 'хвост уходящего ряда над ним не скрыт: ' + mask);
+  assert.ok(/#fff 92%,rgba\(255,255,255,0\) 100%\)$/.test(mask), 'низ маски не штатный: ' + mask);
+});
