@@ -158,10 +158,36 @@
       return true;
     }
 
+    /* Прогон 2026-09-27 (Н4): «Рокки» находил ещё «Школьные годы» по
+       украинскому названию «Шкільні роки». Совпадение — не подстрокой: скелет
+       схлопывает удвоенные буквы, и «рокки» с «роки» в нём одно и то же
+       («roki»), — а основа «рок» начинала бы «роки» и без этого. Скелет и
+       основы нужны, чтобы свести разные ЗАПИСИ одного слова («марвел» —
+       «Marvel», «хеллоуин» — «Хэллоуин», «зима» — «зимнее»); между двумя
+       кириллическими языками они сводят разные слова. Поэтому с ключом на
+       другом кириллическом языке, чем запрос, сравнивается только сам текст
+       (подстрокой, как было). Язык узнаётся по буквам, которые есть только в
+       нём: і ї є ґ — украинский, ы э ъ — русский (текст уже приведён norm,
+       «ё» в нём — «е»); у ключа — по всей фразе («роки» само по себе ничьё,
+       «Шкільні роки» — украинское). Кириллический запрос без таких букв — на
+       языке интерфейса (украинский или русский). Ключ без меток («Зимнее
+       кино», «Летнее кино») и латиница подходят любому запросу. */
+    function cyrLang(text) {
+      if (/[іїєґ]/.test(text)) return 'uk';
+      if (/[ыэъ]/.test(text)) return 'ru';
+      return null;
+    }
+
+    function sameLang(key, qLang) {
+      var kLang = qLang ? cyrLang(key) : null;
+      return !kLang || kLang === qLang;
+    }
+
     function find(manifest, query, lang) {
       var q = norm(query);
       var qs = skeleton(query);
       var stems = stemsOf(q);
+      var qLang = cyrLang(q) || (/[а-я]/.test(q) ? (lang === 'uk' ? 'uk' : 'ru') : null);
       var list = manifest && Array.isArray(manifest.collections) ? manifest.collections : [];
       if (!q) return [];
       var found = [];
@@ -172,10 +198,11 @@
         var best = -1;
         for (var k = 0; k < keys.length; k++) {
           var key = norm(keys[k]);
+          var own = sameLang(key, qLang);
           var r1 = rankOf(key, q);
-          var r2 = rankOf(skeleton(keys[k]), qs);
+          var r2 = own ? rankOf(skeleton(keys[k]), qs) : -1;
           var r = r1 < 0 ? r2 : (r2 < 0 ? r1 : Math.min(r1, r2));
-          if (r < 0 && stemMatch(key, stems)) r = STEM_RANK;
+          if (r < 0 && own && stemMatch(key, stems)) r = STEM_RANK;
           if (r >= 0 && (best < 0 || r < best)) best = r;
         }
         if (best >= 0) found.push({ item: item, rank: best, order: i });
