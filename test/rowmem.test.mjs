@@ -215,6 +215,26 @@ test('rowmem: не главная, чужой контроллер, выключ
   }
 });
 
+test('rowmem: выключили посреди сеанса — спящие ряды просыпаются с байтами на ближайшем нажатии и на работе простоя', () => {
+  for (const how of ['focus', 'idle']) {
+    const env = makeEnv({ rows: 16, active: 15 });
+    const R = env.api;
+    R.mount([env.root]);
+    /* 'focus' — вся работа сделана, таймеров нет, будит нажатие; 'idle' —
+       выключили посреди работы простоя, будит её следующий колбэк. */
+    if (how === 'focus') env.advance(R.QUIET_MS + 10000);
+    else { env.advance(R.QUIET_MS - 1); env.step(); env.step(); }
+    assert.ok(env.lines.filter(asleep).length > 0, how + ': до выключения ряды спят');
+    env.pref = false;
+    if (how === 'focus') env.focus(15);
+    else env.advance(10000);
+    assert.equal(env.lines.filter(asleep).length, 0, how + ': выключенный модуль не оставляет спящих рядов');
+    assert.ok(env.lines.every((l) => l.cards.every((c) => c.img.getAttribute('src'))), how + ': байты постеров вернулись');
+    env.advance(20000);
+    assert.equal(env.lines.filter(asleep).length, 0, how + ': и больше не засыпают');
+  }
+});
+
 test('rowmem: ряд не в раскладке (высота 0) — не трогается и больше не пробуется', () => {
   const env = makeEnv({ rows: 12, active: 11 });
   env.lines[0].body.offsetHeight = 0;

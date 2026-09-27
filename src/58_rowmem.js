@@ -325,7 +325,10 @@
 
     function tick() {
       if (!state) return false;
-      if (!on() || (typeof document !== 'undefined' && document.hidden) || !onRows()) { arm(REST_MS); return false; }
+      /* Выключили посреди сеанса (lumen_rowmem из консоли) — спящих рядов
+         не оставляем: без модуля их больше никто не разбудит. */
+      if (!on()) { wakeAll(); arm(REST_MS); return false; }
+      if ((typeof document !== 'undefined' && document.hidden) || !onRows()) { arm(REST_MS); return false; }
       var c = component();
       if (!c) { arm(REST_MS); return false; }
       var did = false;
@@ -349,6 +352,8 @@
         if (on()) {
           var c = component();
           if (c) near(c);
+        } else {
+          wakeAll();
         }
       } catch (e) {
         warn('rowmem: focus failed', e);
