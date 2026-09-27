@@ -357,7 +357,7 @@
 | C2 | README: раздел «Управление мышью» (после A1), описание «Плоского вида» по факту (после A5) | исполнитель волны A | **выполнено** — раздел про мышь `5eead3f` (ревью волны A нашло, что пункт был пропущен), описание плоского вида `79c1a75` |
 | C3 | Память проекта: итог фаз 5–6, правило «стенд проверять в обоих режимах управления — пультом и мышью» (урок A1), правило «часовая метка в загрузчике — не убирать» | координатор | **за координатором** — в репозитории следов не оставляет, отсюда не проверяется |
 | C4 | Финальный `git show --stat` по каждому коммиту волны — сделано 2026-09-22 для волны 6 (все 11 коммитов только в ожидаемых файлах); повторить для волны A | координатор | **выполнено 2026-09-22**, см. ниже |
-| C5 | Версия: `dist` баннер сейчас `v0.2.0`; перед релизом поднять до `v1.0.0` в одном месте, откуда он берётся (`scripts/build.mjs` или `00_head.js` — найти, не плодить) | исполнитель | **НЕ ДЕЛАТЬ СЕЙЧАС**, см. ниже |
+| C5 | Версия: `dist` баннер сейчас `v0.2.0`; перед релизом поднять до `v1.0.0` в одном месте, откуда он берётся (`scripts/build.mjs` или `00_head.js` — найти, не плодить) | исполнитель | **выполнено 2026-09-27** — `LC.VERSION = '1.0.0'` в `src/00_head.js` (баннер `v1.0.0` берёт `scripts/build.mjs` оттуда же), решение пользователя о релизе; раздел E |
 
 **C4 — фактический состав волны A.** `git diff --stat 119711e..HEAD` (то есть от последнего коммита фазы 6 до `8074aba`) даёт **29 файлов**, посторонних путей среди них нет:
 
@@ -369,6 +369,8 @@
 Итого 1 + 1 + 1 + 13 + 13 = 29. (Предварительная оценка «два плана и 12 файлов `src/`» не сошлась: план один, файлов `src/` тринадцать.)
 
 **C5 — версию сейчас не поднимать. Решение координатора 2026-09-22.** `LC.VERSION` живёт в `src/00_head.js`; поднять её до `1.0.0` нужно **последним шагом, после раздела B**. Пока проверка на телевизоре не прошла, критерий «готово» не выполнен, и номер версии в баннере врал бы — `v1.0.0` на сборке, которую никто не видел на устройстве, дороже обходится, чем неудобство лишнего шага. Поэтому C5 остаётся открытым пунктом до закрытия B, а не галочкой.
+
+**C5 закрыт 2026-09-27 решением пользователя** («сегодня закончить всё, оттестировать и в прод»): версия поднята до `1.0.0` вместе с подготовкой выпуска в `main` — раздел E.
 
 ---
 
@@ -446,3 +448,85 @@
 ## Что НЕ делать (переносится)
 - Раунд «без лагов», 2026-09-27 (разбор и числа — `docs/research/2026-09-27-no-lag.md`): не грузить «всё заранее» — кадры `w1280` всех 200 карточек главной это 35 МБ сети и 740 МБ растра при бюджете композитора 96 МБ; не предсказывать фокус LLM — на устройстве веса от 350 МБ, облаком от 0,5–1 с на ответ при шаге пульта 100 мс; не снимать и не укорачивать переход ленты `.scroll__body` (урок B1), не прятать дальние ряды `content-visibility`/`display:none`, не оборачивать `Layer.visible` урезанной областью, не ставить `contain` на ряд, не ограничивать число карточек; хвост постеров на каждом шаге вниз — нет (задержка шага 184 → 248 мс).
 - `HERO_VH.large` не трогать; `main` не пушить без решения пользователя; настройки Lampa из кода не менять; ключ Kinopoisk не вводить; `original` для кадра не возвращать; инвариант «низ подписи ≤ 532» не ослаблять; каждое утверждение в комментарии проверяемо.
+
+---
+
+## E. Релиз 1.0.0 (подготовлен 2026-09-27)
+
+Решение пользователя 2026-09-27: «сегодня закончить всё, оттестировать и в прод». Релиз — это `LC.VERSION = '1.0.0'`, перемотка `main` на проверенный коммит `feat/lumen-v2`, переключение GitHub Pages на `main` и сброс jsDelivr. Что нового для зрителя — `CHANGELOG.md`.
+
+### Где что лежит (проверено 2026-09-27)
+
+| что | до релиза | после релиза |
+|---|---|---|
+| адрес установки из README | `https://azarkostya.github.io/lumen-card/lumen.js` → Pages → ветка `feat/lumen-v2` | тот же адрес → Pages → ветка `main` (стабильная) |
+| сборка, которую тянет загрузчик | `dist/lumen_card.js` рядом с `lumen.js` (адрес — от `document.currentScript`) | так же; запасной адрес без `currentScript` — jsDelivr `@main` (был `@feat/lumen-v2`) |
+| каталог `LC.MANIFEST_URL` | `https://azarkostya.github.io/lumen-card/manifest.json` → `feat/lumen-v2` | тот же адрес → `main`; в коде адрес не менялся |
+| бета | — | `https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/lumen.js` вместо стабильного адреса; каталог беты — с Pages (стабильный), свой — настройкой «Свой каталог подборок» |
+
+**Откуда Pages берёт файлы.** Режим «Deploy from a branch», ветка `feat/lumen-v2`, корень: в репозитории нет `.github/workflows`, `CNAME` и `index.html`, есть `.nojekyll`; публичный API Actions (`/repos/azarkostya/lumen-card/actions/runs`) показывает у каждого запуска «pages build and deployment» `head_branch: feat/lumen-v2` (последний — `98f7145`, 2026-09-27 10:48 UTC); `lumen.js`, `dist/lumen_card.js` и `manifest.json` с Pages совпадают с `98f7145` байт в байт. Ветка по умолчанию на GitHub — `main` = `efcbb15` (v1: один `lumen_card.js` в корне, без `lumen.js`, `dist/`, `manifest.json` и `.nojekyll`). Поэтому **Pages нельзя переключать на `main`, пока `main` не перемотан** — адрес установки отдал бы 404.
+
+**Отношение веток.** `efcbb15` — предок `feat/lumen-v2`, в `main` нет коммитов, которых нет в ветке (`git log feat/lumen-v2..main` пусто): выпуск — перемотка вперёд, без merge-коммита.
+
+### Порядок выпуска (Git Bash, основной репозиторий, ветка `feat/lumen-v2`)
+
+Шаги 3, 4 и 6 меняют публичное состояние — только с подтверждения пользователя. Шаг 5 — настройка репозитория на GitHub, её делает пользователь.
+
+```bash
+# 0. Исходные точки — записать до любых push
+git fetch origin
+PREV=$(git ls-remote origin refs/heads/feat/lumen-v2 | cut -f1)   # что сейчас на ТВ (Pages)
+MAIN0=$(git ls-remote origin refs/heads/main | cut -f1)           # ожидается efcbb15…
+REL=$(git rev-parse HEAD)                                         # выпускаемый коммит
+test -z "$(git status --porcelain)" && echo clean
+
+# 1. Сборка и тесты на самом REL
+node scripts/build.mjs && git diff --exit-code && echo build-reproducible
+node scripts/build.mjs --check
+node scripts/es5check.mjs dist/lumen_card.js
+node --test "test/*.test.mjs"                 # ℹ fail 0
+node scripts/release.mjs                      # «версия 1.0.0, локальные проверки: ok»
+head -1 dist/lumen_card.js                    # // Lumen Card for Lampa v1.0.0
+
+# 2. Перемотка возможна
+git merge-base --is-ancestor "$MAIN0" "$REL" && echo fast-forward-ok
+git log --oneline "$REL..$MAIN0"              # пусто
+git merge-base --is-ancestor "$PREV" "$REL" && echo beta-fast-forward-ok
+
+# 3. Бета: ТВ пока смотрит на Pages = feat/lumen-v2 и получит 1.0.0 уже здесь
+git push origin "$REL:refs/heads/feat/lumen-v2"
+for f in lumen.js dist/lumen_card.js manifest.json; do curl -s "https://purge.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/$f"; echo; done
+
+# 4. Стабильная ветка — только перемотка; отказ non-fast-forward = стоп, разбираться
+git push origin "$REL:refs/heads/main"
+
+# 5. Пользователь: GitHub → Settings → Pages → Build and deployment →
+#    Source «Deploy from a branch», Branch «main», папка «/ (root)» → Save.
+#    Проверка, что сборка Pages пошла с main и прошла:
+curl -s "https://api.github.com/repos/azarkostya/lumen-card/actions/runs?per_page=1" | grep -E '"(head_branch|head_sha|status|conclusion)"'
+
+# 6. Сброс jsDelivr @main (lumen.js, dist, manifest.json)
+node scripts/release.mjs --purge
+
+# 7. Через 2–3 минуты: Pages и jsDelivr @main отдают ровно файлы REL
+node scripts/release.mjs --remote --sha "$REL"          # шесть строк «ok», код выхода 0
+curl -s "https://azarkostya.github.io/lumen-card/dist/lumen_card.js?x=$RANDOM" | head -1   # v1.0.0
+curl -s "https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/dist/lumen_card.js" | head -1
+
+# 8. (по желанию) метка версии — неизменяемый адрес jsDelivr @v1.0.0 для сравнения и отката
+git tag -a v1.0.0 "$REL" -m "Lumen Card 1.0.0" && git push origin v1.0.0
+```
+
+На телевизоре: перезапуск Lampa не раньше чем через 10 минут после шага 3 — в строке HUD и в шапке самотеста `v1.0.0`.
+
+### Откат
+
+- **До шага 5** (Pages ещё на `feat/lumen-v2`): `main` телевизор не читает — `git push --force-with-lease=main:$REL origin "$MAIN0:refs/heads/main"`; телевизор возвращается откатом беты без `--force`: `git push origin "$(git commit-tree "$PREV^{tree}" -p "$REL" -m "откат feat/lumen-v2 к $PREV"):refs/heads/feat/lumen-v2"` и сброс jsDelivr `@feat/lumen-v2`.
+- **После шага 5** `main` на `efcbb15` **не возвращать** — адрес установки отдаст 404. Код откатывается коммитом поверх, перемоткой: `ROLL=$(git commit-tree "$PREV^{tree}" -p "$REL" -m "откат 1.0.0 к $PREV")`, `git push origin "$ROLL:refs/heads/main"`, `node scripts/release.mjs --purge`; телевизор получает прежнюю сборку не позже чем через 10 минут.
+- **Полный откат релиза**: Pages — обратно на `feat/lumen-v2` (Settings → Pages), дождаться сборки, затем `git push --force-with-lease=main:$REL origin "$MAIN0:refs/heads/main"` и `node scripts/release.mjs --purge`.
+
+### Что меняется в работе после релиза
+
+- Push в `feat/lumen-v2` больше **не** выкладка пользователю: бета доезжает только до того, кто поставил адрес jsDelivr `@feat/lumen-v2`. Выкладка — перемотка `main` по шагам 1–7 (`LC.VERSION` и раздел `CHANGELOG.md` — в том же коммите, что выпускается).
+- `jsDelivr @main/lumen_card.js` (корневой файл v1) после перемотки пропадёт: в `feat/lumen-v2` его нет с `4883cb3`. Адрес нигде не публиковался — README v1 давал только шаблон `https://<user>.github.io/<repo>/lumen_card.js`, а Pages с 2026-09-15 отдавал `feat/lumen-v2`, где этого файла нет.
+- Исторические планы фаз 1–6 и абзац «Публикация» в разделе «Состояние» описывают порядок до релиза и не правились.
