@@ -16,6 +16,8 @@ globalThis.PLUGIN = 'lumen_card';
 var warnLog = [];
 globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 
+/* Этап 2в: пустая GIF, которой герой отменяет загрузки (BLANK в src/48_hero.js). */
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 const HERO_SRC = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
 const PF_SRC = readFileSync(new URL('../src/58_prefetch.js', import.meta.url), 'utf8');
 const UTIL = load('10_util.js');
@@ -51,9 +53,16 @@ function makeEnv(opts) {
     this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; this.removed = false;
     images.push(this);
   }
-  /* Отмена загрузки в браузере — снятие атрибута src. */
+  /* Отмена загрузки в браузере — замена src на пустую GIF в data: (этап 2в:
+     removeAttribute('src') оставлял отсоединённый <img> в памяти Chromium);
+     снятие атрибута — ошибка теста. */
+  Object.defineProperty(FakeImage.prototype, 'src', {
+    configurable: true,
+    get() { return this._src; },
+    set(v) { this._src = v; if (v === BLANK) this.removed = true; }
+  });
   FakeImage.prototype.removeAttribute = function (name) {
-    if (name === 'src') { this.src = ''; this.removed = true; }
+    throw new Error('removeAttribute(' + name + '): отмена загрузки — только src = BLANK');
   };
 
   const env = {
@@ -1891,5 +1900,32 @@ test('rv7 Р3: серия шагом 150 мс — дорожка кадра че
   wait(env, 20);
   assert.equal(th.primes.length, p0 + 1, 'серия 150 мс: к 300 мс покоя миниатюры не пошли');
   assert.equal(th.primes[p0].path, '/p103.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Этап 2в (находка стенда: утечка памяти Chromium): отмена загрузки —      */
+/* src = пустая GIF в data:, обработчики сняты ДО замены                    */
+/* ====================================================================== */
+
+test('этап 2в: отменённая загрузка — src = BLANK (не removeAttribute), обработчики сняты до замены: load пустой GIF ничего не зовёт', () => {
+  const { env } = mounted();
+  let done = 0;
+  env.hero.preloadFrame('/x1.jpg', true, () => { done++; });
+  const x1 = env.images.find((i) => i.src === 'https://img/t/p/w1280/x1.jpg');
+  /* Как браузер: у пустой GIF в data: тоже бывает load — сразу по замене. */
+  Object.defineProperty(x1, 'src', { configurable: true, get() { return this._src; }, set(v) { this._src = v; if (v === BLANK) { this.removed = true; if (this.onload) this.onload(); } } });
+  env.hero.preloadFrame('/x2.jpg', true);
+  env.hero.preloadFrame('/x3.jpg', true);
+  assert.equal(x1.src, BLANK, 'вытесненная недоехавшая загрузка не снята пустой GIF');
+  assert.equal(x1.onload, null);
+  assert.equal(x1.onerror, null);
+  assert.equal(done, 1, 'исход вытесненной загрузки — один раз (load пустой GIF не в счёт)');
+  /* Ставка дорожки кадра (dropFrame): кадр и подложка — тем же путём. */
+  env.hero.preloadFrame('/g1.jpg', false);
+  const g = env.images.filter((i) => /\/g1\.jpg$/.test(i.src));
+  assert.equal(g.length, 2, 'предусловие: кадр и подложка');
+  env.hero.dropFrame('/g1.jpg');
+  assert.deepEqual(g.map((i) => i.src), [BLANK, BLANK], 'dropFrame снимает не пустой GIF');
   assert.deepEqual(warnLog, []);
 });

@@ -10,6 +10,9 @@ import { load } from './_load.mjs';
    ровно тех, что модуль читает из глобалов в момент вызова, а не загрузки. */
 
 globalThis.PLUGIN = 'lumen_card';
+/* Этап 2в: пустая GIF, которой герой отменяет загрузки и освобождает слои
+   (BLANK в src/48_hero.js). */
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 var warnLog = [];
 globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 
@@ -363,7 +366,14 @@ function makeEnv(extra) {
 
   function ForbiddenObserver() { throw new Error('MutationObserver must not be used'); }
 
-  function FakeImage() { this.onload = null; this.onerror = null; this.src = ''; images.push(this); }
+  function FakeImage() { this.onload = null; this.onerror = null; this.srcs = []; this.src = ''; images.push(this); }
+  /* Этап 2в: история src — отменённая загрузка (src = BLANK) помнит, что
+     грузила (frameLoads считает все заказанные кадры). */
+  Object.defineProperty(FakeImage.prototype, 'src', {
+    configurable: true,
+    get() { return this._src; },
+    set(v) { this._src = v; if (v) this.srcs.push(v); }
+  });
 
   const env = {
     timers: timers, images: images, requests: requests,
@@ -2297,7 +2307,8 @@ const W3_IMAGES = { backdrops: [
 ] };
 
 function frameLoads(env) {
-  return env.images.filter((i) => /\/w1280\//.test(i.src)).map((i) => i.src.replace('https://img/t/p/w1280', ''));
+  const first = (i) => (i.srcs || [i.src]).find((u) => /\/w1280\//.test(u || '')) || '';
+  return env.images.filter((i) => first(i)).map((i) => first(i).replace('https://img/t/p/w1280', ''));
 }
 
 test('волна 3: кадр героя — выбранный по деталям, ключевой арт не грузится вовсе', () => {
@@ -2472,7 +2483,7 @@ test('волна 3: на экране только подложка прошло
   env.advance(180);
   env.advance(251);
   assert.equal(lqip.hasClass('is-active'), false, 'подложка прошлого фильма осталась под текстом нового');
-  assert.equal(lqip.attr('src'), undefined);
+  assert.equal(lqip.attr('src'), BLANK, 'слой подложки освобождён (этап 2в: пустой GIF, а не снятый атрибут)');
   detailsOf(env, 22).ok({ id: 22 });
   assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b2.jpg', 'подложка нового фильма не встала');
   assert.equal(lqip.hasClass('is-active'), true);
@@ -3045,7 +3056,7 @@ test('Task 64: показанный кадр освобождает подлож
   assert.equal(lqip.hasClass('is-active'), true, 'подложку сняли посреди кроссфейда — сквозь кадр будет видно фон');
   f.env.advance(400);
   assert.equal(lqip.hasClass('is-active'), false, 'подложка осталась висеть после показа кадра');
-  assert.equal(lqip.attr('src'), undefined, 'растр подложки продолжает держаться за элемент');
+  assert.equal(lqip.attr('src'), BLANK, 'растр подложки продолжает держаться за элемент (этап 2в: освобождение — пустой GIF)');
 });
 
 /* Следующая карточка подложку не заводит заново: под приходящим кадром лежит
@@ -3064,7 +3075,7 @@ test('Task 64: со второй карточки подложка больше 
   img2.onload();
   img2.decoded.resolve();
   await tick();
-  assert.equal(lqip.attr('src'), undefined, 'подложку подняли на второй карточке');
+  assert.equal(lqip.attr('src'), BLANK, 'подложку подняли на второй карточке (освобождённый слой — пустой GIF, этап 2в)');
   assert.equal(lqip.hasClass('is-active'), false);
   assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
 });
@@ -5034,7 +5045,8 @@ const LOGO_URL = 'https://img/t/p/w780/l.png';
    порядку — кадр героя запрашивается и до логотипа (в момент показа
    карточки), и после него (второй заход loadFrame, когда backdrop пришёл в
    деталях), так что «последний Image» логотипом не является. */
-const logoLoads = (env) => env.images.filter((i) => i.src === LOGO_URL);
+/* Этап 2в: и снятые (src = BLANK) — по истории src. */
+const logoLoads = (env) => env.images.filter((i) => (i.srcs || [i.src]).indexOf(LOGO_URL) !== -1);
 const logoLoader = (env) => logoLoads(env)[logoLoads(env).length - 1];
 
 test('Task 71: в «Лёгких» детали из кэша успевают к первому выводу — текста без логотипа не видно', () => {
@@ -6333,7 +6345,7 @@ test('«Только кадры» с тяжёлыми эффектами: уше
     assert.equal(b.attr('src'), 'https://img/t/p/w1280/f2.jpg');
     assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'на время кроссфейда оба слоя с кадром');
     env.advance(700);
-    assert.equal(a.attr('src'), undefined, 'после кроссфейда ушедший слой пуст');
+    assert.equal(a.attr('src'), BLANK, 'после кроссфейда ушедший слой пуст (этап 2в: пустой GIF)');
     assert.equal(b.hasClass('is-active'), true);
   } finally { env.restore(); }
 });
@@ -7195,8 +7207,12 @@ test('ревью H1: ответ роликов в срок снимает тай
    (на слабом ТВ — декодирование 3.7 МБ растра, пока строится карточка).
    Репро ревьюера — scratchpad/fullrev/hero/test/zz_park.test.mjs. */
 function removable(img) {
+  /* Этап 2в: отмена загрузки — src = BLANK (removeAttribute('src') держал
+     отсоединённый <img> в памяти Chromium); снятие атрибута — ошибка. */
   img.removed = false;
-  img.removeAttribute = function (name) { if (name === 'src') { this.src = ''; this.removed = true; } };
+  let src = img.src;
+  Object.defineProperty(img, 'src', { configurable: true, get: () => src, set: (v) => { src = v; if (v === BLANK) img.removed = true; } });
+  img.removeAttribute = function (name) { throw new Error('removeAttribute(' + name + '): отмена загрузки — только src = BLANK'); };
   return img;
 }
 
@@ -7262,7 +7278,7 @@ test('ревью H3: переключение в «Выкл» гасит кад�
   env.LC.motionMode = () => 'off';
   env.hero.applyMotion();
   assert.equal(lit(), 0, 'кадр прошлого фильма остался под текстом');
-  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), undefined, 'подложка держит растр');
+  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), BLANK, 'подложка держит растр (этап 2в: освобождение — пустой GIF)');
 
   fireFocus(main.activity, main.card2);
   env.advance(DELAY);
@@ -7745,11 +7761,11 @@ test('дорожка кадра: preloadFrame — кадр w1280 (и подло�
   const big2 = env.images.find((i) => i.src === 'https://img/t/p/w1280/f2.jpg');
   assert.equal(big2.fetchPriority, 'low', 'сосед по ходу — с низким приоритетом');
   assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w300/f2.jpg').length, 0, 'подложка соседу по ходу');
-  let removed = false;
-  big2.removeAttribute = (n) => { if (n === 'src') removed = true; };
+  removable(big2);
   env.hero.preloadFrame('/f1.jpg');
   env.hero.preloadFrame('/f3.jpg', true);
-  assert.equal(removed, true, 'вытесненный недоехавший кадр тянет байты дальше');
+  assert.equal(big2.removed, true, 'вытесненный недоехавший кадр тянет байты дальше');
+  assert.equal(big2.onload, null, 'обработчики сняты до замены src');
   assert.equal(done2, 1, 'вытеснение не закрыло ожидание done');
   big2.onload && big2.onload();
   assert.equal(done2, 1, 'done позван второй раз');
@@ -7872,7 +7888,7 @@ test('этап 2а, п.2: на экране кадр другого фильма
   frameImg(env, '/b2.jpg').onload();
   env.advance(1000);
   const lqip = stage.find('.lumen-hero__lqip');
-  assert.equal(lqip.attr('src'), undefined, 'кадр встал раньше потолка, а подложка вышла на слой — лишняя смена');
+  assert.equal(lqip.attr('src'), BLANK, 'кадр встал раньше потолка, а подложка вышла на слой — лишняя смена (освобождённый слой первого кадра — пустой GIF, этап 2в)');
   assert.equal(lqip.hasClass('is-active'), false);
   assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b2.jpg');
   assert.deepEqual(warnLog, []);

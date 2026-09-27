@@ -17928,6 +17928,25 @@ var HOLD_SOON = 200;
 
 
 
+var BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
+function blankImg(img) {
+if (!img) return;
+img.onload = null;
+img.onerror = null;
+try { img.src = BLANK; } catch (e) {}
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -18684,9 +18703,7 @@ fl.probe.cancel();
 fl.probe = null;
 if (Object.prototype.hasOwnProperty.call(toneProbes, path) && toneProbes[path].fl === fl) delete toneProbes[path];
 }
-try {
-if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
-} catch (e) {}
+blankImg(fl.img);
 }
 
 
@@ -19181,7 +19198,7 @@ state.loader = null;
 neutralFrame();
 
 
-state.stage.find('.lumen-hero__bg').removeAttr('src');
+state.stage.find('.lumen-hero__bg').attr('src', BLANK);
 
 
 settleAccent(true);
@@ -19270,12 +19287,9 @@ state.detailsWait = false;
 
 
 
+
 function dropLoader(loader) {
-loader.onload = null;
-loader.onerror = null;
-try {
-if (typeof loader.removeAttribute === 'function') loader.removeAttribute('src');
-} catch (e) {}
+blankImg(loader);
 }
 
 
@@ -19887,7 +19901,7 @@ state.slideFree = null;
 try {
 var layers = [state.stage.find('.lumen-hero__bg--a'), state.stage.find('.lumen-hero__bg--b')];
 for (var i = 0; i < layers.length; i++) {
-if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
+if (!layers[i].hasClass('is-active')) layers[i].attr('src', BLANK);
 }
 } catch (e) { }
 }, SLIDE_FREE);
@@ -20539,7 +20553,7 @@ state.lqipUrl = '';
 try {
 var lqip = state.stage.find('.lumen-hero__lqip');
 lqip.removeClass('is-active');
-lqip.removeAttr('src');
+lqip.attr('src', BLANK);
 } catch (e) {}
 }, LQIP_FREE);
 }
@@ -20614,7 +20628,7 @@ list.push(entry);
 while (list.length > max) {
 var old = list.shift();
 if (!old.done) {
-try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+blankImg(old.img);
 settleKept(old);
 }
 }
@@ -20650,7 +20664,7 @@ for (var i = 0; i < list.length; i++) {
 if (list[i].url !== url) continue;
 if (list[i].done) return;
 var old = list.splice(i, 1)[0];
-try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+blankImg(old.img);
 settleKept(old);
 return;
 }
@@ -21379,7 +21393,7 @@ if (state.lqipUrl) {
 stopTimer('lqipTimer');
 var lqip = state.stage.find('.lumen-hero__lqip');
 lqip.removeClass('is-active');
-lqip.removeAttr('src');
+lqip.attr('src', BLANK);
 state.lqipUrl = '';
 }
 

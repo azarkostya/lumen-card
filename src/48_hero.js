@@ -257,6 +257,25 @@
        своим потолком (разбор — у holdSoon). */
     var HOLD_SOON = 200;
 
+    /* Раунд «без лагов», этап 2в (находка стенда координатора: утечка
+       памяти Chromium). Загрузка картинки отменялась снятием атрибута src
+       (removeAttribute) — и отсоединённый <img>, чью загрузку так
+       оборвали, Chromium держит в памяти (опыт: 40 из 40 после GC), а с
+       заменой src на пустую GIF в data: — ни одного (0 из 40). Пустой src
+       ('') не годится: старые движки шлют запрос к адресу самой страницы.
+       Поэтому отмена и освобождение — BLANK: у загрузчиков (new Image) —
+       с обработчиками, снятыми ДО замены (blankImg), у слоёв кадра и
+       подложки в DOM — тем же адресом (слой при этом погашен: без
+       is-active у него opacity 0, src/30_css.js). */
+    var BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
+    function blankImg(img) {
+      if (!img) return;
+      img.onload = null;
+      img.onerror = null;
+      try { img.src = BLANK; } catch (e) {}
+    }
+
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без DOM, Lampa и window).                           */
     /* ------------------------------------------------------------------ */
@@ -927,7 +946,7 @@
        Склейка: одинаковый логотип в пути грузится ОДИН раз, кто бы его ни
        просил — герой, карточка или предзагрузка (logoFlight: путь → одна
        картинка и список ждущих). Отказался последний ждущий — загрузка
-       снимается и в сети (removeAttribute('src')): на слабом ТВ байты
+       снимается и в сети (src — BLANK, этап 2в): на слабом ТВ байты
        никому не нужной картинки отняты у кадра героя.
        decode() не зовётся и здесь: растеризацию логотипа делает браузер,
        когда его рисуют (разбор у loadLogo). */
@@ -1023,9 +1042,7 @@
         fl.probe = null;
         if (Object.prototype.hasOwnProperty.call(toneProbes, path) && toneProbes[path].fl === fl) delete toneProbes[path];
       }
-      try {
-        if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
-      } catch (e) {}
+      blankImg(fl.img);
     }
 
     /* Загрузка кончилась: исход — в logoSeen ДО колбэков ждущих (это знание
@@ -1520,7 +1537,7 @@
       neutralFrame();
       /* Погасшие слои растр не держат: в «Выкл» их до выхода из режима
          никто не покажет. */
-      state.stage.find('.lumen-hero__bg').removeAttr('src');
+      state.stage.find('.lumen-hero__bg').attr('src', BLANK);
       /* Следующий раунд, п.5: ехавший кадр снят, картинка — нейтральный
          фон: цвет показа, если ждал кадра, встаёт с ним. */
       settleAccent(true);
@@ -1605,16 +1622,13 @@
 
     /* Предзагрузчик кадра больше не нужен. Ревью H2: снять обработчики
        мало — байты w1280 (3.7 МБ растра) ехали бы дальше; снятие src
-       отменяет загрузку и в сети (removeAttribute, а не src = '': пустой
+       отменяет загрузку и в сети (этап 2в: src — BLANK, а не
+       removeAttribute — утечка отсоединённых <img> — и не src = '': пустой
        src в старых движках — запрос к адресу самой страницы). Промис
        decode(), начатый раньше, отменить нечем — его исход отсекают
        сторожа finish в loadFrame. */
     function dropLoader(loader) {
-      loader.onload = null;
-      loader.onerror = null;
-      try {
-        if (typeof loader.removeAttribute === 'function') loader.removeAttribute('src');
-      } catch (e) {}
+      blankImg(loader);
     }
 
     /* ------------------------------------------------------------------ */
@@ -2226,7 +2240,7 @@
         try {
           var layers = [state.stage.find('.lumen-hero__bg--a'), state.stage.find('.lumen-hero__bg--b')];
           for (var i = 0; i < layers.length; i++) {
-            if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
+            if (!layers[i].hasClass('is-active')) layers[i].attr('src', BLANK);
           }
         } catch (e) { }
       }, SLIDE_FREE);
@@ -2864,8 +2878,8 @@
        (onerror, таймаут без байтов), эта функция не зовётся и подложка
        остаётся на экране до следующего показанного кадра или до unmount —
        так и задумано: пустой герой хуже размытого.
-       removeAttr, а не src = '': пустой src в старых движках это запрос к
-       адресу самой страницы. */
+       Слой освобождается адресом BLANK (этап 2в; не src = '': пустой src
+       в старых движках это запрос к адресу самой страницы). */
     var LQIP_FREE = 900;
     function releaseLqip() {
       if (!state || !state.lqipUrl) return;
@@ -2878,7 +2892,7 @@
         try {
           var lqip = state.stage.find('.lumen-hero__lqip');
           lqip.removeClass('is-active');
-          lqip.removeAttr('src');
+          lqip.attr('src', BLANK);
         } catch (e) {}
       }, LQIP_FREE);
     }
@@ -2907,7 +2921,7 @@
        понадобится, — растр 3.7 МБ появляется только у показанного кадра,
        до того в памяти сжатые байты (кадр w1280 — 100–300 КБ, w300 —
        10–30 КБ). Загрузка, вытесненная из списка недоехавшей, снимается и
-       в сети (removeAttribute). Возвращает 'ok' | 'load' | ''.
+       в сети (src — BLANK, этап 2в). Возвращает 'ok' | 'load' | ''.
        done — необязательный: зовётся один раз, когда байты доехали, не
        доехали или загрузку сняли вытеснением (по 'load'; по 'ok' и '' — не
        зовётся). По нему дорожка ставит кадр соседа ПОСЛЕ кадра под
@@ -2953,7 +2967,7 @@
       while (list.length > max) {
         var old = list.shift();
         if (!old.done) {
-          try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+          blankImg(old.img);
           settleKept(old);
         }
       }
@@ -2989,7 +3003,7 @@
         if (list[i].url !== url) continue;
         if (list[i].done) return;
         var old = list.splice(i, 1)[0];
-        try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+        blankImg(old.img);
         settleKept(old);
         return;
       }
@@ -3718,7 +3732,7 @@
         stopTimer('lqipTimer');
         var lqip = state.stage.find('.lumen-hero__lqip');
         lqip.removeClass('is-active');
-        lqip.removeAttr('src');
+        lqip.attr('src', BLANK);
         state.lqipUrl = '';
       }
       /* На экране больше нет прошлого фильма — второй раз не прячем. */
