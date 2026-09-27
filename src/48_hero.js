@@ -2956,6 +2956,29 @@
       return keepImage(frameKept, FRAME_KEEP, url, low, done);
     }
 
+    /* Этап 2в, п.2: байты кадра, заказанные наудачу (дорожка кадра, первый
+       кандидат, пока идут сравнения с постером — src/58_prefetch.js), не
+       понадобились: фокус ушёл или решён другой кадр. Недоехавшие кадр и
+       подложка снимаются и в сети (как при вытеснении в keepImage), их
+       ждущие получают исход; доехавшие остаются в памяти до вытеснения,
+       как любой заранее заказанный кадр. */
+    function dropFrame(path) {
+      if (!path) return;
+      dropLoading(frameKept, frameUrl(path));
+      dropLoading(lqipKept, lqipUrl(path));
+    }
+
+    function dropLoading(list, url) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url !== url) continue;
+        if (list[i].done) return;
+        var old = list.splice(i, 1)[0];
+        try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+        settleKept(old);
+        return;
+      }
+    }
+
     /* Раунд «без лагов», этап 2а, п.2 (исследование preload, 5.1): режим
        CORS подложки — тот же, что у цвета низа кадра (LC.accent.frameCors,
        src/57_color.js): цвет считается по w300 ТОГО ЖЕ кадра, адрес тот
@@ -4726,6 +4749,8 @@
          предзагрузки соседей (src/58_prefetch.js). */
       frameUrl: frameUrl,
       preloadFrame: preloadFrame,
+      /* Этап 2в, п.2: снять байты кадра, заказанные наудачу. */
+      dropFrame: dropFrame,
       /* Раунд «без ожидания», п.3: читаемое название (наружу ради теста). */
       heroTitle: heroTitle,
       TITLE_WAIT: TITLE_WAIT,

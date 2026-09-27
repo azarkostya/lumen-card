@@ -733,6 +733,42 @@
       for (var i = 0; i < primes.length; i++) {
         try { primes[i].cancel(); } catch (e2) { warn('prefetch: lead prime cancel failed', e2); }
       }
+      dropGuess();
+    }
+
+    /* Этап 2в, п.2 (стенд, серии 3 × 150 мс, ТВ-профиль, CPU ×10, сеть
+       +200 мс): детали карточки под фокусом — к ~550 мс от последнего
+       нажатия, миниатюры кандидатов — к ~800, ответ сравнения (разбор на
+       главном потоке) — к ~950–1110, и только тогда уходил запрос w1280:
+       байты — ещё ~300 мс, кадр — к ~1340. Выбор кадра — первый кандидат,
+       не похожий на постер; первый кандидат выбирается в ~75 % выборки
+       (исследование hero2). Поэтому байты w1280 и подложки кандидата,
+       чей ответ сравнения ждёт выбор (обычно первого), уходят НАУДАЧУ
+       вместе с первой парой, параллельно миниатюрам и разбору. Угадали —
+       решение дорожки встаёт на ту же загрузку (preloadFrame склеивает
+       адрес), показ — тоже (тот же адрес — один ресурс браузера). Не
+       угадали или фокус ушёл — недоехавшие байты снимаются и в сети
+       (LC.hero.dropFrame). Одна ставка на перевод фокуса; decode() не
+       зовётся; в памяти — те же FRAME_KEEP кадров и LQIP_KEEP подложек
+       героя; в серии нажатий — ни одного старта (дорожка — только после
+       покоя). guess — путь ставки, пока она не стала решением. */
+    var guess = '';
+
+    function guessLead(job, path) {
+      if (job.guessed) return;
+      job.guessed = true;
+      try {
+        if (LC.hero.preloadFrame(path, false)) guess = path;
+      } catch (e) {
+        warn('prefetch: frame guess failed', e);
+      }
+    }
+
+    function dropGuess() {
+      var path = guess;
+      guess = '';
+      if (!path || !LC.hero || typeof LC.hero.dropFrame !== 'function') return;
+      try { LC.hero.dropFrame(path); } catch (e) { warn('prefetch: frame guess drop failed', e); }
     }
 
     /* Этап 2а, п.1: миниатюры w92 для решения карточки под фокусом —
@@ -834,7 +870,11 @@
         if (leadLook) return;
         var pair = lookAllowed() ? lookPair(job.card) : null;
         if (!pair) break;
-        if (!askLead(job, pair)) return;
+        if (!askLead(job, pair)) {
+          /* Этап 2в, п.2: сравнение в пути — байты его кандидата наудачу. */
+          guessLead(job, pair.frame);
+          return;
+        }
         path = frameOf(job.card);
       }
       if (path === undefined) {
@@ -852,6 +892,12 @@
         return;
       }
       frames.shift();
+      /* Этап 2в, п.2: выбор решён — ставка либо он сам (дальше это
+         обычный кадр под фокусом), либо мимо: её байты больше не нужны. */
+      if (job.lead && guess) {
+        if (guess === path) guess = '';
+        else dropGuess();
+      }
       if (path) {
         var got = '';
         try {

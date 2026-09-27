@@ -1481,15 +1481,20 @@ test('этап 2а, п.1: через IDLE покоя — детали, сроч�
   answer(lead, lookDetails(103));
   assert.deepEqual(th.pairs(), ['103:a103'], 'пару карточки под фокусом не завела дорожка');
   assert.equal(th.calls[0].urgent, true, 'пара карточки под фокусом — срочная (впереди задач простоя)');
-  assert.equal(anyW1280(env).length, 0, 'кадр грузится до решения');
+  /* Этап 2в, п.2: до решения грузится только ставка — кадр кандидата,
+     чей ответ ждёт выбор (обычно он и выбран). */
+  assert.deepEqual(anyW1280(env).map((i) => i.src), ['https://img/t/p/w1280/a103.jpg'], 'до решения — только ставка на первый кандидат');
+  const bet = img1280(env, 'a103')[0];
   th.answer(th.calls[0], true);
   assert.deepEqual(th.pairs(), ['103:a103', '103:b103'], 'похож — следующий кандидат той же карточки');
-  assert.equal(anyW1280(env).length, 0, 'кадр грузится до решения');
+  assert.equal(anyW1280(env).length, 1, 'ставка на перевод фокуса — одна: второй кандидат наудачу не грузится');
   th.answer(th.calls[1], false);
   const early = img1280(env, 'b103');
   assert.equal(early.length, 1, 'байты выбранного кадра не заказаны');
   assert.equal(early[0].fetchPriority, 'auto');
   assert.equal(w300(env, 103).length, 1, 'подложка выбранного кадра не заказана');
+  /* Этап 2в, п.2: ставка мимо — её недоехавшие байты сняты и в сети. */
+  assert.equal(bet.removed, true, 'похожий кадр (ставка мимо) грузится дальше');
   assert.equal(img1280(env, 'a103').length, 0, 'похожий кадр грузится');
   env.advance(COLOR_GAP);
   assert.deepEqual(acc.calls.slice(0, 1), [103], 'кадр решён — цвет его низа ждёт показа');
@@ -1558,7 +1563,9 @@ test('этап 2а, п.1: ответ не лёг в память (миниатю
   c.subs.forEach((s) => { if (s.live) { s.live = false; s.cb(null); } });
   env.advance(50);
   assert.equal(th.calls.length, 1, 'дорожка повторила пару без знания — ещё одна загрузка');
-  assert.equal(anyW1280(env).length, 0, 'кадр выбран без ответа');
+  /* Этап 2в, п.2: решённого дорожкой кадра нет — есть только ставка на
+     первый кандидат, и она не снимается: выбирать будет показ. */
+  assert.deepEqual(anyW1280(env).map((i) => i.src + ':' + i.removed), ['https://img/t/p/w1280/a103.jpg:false'], 'кадр выбран без ответа');
   env.advance(DELAY - 300);
   assert.equal(th.calls.length, 2, 'показ не спросил сам');
   th.answer(th.calls[1], false);
@@ -1581,6 +1588,78 @@ test('этап 2а, п.1: миниатюры заранее — постер в�
   assert.deepEqual(th.pairs(), ['103:a103'], 'сравнение первой пары — сразу');
   focus(main, main.rows[0][3]);
   assert.ok(th.primes.every((p) => p.cancelled), 'перевод фокуса не снял миниатюры');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Раунд «без лагов», этап 2в, п.2: байты w1280 первого кандидата — наудачу, */
+/* пока идут сравнения с постером                                          */
+/* ====================================================================== */
+
+const img300 = (env, name) => env.images.filter((i) => i.src === 'https://img/t/p/w300/' + name + '.jpg');
+
+test('этап 2в, п.2: сравнение в пути — кадр и подложка его кандидата наудачу, обычный приоритет, без decode; угадали — решение и показ встают на ту же загрузку', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  assert.equal(anyW1280(env).length, 0, 'ставка до деталей: кандидатов ещё нет');
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.deepEqual(th.pairs(), ['103:a103'], 'предусловие: пара в пути');
+  const bet = img1280(env, 'a103');
+  assert.equal(bet.length, 1, 'байты кандидата, чей ответ ждёт выбор, не заказаны наудачу');
+  assert.equal(bet[0].fetchPriority, 'auto', 'ставка — обычный приоритет (показ грузит свой кадр с high)');
+  assert.equal(bet[0].decoding, 'async');
+  assert.equal(typeof bet[0].decodeCalled, 'undefined', 'decode() у ставки');
+  assert.equal(img300(env, 'a103').length, 1, 'подложка ставки не заказана');
+  th.answer(th.calls[0], false);
+  assert.equal(img1280(env, 'a103').filter((i) => i.fetchPriority !== 'high').length, 1, 'решение дорожки завело вторую загрузку того же кадра');
+  assert.equal(bet[0].removed, false, 'угаданная ставка снята');
+  env.advance(DELAY - 250);
+  assert.equal(img1280(env, 'a103').filter((i) => i.fetchPriority === 'high').length, 1, 'показ грузит не угаданный кадр');
+  assert.equal(anyW1280(env).filter((i) => !/a103/.test(i.src)).length, 0, 'лишние кадры');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в, п.2: фокус ушёл до решения — недоехавшие кадр и подложка ставки сняты и в сети; доехавшие остаются в памяти', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  const bet = img1280(env, 'a103')[0];
+  const low = img300(env, 'a103')[0];
+  assert.ok(bet && low, 'предусловие: ставка в пути');
+  focus(main, main.rows[0][3]);
+  assert.equal(bet.removed, true, 'перевод фокуса не снял кадр ставки');
+  assert.equal(low.removed, true, 'перевод фокуса не снял подложку ставки');
+
+  const th2 = fakeLook();
+  const b = mounted({ thumbs: th2 });
+  focus(b.main, b.main.rows[0][2]);
+  b.env.advance(250);
+  answer(pending(b.env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  const bet2 = img1280(b.env, 'a103')[0];
+  land(bet2, 1280, 720);
+  focus(b.main, b.main.rows[0][3]);
+  assert.equal(bet2.removed, false, 'доехавшая ставка снята — байты выброшены');
+  /* Вернулись раньше показа: те же байты из памяти, без второй загрузки. */
+  focus(b.main, b.main.rows[0][2]);
+  b.env.advance(250);
+  assert.equal(img1280(b.env, 'a103').filter((i) => i.fetchPriority !== 'high').length, 1, 'вторая загрузка того же кадра');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в, п.2: выбор решён из памяти (ответы сравнения известны) — ставки нет, грузится решённый кадр', () => {
+  const th = fakeLook();
+  th.verdicts['/p103.jpg|/a103.jpg'] = true;
+  th.verdicts['/p103.jpg|/b103.jpg'] = false;
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.equal(th.calls.length, 0, 'сравнение при известных ответах');
+  assert.deepEqual(anyW1280(env).map((i) => i.src), ['https://img/t/p/w1280/b103.jpg'], 'ставка при решённом выборе');
   assert.deepEqual(warnLog, []);
 });
 

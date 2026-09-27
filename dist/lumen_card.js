@@ -20623,6 +20623,29 @@ return keepImage(frameKept, FRAME_KEEP, url, low, done);
 
 
 
+function dropFrame(path) {
+if (!path) return;
+dropLoading(frameKept, frameUrl(path));
+dropLoading(lqipKept, lqipUrl(path));
+}
+
+function dropLoading(list, url) {
+for (var i = 0; i < list.length; i++) {
+if (list[i].url !== url) continue;
+if (list[i].done) return;
+var old = list.splice(i, 1)[0];
+try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+settleKept(old);
+return;
+}
+}
+
+
+
+
+
+
+
 
 
 function lqipCors() {
@@ -22387,6 +22410,8 @@ waitLogo: waitLogo,
 
 frameUrl: frameUrl,
 preloadFrame: preloadFrame,
+
+dropFrame: dropFrame,
 
 heroTitle: heroTitle,
 TITLE_WAIT: TITLE_WAIT,
@@ -34253,6 +34278,42 @@ leadPrimes = [];
 for (var i = 0; i < primes.length; i++) {
 try { primes[i].cancel(); } catch (e2) { warn('prefetch: lead prime cancel failed', e2); }
 }
+dropGuess();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var guess = '';
+
+function guessLead(job, path) {
+if (job.guessed) return;
+job.guessed = true;
+try {
+if (LC.hero.preloadFrame(path, false)) guess = path;
+} catch (e) {
+warn('prefetch: frame guess failed', e);
+}
+}
+
+function dropGuess() {
+var path = guess;
+guess = '';
+if (!path || !LC.hero || typeof LC.hero.dropFrame !== 'function') return;
+try { LC.hero.dropFrame(path); } catch (e) { warn('prefetch: frame guess drop failed', e); }
 }
 
 
@@ -34354,7 +34415,11 @@ while (path === undefined && job.lead && !job.given) {
 if (leadLook) return;
 var pair = lookAllowed() ? lookPair(job.card) : null;
 if (!pair) break;
-if (!askLead(job, pair)) return;
+if (!askLead(job, pair)) {
+
+guessLead(job, pair.frame);
+return;
+}
 path = frameOf(job.card);
 }
 if (path === undefined) {
@@ -34372,6 +34437,12 @@ pumpFrames();
 return;
 }
 frames.shift();
+
+
+if (job.lead && guess) {
+if (guess === path) guess = '';
+else dropGuess();
+}
 if (path) {
 var got = '';
 try {
