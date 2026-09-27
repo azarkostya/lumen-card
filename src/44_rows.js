@@ -893,11 +893,13 @@
         }
       }
 
-      /* ms — пауза до заготовки; без неё AHEAD_MS. */
+      /* ms — пауза до заготовки; без неё AHEAD_MS. Колбэки таймеров —
+         именованные (полоса gc3, 2026-09-27): на ТВ LoAF отдаёт имя
+         функции (sourceFunctionName), у анонимной — пусто. */
       function arm(ms) {
         if (st !== 'idle' || timer || !alive()) return;
-        timer = aheadSet(function () {
-          aheadIdle(function () {
+        timer = aheadSet(function onRowsAhead() {
+          aheadIdle(function onRowsAheadIdle() {
             timer = null;
             if (st !== 'idle' || !alive()) return;
             if (onMain()) start();
@@ -911,7 +913,7 @@
           var out = rows;
           rows = null;
           st = 'idle';
-          aheadSet(function () {
+          aheadSet(function onRowsAheadTake() {
             resolve(out);
             arm();
           }, 0);

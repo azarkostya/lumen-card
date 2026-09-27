@@ -354,7 +354,7 @@ function makeEnv(opts) {
   }
   return {
     api, LC, log, overrides, storageWrites, noty, body, toggles, controllers, doc, win, hero, cards,
-    advance,
+    advance, timers, frames,
     key: () => { const ls = (winListeners.keydown || []).slice(); let stopped = false; for (const l of ls) l.fn({ keyCode: 39, stopPropagation: () => { stopped = true; }, preventDefault() {} }); return { listeners: ls.length, stopped, capture: ls.every((l) => l.cap === true) }; },
     hide: () => { doc.hidden = true; (docListeners.visibilitychange || []).slice().forEach((fn) => fn({})); },
     activityStart: () => activity.slice().forEach((fn) => fn({ type: 'start', component: 'full' })),
@@ -699,4 +699,31 @@ test('stop scroll: зонд снимается в конце СВОЕЙ стад
   } finally {
     e.api.STAGES.pop();
   }
+});
+
+/* Полоса gc3 (2026-09-27): на ТВ LoAF отдаёт имя функции, переданной
+   таймеру (sourceFunctionName), а у анонимной — пусто, и
+   «TimerHandler:setTimeout azarkostya.github.io» в подвале не говорил,
+   чей таймер. У самотеста — onBenchTimer (служебный), onBenchMove (шаг
+   пульта), onBenchFrame (кадр замера), onBenchLeave/onBenchLaunch (выход
+   из настроек и старт). */
+test('bench: колбэки таймеров и rAF — именованные; шаг пульта отличим от служебного таймера', () => {
+  const e = makeEnv({ loaf: true });
+  e.api.start();
+  assert.equal(e.timers[0].fn.name, 'onBenchLeave');
+  e.advance(LEAVE + 10);
+  assert.equal(e.timers[1].fn.name, 'onBenchLaunch');
+  e.advance(RUN + 100);
+  const names = new Set(e.timers.map((t) => t.fn.name));
+  assert.deepEqual([...names].sort(), ['onBenchLaunch', 'onBenchLeave', 'onBenchMove', 'onBenchTimer'], [...names].join(','));
+  /* Шаги листания — onBenchMove: столько же, сколько отложенных шагов. */
+  const moves = e.timers.filter((t) => t.fn.name === 'onBenchMove').length;
+  const steps = e.log.filter((x) => x === 'move right' || x === 'move left').length;
+  assert.ok(moves > 20 && moves <= steps, moves + ' таймеров шага на ' + steps + ' нажатий');
+  assert.equal(e.api.last().reason, 'done');
+  const e2 = makeEnv();
+  e2.api.start();
+  e2.advance(LEAVE + 10);
+  assert.ok(e2.frames.length > 0 && e2.frames.every((f) => f.fn.name === 'onBenchFrame'), 'кадр замера');
+  e2.api.stop();
 });

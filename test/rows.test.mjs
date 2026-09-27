@@ -1729,3 +1729,20 @@ test('сверка: dedupe и порция ряда сохраняют total_pag
   var viewed = s.R.withView(kept, 12);
   assert.equal(viewed[0].params.emit, more.emit, 'копия params при подгонке порции потеряла обработчик');
 });
+
+/* Полоса gc3 (2026-09-27): на ТВ LoAF отдаёт имя функции, переданной
+   таймеру или простою (sourceFunctionName), а у анонимной — пусто. */
+test('partAhead: колбэки паузы, простоя и выдачи заготовки — именованные функции', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4, 5])]);
+  var next = w.s.Lampa.Api.main({}, function () {}, function () {});
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].fn.name, 'onRowsAhead', 'пауза после построения части');
+  w.timers.shift().fn();
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].fn.name, 'onRowsAheadIdle', 'простой браузера');
+  w.run();
+  w.calls[0].ok([mkRow('B', [6, 7, 8, 9])]);
+  next(function () {}, function () {});
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].fn.name, 'onRowsAheadTake', 'выдача заготовки Lampa');
+});

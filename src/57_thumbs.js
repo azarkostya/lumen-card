@@ -549,12 +549,15 @@
       arm();
     }
 
+    /* Колбэки таймеров и простоя — именованные (полоса gc3, 2026-09-27):
+       на ТВ LoAF отдаёт имя функции (sourceFunctionName), а у анонимной —
+       пусто, и в подвале самотеста не видно, чей таймер. */
     function arm() {
       if (!idleQueue.length) return;
       if (idleQueue[0].urgent) {
         if (urgentArmed) return;
         urgentArmed = true;
-        setTimeout(function () {
+        setTimeout(function onThumbsUrgent() {
           urgentArmed = false;
           run(null);
         }, 0);
@@ -562,7 +565,7 @@
       }
       if (idleArmed) return;
       idleArmed = true;
-      var fire = function (deadline) {
+      var fire = function onThumbsIdle(deadline) {
         idleArmed = false;
         run(deadline);
       };
@@ -625,9 +628,9 @@
          полусекунды за логотипами и постерами окна. Свойство — Chrome 101+,
          старее — просто поле. */
       if (urgent) img.fetchPriority = 'high';
-      img.onload = function () { land(path, fl, img); };
-      img.onerror = function () { land(path, fl, null); };
-      fl.timer = setTimeout(function () {
+      img.onload = function onThumbsLoad() { land(path, fl, img); };
+      img.onerror = function onThumbsError() { land(path, fl, null); };
+      fl.timer = setTimeout(function onThumbsTimeout() {
         fl.timer = null;
         land(path, fl, img.complete && img.naturalWidth ? img : null);
       }, LOAD_MS);

@@ -255,7 +255,7 @@
        доехав, будит его — иначе при занятых слотах новый план ждал бы
        следующего перевода фокуса. */
     function done(img) {
-      return function () {
+      return function onPostersDone() {
         img.onload = img.onerror = null;
         busy--;
         if (busy < 0) busy = 0;
@@ -269,16 +269,20 @@
        LC.prefetch), и серия нажатий в одной задаче даёт один план. */
     var planTimer = null;
     /* Ряды ниже — отдельным таймером покоя: каждый перевод фокуса его
-       переставляет, так что при зажатой стрелке он не срабатывает. */
+       переставляет, так что при зажатой стрелке он не срабатывает.
+       Колбэки таймеров — именованные (полоса gc3, 2026-09-27): на ТВ
+       LoAF отдаёт имя функции (sourceFunctionName), а у анонимной — пусто,
+       и «TimerHandler:setTimeout» в подвале самотеста не говорил, чей
+       таймер. */
     var quietTimer = null;
     function around() {
       if (quietTimer) clearTimeout(quietTimer);
-      quietTimer = setTimeout(function () {
+      quietTimer = setTimeout(function onPostersIdle() {
         quietTimer = null;
         plan(ROWS);
       }, QUIET);
       if (planTimer) return;
-      planTimer = setTimeout(function () {
+      planTimer = setTimeout(function onPostersPlan() {
         planTimer = null;
         plan(0);
       }, 0);

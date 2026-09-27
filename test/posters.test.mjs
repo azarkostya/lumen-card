@@ -231,3 +231,31 @@ test('stop снимает и отложенный план рядов ниже',
   await new Promise((r) => setTimeout(r, Q.QUIET + 60));
   assert.equal(images.length, 0);
 });
+
+/* Полоса gc3 (2026-09-27): на ТВ LoAF отдаёт имя функции, переданной
+   таймеру (sourceFunctionName), а у анонимной — пусто, и
+   «TimerHandler:setTimeout» в подвале самотеста не говорил, чей таймер. */
+test('полоса gc3: таймеры плана и покоя, конец загрузки постера — именованные функции', async () => {
+  const comp = {
+    active: 0,
+    items: [{ data: { results: res('t', 20), params: {} }, items: new Array(9), active: 4, view: 8 }],
+    loaded: []
+  };
+  const images = fakeWorld(comp);
+  const realSet = globalThis.setTimeout;
+  const names = [];
+  globalThis.setTimeout = (fn, ms) => { names.push(fn.name); return realSet(fn, ms); };
+  try {
+    P.stop();
+    P.around();
+  } finally {
+    globalThis.setTimeout = realSet;
+  }
+  assert.deepEqual(names, ['onPostersIdle', 'onPostersPlan']);
+  await tick();
+  assert.ok(images.length > 0);
+  assert.equal(images[0].onload.name, 'onPostersDone');
+  assert.equal(images[0].onerror.name, 'onPostersDone');
+  P.stop();
+  for (let k = 0; k < 4; k++) for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+});

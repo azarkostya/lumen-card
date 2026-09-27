@@ -454,11 +454,24 @@
     var last = null;
     var screen = null;
 
+    /* Колбэки таймеров — именованные (полоса gc3, 2026-09-27): LoAF на ТВ
+       отдаёт имя функции, переданной таймеру (sourceFunctionName), а у
+       анонимной — пусто, и «TimerHandler:setTimeout» в подвале не говорил,
+       чей таймер. onBenchTimer — служебный (смена стадии, прогрев, опрос
+       анимаций, кадры и подкраска стадии, датчик сборки мусора);
+       onBenchMove — шаг пульта (Controller.move: вся навигация Lampa и
+       плагина на нажатие). */
+    function guard(r, fn) {
+      if (run !== r) return;
+      try { fn(); } catch (e) { warn('bench: stage failed', e); finish('error'); }
+    }
+
     function later(r, ms, fn) {
-      r.timers.push(setT(function () {
-        if (run !== r) return;
-        try { fn(); } catch (e) { warn('bench: stage failed', e); finish('error'); }
-      }, ms));
+      r.timers.push(setT(function onBenchTimer() { guard(r, fn); }, ms));
+    }
+
+    function laterMove(r, ms, fn) {
+      r.timers.push(setT(function onBenchMove() { guard(r, fn); }, ms));
     }
 
     function every(r, ms, fn) {
@@ -473,7 +486,7 @@
       r.timers = [];
     }
 
-    function frame(t) {
+    function onBenchFrame(t) {
       var r = run;
       if (!r) return;
       var n = perfNow();
@@ -482,7 +495,7 @@
         if (n >= 0) r.lats.push(n - t > 0 ? n - t : 0);
       }
       r.prevT = t;
-      r.raf = raf(frame);
+      r.raf = raf(onBenchFrame);
     }
 
     function onLoaf(list) {
@@ -662,10 +675,10 @@
       function step() {
         move();
         k++;
-        if (k < STOP_STEPS) { later(r, MOVE_MS, step); return; }
+        if (k < STOP_STEPS) { laterMove(r, MOVE_MS, step); return; }
         k = 0;
         group++;
-        if (group < STOP_GROUPS) later(r, STOP_MS, step);
+        if (group < STOP_GROUPS) laterMove(r, STOP_MS, step);
       }
       step();
     }
@@ -689,7 +702,7 @@
           return;
         }
         k++;
-        later(r, MOVE_MS, step);
+        laterMove(r, MOVE_MS, step);
       }
       step();
     }
@@ -846,7 +859,7 @@
         r.obs = observeLoaf();
         listen(r);
         tag(r);
-        r.raf = raf(frame);
+        r.raf = raf(onBenchFrame);
         next(r);
       } catch (e) {
         warn('bench: start failed', e);
@@ -861,12 +874,12 @@
        успокоился, проверяются условия и идёт первая стадия. */
     function start() {
       if (run || pending) return;
-      pending = setT(function () {
+      pending = setT(function onBenchLeave() {
         pending = 0;
         var L = lampa();
         try { if (L && L.Controller && L.Controller.toContent) L.Controller.toContent(); } catch (e) { }
         try { if (L && L.Controller) L.Controller.toggle('content'); } catch (e2) { }
-        pending = setT(function () {
+        pending = setT(function onBenchLaunch() {
           pending = 0;
           launch();
         }, LEAVE_MS);

@@ -933,3 +933,36 @@ test('ревью: прокси не ответил — прямого запро
   assert.deepEqual(got, [null]);
   assert.equal(e.images.length, 2);
 });
+
+/* Полоса gc3 (2026-09-27): на ТВ LoAF отдаёт имя функции, переданной
+   таймеру или простою (sourceFunctionName), а у анонимной — пусто, и
+   «TimerHandler:setTimeout» в подвале самотеста не говорил, чей таймер.
+   Колбэки модуля — именованные. */
+test('полоса gc3: колбэки таймеров, простоя и загрузки миниатюр — именованные', () => {
+  const e = env();
+  e.T.compare('/p.jpg', '/f.jpg', () => {});
+  const p = e.img('/p.jpg');
+  assert.equal(p.onload.name, 'onThumbsLoad');
+  assert.equal(p.onerror.name, 'onThumbsError');
+  const guard = e.timers.filter((t) => !t.done && t.ms > 0);
+  assert.ok(guard.length > 0, 'потолок загрузки не заведён');
+  assert.deepEqual([...new Set(guard.map((t) => t.fn.name))], ['onThumbsTimeout']);
+  e.arrive(p, scene(1), 92, 138);
+  assert.equal(e.idles.length, 1);
+  assert.equal(e.idles[0].fn.name, 'onThumbsIdle', 'колбэк простоя');
+  e.idleAll();
+  /* Срочная задача — ближайшим setTimeout. */
+  e.T.compare('/q.jpg', '/h.jpg', () => {}, true);
+  e.arrive(e.img('/q.jpg'), scene(2), 92, 138);
+  const soon = e.timers.filter((t) => !t.done && t.ms === 0);
+  assert.equal(soon.length, 1);
+  assert.equal(soon[0].fn.name, 'onThumbsUrgent');
+  /* Без requestIdleCallback — тот же колбэк простоя запасным setTimeout. */
+  const e2 = env();
+  globalThis.window.requestIdleCallback = undefined;
+  e2.T.compare('/p.jpg', '/f.jpg', () => {});
+  e2.arrive(e2.img('/p.jpg'), scene(1), 92, 138);
+  const fallback = e2.timers.filter((t) => !t.done && t.ms === 16);
+  assert.equal(fallback.length, 1, 'запасной таймер простоя');
+  assert.equal(fallback[0].fn.name, 'onThumbsIdle');
+});
