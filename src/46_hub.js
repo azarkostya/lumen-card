@@ -527,6 +527,281 @@
       } catch (e) { }
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Фон подборок (ТВ 2026-09-27, фото 22/23: «в подборках отсутствует   */
+    /* хоть какой-то фон, там тоже можно фон героя любого их фильма»).     */
+    /*                                                                     */
+    /* Кадр фильма под фокусом лежит за хабом и сеткой одним неподвижным   */
+    /* слоем на весь экран — тем же приёмом, что кадр героя главной        */
+    /* (.lumen-hero-stage, src/48_hero.js buildStage/swapFrame/loadFrame):  */
+    /*  - узел — первым ребёнком активности, до .activity__body, и порядок  */
+    /*    узлов задаёт порядок отрисовки (z-index никому не нужен); слой    */
+    /*    без transform и will-change — своего слоя композитора не заводит;*/
+    /*  - картинка грузится предзагрузчиком new Image с decode(): в <img>   */
+    /*    экрана src ставится только после декодирования, то есть не в      */
+    /*    кадре нажатия и без at-raster декодирования тайлами;             */
+    /*  - смена — одна, после паузы фокуса STAGE_DELAY: при листании        */
+    /*    подряд таймер переставляется и ни одна картинка не грузится;     */
+    /*  - два <img>: в «Лёгких» (и без тяжёлых эффектов) кадр меняется в    */
+    /*    показанном слое мгновенно, кроссфейд двумя слоями — только в      */
+    /*    «Полных» с тяжёлыми эффектами, как у героя; в «Выкл» фона нет.    */
+    /* Размер — STAGE_SIZE: у плитки хаба кадр w780 уже в кэше (она сама    */
+    /* его грузит, paintBanner), то есть смена фона хаба сети не стоит      */
+    /* ничего; w1280 ради фона под затемнением .8 не нужен (растр 3.7 МБ    */
+    /* против 1.4 МБ, мягкость апскейла под затемнением не видна).          */
+    /* Подкраска — цвет низа того же кадра (LC.accent: w300, нижняя         */
+    /* половина, один цвет на кадр за сеанс — как фон рядов главной), а     */
+    /* сам тон и затемнение собирает src/30_css.js (LC.stageTone): числа    */
+    /* живут там же, где остальная таблица, и их сторожат тесты. Пишется    */
+    /* inline-стилем одного узла затемнения: узел подкраски главной         */
+    /* (<style id="lumen-accent">) принадлежит её жизненному циклу, и его  */
+    /* перезапись стоит пересчёта стилей всего документа.                   */
+    /* ------------------------------------------------------------------ */
+
+    var STAGE_DELAY = 450;
+    var STAGE_SIZE = 'w780';
+    /* Страховка на случай, когда decode() не резолвится вовсе (скрытая
+       вкладка, WebView на скринсейвере) — как LOAD_TIMEOUT героя. */
+    var STAGE_TIMEOUT = 8000;
+    /* Сколько декодированный кадр ждёт цвета низа кадра, чтобы встать
+       вместе с тоном затемнения одной сменой. */
+    var STAGE_COLOR_WAIT = 600;
+    /* Метка body: на экранах с фоном штатный фон Lampa (.background, четыре
+       полноэкранных слоя — src/30_css.js) не рисуется. Ставит и снимает
+       рантайм на старте активности (src/90_runtime.js, markScreenBody). */
+    var STAGE_BODY = 'lumen-screen-on';
+
+    function stageMotion() {
+      try { return LC.motionMode(); } catch (e) { return 'full'; }
+    }
+
+    function stageHeavy() {
+      try { return stageMotion() === 'full' && typeof LC.fxHeavy === 'function' && !!LC.fxHeavy(); } catch (e) { return false; }
+    }
+
+    /* Путь TMDB ('/abc.jpg') или готовый адрес (подборки Кинопоиска). */
+    function stageUrl(path) {
+      path = '' + (path || '');
+      if (!path) return '';
+      return path.indexOf('http') === 0 ? path : imageUrl(path, STAGE_SIZE);
+    }
+
+    function ScreenStage(activity) {
+      var node = null;
+      var timer = null;
+      var loadTimer = null;
+      var colorTimer = null;
+      var loader = null;
+      /* Расчёт цвета низа кадра в пути и его кадр. */
+      var color = null;
+      var colorPath = '';
+      var want = '';
+      var shownPath = '';
+      var shownUrl = '';
+      var dead = false;
+
+      function stop(name) {
+        if (name === 'timer' && timer) { clearTimeout(timer); timer = null; }
+        if (name === 'load' && loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+        if (name === 'color' && colorTimer) { clearTimeout(colorTimer); colorTimer = null; }
+      }
+
+      /* Загрузка кадра, который больше не нужен. Цвет кадра, который уже
+         на экране, не отменяется: он ещё может досчитаться и встать. */
+      function dropLoader() {
+        stop('load');
+        stop('color');
+        if (loader) {
+          loader.onload = null;
+          loader.onerror = null;
+          loader = null;
+        }
+        if (color && colorPath !== shownPath) {
+          try { color.cancel(); } catch (e) { }
+          color = null;
+          colorPath = '';
+        }
+      }
+
+      function mount() {
+        if (node) return true;
+        var act = null;
+        try { act = activity && typeof activity.render === 'function' ? activity.render() : null; } catch (e) { act = null; }
+        if (!act || typeof act.prepend !== 'function') return false;
+        node = $('<div class="lumen-screen-stage">' +
+          '<img class="lumen-screen-stage__img lumen-screen-stage__img--a" decoding="async" alt="">' +
+          '<img class="lumen-screen-stage__img lumen-screen-stage__img--b" decoding="async" alt="">' +
+          '<div class="lumen-screen-stage__scrim"></div>' +
+          '</div>');
+        act.prepend(node);
+        return true;
+      }
+
+      /* Цвет низа кадра path: undefined — ещё не посчитан (или считать
+         нечем), null — своего цвета нет, {r,g,b} — есть. */
+      function colorOf(path) {
+        try { return LC.accent && typeof LC.accent.frameColor === 'function' ? LC.accent.frameColor(path) : undefined; } catch (e) { return undefined; }
+      }
+
+      /* Тон затемнения по цвету низа кадра; цвета нет — фон темы. */
+      function paintTone(path) {
+        if (!node || path !== shownPath || typeof LC.stageTone !== 'function') return;
+        var rgb = colorOf(path);
+        try {
+          var tone = LC.stageTone(rgb || null);
+          var scrim = node.find('.lumen-screen-stage__scrim')[0];
+          if (scrim && tone && scrim.lumen_tone !== tone.scrim) {
+            scrim.style.cssText = tone.scrim;
+            scrim.lumen_tone = tone.scrim;
+          }
+        } catch (e) { warn('hub: stage tone failed', e); }
+      }
+
+      /* Цвет считаем только у кадра TMDB: у готового адреса Кинопоиска
+         пути TMDB нет, и LC.accent собрал бы из него битый адрес w300.
+         done — цвет готов или считать нечего (тогда синхронно). */
+      function colorFor(path, done) {
+        if (path.charAt(0) !== '/' || !LC.accent || typeof LC.accent.prepareFrame !== 'function' || colorOf(path) !== undefined) { done(); return; }
+        var fired = false;
+        function fin() {
+          if (fired) return;
+          fired = true;
+          if (colorPath === path) { color = null; colorPath = ''; }
+          done();
+        }
+        try {
+          var h = LC.accent.prepareFrame(path, fin, null, true);
+          if (h && !fired) { color = h; colorPath = path; }
+        } catch (e) { fin(); }
+      }
+
+      function swap(url, path) {
+        var a = node.find('.lumen-screen-stage__img--a');
+        var b = node.find('.lumen-screen-stage__img--b');
+        var bActive = b.hasClass('is-active');
+        if (!stageHeavy()) {
+          var only = bActive ? b : a;
+          only.attr('src', url);
+          only.addClass('is-active');
+        } else {
+          /* Как swapFrame героя: первый кадр — в верхний слой (--b), он и
+             проявляется; дальше слои чередуются, анимируется только
+             приходящий верхний или уходящий верхний. */
+          var next = bActive ? a : b;
+          var prev = bActive ? b : a;
+          next.attr('src', url);
+          next.addClass('is-active');
+          prev.removeClass('is-active');
+        }
+        shownUrl = url;
+        shownPath = path;
+        paintTone(path);
+      }
+
+      /* Кадр и его тон встают ОДНОЙ сменой: декодированная картинка ждёт
+         цвет не дольше STAGE_COLOR_WAIT, дальше встаёт с тоном темы, а
+         досчитавшийся цвет перекрасит только затемнение. */
+      function run() {
+        timer = null;
+        if (dead || !want || stageMotion() === 'off') return;
+        if (!mount()) return;
+        var path = want;
+        var url = stageUrl(path);
+        if (!url) return;
+        if (url === shownUrl) { shownPath = path; return; }
+        dropLoader();
+        var img = new Image();
+        img.decoding = 'async';
+        var decoding = typeof img.decode === 'function';
+        var done = false;
+        var imgOk = false;
+        var colorOk = false;
+        function current() { return !dead && loader === img && want === path; }
+        function put() {
+          if (!imgOk || !colorOk || !current()) return;
+          loader = null;
+          stop('color');
+          try { swap(url, path); } catch (e) { warn('hub: stage swap failed', e); }
+        }
+        function loaded() { return !!(img.complete && img.naturalWidth); }
+        function finish(ok) {
+          if (done) return;
+          done = true;
+          img.onload = null;
+          img.onerror = null;
+          if (!current()) return;
+          stop('load');
+          if (!ok) { loader = null; return; }
+          imgOk = true;
+          if (!colorOk) colorTimer = setTimeout(function () { colorTimer = null; colorOk = true; put(); }, STAGE_COLOR_WAIT);
+          put();
+        }
+        loader = img;
+        colorFor(path, function () {
+          if (dead) return;
+          if (path === shownPath) { paintTone(path); return; }
+          colorOk = true;
+          put();
+        });
+        img.onload = function () { if (!decoding) finish(true); };
+        img.onerror = function () { finish(false); };
+        loadTimer = setTimeout(function () { loadTimer = null; finish(loaded()); }, STAGE_TIMEOUT);
+        img.src = url;
+        if (decoding) {
+          try {
+            var p = img.decode();
+            if (p && typeof p.then === 'function') p.then(function () { finish(true); }, function () { finish(loaded()); });
+            else decoding = false;
+          } catch (e) { decoding = false; }
+        }
+      }
+
+      /* Фон под фокусом: path — кадр плитки или карточки. Смена — одна,
+         после паузы фокуса; вернулись на показанный кадр до паузы — ничего
+         не грузится. */
+      function show(path) {
+        path = '' + (path || '');
+        if (dead || !path || path === want) return;
+        want = path;
+        stop('timer');
+        if (path === shownPath) { dropLoader(); return; }
+        timer = setTimeout(run, STAGE_DELAY);
+      }
+
+      /* stop() экрана: отложенная смена и загрузка гасятся, показанный кадр
+         остаётся (слайд снят из DOM, start() вернёт его как был). Желаемым
+         снова становится показанный кадр — фокус на возврате его и
+         попросит. */
+      function pause() {
+        stop('timer');
+        want = shownPath;
+        dropLoader();
+      }
+
+      function destroy() {
+        dead = true;
+        stop('timer');
+        dropLoader();
+        if (color) {
+          try { color.cancel(); } catch (e) { }
+          color = null;
+        }
+        if (node) {
+          try { node.find('.lumen-screen-stage__img').removeAttr('src'); } catch (e) { }
+          try { node.remove(); } catch (e2) { }
+        }
+        node = null;
+      }
+
+      return {
+        show: show,
+        pause: pause,
+        destroy: destroy,
+        shown: function () { return shownPath; },
+        wanted: function () { return want; }
+      };
+    }
+
     /* Год из даты выхода. */
     function cardYear(card) {
       var d = cardDate(card);
@@ -862,12 +1137,18 @@
     }
 
     /* enter — вход экрана в пульт (toggle): Lampa отдала управление — при
-       старте, с карточки, из меню карточки, из поиска, из меню и шапки. */
-    function screenController(enter, afterMove, onUp) {
+       старте, с карточки, из меню карточки, из поиска, из меню и шапки.
+       onGone (2026-09-27) — пульт уходит с экрана (Controller.toggle зовёт
+       gone уходящего контроллера, app.min.js:46298): приглушение соседей
+       плитки в фокусе снимается, пока фокус в меню или шапке. */
+    function screenController(enter, afterMove, onUp, onGone) {
       return {
         toggle: function () {
           forgetWindow();
           enter();
+        },
+        gone: function () {
+          if (onGone) onGone();
         },
         left: function () {
           if (!navMove('left')) Lampa.Controller.toggle('menu');
@@ -928,6 +1209,8 @@
       var byMouse = false;
       var quiet = false;
       var remoteScroll = false;
+      /* Фон экрана (ScreenStage выше) — заводится в create(). */
+      var stage = null;
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -945,6 +1228,27 @@
       function bump() {
         gen++;
         clearHandles();
+      }
+
+      /* 2026-09-27: соседи плитки в фокусе приглушены (src/30_css.js,
+         .lumen-hub__tiles.lumen-dim). Класс — на ряду плиток, а не на
+         каждой плитке: он ставится один раз, когда фокус пришёл на плитки,
+         и снимается, когда ушёл на чипы, кнопки шапки или из экрана; шаг
+         между плитками меняет только класс focus у двух плиток. */
+      function dim(on) {
+        try { tilesRow.toggleClass('lumen-dim', !!on); } catch (e) { }
+      }
+
+      /* Фон экрана: кадр плитки в фокусе; фокус не на плитке — кадр первой
+         плитки группы (вход в хаб, смена группы). */
+      function stageFor(node) {
+        if (!stage || !node || !node.lumen_bg) return;
+        stage.show(node.lumen_bg);
+      }
+
+      function stageDefault() {
+        if (tileIndex(lastFocus) >= 0) return;
+        stageFor(tileNodes[0]);
       }
 
       /* Узел, на который вернуть фокус при входе в экран: тот же, если он ещё
@@ -1086,6 +1390,11 @@
            сама) размер не выбирает — он берётся как есть. */
         var url = path.indexOf('http') === 0 ? path : imageUrl(path, bannerSize());
         if (!url) return;
+        /* 2026-09-27: кадр плитки — он же фон экрана, когда плитка в фокусе
+           (или первая в группе, пока фокус на чипах). */
+        node.lumen_bg = path;
+        if (node === lastFocus) stageFor(node);
+        else if (node === tileNodes[0]) stageDefault();
         /* decoding="async" — та же подсказка, что у постеров сетки
            (bindPoster ниже): картинка уже в документе, и без неё каждый кадр
            декодируется на главном потоке в момент показа.
@@ -1245,6 +1554,8 @@
         LC.focus.on(node, function (e) {
           keepVisible(node[0], e);
           lastFocus = node[0];
+          dim(true);
+          stageFor(node[0]);
           loadVisibleBanners();
         });
         node.on('hover:enter', function () {
@@ -1279,7 +1590,7 @@
            заголовке экрана, buildHead ниже). */
         var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
         node[0].lumen_group = group.id;
-        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
+        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; dim(false); });
         node.on('hover:enter', function () {
           if (activeGroup === group.id) return;
           buildTiles(group.id);
@@ -1357,7 +1668,7 @@
         /* Поиск по подборкам (design-spec-main §0.8): место в шапке держалось
            с Task 17 скрытым узлом, теперь это рабочая кнопка. */
         var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-        LC.focus.on(search, function (e) { keepVisible(search[0], e); lastFocus = search[0]; });
+        LC.focus.on(search, function (e) { keepVisible(search[0], e); lastFocus = search[0]; dim(false); });
         search.on('hover:enter', function () { openSearch(); });
         head.append(search);
         /* Task 33: кнопка в коллекции Navigator всегда, вне окна плиток. */
@@ -1375,7 +1686,7 @@
         rouletteNode = null;
         if (LC.roulette && typeof LC.roulette.open === 'function') {
           var roulette = $('<div class="lumen-hub__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_hub_roulette')) + '</span></div>');
-          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
+          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; dim(false); });
           roulette.on('hover:enter', function () { LC.roulette.open('movie'); });
           head.append(roulette);
           rouletteNode = roulette[0];
@@ -1411,6 +1722,7 @@
       this.create = function () {
         motionClass(root);
         screenBg(self.activity);
+        stage = ScreenStage(self.activity);
         root.append(head);
         root.append(chipsRow);
         root.append(tilesRow);
@@ -1448,7 +1760,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(enter, afterMove, focusSearch));
+        Lampa.Controller.add('content', screenController(enter, afterMove, focusSearch, function () { dim(false); }));
         Lampa.Controller.toggle('content');
         /* Возврат после stop(): кадры, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в
@@ -1478,6 +1790,7 @@
         started = false;
         bump();
         forgetWindowOf(tileNodes);
+        if (stage) stage.pause();
         /* Погашенные кадры помечаем как незапрошенные — чтобы start()
            запросил их снова. Плитки, которые успели нарисоваться, остаются
            как есть: у них уже есть картинка. */
@@ -1489,6 +1802,8 @@
       this.destroy = function () {
         bump();
         forgetWindowOf(tileNodes);
+        if (stage) stage.destroy();
+        stage = null;
         chipNodes = [];
         tileNodes = [];
         searchNode = null;
@@ -1560,6 +1875,8 @@
          подкруткой за фокусом, — и флаг отличает последнюю; снимает его
          первый же onScroll. */
       var remoteScroll = false;
+      /* Фон экрана (ScreenStage) — заводится в create(). */
+      var stage = null;
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -1575,6 +1892,25 @@
       function bump() {
         gen++;
         clearHandles();
+      }
+
+      /* 2026-09-27: приглушение соседей карточки в фокусе — как dim хаба. */
+      function dim(on) {
+        try { itemsRow.toggleClass('lumen-dim', !!on); } catch (e) { }
+      }
+
+      /* Фон экрана: кадр карточки в фокусе; пока фокус на чипах — кадр
+         первого фильма подборки с кадром. */
+      function stageFor(card) {
+        if (stage && card && card.backdrop_path) stage.show(card.backdrop_path);
+      }
+
+      function stageDefault() {
+        if (!stage || focusedIndex() >= 0) return;
+        for (var i = 0; i < cardNodes.length && i < GRID_COLS * 2; i++) {
+          var card = cardNodes[i].card_data;
+          if (card && card.backdrop_path) { stage.show(card.backdrop_path); return; }
+        }
       }
 
       /* Узел для фокуса при входе в экран и после перестройки списка. */
@@ -1799,6 +2135,8 @@
           keepVisible(el, e);
           lastFocus = el;
           lastCardId = card.id;
+          dim(true);
+          stageFor(card);
         });
         node.on('hover:enter', function () { openCard(card); });
         return el;
@@ -1898,7 +2236,7 @@
              Запись поднимает listener 'change' → LC.applyKpHintPref
              пересобирает эту сетку уже без подсказки. */
           var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-          LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; });
+          LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; dim(false); });
           hide.on('hover:enter', function () {
             try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
           });
@@ -1906,7 +2244,7 @@
           emptyNodes.push(hide[0]);
         }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-        LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; });
+        LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; dim(false); });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
         emptyNodes.push(back[0]);
@@ -1964,6 +2302,7 @@
           loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
           loadInView();
           renderSub();
+          stageDefault();
           /* Мышь в подборках: страница, догруженная колесом или под
              наведённой карточкой, экран не двигает (recollect, still).
              C1: пульт не у нас (карточка, меню, «Назад») — коллекцию не
@@ -2014,7 +2353,7 @@
       function sortNode(mode) {
         var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
         node[0].lumen_sort = mode.id;
-        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
+        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; dim(false); });
         node.on('hover:enter', function () {
           if (sortMode === mode.id) return;
           /* Первая загрузка ещё идёт, а фокус по умолчанию стоит именно на
@@ -2048,6 +2387,7 @@
       this.create = function () {
         motionClass(root);
         screenBg(self.activity);
+        stage = ScreenStage(self.activity);
         /* C4: заголовок — на языке интерфейса. */
         head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
         head.append(subtitle);
@@ -2069,7 +2409,7 @@
         var rmedia = rouletteMedia(item);
         if (rmedia) {
           var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
-          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
+          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; dim(false); });
           roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
           sortsRow.append(roulette);
           rouletteNode = roulette[0];
@@ -2096,7 +2436,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(enter, afterMove));
+        Lampa.Controller.add('content', screenController(enter, afterMove, null, function () { dim(false); }));
         Lampa.Controller.toggle('content');
         /* Страница могла прийти раньше, чем экран встал в документ, — тогда
            видимое добирается здесь (loadInView). */
@@ -2126,6 +2466,7 @@
         resumeAfterStop = loading ? pending : null;
         bump();
         forgetWindowOf(cardNodes);
+        if (stage) stage.pause();
         loading = false;
         pending = null;
       };
@@ -2133,6 +2474,8 @@
       this.destroy = function () {
         bump();
         forgetWindowOf(cardNodes);
+        if (stage) stage.destroy();
+        stage = null;
         cardNodes = [];
         sortNodes = [];
         emptyNodes = [];
@@ -2267,6 +2610,11 @@
       openTarget: openTarget,
       /* Решение пользователя 2026-09-26: группа профилей настроения. */
       MOOD_HUB: MOOD_HUB,
+      /* 2026-09-27: фон подборок — пауза фокуса, размер кадра и метка body
+         (рантайм ставит её на старте хаба и сетки, src/90_runtime.js). */
+      STAGE_DELAY: STAGE_DELAY,
+      STAGE_SIZE: STAGE_SIZE,
+      STAGE_BODY: STAGE_BODY,
       moodItems: moodItems,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
          «Ещё» рядов главной (src/44_rows.js). */

@@ -2820,3 +2820,36 @@ test('решение 2026-09-26: источник подборок в поиск
   const off = initLC({ injectCssFails: true });
   assert.equal(off.extra.searchInstall, 0, 'без стилей источник поиска поставлен');
 });
+
+/* 2026-09-27 (ТВ, фото 22/23): фон подборок. Под хабом и сеткой подборки
+   теперь свой кадр (src/46_hub.js, ScreenStage), и штатный фон Lampa под
+   ними гасит метка lumen-screen-on — как lumen-card-on под карточкой. В
+   «Выкл» кадра у экранов нет, и фон Lampa остаётся. */
+test('фон подборок: body.lumen-screen-on — на старте хаба и сетки; снимается стартом другого экрана, «Выкл» и выключением', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  const bodyEl = new FakeEl(['body']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyEl : EMPTY);
+
+  LC.onActivityEvent({ type: 'start', component: 'lumen_hub', object: makeActivityObj('Подборки', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), true, 'под хабом фон Lampa гасится');
+  LC.onActivityEvent({ type: 'start', component: 'lumen_grid', object: makeActivityObj('Звёздные войны', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), true, 'под сеткой подборки — тоже');
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: makeActivityObj('Каталог', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, 'на штатной сетке фон Lampa штатный');
+  LC.onActivityEvent({ type: 'start', component: 'full', object: makeActivityObj('A', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, 'на карточке — своя метка, не эта');
+
+  const was = LC.motionMode;
+  LC.motionMode = () => 'off';
+  LC.onActivityEvent({ type: 'start', component: 'lumen_hub', object: makeActivityObj('Подборки', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, '«Выкл»: кадра у хаба нет — фон Lampa не гасим');
+  LC.motionMode = was;
+
+  LC.onActivityEvent({ type: 'start', component: 'lumen_hub', object: makeActivityObj('Подборки', false, null) });
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, 'выключенный плагин метку не держит');
+  assert.deepEqual(warnLog, []);
+});

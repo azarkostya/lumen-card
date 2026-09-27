@@ -203,6 +203,28 @@
     }
   }
 
+  /* 2026-09-27, фон подборок: на экране хаб или сетка подборки со своим
+     кадром (src/46_hub.js, ScreenStage) — штатный фон Lampa под ним не
+     рисуется (правило body.lumen-screen-on .background, src/30_css.js), как
+     под главной и карточкой. В «Выкл» кадра у экранов нет, и фон Lampa
+     остаётся. Ставится на старте экрана, снимается стартом любого другого
+     и выключением плагина (deactivate). */
+  var SCREEN_ON = 'lumen-screen-on';
+  function markScreenBody(on) {
+    var body = bodyRoot();
+    if (!body || !body.length) return;
+    try {
+      body.toggleClass(SCREEN_ON, !!on);
+    } catch (e) {
+      warn('screen body mark failed', e);
+    }
+  }
+
+  function stageScreen(component) {
+    if (component !== 'lumen_hub' && component !== 'lumen_grid') return false;
+    try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
+  }
+
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
      меняется на уже открытой карточке — находит активный корень (и слой фона) сама.
      На body — только пока плагин активен (ui_active, см. ниже). */
@@ -580,6 +602,7 @@
            откладывается на таймер — см. LC.refreshComponent. */
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
         markCardBody(e.component === 'full');
+        markScreenBody(stageScreen(e.component));
         /* Волна 2 (ТВ 2026-09-24, D3): перехода «постер → кадр» при открытии
            карточки больше нет — пользователь просил убрать эффект открытия.
            Старт любого экрана, включая карточку, только снимает слой, если
@@ -1584,7 +1607,7 @@
       /* Task 40: класс тяжёлых эффектов снимается вместе с классом режима —
          выключенный плагин не оставляет на body ни одной своей метки.
          Волна 2 (D1): метка карточки lumen-card-on — туда же. */
-      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON);
+      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON).removeClass(SCREEN_ON);
     } catch (e3) {
       warn('motion class off failed', e3);
     }

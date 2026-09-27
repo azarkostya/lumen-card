@@ -468,6 +468,78 @@
     return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).muted;
   };
 
+  /* 2026-09-27 (ТВ, фото 22/23): фон подборок — кадр фильма под фокусом за
+     хабом и сеткой (src/46_hub.js, ScreenStage) под затемнением во весь
+     экран.
+     STAGE_A — плотность затемнения там, где на кадре лежит текст экрана
+     (заголовок и счётчик хаба, чипы, подписи карточек сетки): кадр виден на
+     1 − STAGE_A. STAGE_TOP_A — под шапкой Lampa (часы, иконки, заголовок
+     активности — белые, без своей подложки), до STAGE_TOP_EM.
+     Цвет затемнения — тон низа кадра тем же расчётом, что фон рядов
+     главной (LC.color.rowsTint): оттенок кадра, светлота ROWS_L и ниже, со
+     сторожем читаемости P.soft 4.5:1 на смеси с БЕЛЫМ кадром в доле
+     STAGE_LEAK. Поэтому весь текст, лежащий на кадре, в подборках — не
+     темнее P.soft (правила хаба и сетки ниже), и контраст держится на любом
+     кадре, а не только на тёмном. Цвета нет (подкраска выключена, прокси
+     без CORS, кадр Кинопоиска) — затемнение фоном темы. */
+  var STAGE_A = 0.8;
+  var STAGE_TOP_A = 0.9;
+  var STAGE_TOP_EM = 9;
+  var STAGE_LEAK = Math.round((1 - STAGE_A) * 100) / 100;
+
+  function stageScrim(rgb) {
+    var stops = 'rgba(' + rgb + ',' + alphaCss(STAGE_TOP_A) + ') 0,rgba(' + rgb + ',' + alphaCss(STAGE_A) + ') ' + STAGE_TOP_EM + 'em,rgba(' + rgb + ',' + alphaCss(STAGE_A) + ') 100%';
+    return 'background:-webkit-linear-gradient(top,' + stops + ');background:linear-gradient(180deg,' + stops + ')';
+  }
+
+  /* Тон затемнения фона подборок по цвету низа кадра rgb ({r,g,b} или
+     null): { tone: '#rrggbb', scrim: объявления фона для style.cssText }.
+     Тема — без подкраски главной: у экрана подборок свой кадр. */
+  LC.stageTone = function (rgb) {
+    var th = THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm;
+    var tone = th.bg;
+    if (rgb && LC.color && typeof LC.color.rowsTint === 'function') {
+      try { tone = LC.color.rowsTint(rgb, th.soft, 4.5, STAGE_LEAK) || th.bg; } catch (e) { tone = th.bg; }
+    }
+    return { tone: tone, scrim: stageScrim(hexToRgb(tone)) };
+  };
+  LC.stageNumbers = { a: STAGE_A, topA: STAGE_TOP_A, topEm: STAGE_TOP_EM, leak: STAGE_LEAK };
+
+  /* 2026-09-27 (ТВ, фото 22/23: «нихуя не понятно что выбираем, подсветка
+     очень не яркая»): единый фокус карточек с картинкой — плитки хаба,
+     карточки сетки подборки и ряда главной.
+     Замер на стенде 960×540@2 до правки: у плитки хаба в «Лёгких» фокус был
+     outline .13em с отступом −.13em — 1 CSS px (2 физических, computed
+     outline-width 1px) ВНУТРИ плитки, и его закрывали абсолютные дети плитки
+     (кадр и затемнение рисуются после контура своего родителя): из 5264
+     пикселей полосы 4 px по краю плитки в фокусе изменились 132, только в
+     скруглённых углах, и самый светлый из них — rgb(61,58,52) на фоне
+     rgb(11,9,8). Признака фокуса на экране не было. У карточки сетки в
+     «Лёгких» — полоса 0 .2em акцентом на .35 под постером (2.2:1 к фону).
+     Теперь — кольцо цвета текста темы толщиной FOCUS_RING поверх кромки
+     картинки (псевдоэлемент :after последним ребёнком, над кадром и
+     метками) и тёмная волосяная линия FOCUS_HAIR внутри: кольцо отделено от
+     картинки при любой её яркости, снаружи его держит тёмный фон экрана
+     (контраст — тест «фокус: кольцо ≥ 3:1»). Кольцо — рамка (border)
+     псевдоэлемента, линия — его outline с отрицательным отступом: у
+     псевдоэлемента детей нет, и закрыть их нечему. Ни тени, ни размытия,
+     ни filter — плоская обводка по контуру. Кольцо внутри кромки не
+     занимает места в раскладке — бюджеты
+     высоты рядов главной и зазоров сетки не меняются. Соседи в фокусном
+     ряду приглушены той же псевдоплашкой (FOCUS_DIM фоном темы) — только
+     в хабе и сетке, где на экране сетка одинаковых плиток. */
+  var FOCUS_RING = 0.27;
+  var FOCUS_HAIR = 0.09;
+  var FOCUS_DIM = 0.42;
+  /* Увеличение плитки хаба в фокусе: было 1.05 и только в «Полных»; 1.08 —
+     как у карточки сетки и у пары focused/unfocused Apple для 16:9 (×1.089,
+     docs/research/2026-09-21-tv-design-specs.md §1). */
+  var TILE_FOCUS = 1.08;
+  function focusRingCss(P) {
+    return 'border:' + emCss(FOCUS_RING) + ' solid ' + P.text + ';outline:' + emCss(FOCUS_HAIR) + ' solid rgba(0,0,0,.6);outline-offset:-' + emCss(FOCUS_RING + FOCUS_HAIR);
+  }
+  LC.focusNumbers = { ring: FOCUS_RING, hair: FOCUS_HAIR, dim: FOCUS_DIM };
+
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
      то есть 22.811 px при 1920 — отсюда правило единиц «px дизайна ÷ 22.811»).
@@ -3870,7 +3942,7 @@
        подборок рядом с ним — основной гарнитурой, а не моноширинной:
        моноширинные цифры в шапке читались как технический вывод. */
     css.push('.lumen-hub__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1;margin-right:.6em}');
-    css.push('.lumen-hub__count{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.muted + '}');
+    css.push('.lumen-hub__count{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.soft + '}');
     /* Task 41: кнопка поиска — тот же pill, что у сегмент-контрола ниже
        (высота, отступы, радиус, инверсия в фокусе), с иконкой лупы перед
        подписью. Рамки нет: на экране не должно быть ни одной коробки.
@@ -3883,7 +3955,7 @@
        именно коробка, а обещание «ни одной коробки» было ложным (замер
        координатора на стенде 2026-09-18: высота 51.6 px, радиус 11.1 px,
        рамка 1 px). Второй набор снят. */
-    css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.soft + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
     css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
     /* Правка 2026-09-23 (долг Task 23): вход в рулетку — вторая пилюля
@@ -3892,10 +3964,10 @@
        краю строку прижимает поиск, а два auto поделили бы свободное место
        пополам и развели бы кнопки через полэкрана. Зазор .27em — тот же,
        что между чипами под шапкой. */
-    css.push('.lumen-hub__roulette{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:.27em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub__roulette{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:.27em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.soft + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
     css.push('.lumen-hub__roulette.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
-    css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';padding:2em 0}');
+    css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.soft + ';padding:2em 0}');
     css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 
@@ -3905,7 +3977,7 @@
        был тем «колхозом», от которого уходим: в покое это просто ряд
        названий, выбранное имя лежит на светлой подложке-pill, и только
        фокус даёт инверсию. */
-    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.0em;padding:0 .91em;margin:0 .27em .48em 0;border-radius:1em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.0em;padding:0 .91em;margin:0 .27em .48em 0;border-radius:1em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.soft + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     /* Выбранная группа/сортировка видна и когда фокус ушёл на другой чип:
        подложка из цвета текста с малой непрозрачностью — она не спорит с
        акцентом, которым красится фокус. */
@@ -3963,14 +4035,25 @@
        (docs/research/2026-09-18-android-tv-animations.md:10). Числа те же,
        что на главной (AR.cardFocus выше): один и тот же жест обязан
        выглядеть одинаково на всех экранах плагина. */
-    css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45)}');
-    /* Task 41: в lite/off увеличения нет, а мягкая тень на тёмном фоне не
-       читается — фокус остался бы без единого признака (прежде его держало
-       кольцо, которое у баннера убрано). Поэтому здесь плитку очерчивает
-       акцентный контур: outline, а не border — он не занимает места в
-       раскладке и не двигает соседние плитки. */
-    css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none;outline:.13em solid ' + AL + ';outline-offset:-.13em}');
-    css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
+    /* 2026-09-27 (ТВ, фото 22/23: «нихуя не понятно что выбираем»): фокус
+       плитки — увеличение TILE_FOCUS во ВСЕХ режимах (в «Лёгких» и «Выкл» —
+       без перехода, как постер ряда главной), кольцо и приглушённые соседи
+       (разбор — у FOCUS_RING выше). Тёмная подложка 0 .2em 0 снята: на
+       тёмном фоне экрана её не было видно, а на кадре фона её роль играет
+       кольцо. Прежний контур .13em «Лёгких» снят — его закрывали дети
+       плитки (замер у FOCUS_RING). */
+    css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(' + TILE_FOCUS + ');transform:scale(' + TILE_FOCUS + ');z-index:3}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-tile,.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
+    /* Один псевдоэлемент на плитку: у соседей в фокусном ряду — плашка
+       приглушения, у плитки в фокусе — кольцо. Последним ребёнком и с
+       z-index над кадром, затемнением, текстом и метками плитки. Класс
+       lumen-dim на ряду плиток ставит src/46_hub.js (dim), пока фокус на
+       плитках. Переходов нет ни в одном режиме: смена — два узла на шаг. */
+    css.push('.lumen-hub__tiles .lumen-tile:after{content:"";display:none;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:2;pointer-events:none}');
+    css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:after{display:block;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus:after{display:block;background:none;' + focusRingCss(P) + '}');
+    /* Подпись плитки в фокусе — ярче: группа подборки светлеет до P.soft. */
+    css.push('.lumen-hub .lumen-tile.focus .lumen-tile__sub{color:' + P.soft + '}');
 
     /* --- Task 17: сетка подборки (design-spec-main §0.4, экран 20) ---
        Safe area с обеих сторон и ровно 6 карточек в ряд (поправка
@@ -3980,7 +4063,7 @@
     css.push('.lumen-grid__title{font-family:' + FB + ';font-weight:700;font-size:2.10em;line-height:1}');
     /* Полное ревью, D1: P.muted, а не P.smoke — на фоне экрана smoke давал
        3.2–3.8:1 (с подкраской и без). */
-    css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.muted + ';margin-top:.44em}');
+    css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.soft + ';margin-top:.44em}');
     css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     /* Правка 2026-09-23 (долг Task 23): «Крутить по этой подборке» — чип
        той же строки, что сортировка (вид, высота и фокус — общие правила
@@ -4011,11 +4094,16 @@
        чтобы поведение главной и сетки задавала одна строка, а не две
        разошедшиеся. */
     css.push('.lumen-grid .lumen-gcard' + CARD_NOT_WIDE + ' .card__img{object-position:' + POSTER_ANCHOR + '}');
-    css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:' + P.text + '}');
+    /* 2026-09-27: подпись под фокусом ярче — название соседей P.soft, у
+       карточки в фокусе P.text (как в ряду главной). Строка года — P.soft:
+       под сеткой теперь кадр фона, и текст на нём не темнее P.soft (разбор
+       у STAGE_A). */
+    css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:' + P.soft + '}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__title{color:' + P.text + '}');
     /* Task 62a: обрезка многоточием — по той же причине, что у подписи ряда
        главной: метка в подписи длиннее года с рейтингом, а вторая строка
        развалила бы сетку (высота плитки считается от одной строки). */
-    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.soft + '}');
     /* Task 43 (фикс-раунд): карточка сетки собрана из штатного шаблона
        'card' (src/46_hub.js, cardNode) и класса .card--wide не получает —
        значит на неё действуют обе анимации .card__view, погашенные на
@@ -4078,21 +4166,55 @@
        23.6em, половина прироста — 0.94em, и зазор между рядами 1.4em её
        вмещает. Соотношение держит тест, а не глаз. */
     css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
-    css.push('.lumen-grid .lumen-gcard.focus .card__view:after,.lumen-grid .lumen-gcard.hover .card__view:after{display:none}');
-    css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
-    css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
+    /* 2026-09-27 (ТВ, фото 22/23): фокус карточки сетки — увеличение во
+       ВСЕХ режимах (в «Лёгких» и «Выкл» — без перехода), кольцо поверх
+       кромки постера и приглушённые соседи (разбор — у FOCUS_RING). Кольцо
+       рисует штатный псевдоэлемент Lampa .card__view::after — тот, что
+       давал белую рамку .3em с вылетом −.5em (app.css:3466): вылет,
+       рамка и z-index:-1 перебиты, и кольцо лежит ВНУТРИ кромки, над
+       постером и метками, поэтому зазору между рядами (1.4em, расчёт
+       выше) добавлять нечего. Акцентная полоса 0 .2em 0 под постером
+       снята — её роль у кольца. Мышиный вариант штатного кольца
+       (.card.hover) по-прежнему погашен базовым правилом. */
+    css.push('.lumen-grid .lumen-gcard .card__view:after{display:none}');
+    css.push('.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:.31em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
+    css.push('.lumen-grid__items .lumen-gcard.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
+    css.push('.lumen-grid.lumen-motion-lite .lumen-gcard,.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
        что у строки «Продолжить» в карточке — Lampa.Timeline. */
     css.push('.lumen-grid .lumen-gcard__bar{position:absolute;left:.53em;right:.53em;bottom:.53em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden}');
     css.push('.lumen-grid .lumen-gcard__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     css.push('.lumen-grid__empty{padding:2em 0}');
-    css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';margin-bottom:1.05em;max-width:42.96em}');
+    css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + P.soft + ';margin-bottom:1.05em;max-width:42.96em}');
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;color:' + P.text + '}');
     /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
     css.push('.lumen-grid .lumen-grid__back.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Task 20: «Скрыть» стоит слева от «Назад» и отделено от неё зазором. */
     css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
+
+    /* --- 2026-09-27: фон подборок (разбор — у STAGE_A и в src/46_hub.js,
+       ScreenStage) ---
+       Слой — первым ребёнком активности хаба или сетки: рисуется под
+       .activity__body (position:relative, идёт в DOM следом), без z-index,
+       transform и will-change, то есть своего слоя композитора не заводит
+       и при прокрутке не перерисовывается. Геометрия — как у слоя кадра
+       героя (.lumen-hero-stage): от верхней кромки экрана под прозрачной
+       шапкой Lampa (top:-4em) до нижней. Кадрирование — тоже его: cover,
+       точка center 25 %.
+       Переходы — только в «Полных» (класс режима на body): проявление
+       первого кадра .35s; кроссфейд двумя слоями — только с тяжёлыми
+       эффектами, и анимируется один слой (верхний --b), как у героя. В
+       «Лёгких» кадр меняется в показанном слое мгновенно. */
+    css.push('.lumen-screen .lumen-screen-stage{position:absolute;top:-4em;left:0;right:0;height:100vh;overflow:hidden;pointer-events:none}');
+    css.push('.lumen-screen .lumen-screen-stage__img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center 25%;opacity:0}');
+    css.push('.lumen-screen .lumen-screen-stage__img.is-active{opacity:1}');
+    css.push('body.lumen-motion-full .lumen-screen-stage__img{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+    css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-screen-stage__img--b{-webkit-transition:opacity .3s ease-in-out;transition:opacity .3s ease-in-out}');
+    css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-screen-stage__img--a{-webkit-transition:opacity 0s linear .3s;transition:opacity 0s linear .3s}');
+    css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-screen-stage__img--a.is-active{-webkit-transition:none;transition:none}');
+    /* Затемнение по умолчанию — фоном темы; тон кадра пишет сам слой
+       (LC.stageTone, inline-стилем узла). */
+    css.push('.lumen-screen .lumen-screen-stage__scrim{position:absolute;top:0;left:0;right:0;bottom:0;' + stageScrim(P.bgRgb) + '}');
 
     /* --- Task 18: герой главной (design-spec-main §0.2, экраны 15–19) ---
        Герой лежит в начале .activity (класс .lumen-main на ней же) и
@@ -4198,7 +4320,12 @@
        Lampa прячет под ними .wrap и .head (app.css:397-402), а сам .search
        прозрачный: виден только её фон, размытый постер. Погашенный фон
        давал там плоскую заливку body. */
-    css.push('body.lumen-main-on:not(.ambience--enable) .background,body.lumen-card-on:not(.ambience--enable) .background{display:none}');
+    /* 2026-09-27: и под хабом и сеткой подборки со своим фоном — метка
+       lumen-screen-on (рантайм, src/90_runtime.js markScreenBody). До неё
+       фон Lampa под ними оставался четырьмя полноэкранными слоями под
+       непрозрачной заливкой .lumen-screen, а в полосе шапки был виден
+       серым. */
+    css.push('body.lumen-main-on:not(.ambience--enable) .background,body.lumen-card-on:not(.ambience--enable) .background,body.lumen-screen-on:not(.ambience--enable) .background{display:none}');
     /* translateY(0) в базовом правиле стоит не для красоты: без начального
        значения transition не с чего стартовать, и первый переход в сжатое
        состояние прыгал бы.
@@ -5158,6 +5285,16 @@
     css.push('.lumen-main .card__img{border-radius:.31em}');
     css.push('.lumen-main .card' + CARD_NOT_WIDE + ' .card__img{object-position:' + POSTER_ANCHOR + '}');
     css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
+    /* 2026-09-27 (ТВ: «подсветка очень не яркая»): тот же фокус, что у
+       плиток хаба и карточек сетки, — кольцо поверх кромки постера (разбор
+       у FOCUS_RING). Штатное кольцо Lampa по-прежнему погашено правилом
+       выше (мышиный вариант — целиком); это правило идёт после него с той
+       же специфичностью и возвращает псевдоэлемент только у карточки в
+       фокусе — уже внутри кромки: вылет −.5em, рамка .3em и z-index:-1
+       штатного перебиты. Места в раскладке кольцо не занимает — бюджет
+       высоты ряда (зазор под заголовком ≥ рост постера, Task 51) тот же.
+       Акцентная подложка под постером (AR.cardFocus) остаётся. */
+    css.push('.lumen-main .card.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
     css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(' + ROW_FOCUS + ');transform:scale(' + ROW_FOCUS + ')}');
     /* Кому рисоваться поверх. Выросший постер официально заходит в зону

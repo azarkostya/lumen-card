@@ -2208,8 +2208,8 @@ test('Task 41: чип — сегмент-контрол без рамки, вы�
   assert.equal(css.indexOf('lumen-chip__count'), -1, 'правило снятого счётчика осталось в таблице');
 });
 
-/* Task 41: плитка хаба — баннер без рамки, название в одну строку, фокус
-   только увеличением и тенью. */
+/* Task 41: плитка хаба — баннер без рамки, название в одну строку. Фокус
+   с 2026-09-27 — увеличение и кольцо поверх кадра (тест «фокус подборок»). */
 test('Task 41: плитка хаба — баннер без рамки, заголовок в одну строку', () => {
   const tile = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile');
   assert.ok(tile, 'правило плитки не найдено');
@@ -2231,9 +2231,12 @@ test('Task 41: плитка хаба — баннер без рамки, заг�
 
   const focus = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile.focus');
   assert.ok(focus, 'правило фокуса плитки не найдено');
-  assert.equal(/border-color:/.test(focus), false, 'кольца фокуса на баннере быть не должно: ' + focus);
-  assert.ok(focus.indexOf('transform:scale(1.05)') !== -1, 'фокус — увеличение: ' + focus);
-  assert.ok(focus.indexOf('box-shadow') !== -1, 'и подложка (Task 50b — без размытия): ' + focus);
+  assert.equal(/border-color:/.test(focus), false, 'рамки на самой плитке быть не должно: ' + focus);
+  /* 2026-09-27 (ТВ, фото 22/23): увеличение 1.05 -> 1.08, кольцо — на
+     псевдоэлементе плитки поверх кадра (тест «фокус подборок» ниже);
+     тёмная подложка 0 .2em 0 снята. */
+  assert.ok(focus.indexOf('transform:scale(1.08)') !== -1, 'фокус — увеличение: ' + focus);
+  assert.equal(focus.indexOf('box-shadow'), -1, 'подложки под плиткой больше нет — её роль у кольца: ' + focus);
 });
 
 /* Task 54. Фокус кнопки или строки списка — инверсия: цвет текста темы
@@ -2422,13 +2425,21 @@ test('п.5: кнопки режима «Смотреть по порядку» �
 });
 
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
+  /* 2026-09-27 (ТВ, фото 22/23): в «Лёгких» и «Выкл» увеличение осталось —
+     оно встаёт сразу, без перехода (как постер ряда главной), а признаком
+     фокуса служит кольцо во всех режимах. Прежний контур .13em «Лёгких»
+     рисовался ВНУТРИ плитки, и его закрывали её абсолютные дети — на стенде
+     960×540@2 край плитки в фокусе отличался от края без фокуса только
+     тёмными точками в скруглённых углах (разбор у FOCUS_RING). */
   for (const mode of ['lite', 'off']) {
-    const tile = findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus');
-    assert.ok(tile, 'нет правила плиток для ' + mode);
-    /* Task 41: без увеличения фокус на баннере держится контуром — иначе в
-       этих режимах он не виден вовсе (тень на тёмном фоне не читается). */
-    assert.ok(tile.indexOf('outline:') !== -1, mode + ': фокус плитки остался без признака: ' + tile);
-    assert.ok(findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard.focus'), 'нет правила карточек для ' + mode);
+    const tile = findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile');
+    assert.ok(tile && /transition:none/.test(tile), mode + ': у плитки остался переход: ' + tile);
+    const card = findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard');
+    assert.ok(card && /transition:none/.test(card), mode + ': у карточки сетки остался переход: ' + card);
+    assert.equal(findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus'), null,
+      mode + ': правило, снимавшее увеличение плитки, вернулось');
+    assert.equal(findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard.focus'), null,
+      mode + ': правило, снимавшее увеличение карточки сетки, вернулось');
   }
 });
 
@@ -7036,19 +7047,20 @@ test('Task 43: бюджет под полосу статуса совпадае�
   assert.equal(need, 2.07, 'геометрия полосы статуса разошлась с бюджетом TEXT_STATUS');
 });
 
-test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и подложка, как на главной', () => {
-  const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
-  assert.ok(ring, 'штатное кольцо Lampa обязано быть погашено явным правилом');
-  assert.ok(ring.indexOf('display:none') !== -1, 'кольцо снимается: ' + ring);
-  assert.equal(ring.indexOf('border-color'), -1, 'мёртвая рамка на погашенном псевдоэлементе: ' + ring);
-
-  /* Правил на этот селектор два — подложка и гашение штатных анимаций ниже,
-     поэтому ищем по самому объявлению, а не по первому совпадению.
-     Task 50b: число то же, что на главной, и размытия у него нет. */
-  const view = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-grid .lumen-gcard.focus .card__view') !== -1 &&
-    r.decl.indexOf('box-shadow') !== -1);
-  assert.ok(view && /box-shadow:0 \.2em 0 rgba\(232,184,122,0\.35\)/.test(view.decl),
-    'подложка переехала на сам постер тем же числом, что на главной: ' + (view && view.decl));
+test('Task 43: у карточки сетки подборки нет штатного кольца Lampa — увеличение и своё кольцо внутри кромки', () => {
+  /* 2026-09-27 (ТВ, фото 22/23): штатное кольцо Lampa (.3em с вылетом
+     −.5em, z-index:-1, app.css:3466) по-прежнему погашено базовым
+     правилом, а у карточки в фокусе тот же псевдоэлемент — кольцо ВНУТРИ
+     кромки постера (тест «фокус подборок» ниже). Акцентная подложка
+     0 .2em 0 под постером снята — её роль у кольца. */
+  const base = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard .card__view:after');
+  assert.ok(base && base.indexOf('display:none') !== -1, 'штатное кольцо Lampa обязано быть погашено явным правилом: ' + base);
+  const ring = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus .card__view:after');
+  assert.ok(ring, 'нет кольца фокуса карточки сетки');
+  assert.ok(/(^|;)top:0;left:0;right:0;bottom:0;/.test(ring), 'кольцо обязано лежать внутри кромки постера: ' + ring);
+  assert.equal(ring.indexOf('z-index:-1'), -1, 'кольцо под постером: ' + ring);
+  assert.equal(ruleBodies(css).some((r) => r.selectors.indexOf('.lumen-grid .lumen-gcard.focus .card__view') !== -1 &&
+    r.decl.indexOf('box-shadow') !== -1), false, 'подложка под постером осталась рядом с кольцом');
 
   const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
   assert.ok(focus.indexOf('scale(1.08)') !== -1, 'увеличение то же, что у карточки ряда: ' + focus);
@@ -8450,4 +8462,184 @@ test('следующий раунд, п.5: переход фона главно�
   assert.equal(timing(mainHeavy, 'opacity'), '.3s', 'и с тяжёлыми эффектами');
   const others = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.lumen-main$/.test(s) && !/lumen-motion-full/.test(s)));
   for (const r of others) assert.ok(!/transition/.test(r.decl), 'у фона главной вне «Полного» переход: ' + r.selectors.join(',') + '{' + r.decl + '}');
+});
+
+/* ====================================================================== */
+/* 2026-09-27 (ТВ, фото 22/23): фон подборок и фокус карточек.             */
+/* «в подборках отсутствует хоть какой-то фон» и «нихуя не понятно что     */
+/* выбираем, подсветка очень не яркая» — разбор у STAGE_A и FOCUS_RING     */
+/* (src/30_css.js), слой фона — ScreenStage (src/46_hub.js).               */
+/* ====================================================================== */
+
+/* Смесь цвета fg с прозрачностью a поверх bg (оба #rrggbb) — так браузер
+   кладёт затемнение на кадр. */
+function mixHex(fg, a, bg) {
+  const h = (x) => [0, 2, 4].map((i) => parseInt(x.replace('#', '').slice(i, i + 2), 16));
+  const F = h(fg), B = h(bg);
+  return '#' + [0, 1, 2].map((k) => ('0' + Math.round(F[k] * a + B[k] * (1 - a)).toString(16)).slice(-2)).join('');
+}
+
+/* Тон затемнения фона подборок по ВСЕМ оттенкам источника: шаг 15° по
+   оттенку, насыщенность .3–.9, светлота .3–.7, плюс «цвета нет» (null). */
+function stageTones(storage) {
+  return withStorage(storage, (LC) => {
+    LC.color = COLOR;
+    const out = [LC.stageTone(null).tone];
+    for (let h = 0; h < 360; h += 15) {
+      for (const s of [0.3, 0.6, 0.9]) {
+        for (const l of [0.3, 0.5, 0.7]) out.push(LC.stageTone(COLOR.hslToRgb({ h: h, s: s, l: l })).tone);
+      }
+    }
+    return { tones: out, numbers: LC.stageNumbers, focus: LC.focusNumbers };
+  });
+}
+
+const FOCUS_RULES = [
+  '.lumen-hub__tiles .lumen-tile.focus:after',
+  '.lumen-grid__items .lumen-gcard.focus .card__view:after',
+  '.lumen-main .card.focus .card__view:after'
+];
+
+test('фокус подборок: кольцо поверх кромки у плитки хаба, карточки сетки и ряда главной — одно на все три', () => {
+  const P = tokensWith({});
+  const rings = FOCUS_RULES.map((sel) => lastDecl(css, sel));
+  rings.forEach((ring, i) => {
+    assert.ok(ring, 'нет кольца: ' + FOCUS_RULES[i]);
+    assert.ok(new RegExp('(^|;)border:\\.27em solid ' + P.text + '(;|$)').test(ring), 'кольцо — рамка .27em цветом текста темы: ' + ring);
+    assert.ok(/(^|;)outline:\.09em solid rgba\(0,0,0,\.6\);outline-offset:-\.36em(;|$)/.test(ring),
+      'тёмная линия внутри кольца — outline псевдоэлемента: ' + ring);
+    assert.ok(/(^|;)display:block(;|$)/.test(ring), 'кольцо обязано быть видимым: ' + ring);
+    assert.ok(/(^|;)background:none(;|$)/.test(ring), 'у карточки в фокусе плашки приглушения нет: ' + ring);
+    assert.equal(/box-shadow|filter|transition|animation/.test(ring), false, 'ни тени, ни фильтра, ни анимации у кольца: ' + ring);
+  });
+  assert.equal(new Set(rings.map((r) => declProp(r, 'border') + '|' + declProp(r, 'outline'))).size, 1, 'кольцо разное на разных экранах');
+  /* Кольцо — внутри кромки и над картинкой и метками. У карточек (сетка,
+     главная) геометрия в самом правиле — оно перебивает штатное кольцо
+     Lampa (вылет −.5em, z-index:-1); у плитки хаба — в базовом правиле
+     .lumen-tile:after. */
+  for (const ring of rings.slice(1)) {
+    assert.ok(/(^|;)content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;/.test(ring), 'кольцо обязано лежать внутри кромки постера: ' + ring);
+    assert.ok(/(^|;)z-index:3(;|$)/.test(ring), 'кольцо под метками постера (у них z-index:2): ' + ring);
+  }
+  const tileBase = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile:after');
+  assert.ok(/position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:2/.test(tileBase), 'кольцо плитки — во весь её контур, над кадром: ' + tileBase);
+  /* Толщина на ТВ: кегль Lampa на окне 960 CSS px — 11.4055 px (замер на
+     стенде), DPR 2. Кольцо ≥ 3 CSS px (6 физических) — видно с 3 м. */
+  const px = 0.27 * 11.4055;
+  assert.ok(px >= 3 && px <= 4.5, 'кольцо ' + px.toFixed(2) + ' CSS px на ТВ');
+});
+
+test('фокус подборок: увеличение во всех режимах, в «Лёгких» и «Выкл» — без перехода', () => {
+  assert.ok(/scale\(1\.08\)/.test(findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile.focus')), 'плитка хаба 1.08');
+  assert.ok(/scale\(1\.08\)/.test(findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus')), 'карточка сетки 1.08');
+  const snap = ruleBodies(css).filter((r) => r.selectors.some((s) => /^\.lumen-(hub|grid)\.lumen-motion-(lite|off) \.lumen-(tile|gcard)\.focus$/.test(s)));
+  assert.deepEqual(snap.map((r) => r.selectors.join(',')), [], 'в «Лёгких»/«Выкл» увеличение снято');
+});
+
+test('фокус подборок: соседи приглушены плашкой без перехода, кольцо фокуса перебивает её порядком', () => {
+  const cases = [
+    ['.lumen-hub__tiles.lumen-dim .lumen-tile:after', '.lumen-hub__tiles .lumen-tile.focus:after'],
+    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-grid__items .lumen-gcard.focus .card__view:after']
+  ];
+  const bodies = ruleBodies(css);
+  const at = (sel) => bodies.findIndex((r) => r.selectors.indexOf(sel) !== -1);
+  for (const [dimSel, focusSel] of cases) {
+    const dim = findDecl(css, (sel) => sel === dimSel);
+    assert.ok(dim && /display:block/.test(dim), 'нет приглушения: ' + dimSel);
+    const a = parseFloat(/background:rgba\([\d,]+,([\d.]+)\)/.exec(dim)[1]);
+    assert.ok(a >= 0.3 && a <= 0.45, 'приглушение соседей ' + a + ' — вне .3–.45 (≈ opacity .55–.7): ' + dim);
+    assert.equal(/transition|animation|filter|opacity/.test(dim), false, 'приглушение без анимации и без opacity (слой на каждую плитку): ' + dim);
+    assert.ok(at(focusSel) > at(dimSel), 'кольцо фокуса обязано стоять ПОСЛЕ приглушения (та же специфичность): ' + focusSel);
+  }
+  /* Подпись под фокусом ярче: у соседей P.soft, у фокуса P.text. */
+  const P = tokensWith({});
+  assert.equal(declProp(findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard .card__title'), 'color'), P.soft);
+  assert.equal(declProp(findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__title'), 'color'), P.text);
+  assert.equal(declProp(findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile.focus .lumen-tile__sub'), 'color'), P.soft);
+});
+
+test('фокус подборок: кольцо ≥ 3:1 к соседним цветам — на белом и чёрном кадре, в обеих темах, при любом тоне', () => {
+  const bad = [];
+  let worst = Infinity;
+  for (const theme of ['warm', 'black']) {
+    const P = tokensWith({ lumen_theme: theme });
+    const { tones, numbers } = stageTones({ lumen_theme: theme });
+    /* Снаружи кольца — фон экрана: затемнение тоном поверх кадра фона.
+       Худшие кадры — белый и чёрный. */
+    for (const tone of tones) {
+      for (const frame of ['#ffffff', '#000000']) {
+        for (const a of [numbers.a, numbers.topA]) {
+          const c = contrast(P.text, mixHex(tone, a, frame));
+          worst = Math.min(worst, c);
+          if (c < 3) bad.push(theme + ' тон ' + tone + ' кадр ' + frame + ': ' + c.toFixed(2));
+        }
+      }
+    }
+    /* Изнутри — тёмная линия rgba(0,0,0,.6) поверх картинки; худшая
+       картинка — белая. */
+    const inside = contrast(P.text, mixHex('#000000', 0.6, '#ffffff'));
+    if (inside < 3) bad.push(theme + ': линия внутри кольца на белой картинке ' + inside.toFixed(2));
+    /* Главная: снаружи кольца — фон рядов (самая светлая подкраска). */
+    const rows = contrast(P.text, lightestTint(theme));
+    if (rows < 3) bad.push(theme + ': кольцо на фоне рядов ' + rows.toFixed(2));
+  }
+  assert.deepEqual(bad, []);
+  assert.ok(worst >= 4.5, 'запас кольца к фону экрана на худшем кадре: ' + worst.toFixed(2));
+});
+
+test('фон подборок: текст на кадре — не темнее P.soft и держит 4.5:1 на белом кадре при любом тоне', () => {
+  const onFrame = ['.lumen-hub__count', '.lumen-hub .lumen-chip', '.lumen-hub__search', '.lumen-hub__roulette', '.lumen-hub__empty',
+    '.lumen-grid__sub', '.lumen-grid .lumen-gcard .card__title', '.lumen-grid .lumen-gcard .card__age', '.lumen-grid .lumen-grid__empty-text'];
+  const bad = [];
+  for (const theme of ['warm', 'black']) {
+    const P = tokensWith({ lumen_theme: theme });
+    const built = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    for (const sel of onFrame) {
+      const color = declProp(findDecl(built, (s) => s === sel), 'color');
+      if (!color || luminance(color) < luminance(P.soft) - 1e-9) bad.push(theme + ': ' + sel + ' ' + color + ' темнее P.soft');
+    }
+    const { tones, numbers } = stageTones({ lumen_theme: theme });
+    for (const tone of tones) {
+      const c = contrast(P.soft, mixHex(tone, numbers.a, '#ffffff'));
+      if (c < 4.5) bad.push(theme + ' тон ' + tone + ': P.soft на белом кадре ' + c.toFixed(2));
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('фон подборок: затемнение не легче STAGE_A нигде, под шапкой плотнее, тон из LC.stageTone', () => {
+  withStorage({}, (LC) => {
+    LC.color = COLOR;
+    const n = LC.stageNumbers;
+    assert.ok(n.a >= 0.75 && n.a <= 0.9, 'плотность затемнения ' + n.a);
+    assert.ok(n.topA > n.a, 'под шапкой Lampa затемнение плотнее');
+    assert.equal(n.leak, Math.round((1 - n.a) * 100) / 100);
+    const red = LC.stageTone({ r: 200, g: 40, b: 40 });
+    assert.notEqual(red.tone, LC.stageTone(null).tone, 'красный кадр не дал тона');
+    const g = gradients(red.scrim.replace(/^background:-webkit-[^;]+;/, ''), 'background');
+    assert.equal(g.length, 1, 'затемнение — один слой: ' + red.scrim);
+    assert.ok(g[0].stops.every((s) => s.a >= n.a - 1e-9), 'затемнение легче STAGE_A: ' + red.scrim);
+    assert.ok(/^background:-webkit-linear-gradient\(top,/.test(red.scrim), 'нет префиксной пары для старых WebView: ' + red.scrim);
+  });
+  const base = findDecl(css, (sel) => sel === '.lumen-screen .lumen-screen-stage__scrim');
+  assert.ok(base && /position:absolute;top:0;left:0;right:0;bottom:0/.test(base), 'затемнение по умолчанию — во весь слой: ' + base);
+});
+
+test('фон подборок: один неподвижный слой без своего слоя композитора, переходы только в «Полных», фон Lampa погашен', () => {
+  const stage = findDecl(css, (sel) => sel === '.lumen-screen .lumen-screen-stage');
+  assert.ok(stage, 'нет слоя фона');
+  assert.ok(/position:absolute;top:-4em;left:0;right:0;height:100vh/.test(stage), 'геометрия — как у слоя кадра героя: ' + stage);
+  assert.equal(/transform|will-change|filter|z-index/.test(stage), false, 'слой фона не должен заводить свой слой композитора: ' + stage);
+  const img = findDecl(css, (sel) => sel === '.lumen-screen .lumen-screen-stage__img');
+  assert.ok(/object-fit:cover;object-position:center 25%/.test(img), 'кадрирование — как у героя: ' + img);
+  assert.equal(/transition|filter/.test(img), false, 'у кадра фона переход вне «Полных»: ' + img);
+  const trans = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-screen-stage') !== -1) && /transition/.test(r.decl));
+  assert.ok(trans.length >= 1, 'в «Полных» кадр не проявляется');
+  for (const r of trans) {
+    assert.ok(r.selectors.every((s) => /^body(\.lumen-fx-heavy)?\.lumen-motion-full /.test(s)), 'переход фона вне «Полных»: ' + r.selectors.join(','));
+    const what = declProp(r.decl, 'transition');
+    assert.ok(/^(opacity|none)/.test(what), 'переход фона не только opacity: ' + r.decl);
+  }
+  const lampa = ruleBodies(css).find((r) => r.selectors.indexOf('body.lumen-screen-on:not(.ambience--enable) .background') !== -1);
+  assert.ok(lampa && /display:none/.test(lampa.decl), 'фон Lampa под подборками не погашен');
 });

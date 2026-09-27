@@ -2951,3 +2951,243 @@ test('настроения: в хабе чип «Настроение» — пл
   assert.equal(s.env.log.pushes[0].title, 'Страшное на ночь');
   assert.equal(s.env.log.pushes[0].url, 'discover/movie?with_genres=27');
 });
+
+/* ====================================================================== */
+/* 2026-09-27 (ТВ, фото 22/23): фон подборок (ScreenStage) и приглушение    */
+/* соседей плитки или карточки в фокусе (src/46_hub.js).                   */
+/* ====================================================================== */
+
+/* Минимальный jQuery дополняется тем, что нужно слою фона: prepend (слой —
+   первым ребёнком активности), attr с записью и removeAttr (src кадра). */
+El.prototype.prepend = function (child) {
+  var el = child instanceof El ? child : new El(classesOf(child), tagOf(child));
+  el._parent = this;
+  this._children.unshift(el);
+  return this;
+};
+var attrRead = El.prototype.attr;
+El.prototype.attr = function (name, value) {
+  if (arguments.length < 2) return attrRead.call(this, name);
+  (this._attr = this._attr || {})[name] = '' + value;
+  return this;
+};
+El.prototype.removeAttr = function (name) { if (this._attr) delete this._attr[name]; return this; };
+
+/* new Image предзагрузчика фона. decode() — thenable, который тест
+   разрешает сам (images[i]._ok()): так видно, что кадр ставится ТОЛЬКО
+   после декодирования. */
+function withImages(fn) {
+  var images = [];
+  function FakeImage() {
+    var self = this;
+    images.push(this);
+    this.complete = false;
+    this.naturalWidth = 0;
+    this.decode = function () { return { then: function (ok, fail) { self._ok = ok; self._fail = fail; } }; };
+  }
+  var had = Object.prototype.hasOwnProperty.call(globalThis, 'Image');
+  var prev = globalThis.Image;
+  globalThis.Image = FakeImage;
+  try { return fn(images); } finally {
+    if (had) globalThis.Image = prev; else delete globalThis.Image;
+  }
+}
+
+/* Экран с настоящим узлом активности (у fakeActivity render() — null, и
+   слою фона встать некуда). */
+function openStaged(kind, opts) {
+  opts = opts || {};
+  if (!opts.cols) opts.cols = kind === 'lumen_hub' ? 2 : 6;
+  var env = setupLampa(opts);
+  var h = loadHub(opts);
+  h.api.install();
+  var act = new El(['activity']);
+  var Comp = env.log.components[kind];
+  var comp = new Comp(kind === 'lumen_grid' ? { lumen: opts.item, title: opts.item.title } : {});
+  comp.activity = { loader: function () {}, render: function () { return act; } };
+  comp.create();
+  return { env: env, h: h, comp: comp, act: act, root: env.log.scrolls[0].body()._children[0] };
+}
+
+function stageImgs(act) {
+  return { a: act.all('lumen-screen-stage__img--a')[0], b: act.all('lumen-screen-stage__img--b')[0] };
+}
+
+test('фон подборок: хаб — кадр плитки, одна смена после паузы фокуса; листание подряд не грузит ничего', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  warnLog.length = 0;
+  withImages(function (images) {
+    var s = openStaged('lumen_hub', { motion: 'lite' });
+    var tiles = s.root.all('lumen-tile');
+    s.h.bannerCalls[0].ok('/a.jpg');
+    s.h.bannerCalls[1].ok('/b.jpg');
+    /* Вход: фокус ещё не на плитке — фон по первой плитке группы. */
+    t.mock.timers.tick(449);
+    assert.equal(images.length, 0, 'до паузы фокуса кадр не грузится');
+    t.mock.timers.tick(1);
+    assert.equal(images.length, 1);
+    assert.ok(/\/t\/p\/w780\/a\.jpg$/.test(images[0].src), 'кадр фона — w780 кадра плитки (он уже в кэше): ' + images[0].src);
+    assert.equal(images[0].decoding, 'async');
+    var stage = s.act._children[0];
+    assert.ok(stage.hasClass('lumen-screen-stage'), 'слой фона — первым ребёнком активности, под .activity__body');
+    var L = stageImgs(s.act);
+    assert.equal(L.a.attr('src'), undefined, 'до декодирования src в слое экрана не ставится');
+    images[0]._ok();
+    assert.equal(L.a.attr('src'), images[0].src);
+    assert.ok(L.a.hasClass('is-active'));
+    /* Листание: b, a, b через 200 мс — ни одной загрузки; остановились — одна. */
+    fire(tiles[1], 'hover:focus');
+    t.mock.timers.tick(200);
+    fire(tiles[0], 'hover:focus');
+    t.mock.timers.tick(200);
+    fire(tiles[1], 'hover:focus');
+    t.mock.timers.tick(449);
+    assert.equal(images.length, 1, 'листание подряд не грузит кадров');
+    t.mock.timers.tick(1);
+    assert.equal(images.length, 2);
+    assert.ok(/w780\/b\.jpg$/.test(images[1].src));
+    images[1]._ok();
+    assert.equal(L.a.attr('src'), images[1].src, '«Лёгкие»: кадр меняется в показанном слое');
+    assert.equal(L.b.attr('src'), undefined, '«Лёгкие»: второй слой пуст — кроссфейда нет');
+    /* Вернулись на показанный кадр до паузы — ничего не грузится. */
+    fire(tiles[0], 'hover:focus');
+    t.mock.timers.tick(100);
+    fire(tiles[1], 'hover:focus');
+    t.mock.timers.tick(1000);
+    assert.equal(images.length, 2, 'возврат на показанный кадр не грузит его заново');
+    s.comp.destroy();
+    assert.equal(s.act.all('lumen-screen-stage').length, 0, 'destroy снимает слой фона');
+    assert.equal(L.a.attr('src'), undefined, 'и отпускает растр кадра');
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('фон подборок: кадр ставится только после decode(), устаревший ответ отбрасывается', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  withImages(function (images) {
+    var s = openStaged('lumen_hub', { motion: 'full' });
+    var tiles = s.root.all('lumen-tile');
+    s.h.bannerCalls[0].ok('/a.jpg');
+    s.h.bannerCalls[1].ok('/b.jpg');
+    t.mock.timers.tick(450);
+    fire(tiles[1], 'hover:focus');
+    t.mock.timers.tick(450);
+    assert.equal(images.length, 2);
+    /* Первый кадр декодировался уже после ухода фокуса — не ставится. */
+    images[0]._ok();
+    var L = stageImgs(s.act);
+    assert.equal(L.a.attr('src'), undefined, 'устаревший кадр встал на экран');
+    images[1]._ok();
+    assert.ok(/w780\/b\.jpg$/.test(L.a.attr('src')), 'встал кадр плитки в фокусе');
+  });
+});
+
+test('фон подборок: в «Выкл» слоя фона нет и кадры не грузятся', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  withImages(function (images) {
+    var s = openStaged('lumen_hub', { motion: 'off' });
+    s.h.bannerCalls[0].ok('/a.jpg');
+    fire(s.root.all('lumen-tile')[0], 'hover:focus');
+    t.mock.timers.tick(2000);
+    assert.equal(images.length, 0);
+    assert.equal(s.act.all('lumen-screen-stage').length, 0);
+  });
+});
+
+test('фокус подборок: соседи приглушены, пока фокус на плитках; чип, кнопки шапки и уход пульта снимают', function () {
+  var s = openStaged('lumen_hub', { motion: 'lite' });
+  s.comp.start();
+  var row = s.root.all('lumen-hub__tiles')[0];
+  var tiles = s.root.all('lumen-tile');
+  fire(tiles[0], 'hover:focus');
+  assert.ok(row.hasClass('lumen-dim'), 'фокус на плитке — соседи приглушены');
+  fire(tiles[1], 'hover:hover');
+  assert.ok(row.hasClass('lumen-dim'), 'и мышью');
+  fire(s.root.all('lumen-chip')[0], 'hover:focus');
+  assert.equal(row.hasClass('lumen-dim'), false, 'фокус на чипе — приглушения нет');
+  fire(tiles[0], 'hover:focus');
+  fire(s.root.all('lumen-hub__search')[0], 'hover:focus');
+  assert.equal(row.hasClass('lumen-dim'), false, 'фокус на поиске — приглушения нет');
+  fire(tiles[0], 'hover:focus');
+  s.env.log.controllers.content.gone('menu');
+  assert.equal(row.hasClass('lumen-dim'), false, 'пульт ушёл в меню — приглушения нет');
+});
+
+test('фон подборок: сетка — кадр первого фильма до фокуса, дальше кадр карточки в фокусе; приглушение соседей', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  withImages(function (images) {
+    var s = openStaged('lumen_grid', { motion: 'lite', item: COLLECTION });
+    var list = results(8);
+    list[0].backdrop_path = '/x0.jpg';
+    list[3].backdrop_path = '/x3.jpg';
+    s.h.fetchCalls[0].ok({ results: list, page: 1, total_pages: 1, total_results: 8 });
+    t.mock.timers.tick(450);
+    assert.equal(images.length, 1);
+    assert.ok(/w780\/x0\.jpg$/.test(images[0].src), 'до фокуса — кадр первого фильма подборки: ' + images[0].src);
+    images[0]._ok();
+    var cards = s.root.all('lumen-gcard');
+    var row = s.root.all('lumen-grid__items')[0];
+    fire(cards[1], 'hover:focus');
+    assert.ok(row.hasClass('lumen-dim'));
+    t.mock.timers.tick(1000);
+    assert.equal(images.length, 1, 'у карточки без кадра фон прежний');
+    fire(cards[3], 'hover:focus');
+    t.mock.timers.tick(450);
+    assert.equal(images.length, 2);
+    assert.ok(/w780\/x3\.jpg$/.test(images[1].src));
+    images[1]._ok();
+    assert.ok(/w780\/x3\.jpg$/.test(stageImgs(s.act).a.attr('src')));
+    fire(s.root.all('lumen-chip')[0], 'hover:focus');
+    assert.equal(row.hasClass('lumen-dim'), false, 'фокус на чипе сортировки — приглушения нет');
+    s.comp.stop();
+    fire(cards[0], 'hover:focus');
+    s.comp.destroy();
+    t.mock.timers.tick(2000);
+    assert.equal(images.length, 2, 'после destroy кадры не грузятся');
+  });
+});
+
+test('фон подборок: кадр ждёт цвет низа кадра и встаёт вместе с тоном; поздний цвет перекрашивает только затемнение', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  warnLog.length = 0;
+  withImages(function (images) {
+    var s = openStaged('lumen_hub', { motion: 'lite' });
+    var known = {};
+    var pending = {};
+    s.h.LC.accent = {
+      frameColor: function (path) { return Object.prototype.hasOwnProperty.call(known, path) ? known[path] : undefined; },
+      prepareFrame: function (path, done) { pending[path] = done; return { cancel: function () { delete pending[path]; } }; }
+    };
+    s.h.LC.stageTone = function (rgb) { return { tone: '#000000', scrim: rgb ? 'tone:' + rgb.r : 'tone:none' }; };
+    var tiles = s.root.all('lumen-tile');
+    s.h.bannerCalls[0].ok('/a.jpg');
+    s.h.bannerCalls[1].ok('/b.jpg');
+    t.mock.timers.tick(450);
+    assert.equal(images.length, 1);
+    assert.equal(typeof pending['/a.jpg'], 'function', 'цвет низа кадра заказан вместе с кадром');
+    var scrim = s.act.all('lumen-screen-stage__scrim')[0];
+    scrim.style = {};
+    var L = stageImgs(s.act);
+    images[0]._ok();
+    assert.equal(L.a.attr('src'), undefined, 'декодированный кадр ждёт свой цвет');
+    known['/a.jpg'] = { r: 1, g: 2, b: 3 };
+    pending['/a.jpg']();
+    assert.ok(/a\.jpg$/.test(L.a.attr('src')), 'цвет пришёл — кадр встал');
+    assert.equal(scrim.style.cssText, 'tone:1', 'в той же смене — тон затемнения по цвету кадра');
+    /* Цвет опаздывает: кадр встаёт через STAGE_COLOR_WAIT с тоном темы, а
+       цвет потом перекрашивает одно затемнение. */
+    fire(tiles[1], 'hover:focus');
+    t.mock.timers.tick(450);
+    images[1]._ok();
+    t.mock.timers.tick(599);
+    assert.ok(/a\.jpg$/.test(L.a.attr('src')), 'кадр встал раньше, чем истекло ожидание цвета');
+    t.mock.timers.tick(1);
+    assert.ok(/b\.jpg$/.test(L.a.attr('src')), 'ожидание цвета истекло — кадр встал');
+    assert.equal(scrim.style.cssText, 'tone:none', 'цвета нет — тон темы');
+    known['/b.jpg'] = { r: 9, g: 9, b: 9 };
+    pending['/b.jpg']();
+    assert.equal(scrim.style.cssText, 'tone:9', 'поздний цвет перекрасил затемнение');
+    assert.equal(images.length, 2, 'и не перегрузил кадр');
+  });
+  assert.deepEqual(warnLog, []);
+});

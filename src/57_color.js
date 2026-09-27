@@ -1529,6 +1529,15 @@
          (src/48_hero.js, src/58_prefetch.js). */
       prepareFrame: prepareFrame,
       knownFrame: function (path) { return knownKey(frameKey(path)); },
+      /* 2026-09-27, фон подборок (src/46_hub.js, ScreenStage): цвет низа
+         кадра, если он уже посчитан (prepareFrame), — округлённая доминанта
+         или null («своего цвета нет»); undefined — ещё не считали. Экран
+         красит им своё затемнение сам (LC.stageTone, src/30_css.js), а
+         цвет фильма и узел подкраски главной не трогает. */
+      frameColor: function (path) {
+        var key = frameKey(path);
+        return knownKey(key) ? films[key] : undefined;
+      },
       known: function (movie) { return knownKey(filmKey(movie)); },
       /* Раунд правок финальной проверки, A9: ключ цвета фильма
          «источник:тип/id» — им предрасчёт соседей (src/58_prefetch.js)
