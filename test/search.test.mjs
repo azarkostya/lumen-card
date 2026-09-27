@@ -329,3 +329,113 @@ test('Н4 find: «Рокки» — только «Рокки»: скелет и 
   assert.deepEqual(own('скеля', 'uk'), ['rocks'], 'украинский интерфейс, запрос без меток — основа по украинскому ключу');
   assert.deepEqual(own('скеля'), [], 'русский интерфейс, запрос без меток — украинский ключ основой не сравнивается');
 });
+
+/* Прогон 2026-09-27 (Н5): «Киновселенная Marvel» в поиске была тёмной
+   панелью — cover в каталоге у неё нет, а поиск, в отличие от плитки хаба,
+   кадра из самой подборки не брал. Теперь берёт тем же LC.sources.bannerPath
+   (путь TMDB — backdrop_path карточки, адрес Кинопоиска — img), для первых
+   COVER_AHEAD карточек без cover и не дольше COVER_WAIT; новый поиск и
+   отмена прежний ответ глушат. */
+function withSources(bannerPath, fn) {
+  const { api, LC } = fresh();
+  LC.sources = { bannerPath: bannerPath };
+  return fn(api.source(), LC);
+}
+
+test('Н5 source: подборка без cover — кадр подборки, как у плитки хаба; с cover — без запроса', () => {
+  const asked = [];
+  withSources((item, ok) => { asked.push(item.id); ok(item.id === 'mcu' ? '/mcuFrame1.jpg' : ''); return { clear() {} }; }, (src) => {
+    let rows = null;
+    src.search({ query: encodeURIComponent('марвел') }, (r) => { rows = r; });
+    assert.ok(rows, 'ответ не отдан');
+    const byId = {};
+    for (const c of rows[0].results) byId[c.lumen_id] = c;
+    assert.equal(byId.mcu.backdrop_path, '/mcuFrame1.jpg', '«Киновселенная Marvel» без кадра');
+    assert.equal(byId.mcu.img, undefined, 'у карточки с кадром осталась заглушка');
+    const covered = CATALOG.collections.filter((c) => c.cover).map((c) => c.id);
+    for (const id of asked) assert.equal(covered.indexOf(id), -1, 'кадр запрошен у подборки с cover: ' + id);
+    assert.ok(asked.indexOf('mcu') !== -1);
+    assert.equal(byId['marvel-classic'].backdrop_path, CATALOG.collections.filter((c) => c.id === 'marvel-classic')[0].cover);
+  });
+  /* Кинопоиск отдаёт готовый адрес постера; пусто и ошибка — заглушка. */
+  const manifest = { collections: [
+    { id: 'kp', title: 'Топ КП', sources: { movie: { type: 'kp' } } },
+    { id: 'none', title: 'Топ пусто', sources: { movie: { type: 'discover', params: {} } } },
+    { id: 'bad', title: 'Топ сбой', sources: { movie: { type: 'discover', params: {} } } },
+    { id: 'evil', title: 'Топ чужой', sources: { movie: { type: 'discover', params: {} } } }
+  ] };
+  const { api, LC } = fresh({ manifest: manifest });
+  LC.sources = { bannerPath: (item, ok, err) => {
+    if (item.id === 'kp') ok('https://kinopoiskapiunofficial.tech/images/posters/kp_small/1.jpg');
+    else if (item.id === 'none') ok('');
+    else if (item.id === 'evil') ok('//evil.example/x.jpg');
+    else err({ failed: true });
+  } };
+  let rows = null;
+  api.source().search({ query: encodeURIComponent('топ') }, (r) => { rows = r; });
+  const by = {};
+  for (const c of rows[0].results) by[c.lumen_id] = c;
+  assert.equal(by.kp.img, 'https://kinopoiskapiunofficial.tech/images/posters/kp_small/1.jpg');
+  assert.equal(by.kp.backdrop_path, undefined);
+  for (const id of ['none', 'bad', 'evil']) {
+    assert.ok(/^data:image\/svg\+xml/.test(by[id].img), id + ': без кадра — заглушка');
+    assert.equal(by[id].backdrop_path, undefined, id);
+  }
+});
+
+test('Н5 source: кадров не больше COVER_AHEAD, ждём не дольше COVER_WAIT, поздний кадр карточку не меняет', () => {
+  const manifest = { collections: [] };
+  for (let i = 0; i < 12; i++) manifest.collections.push({ id: 'c' + i, title: 'Кино ' + i, sources: { movie: { type: 'discover', params: {} } } });
+  const pending = [];
+  const timers = [];
+  const hadSet = globalThis.setTimeout;
+  const hadClear = globalThis.clearTimeout;
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length; };
+  globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].live = false; };
+  try {
+    const { api, LC } = fresh({ manifest: manifest });
+    LC.sources = { bannerPath: (item, ok, err, alive) => { pending.push({ item, ok, alive }); } };
+    let rows = null;
+    let calls = 0;
+    api.source().search({ query: encodeURIComponent('кино') }, (r) => { rows = r; calls++; });
+    assert.equal(pending.length, 8, 'кадров запрошено ' + pending.length + ' — больше окна');
+    assert.deepEqual(pending.map((p) => p.item.id), ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'], 'кадры — первым карточкам строки');
+    assert.equal(rows, null, 'ответ отдан до кадров');
+    pending[0].ok('/early.jpg');
+    assert.equal(rows, null);
+    const wait = timers.filter((t) => t.live);
+    assert.equal(wait.length, 1);
+    assert.ok(wait[0].ms > 0 && wait[0].ms <= 1500, 'ожидание кадров ' + wait[0].ms + ' мс');
+    wait[0].fn();
+    assert.equal(calls, 1, 'по истечении ожидания ответ отдан');
+    assert.equal(rows[0].results.length, 12);
+    assert.equal(rows[0].results[0].backdrop_path, '/early.jpg');
+    assert.ok(/^data:image\/svg\+xml/.test(rows[0].results[1].img), 'не успел — заглушка');
+    assert.notEqual(pending[1].alive(), 0, 'после ответа запросы кадров не считаются живыми');
+    pending[1].ok('/late.jpg');
+    assert.equal(rows[0].results[1].backdrop_path, undefined, 'поздний кадр поменял уже отданную карточку');
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.setTimeout = hadSet;
+    globalThis.clearTimeout = hadClear;
+  }
+});
+
+test('Н5 source: новый поиск и отмена глушат прежний ответ', () => {
+  const pending = [];
+  const { api, LC } = fresh();
+  LC.sources = { bannerPath: (item, ok) => { pending.push({ id: item.id, ok }); } };
+  const src = api.source();
+  const got = [];
+  src.search({ query: encodeURIComponent('марвел') }, (r) => got.push(['марвел', r]));
+  const first = pending.length;
+  assert.ok(first > 0);
+  src.search({ query: encodeURIComponent('мстители') }, (r) => got.push(['мстители', r]));
+  for (const p of pending) p.ok('/f.jpg');
+  assert.deepEqual(got.map((g) => g[0]), ['мстители'], 'отдан ответ устаревшего запроса');
+  pending.length = 0;
+  src.search({ query: encodeURIComponent('марвел') }, (r) => got.push(['марвел2', r]));
+  src.onCancel();
+  for (const p of pending) p.ok('/f.jpg');
+  assert.deepEqual(got.map((g) => g[0]), ['мстители'], 'после отмены ответ отдан');
+});

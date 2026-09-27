@@ -29,11 +29,13 @@
   /* Style и Callback (Lampa.Maker.module('Card'), :55119): у подборки нет  */
   /* ни закладок, ни отметок просмотра, и меню по удержанию OK ей не нужно. */
   /* Кадр — cover из каталога (путь TMDB, его Card берёт через прокси       */
-  /* картинок Lampa); без него — своя заглушка, а не битая картинка.        */
+  /* картинок Lampa); без него — кадр самой подборки, как у плитки хаба    */
+  /* (fillCovers), а не успел он — своя заглушка, а не битая картинка.      */
   /*                                                                       */
-  /* Сети поиск не стоит ничего: каталог уже в памяти (LC.manifest.get),   */
-  /* сравнение — строки. Ответ Lampa кэширует сама (Cache 'other') —        */
-  /* поэтому выбор ищет подборку заново по id в текущем каталоге.           */
+  /* Сам поиск сети не стоит: каталог уже в памяти (LC.manifest.get),      */
+  /* сравнение — строки; в сеть ходят только кадры подборок без cover.      */
+  /* Ответ Lampa кэширует сама (Cache 'other') — поэтому выбор ищет         */
+  /* подборку заново по id в текущем каталоге.                              */
   /* -------------------------------------------------------------------- */
 
   LC.lampaSearch = (function () {
@@ -267,9 +269,66 @@
       };
       /* Кадр — только путь TMDB (как у плиток хаба: каталог может быть
          внешним, и адресом со стороны он сюда не попадёт). */
-      if (typeof item.cover === 'string' && /^\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/.test(item.cover)) card.backdrop_path = item.cover;
+      if (typeof item.cover === 'string' && TMDB_PATH.test(item.cover)) card.backdrop_path = item.cover;
       else card.img = NO_COVER;
       return card;
+    }
+
+    var TMDB_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
+
+    /* Прогон 2026-09-27 (Н5): «Киновселенная Marvel» в поиске — тёмная
+       панель. cover в каталоге есть не у всех (у 100 подборок из 174 его
+       нет, у mcu тоже), и плитка хаба без него берёт кадр из самой подборки
+       (LC.sources.bannerPath: backdrop_path первой карточки её первой
+       страницы, у Кинопоиска — постер), а поиск — нет: брал только cover.
+       Теперь и поиск берёт кадр тем же путём и ту же картинку, что плитка
+       хаба. Ответ Lampa ждёт (Results.search рисует строку по oncomplite),
+       поэтому кадров просим не больше COVER_AHEAD (первые карточки строки —
+       те, что на экране, столько же хаб грузит вокруг фокуса) и ждём не
+       дольше COVER_WAIT: не успел кадр — заглушка, как прежде. Первая
+       страница подборки кэшируется Lampa (Api tmdb, life), и повторный
+       поиск или открытая плитка хаба её уже не просят.
+       Новый поиск или отмена (onCancel) — прежний ответ не отдаётся: Lampa
+       сама не проверяет, к какому запросу пришёл ответ (штатные источники
+       на onCancel так же гасят свой запрос, app.min.js:20283). */
+    var COVER_AHEAD = 8;
+    var COVER_WAIT = 1500;
+    var seq = 0;
+
+    function fillCovers(found, cards, done) {
+      var want = [];
+      for (var i = 0; i < cards.length && want.length < COVER_AHEAD; i++) {
+        if (cards[i].img === NO_COVER) want.push(i);
+      }
+      if (!want.length || !LC.sources || typeof LC.sources.bannerPath !== 'function') { done(); return; }
+      var left = want.length;
+      var over = false;
+      var timer = setTimeout(finish, COVER_WAIT);
+      function finish() {
+        if (over) return;
+        over = true;
+        clearTimeout(timer);
+        done();
+      }
+      function alive() { return over ? 1 : 0; }
+      function one(k) {
+        var card = cards[k];
+        function next() { if (--left <= 0) finish(); }
+        try {
+          LC.sources.bannerPath(found[k], function (path) {
+            if (over) return;
+            if (typeof path === 'string' && /^https?:\/\//.test(path)) card.img = path;
+            else if (typeof path === 'string' && TMDB_PATH.test(path)) { card.backdrop_path = path; delete card.img; }
+            next();
+          }, function () {
+            if (!over) next();
+          }, alive);
+        } catch (e) {
+          warn('search: cover failed', e);
+          next();
+        }
+      }
+      for (var j = 0; j < want.length; j++) one(want[j]);
     }
 
     function decode(query) {
@@ -288,24 +347,29 @@
         title: label(),
         params: {},
         search: function (params, oncomplite) {
+          var my = ++seq;
           var rows = [];
+          var found = [];
+          var cards = [];
           try {
             var manifest = catalog();
             var code = langCode();
-            var found = find(manifest, decode(params && params.query), code);
+            found = find(manifest, decode(params && params.query), code);
             if (found.length) {
               var groups = {};
               var list = (manifest && manifest.groups) || [];
               for (var g = 0; g < list.length; g++) if (list[g] && list[g].id) groups[list[g].id] = list[g];
-              var cards = [];
               for (var i = 0; i < found.length; i++) cards.push(cardOf(found[i], code, groups));
               rows.push({ title: built.title, results: cards, total: cards.length });
             }
           } catch (e) {
             warn('search: collections failed', e);
             rows = [];
+            cards = [];
           }
-          oncomplite(rows);
+          fillCovers(found, cards, function () {
+            if (my === seq) oncomplite(rows);
+          });
         },
         /* Финальная проверка, L4: карточка подборки, которой в каталоге
            уже нет (Lampa показывает вчерашние результаты из своего кэша
@@ -328,7 +392,7 @@
           try { if (typeof close === 'function') close(); } catch (e1) { }
           try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item); } catch (e2) { warn('search: open failed', e2); }
         },
-        onCancel: function () { }
+        onCancel: function () { seq++; }
       };
       return built;
     }
