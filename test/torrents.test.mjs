@@ -902,6 +902,60 @@ test('Task 73: фокус раздачи и файла в плоском вид�
        паддинг), поэтому сверяется ВЕСЬ их список, а не последнее. */
     const flat = allFor(on, sel);
     assert.deepEqual(flat, allFor(off, sel), 'правила фокуса изменились: ' + sel);
-    assert.ok(flat.some((d) => /border-color:#/.test(d)), 'акцентная рамка фокуса пропала: ' + sel);
+    assert.ok(flat.some((d) => /border-color:#/.test(d)), 'рамка фокуса пропала: ' + sel);
+  }
+});
+
+/* ====================================================================== */
+/* 2026-09-27, полоса «фокус на всех экранах» (жалоба с ТВ: «нихуя не     */
+/* понятно что выбираем»). Строки пути и постер слева — кольцо плагина    */
+/* (LC.focusRingCss, src/30_css.js) псевдоэлементом ::after поверх кромки. */
+/* Было — рамка строки .132em акцентом: на ТВ 1 CSS px.                    */
+/* ====================================================================== */
+const hexLum = (hex) => {
+  const ch = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const h = hex.replace('#', '');
+  return 0.2126 * ch(parseInt(h.slice(0, 2), 16)) + 0.7152 * ch(parseInt(h.slice(2, 4), 16)) + 0.0722 * ch(parseInt(h.slice(4, 6), 16));
+};
+const hexContrast = (a, b) => { const x = hexLum(a), y = hexLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+const RING_AFTER = [
+  'body.lumen-torrents-on .torrent-item.focus::after',
+  'body.lumen-torrents-on .lumen-torrents .watched-history.focus::after',
+  'body.lumen-torrents-on .torrent-file.focus::after',
+  'body.lumen-torrents-on .torrent-serial.focus::after',
+  'body.lumen-torrents-on .lumen-torrents .explorer-card__head-img.focus::after'
+];
+
+test('фокус на всех экранах: строки пути и постер — кольцо плагина внутри кромки, одинаковое в обоих видах', () => {
+  const k = baseLC.tokens();
+  const ring = baseLC.focusRingCss(k.text);
+  assert.ok(/^border:\.27em solid #[0-9A-F]{6};outline:\.09em solid rgba\(0,0,0,\.6\);outline-offset:-\.36em$/.test(ring), 'кольцо плагина: ' + ring);
+  const off = cssWith({});
+  const on = cssWith({ lumen_flat: 'true' });
+  for (const sel of RING_AFTER) {
+    const d = lastFor(off, sel);
+    assert.ok(d, 'нет кольца: ' + sel);
+    assert.ok(d.indexOf(ring) !== -1, 'кольцо не то же, что у картинок плагина: ' + d);
+    assert.ok(/(^|;)content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;/.test(d), 'кольцо обязано лежать внутри кромки (штатное Lampa — с вылетом −.5em и z-index −1): ' + d);
+    assert.ok(/(^|;)z-index:1(;|$)/.test(d) && /(^|;)pointer-events:none(;|$)/.test(d), d);
+    assert.equal(/box-shadow|filter|transition|animation/.test(d), false, 'ни тени, ни фильтра, ни анимации у кольца: ' + d);
+    /* B8 («рамка фокуса второй раздачи целая сверху»): кольцо от рамок строки
+       не зависит, и плоский вид его не меняет. */
+    assert.equal(lastFor(on, sel), d, 'плоский вид изменил кольцо: ' + sel);
+  }
+  /* Своя рамка строки в фокусе — тем же цветом: без тонкой акцентной линии
+     снаружи кольца. */
+  for (const sel of ['body.lumen-torrents-on .torrent-item.focus', 'body.lumen-torrents-on .lumen-torrents .watched-history.focus', 'body.lumen-torrents-on .torrent-file.focus']) {
+    const d = allFor(off, sel).find((x) => /border-color:/.test(x));
+    assert.ok(d && d.indexOf('border-color:' + k.text) !== -1, 'рамка строки в фокусе не цвета кольца: ' + sel + ' ' + d);
+  }
+  /* Значки, заходящие на кромку, — над кольцом. */
+  assert.ok(/(^|;)z-index:2(;|$)/.test(allFor(off, 'body.lumen-torrents-on .torrent-item__viewed').join(';')), 'галочка «просмотрено» под кольцом');
+  assert.ok(/(^|;)z-index:2(;|$)/.test(allFor(off, 'body.lumen-torrents-on .torrent-file .time-line').join(';')), 'полоса прогресса файла под кольцом');
+  /* Контраст кольца: изнутри — заливка строки в фокусе, снаружи — панель
+     и фон страницы. */
+  for (const bg of [k.panelHi, k.panel, k.panelLo, k.bg]) {
+    assert.ok(hexContrast(k.text, bg) >= 3, 'кольцо к ' + bg + ': ' + hexContrast(k.text, bg).toFixed(2));
   }
 });

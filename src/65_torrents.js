@@ -73,6 +73,25 @@
     function A(list) { return join(list, function (s) { return 'body.' + BODY_ON + ' .' + MARK + ' ' + s; }); }
     function AM(mode, list) { return join(list, function (s) { return 'body.' + BODY_ON + '.lumen-motion-' + mode + ' .' + MARK + ' ' + s; }); }
 
+    /* 2026-09-27 (полоса «фокус на всех экранах», жалоба с ТВ «нихуя не
+       понятно что выбираем»): фокус строк пути (раздача, «Продолжить»,
+       файл, серия) и постера слева — то же кольцо, что у картинок плагина
+       (LC.focusRingCss, src/30_css.js): рамка .27em цветом текста темы
+       псевдоэлементом ::after поверх кромки, внутри контура строки. Было —
+       рамка строки .132em акцентом: на ТВ её вычисленная толщина 1 CSS px
+       (2 физических), снимок стенда before_tv_lite_torr_item. Кольцо не
+       входит в раскладку и от рамок строки не зависит вовсе, поэтому ни
+       разделитель плоского вида, ни соседняя строка его не перебивают
+       (B8: «рамка фокуса второй раздачи целая сверху»). Своя рамка строки
+       в фокусе окрашена тем же цветом — одна светлая полоса, без тонкой
+       акцентной линии снаружи кольца. radius — скругление внутренней
+       кромки строки (её радиус минус толщина рамки в фокусе). z-index 1 —
+       над заливкой и текстом строки; значки, которые заходят на кромку
+       (галочка «просмотрено», полоса прогресса файла), подняты над ним. */
+    function ringAfter(k, radius) {
+      return '{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:' + radius + ';z-index:1;pointer-events:none;background:none;' + LC.focusRingCss(k.text) + '}';
+    }
+
     /* sel — уже готовая строка селекторов (S/T/A). */
     function useMask(name, sel) {
       if (!maskUse.by.hasOwnProperty(name)) {
@@ -222,7 +241,10 @@
       r.push(A(['.explorer-card__head']) + '{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-bottom:.614em}');
       r.push(A(['.explorer-card__head-left']) + '{width:14.028em;max-width:100%;margin-right:0}');
       r.push(A(['.explorer-card__head-img > img']) + '{border-radius:.438em;background-color:' + k.panel + '}');
-      r.push(A(['.explorer-card__head-img.focus::after']) + '{border-color:' + k.accent + ';border-width:.132em;border-radius:.7em}');
+      /* Постер: штатное кольцо Lampa (.3em белым с вылетом −.5em, z-index −1)
+         заменено кольцом внутри кромки картинки, над ней (было — то же
+         штатное с рамкой .132em акцентом, 1 CSS px на ТВ). */
+      r.push(A(['.explorer-card__head-img.focus::after']) + ringAfter(k, '.438em'));
       r.push(A(['.explorer-card__head-body']) + '{padding-top:.789em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
       r.push(A(['.explorer-card__head-create']) + '{font-family:' + k.fontBody + ';font-size:1.01em;letter-spacing:.026em;color:' + k.muted + '}');
       r.push(A(['.explorer-card__head-rate']) + '{margin:0 0 0 .614em;color:' + k.accent + '}');
@@ -270,12 +292,14 @@
       r.push(A(['.torrent-list']) + '{padding:0 2.805em 1.403em 1.403em}');
       r.push(T(['.torrent-item']) + '{background-color:' + k.panel + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.789em;line-height:1.2;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s;transition:border-color .2s,background-color .2s}');
       r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:.701em}');
-      /* Фокус: рамка 3px accent + плоская подложка, без scale; паддинг -2px
-         компенсирует рамку. Task 50c: размытие было 1.754em (40 px) — фокус
+      /* Фокус: кольцо ::after (ringAfter выше), рамка строки его цветом и
+         плоская подложка, без scale; паддинг -2px компенсирует рамку
+         (до 2026-09-27 — рамка 3px акцентом, на ТВ 1 CSS px). Task 50c: размытие было 1.754em (40 px) — фокус
          идёт по длинному списку раздач тем же D-pad, и каждый шаг
          перерисовывал слой по площади, расширенной радиусом. */
-      r.push(T(['.torrent-item.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.accent + ';border-width:.132em;padding:.701em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
-      r.push(T(['.torrent-item.focus::after']) + '{border-color:transparent}');
+      r.push(T(['.torrent-item.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.text + ';border-width:.132em;padding:.701em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
+      r.push(T(['.torrent-item.focus::after']) + ringAfter(k, '.31em'));
+      r.push(T(['.torrent-item__viewed']) + '{z-index:2}');
       r.push(T(['.torrent-item__title']) + '{font-size:1.052em;font-weight:600;line-height:1.2;word-break:normal;word-wrap:break-word;overflow-wrap:break-word;padding-right:6.667em}');
       r.push(T(['.torrent-item__details']) + '{margin-top:.391em;font-size:1.01em;font-weight:400;color:' + k.muted + '}');
       r.push(T(['.torrent-item__details > div']) + '{margin-right:0}');
@@ -303,8 +327,8 @@
       r.push(A(['.watched-history__icon > svg']) + '{width:.964em !important;height:.964em !important}');
       r.push(A(['.watched-history__body']) + '{padding-left:.533em;font-size:1.01em;line-height:1.3}');
       r.push(A(['.watched-history__body > span + span::before']) + '{color:' + k.smoke + '}');
-      r.push(A(['.watched-history.focus']) + '{color:' + k.text + ';border-color:' + k.accent + ';border-width:.132em;padding:.614em .701em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
-      r.push(A(['.watched-history.focus::after']) + '{border-color:transparent}');
+      r.push(A(['.watched-history.focus']) + '{color:' + k.text + ';border-color:' + k.text + ';border-width:.132em;padding:.614em .701em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
+      r.push(A(['.watched-history.focus::after']) + ringAfter(k, '.31em'));
 
       /* Пусто / ошибка парсера (.empty) и «фильтр ничего не дал» (.empty-filter). */
       r.push(A(['.empty', '.empty-filter']) + '{font-family:' + k.fontBody + ';color:' + k.text + '}');
@@ -420,7 +444,8 @@
       /* Task 50c: подложка фокуса без размытия (было 0 .526em 1.534em —
          12/35 px). Список файлов особенно длинный, фокус идёт по нему
          шагами, и каждый шаг перерисовывал сразу две строки. */
-      r.push(T(['.torrent-file.focus', '.torrent-serial.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.accent + ';border-width:.132em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
+      r.push(T(['.torrent-file.focus', '.torrent-serial.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.text + ';border-width:.132em;-webkit-box-shadow:0 .2em 0 ' + k.acglow + ';box-shadow:0 .2em 0 ' + k.acglow + '}');
+      r.push(T(['.torrent-file.focus::after', '.torrent-serial.focus::after']) + ringAfter(k, '.31em'));
       /* Файл фильма: название 500 22px (muted вне фокуса), .exe инлайном, тёмный чип размера. */
       r.push(T(['.torrent-file']) + '{padding:.701em .789em;overflow:hidden}');
       r.push(T(['.torrent-file.focus']) + '{padding:.614em .701em}');
@@ -431,7 +456,7 @@
       r.push(T(['.torrent-file__size', '.torrent-serial__size']) + '{font-size:1.01em;font-family:' + k.fontBody + ';font-weight:400;line-height:1;padding:.304em .608em;border-radius:.304em;border:.043em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + '}');
       r.push(T(['.torrent-file.focus .torrent-file__size', '.torrent-serial.focus .torrent-serial__size']) + '{color:' + k.text + '}');
       /* Прогресс просмотра (.time-line — только внутри файла/серии): 4px accent. */
-      r.push(T(['.torrent-file .time-line']) + '{left:0;right:0;bottom:0;margin:0;height:.175em;border-radius:0;background-color:rgba(' + k.textRgb + ',.16)}');
+      r.push(T(['.torrent-file .time-line']) + '{z-index:2;left:0;right:0;bottom:0;margin:0;height:.175em;border-radius:0;background-color:rgba(' + k.textRgb + ',.16)}');
       r.push(T(['.torrent-serial .time-line']) + '{margin-top:.35em;height:.175em;border-radius:.088em;background-color:rgba(' + k.textRgb + ',.16);overflow:hidden}');
       r.push(T(['.torrent-file .time-line > div', '.torrent-serial .time-line > div']) + '{height:100%;border-radius:.088em;background-color:' + k.accent + '}');
       /* Серия: превью 200×112, бейдж номера 17px (лок. em), мета muted. */
