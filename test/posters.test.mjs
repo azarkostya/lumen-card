@@ -126,3 +126,48 @@ test('stop: очередь пуста, запланированный план �
   await tick();
   assert.equal(images.length, 0);
 });
+
+/* Ревью rv6, RV6-5: кнопка «Ещё» первой в ряду (MoreFirst, app.min.js:18949)
+   лежит в items, но карточкой results не является — хвост начинается с
+   ближайшей несозданной карточки, а не на одну дальше. */
+test('snapshot: кнопка «Ещё» в items не считается карточкой — хвост с ближайшей несозданной', async () => {
+  const more = { more: true };
+  const cards = [];
+  for (let i = 0; i < 9; i++) cards.push({});
+  const comp = {
+    active: 0,
+    items: [{ data: { results: res('m', 20), params: {} }, items: [more].concat(cards), more: more, active: 4, view: 8 }],
+    loaded: []
+  };
+  const images = fakeWorld(comp);
+  P.stop();
+  P.around();
+  await tick();
+  assert.equal(images[0].src, 'https://imagetmdb.com/t/p/w300/m9.jpg?email=', 'первая несозданная — results[9]');
+  for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+  for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+  P.stop();
+});
+
+/* Ревью rv6, RV6-6: после stop() и нового плана при занятых слотах место,
+   освобождённое загрузкой прошлого окна, отдаётся новой очереди сразу, а не
+   на следующем переводе фокуса. */
+test('stop и новый план: освободившийся слот старой загрузки будит очередь нового окна', async () => {
+  const line = (p) => ({ data: { results: res(p, 20), params: {} }, items: new Array(9), active: 4, view: 8 });
+  const images = fakeWorld({ active: 0, items: [line('o')], loaded: [] });
+  P.stop();
+  P.around();
+  await tick();
+  assert.equal(images.length, 4);
+  P.stop();
+  globalThis.Lampa.Activity.active = () => ({ activity: { component: { active: 0, items: [line('n')], loaded: [] } } });
+  P.around();
+  await tick();
+  assert.equal(images.length, 4, 'все слоты заняты прошлым окном');
+  images[0].onload();
+  assert.equal(images.length, 5, 'слот старой загрузки отдан новой очереди');
+  assert.equal(images[4].src, 'https://imagetmdb.com/t/p/w300/n9.jpg?email=');
+  P.stop();
+  for (let k = 0; k < 3; k++) for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+  assert.equal(P.stats().fly, 0);
+});

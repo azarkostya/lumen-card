@@ -67,7 +67,6 @@
     var started = {};
     var startedN = 0;
     var kept = [];
-    var gen = 0;
 
     /* Постер карточки — как в Card.getPosterPath (:20877-20879) для
        обычной карточки: poster_path, иначе profile_path. У широких и
@@ -125,6 +124,19 @@
       return out;
     }
 
+    /* Сколько карточек results ряд уже создал: items минус кнопка «Ещё»
+       (MoreFirst кладёт её первой, More — последней, app.min.js:18949-
+       19178) — как built() в src/58_prefill.js. Ревью rv6, RV6-5: с
+       кнопкой в счёте хвост начинался на карточку дальше, и постер
+       ближайшей несозданной не грузился. */
+    function madeOf(it) {
+      var items = it && it.items;
+      if (!items || typeof items.length !== 'number') return 0;
+      var n = items.length;
+      if (it.more && typeof items.indexOf === 'function' && items.indexOf(it.more) >= 0) n--;
+      return n;
+    }
+
     /* Снимок активности Lampa: только если форма совпадает с Items$1
        (главная, ContentRows). */
     function snapshot() {
@@ -142,7 +154,7 @@
         var d = it && it.data;
         lines.push({
           results: d && d.results && d.results.length ? d.results : null,
-          made: it && it.items && typeof it.items.length === 'number' ? it.items.length : 0,
+          made: madeOf(it),
           active: it && typeof it.active === 'number' ? it.active : 0,
           view: it && typeof it.view === 'number' ? it.view : viewOf(d && d.params, VIEW),
           style: styleOf(d && d.params)
@@ -179,7 +191,6 @@
     }
 
     function pump() {
-      var captured = gen;
       while (busy < SLOTS && queue.length) {
         var url = queue.shift();
         if (started[url]) continue;
@@ -188,7 +199,7 @@
         var img = new Image();
         try { img.fetchPriority = 'low'; } catch (e) { }
         busy++;
-        img.onload = img.onerror = done(img, captured);
+        img.onload = img.onerror = done(img);
         img.src = url;
         kept.push(img);
         while (kept.length > KEEP) kept.shift();
@@ -203,12 +214,17 @@
       }
     }
 
-    function done(img, captured) {
+    /* Освободившееся место отдаётся ТЕКУЩЕЙ очереди, чья бы загрузка ни
+       закончилась (ревью rv6, RV6-6): после stop() очередь пуста, и pump
+       ничего не начнёт, а после нового плана загрузка прошлого окна,
+       доехав, будит его — иначе при занятых слотах новый план ждал бы
+       следующего перевода фокуса. */
+    function done(img) {
       return function () {
         img.onload = img.onerror = null;
         busy--;
         if (busy < 0) busy = 0;
-        if (captured === gen) pump();
+        pump();
       };
     }
 
@@ -242,7 +258,6 @@
        доедут сами (их места в SLOTS освободит done) — отменять их незачем,
        байты пригодятся на возврате. */
     function stop() {
-      gen++;
       queue = [];
       if (planTimer) {
         clearTimeout(planTimer);
