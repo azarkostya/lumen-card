@@ -546,3 +546,122 @@ test('S1: openSearch — названия найденных подборок э
     globalThis.window = prevW;
   }
 });
+
+/* ---------------------------------------------------------------------- */
+/* Исследование «без лагов» 2026-09-27, полоса scroll: шаг ускорения в     */
+/* ряду главной — ОДИН перевод фокуса на карточку через одну, штатный шаг  */
+/* события отменяется (preventDefault до Controller.move в keydownTrigger). */
+/* ---------------------------------------------------------------------- */
+
+/* Ряд из n карточек (.selector) в одном родителе — ровно те поля, что читает
+   sibling(): nextElementSibling/previousElementSibling/classList/parentNode. */
+function makeRow(n, focusAt) {
+  const row = { cards: [] };
+  for (let i = 0; i < n; i++) {
+    const c = { i: i, cls: ['card', 'selector'], parentNode: row };
+    c.classList = { contains: (x) => c.cls.indexOf(x) !== -1 };
+    row.cards.push(c);
+  }
+  row.cards.forEach((c, i) => {
+    c.nextElementSibling = row.cards[i + 1] || null;
+    c.previousElementSibling = row.cards[i - 1] || null;
+  });
+  row.focus = (c) => { row.cards.forEach((x) => { x.cls = x.cls.filter((k) => k !== 'focus'); }); c.cls.push('focus'); };
+  row.focus(row.cards[focusAt]);
+  return row;
+}
+
+function withRow(env, row, opts) {
+  const o = opts || {};
+  env.focused = [];
+  const prev$ = globalThis.$;
+  globalThis.$ = function (sel, ctx) {
+    if (sel === '.card.focus') {
+      const f = row.cards.filter((c) => c.classList.contains('focus'));
+      const set = { length: f.length }; f.forEach((c, i) => { set[i] = c; });
+      return set;
+    }
+    return prev$(sel, ctx);
+  };
+  Lampa.Controller.collectionFocus = (target, parent) => {
+    env.focused.push({ target: target.i, parent: parent });
+    if (!o.refuse) row.focus(target);
+  };
+}
+
+function keyEvent() {
+  const ev = { prevented: 0 };
+  ev.preventDefault = () => { ev.prevented++; };
+  return ev;
+}
+
+function downWith(env, code, ev) { env.keydown.forEach((fn) => fn({ code: code, enabled: true, event: ev })); }
+
+test('ускорение: в ряду главной — один перевод фокуса через карточку, штатный шаг отменён, Controller.move не зовётся', () => {
+  const env = makeEnv();
+  const row = makeRow(20, 5);
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+  assert.deepEqual(env.focused, [], 'до признания удержания — ничего');
+  const ev = keyEvent();
+  downWith(env, 39, ev);
+  assert.equal(ev.prevented, 1, 'штатный шаг этого события отменён');
+  assert.deepEqual(env.focused.map((f) => f.target), [7], 'фокус — сразу на карточку через одну');
+  assert.equal(env.focused[0].parent, row);
+  assert.deepEqual(env.moves, [], 'ни одного Controller.move');
+  env.now += 100;
+  downWith(env, 37, keyEvent());
+  env.nav.uninstall();
+});
+
+test('ускорение: влево — так же, через карточку', () => {
+  const env = makeEnv();
+  const row = makeRow(20, 12);
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 6; i++) { downWith(env, 37, keyEvent()); env.now += 100; }
+  assert.deepEqual(env.focused.map((f) => f.target), [10]);
+  env.nav.uninstall();
+});
+
+test('ускорение: у края ряда (нет карточки через одну) — прежний путь, штатный шаг не отменяется', () => {
+  const env = makeEnv();
+  const row = makeRow(20, 18);
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+  const ev = keyEvent();
+  downWith(env, 39, ev);
+  assert.equal(ev.prevented, 0);
+  assert.deepEqual(env.focused, []);
+  assert.deepEqual(env.moves, ['right'], 'добавочный шаг — как раньше');
+  env.nav.uninstall();
+});
+
+test('ускорение: фокус не встал (карточки нет в коллекции навигации) — оба шага прежним путём', () => {
+  const env = makeEnv();
+  const row = makeRow(20, 5);
+  withRow(env, row, { refuse: true });
+  env.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+  const ev = keyEvent();
+  downWith(env, 39, ev);
+  assert.equal(ev.prevented, 1);
+  assert.deepEqual(env.moves, ['right', 'right'], 'отменённый штатный шаг и добавочный');
+  env.nav.uninstall();
+});
+
+test('ускорение: не главная (карточка фильма, категории) — прежний путь', () => {
+  const env = makeEnv();
+  env.activity = { component: 'full', activity: { render: () => env.main } };
+  const row = makeRow(20, 5);
+  withRow(env, row);
+  env.nav.install();
+  for (let i = 0; i < 5; i++) { downWith(env, 39, keyEvent()); env.now += 100; }
+  const ev = keyEvent();
+  downWith(env, 39, ev);
+  assert.equal(ev.prevented, 0);
+  assert.deepEqual(env.moves, ['right']);
+  env.nav.uninstall();
+});

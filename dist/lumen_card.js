@@ -33155,6 +33155,312 @@ stats: stats
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.prefetch;
 
 
+/* ---- 58_prefill.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.prefill = (function () {
+
+
+
+
+
+var IDLE_MS = 400;
+
+var ROWS_AHEAD = 2;
+
+
+
+
+
+
+var NEXT_ROWS = 0;
+
+
+var REST_MS = 1500;
+
+var state = null;
+
+function now() { return api._now(); }
+
+function setT(fn, ms) {
+var hook = api._timers;
+if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+return setTimeout(fn, ms);
+}
+
+function clearT(id) {
+var hook = api._timers;
+if (hook && typeof hook.clear === 'function') { hook.clear(id); return; }
+clearTimeout(id);
+}
+
+function on() {
+try {
+if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
+return LC.pref ? LC.pref('lumen_prefill', true) !== false : true;
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+function component() {
+try {
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return null;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'main' || !act.activity) return null;
+var c = act.activity.component;
+if (!c || !Array.isArray(c.items) || typeof c.emit !== 'function') return null;
+if (state && state.root && typeof act.activity.render === 'function') {
+var r = act.activity.render();
+if (r && r[0] && state.root[0] && r[0] !== state.root[0]) return null;
+}
+return c;
+} catch (e) {
+return null;
+}
+}
+
+
+
+function onRows() {
+try {
+var en = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+var name = en && en.name;
+return name === 'items_line' || name === 'content';
+} catch (e) {
+return false;
+}
+}
+
+
+function isLine(line) {
+return !!(line && line.tv === true && Array.isArray(line.items) && line.data && Array.isArray(line.data.results) &&
+typeof line.emit === 'function' && line.scroll && typeof line.scroll.render === 'function');
+}
+
+
+
+function built(line) {
+var n = line.items.length;
+if (line.more && line.items.indexOf(line.more) >= 0) n--;
+return n;
+}
+
+
+
+
+function wanted(line, full) {
+var total = line.data.results.length;
+if (full) return total;
+var view = line.view > 0 ? line.view : 7;
+var at = line.active > 0 ? line.active : 0;
+return Math.min(total, (Math.round(at / view) + 2) * view + 1);
+}
+
+function lineWork(line, full) {
+if (!isLine(line)) return false;
+var have = built(line);
+if (have < wanted(line, full)) {
+line.emit('createAndAppend', line.data.results[have]);
+line.lumen_prefill_dirty = true;
+state.stats.cards++;
+return true;
+}
+if (line.lumen_prefill_dirty) {
+line.lumen_prefill_dirty = false;
+if (window.Lampa && Lampa.Layer && typeof Lampa.Layer.visible === 'function') {
+Lampa.Layer.visible(line.scroll.render(true));
+state.stats.visible++;
+}
+return true;
+}
+return false;
+}
+
+
+function work(c) {
+var at = c.active > 0 ? c.active : 0;
+if (lineWork(c.items[at], true)) return true;
+for (var k = 1; k <= NEXT_ROWS; k++) {
+if (lineWork(c.items[at + k], false)) return true;
+}
+if (Array.isArray(c.loaded) && c.loaded.length && c.items.length - 1 - at < ROWS_AHEAD) {
+c.emit('pushLoaded');
+state.stats.rows++;
+return true;
+}
+return false;
+}
+
+function arm(ms) {
+if (!state) return;
+if (state.timer) clearT(state.timer);
+state.timer = setT(function () {
+if (!state) return;
+state.timer = null;
+tick();
+}, ms);
+}
+
+function tick() {
+if (!state) return false;
+var wait = IDLE_MS - (now() - state.focusAt);
+if (wait > 0) { arm(wait); return false; }
+if (!on() || (typeof document !== 'undefined' && document.hidden) || !onRows()) { arm(REST_MS); return false; }
+var c = component();
+if (!c) { arm(REST_MS); return false; }
+var did = false;
+try {
+did = work(c);
+} catch (e) {
+warn('prefill: work failed', e);
+state.failed++;
+
+if (state.failed >= 2) { stopTimer(); return false; }
+}
+if (did) state.failed = 0;
+arm(did ? 0 : REST_MS);
+return did;
+}
+
+function stopTimer() {
+if (state && state.timer) { clearT(state.timer); state.timer = null; }
+}
+
+
+
+
+
+function poke() {
+if (!state) return;
+state.focusAt = now();
+arm(IDLE_MS);
+}
+
+function keypad() {
+try {
+var k = window.Lampa && Lampa.Keypad && Lampa.Keypad.listener;
+return k && typeof k.follow === 'function' && typeof k.remove === 'function' ? k : null;
+} catch (e) {
+return null;
+}
+}
+
+function mount(root) {
+try {
+if (!root || !root.length || !root[0]) return;
+if (state && state.root && state.root[0] === root[0]) { poke(); return; }
+unmount();
+state = { root: root, timer: null, focusAt: now(), failed: 0, handler: poke, keys: null, stats: { cards: 0, visible: 0, rows: 0 } };
+if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
+var k = keypad();
+if (k) { k.follow('keydown', poke); state.keys = k; }
+arm(IDLE_MS);
+} catch (e) {
+warn('prefill: mount failed', e);
+}
+}
+
+function unmount() {
+if (!state) return;
+var s = state;
+stopTimer();
+state = null;
+try { if (s.handler) LC.focus.release(s.root[0], s.handler); } catch (e) { warn('prefill: unmount failed', e); }
+try { if (s.keys) s.keys.remove('keydown', poke); } catch (e2) { warn('prefill: unmount failed', e2); }
+}
+
+
+function owns(render) {
+if (!state || !render || !render.length) return false;
+try {
+var node = state.root[0];
+var box = render[0];
+return !!(box && node && (box === node || (typeof box.contains === 'function' && box.contains(node))));
+} catch (e) {
+return false;
+}
+}
+
+
+
+function detach(render) {
+if (!state) return;
+if (owns(render)) return;
+unmount();
+}
+
+
+
+function mountCurrent() {
+try {
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'main' || !act.activity || typeof act.activity.render !== 'function') return;
+mount(act.activity.render());
+} catch (e) {
+warn('prefill: mount current failed', e);
+}
+}
+
+var api = {
+IDLE_MS: IDLE_MS, ROWS_AHEAD: ROWS_AHEAD, NEXT_ROWS: NEXT_ROWS,
+wanted: wanted, built: built,
+mount: mount, unmount: unmount, detach: detach, owns: owns, mountCurrent: mountCurrent, poke: poke, tick: tick,
+active: function () { return !!state; },
+stats: function () { return state ? { cards: state.stats.cards, visible: state.stats.visible, rows: state.stats.rows } : null; },
+
+_now: function () { return Date.now(); },
+_timers: null
+};
+return api;
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.prefill;
+
+
 /* ---- 60_reviews.js ---- */
 
 
@@ -36647,14 +36953,70 @@ showMinimap();
 }, Math.max(0, HOLD_MS - (now() - state.since)));
 }
 
-function onHorizontal(state, dir) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function sibling(el, dir, n) {
+var cur = el;
+var left = n;
+while (cur && left > 0) {
+cur = dir === 'right' ? cur.nextElementSibling : cur.previousElementSibling;
+if (cur && cur.classList && cur.classList.contains('selector')) left--;
+}
+return left === 0 ? cur : null;
+}
+
+function jump(dir, ev) {
+if (!ev || typeof ev.preventDefault !== 'function') return false;
+if (controllerName() !== 'items_line') return false;
+try {
+
+
+var root = currentMain();
+if (!root) return false;
+var focus = $('.card.focus', root);
+var cur = focus && focus.length ? focus[0] : null;
+if (!cur || !cur.parentNode) return false;
+var target = sibling(cur, dir, 1 + FAST_EXTRA);
+if (!target) return false;
+ev.preventDefault();
+Lampa.Controller.collectionFocus(target, cur.parentNode);
+if (target.classList.contains('focus')) return true;
+
+
+for (var i = 0; i <= FAST_EXTRA; i++) move(dir);
+return true;
+} catch (e) {
+warn('nav: jump failed', e);
+return false;
+}
+}
+
+function onHorizontal(state, dir, ev) {
 if (!state.fast) return;
 if (!fastOn()) return;
 
 
 if (motionMode() === 'off') return;
 if (!onCards()) return;
+if (!jump(dir, ev)) {
 for (var i = 0; i < FAST_EXTRA; i++) move(dir);
+}
 schedulePaint(true);
 }
 
@@ -36673,8 +37035,8 @@ if (!code) return;
 if (e.enabled === false) return;
 var state = tracker.feed({ key: code, type: 'down', t: now() });
 if (has(KEY_UP, code) || has(KEY_DOWN, code)) { onVertical(state); return; }
-if (has(KEY_LEFT, code)) { onHorizontal(state, 'left'); return; }
-if (has(KEY_RIGHT, code)) { onHorizontal(state, 'right'); return; }
+if (has(KEY_LEFT, code)) { onHorizontal(state, 'left', e.event); return; }
+if (has(KEY_RIGHT, code)) { onHorizontal(state, 'right', e.event); return; }
 if (has(KEY_PAGE_UP, code)) { onJump('left'); return; }
 if (has(KEY_PAGE_DOWN, code)) onJump('right');
 }
@@ -45652,6 +46014,16 @@ warn('badges start failed', eBadgesStart);
 }
 
 
+try {
+if (LC.prefill) {
+LC.prefill.detach(startRender);
+if (e.component === 'main' && startRender && startRender.length) LC.prefill.mount(startRender);
+}
+} catch (ePrefillStart) {
+warn('prefill start failed', ePrefillStart);
+}
+
+
 
 
 
@@ -45730,6 +46102,11 @@ try {
 if (LC.badges && LC.badges.active() && LC.badges.owns(deadRender)) LC.badges.unmount();
 } catch (eBadgesKill) {
 warn('badges destroy failed', eBadgesKill);
+}
+try {
+if (LC.prefill && LC.prefill.active() && LC.prefill.owns(deadRender)) LC.prefill.unmount();
+} catch (ePrefillKill) {
+warn('prefill destroy failed', ePrefillKill);
 }
 }
 
@@ -46520,6 +46897,11 @@ if (LC.badges && LC.badges.install) LC.badges.install();
 } catch (eBadges) {
 warn('badges install failed', eBadges);
 }
+try {
+if (LC.prefill && LC.prefill.mountCurrent) LC.prefill.mountCurrent();
+} catch (ePrefill) {
+warn('prefill mount failed', ePrefill);
+}
 
 
 
@@ -46630,6 +47012,8 @@ try { if (LC.homeRow && LC.homeRow.uninstall) LC.homeRow.uninstall(); } catch (e
 try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
 
 try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
+
+try { if (LC.prefill && LC.prefill.unmount) LC.prefill.unmount(); } catch (ePrefillOff) {}
 
 
 try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}

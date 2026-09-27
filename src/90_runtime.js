@@ -657,6 +657,16 @@
         } catch (eBadgesStart) {
           warn('badges start failed', eBadgesStart);
         }
+        /* Исследование «без лагов» 2026-09-27: достройка рядов главной в
+           простое (src/58_prefill.js) — живёт столько же, сколько метки. */
+        try {
+          if (LC.prefill) {
+            LC.prefill.detach(startRender);
+            if (e.component === 'main' && startRender && startRender.length) LC.prefill.mount(startRender);
+          }
+        } catch (ePrefillStart) {
+          warn('prefill start failed', ePrefillStart);
+        }
         /* Task 27 (дефект фазы 3, найден живьём в Task 22/23): панель
            мини-карты рядов и индикатор позиции принадлежат экрану, на котором
            их показали. Сам модуль снимал панель только через 0.8 с после
@@ -737,6 +747,11 @@
           if (LC.badges && LC.badges.active() && LC.badges.owns(deadRender)) LC.badges.unmount();
         } catch (eBadgesKill) {
           warn('badges destroy failed', eBadgesKill);
+        }
+        try {
+          if (LC.prefill && LC.prefill.active() && LC.prefill.owns(deadRender)) LC.prefill.unmount();
+        } catch (ePrefillKill) {
+          warn('prefill destroy failed', ePrefillKill);
         }
       }
 
@@ -1527,6 +1542,11 @@
     } catch (eBadges) {
       warn('badges install failed', eBadges);
     }
+    try {
+      if (LC.prefill && LC.prefill.mountCurrent) LC.prefill.mountCurrent();
+    } catch (ePrefill) {
+      warn('prefill mount failed', ePrefill);
+    }
     /* Task 26: пункты плагина в меню карточки по удержанию OK. Две подписки
        (capture-слушатель 'hover:long' на document и preshow у Lampa.Select),
        ставятся один раз на всё время работы плагина. */
@@ -1637,6 +1657,8 @@
     try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
     /* Task 25: снять наблюдатель меток и сами метки с открытой главной. */
     try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
+    /* Достройка рядов в простое — таймер и слушатель фокуса. */
+    try { if (LC.prefill && LC.prefill.unmount) LC.prefill.unmount(); } catch (ePrefillOff) {}
     /* Task 26: снять обе подписки меню карточки — выключенный плагин своих
        пунктов в штатное меню не дописывает. */
     try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}

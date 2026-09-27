@@ -572,14 +572,70 @@
       }, Math.max(0, HOLD_MS - (now() - state.since)));
     }
 
-    function onHorizontal(state, dir) {
+    /* Исследование «без лагов» 2026-09-27, полоса scroll. Добавочный
+       Controller.move — это второй полный шаг Lampa на то же событие:
+       Navigator.canmove + Navigator.move (два прохода по коллекции с
+       getComputedStyle и getBoundingClientRect на каждом узле,
+       vendor/lampa/vender/navigator/navigator.js:268, :762-793), второй
+       Controller.focus (снятие класса focus со всей коллекции) и второй
+       Scroll.update с принудительными стилем и раскладкой. Стенд
+       960×540@2, CPU×10, удержание 2×(20 вправо + 20 влево): с ним 38-41
+       fps, lat95 39-46 мс; без него 47-52 fps, но вдвое медленнее путь.
+       Поэтому в ряду главной шаг ускорения делается ОДНИМ переводом фокуса
+       сразу на карточку через одну: штатный шаг этого события отменяется
+       (preventDefault — keydownTrigger проверяет его до Controller.move,
+       vendor/lampa/app.min.js:3534), а фокус ставит
+       Controller.collectionFocus — тот же путь, что у Lampa после
+       Navigator.move (событие фокуса, класс focus, Scroll.update ряда).
+       Тот же стенд: 48-52 fps, lat95 20-25 мс при той же дальности, что с
+       двумя шагами. Не ряд главной, нет карточки через одну (край ряда,
+       не достроено), фокус не переехал — прежний путь. */
+    function sibling(el, dir, n) {
+      var cur = el;
+      var left = n;
+      while (cur && left > 0) {
+        cur = dir === 'right' ? cur.nextElementSibling : cur.previousElementSibling;
+        if (cur && cur.classList && cur.classList.contains('selector')) left--;
+      }
+      return left === 0 ? cur : null;
+    }
+
+    function jump(dir, ev) {
+      if (!ev || typeof ev.preventDefault !== 'function') return false;
+      if (controllerName() !== 'items_line') return false;
+      try {
+        /* Только ряды главной: на других экранах items_line (карточка
+           фильма, категории) — прежний путь. */
+        var root = currentMain();
+        if (!root) return false;
+        var focus = $('.card.focus', root);
+        var cur = focus && focus.length ? focus[0] : null;
+        if (!cur || !cur.parentNode) return false;
+        var target = sibling(cur, dir, 1 + FAST_EXTRA);
+        if (!target) return false;
+        ev.preventDefault();
+        Lampa.Controller.collectionFocus(target, cur.parentNode);
+        if (target.classList.contains('focus')) return true;
+        /* Фокус не встал (карточка ещё не в коллекции навигации) — шаги
+           прежним путём, включая отменённый штатный. */
+        for (var i = 0; i <= FAST_EXTRA; i++) move(dir);
+        return true;
+      } catch (e) {
+        warn('nav: jump failed', e);
+        return false;
+      }
+    }
+
+    function onHorizontal(state, dir, ev) {
       if (!state.fast) return;
       if (!fastOn()) return;
       /* Task 33: в режиме «без анимаций» пользователь прямо попросил
          минимум движения — лишних шагов ему не добавляем. */
       if (motionMode() === 'off') return;
       if (!onCards()) return;
-      for (var i = 0; i < FAST_EXTRA; i++) move(dir);
+      if (!jump(dir, ev)) {
+        for (var i = 0; i < FAST_EXTRA; i++) move(dir);
+      }
       schedulePaint(true);
     }
 
@@ -598,8 +654,8 @@
       if (e.enabled === false) return;
       var state = tracker.feed({ key: code, type: 'down', t: now() });
       if (has(KEY_UP, code) || has(KEY_DOWN, code)) { onVertical(state); return; }
-      if (has(KEY_LEFT, code)) { onHorizontal(state, 'left'); return; }
-      if (has(KEY_RIGHT, code)) { onHorizontal(state, 'right'); return; }
+      if (has(KEY_LEFT, code)) { onHorizontal(state, 'left', e.event); return; }
+      if (has(KEY_RIGHT, code)) { onHorizontal(state, 'right', e.event); return; }
       if (has(KEY_PAGE_UP, code)) { onJump('left'); return; }
       if (has(KEY_PAGE_DOWN, code)) onJump('right');
     }
