@@ -966,3 +966,24 @@ test('полоса gc3: колбэки таймеров, простоя и за�
   assert.equal(fallback.length, 1, 'запасной таймер простоя');
   assert.equal(fallback[0].fn.name, 'onThumbsIdle');
 });
+
+/* Финальный прогон 1.0.0: SVG-логотип с <foreignObject> портит общий холст
+   навсегда (clearRect не очищает), и каждый следующий getImageData бросал
+   SecurityError — до конца сеанса без «кадр ≈ постер» и тона логотипа.
+   После SecurityError холст выбрасывается, следующий разбор — на новом. */
+test('финальный прогон 1.0.0: после SecurityError общий холст пересоздаётся', () => {
+  const e = env();
+  const got = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138, true);
+  e.arrive(e.img('/f.jpg'), scene(1), 92, 52);
+  e.idleAll();
+  assert.deepEqual(got, [null]);
+  const before = e.canvas.created;
+  e.T.compare('/p2.jpg', '/f2.jpg', (v) => got.push(v));
+  e.arrive(e.img('/p2.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/f2.jpg'), scene(2), 92, 52);
+  e.idleAll();
+  assert.equal(got.length, 2);
+  assert.equal(e.canvas.created, before + 1, 'испорченный холст не выброшен — следующий разбор на нём же');
+});

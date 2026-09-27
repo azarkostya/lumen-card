@@ -294,6 +294,7 @@
     var COVER_AHEAD = 8;
     var COVER_WAIT = 1500;
     var seq = 0;
+    var flush = null;
 
     function fillCovers(found, cards, done) {
       var want = [];
@@ -367,8 +368,16 @@
             rows = [];
             cards = [];
           }
+          var sent = false;
+          function reply() {
+            if (sent) return;
+            sent = true;
+            if (flush === reply) flush = null;
+            try { oncomplite(rows); } catch (e) { warn('search: reply failed', e); }
+          }
+          flush = reply;
           fillCovers(found, cards, function () {
-            if (my === seq) oncomplite(rows);
+            if (my === seq) reply();
           });
         },
         /* Финальная проверка, L4: карточка подборки, которой в каталоге
@@ -392,7 +401,19 @@
           try { if (typeof close === 'function') close(); } catch (e1) { }
           try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item); } catch (e2) { warn('search: open failed', e2); }
         },
-        onCancel: function () { seq++; }
+        /* Финальный прогон 1.0.0: Lampa зовёт onCancel на любой фокус
+           клавиши экранной клавиатуры, а тот же запрос повторно не
+           отправляет (Results.search: if (query == value) return,
+           app.min.js ~41016) — выброшенный ответ оставлял вкладку в «Идет
+           поиск…» навсегда, пока ждали обложку. Отмена теперь отдаёт ответ
+           сразу, с теми обложками, что успели; новый запрос всё равно
+           перерисует вкладку своим ответом. */
+        onCancel: function () {
+          var f = flush;
+          flush = null;
+          seq++;
+          if (f) f();
+        }
       };
       return built;
     }

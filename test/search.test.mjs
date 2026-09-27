@@ -421,7 +421,7 @@ test('Н5 source: кадров не больше COVER_AHEAD, ждём не до
   }
 });
 
-test('Н5 source: новый поиск и отмена глушат прежний ответ', () => {
+test('Н5 source: новый поиск глушит прежний ответ; отмена отдаёт ответ сразу, один раз', () => {
   const pending = [];
   const { api, LC } = fresh();
   LC.sources = { bannerPath: (item, ok) => { pending.push({ id: item.id, ok }); } };
@@ -435,7 +435,22 @@ test('Н5 source: новый поиск и отмена глушат прежн�
   assert.deepEqual(got.map((g) => g[0]), ['мстители'], 'отдан ответ устаревшего запроса');
   pending.length = 0;
   src.search({ query: encodeURIComponent('марвел') }, (r) => got.push(['марвел2', r]));
+  /* Финальный прогон 1.0.0: Lampa зовёт onCancel на фокус клавиши экранной
+     клавиатуры и тот же запрос не повторяет — выброшенный ответ оставлял
+     вкладку в «Идет поиск…» навсегда. Отмена отдаёт ответ сразу. */
   src.onCancel();
+  assert.deepEqual(got.map((g) => g[0]), ['мстители', 'марвел2'], 'отмена не отдала ответ — вкладка зависнет в «Идет поиск…»');
+  assert.ok(got[1][1][0].results.length > 0, 'ответ отмены без найденных подборок');
   for (const p of pending) p.ok('/f.jpg');
-  assert.deepEqual(got.map((g) => g[0]), ['мстители'], 'после отмены ответ отдан');
+  assert.equal(got.length, 2, 'поздние кадры отдали ответ второй раз');
+  src.onCancel();
+  assert.equal(got.length, 2, 'повторная отмена отдала ответ ещё раз');
+});
+
+test('финальный прогон 1.0.0: ошибка в колбэке Lampa при отмене не вылетает из onCancel', () => {
+  const { api, LC } = fresh();
+  LC.sources = { bannerPath: () => {} };
+  const src = api.source();
+  src.search({ query: encodeURIComponent('марвел') }, () => { throw new Error('lampa destroyed'); });
+  assert.doesNotThrow(() => src.onCancel());
 });

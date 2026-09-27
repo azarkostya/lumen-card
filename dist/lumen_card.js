@@ -17083,6 +17083,7 @@ var TMDB_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
 var COVER_AHEAD = 8;
 var COVER_WAIT = 1500;
 var seq = 0;
+var flush = null;
 
 function fillCovers(found, cards, done) {
 var want = [];
@@ -17156,8 +17157,16 @@ warn('search: collections failed', e);
 rows = [];
 cards = [];
 }
+var sent = false;
+function reply() {
+if (sent) return;
+sent = true;
+if (flush === reply) flush = null;
+try { oncomplite(rows); } catch (e) { warn('search: reply failed', e); }
+}
+flush = reply;
 fillCovers(found, cards, function () {
-if (my === seq) oncomplite(rows);
+if (my === seq) reply();
 });
 },
 
@@ -17181,7 +17190,19 @@ return;
 try { if (typeof close === 'function') close(); } catch (e1) { }
 try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item); } catch (e2) { warn('search: open failed', e2); }
 },
-onCancel: function () { seq++; }
+
+
+
+
+
+
+
+onCancel: function () {
+var f = flush;
+flush = null;
+seq++;
+if (f) f();
+}
 };
 return built;
 }
@@ -33591,6 +33612,14 @@ job.value = kind === 'frame' ? framePixels(img) : logoPixels(img);
 score(true);
 } catch (e) {
 warn('thumbs: pixels blocked', e);
+
+
+
+
+
+
+
+scratch = null;
 score(false);
 job.value = false;
 }
