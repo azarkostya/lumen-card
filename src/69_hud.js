@@ -23,7 +23,7 @@
 
     /* Состояние запущенного HUD. null — выключен (start() ничего не сделал
        или stop() уже прибрал). Одно на модуль: два узла разом не нужны. */
-    var state = null; /* { node, frames, last, prev, longTotal, longSup, loafSup, slots, at, raf, obs, loafObs } */
+    var state = null; /* { node, frames, last, prev, longTotal, longSup, loafSup, slots, at, raf, obs, loafObs, probe } */
 
     /* -------------------------------------------------------------------- */
     /* Task 68 (фаза 6): величины, которые читаются с ОДНОГО снимка.         */
@@ -378,6 +378,353 @@
       return null;
     }
 
+    /* -------------------------------------------------------------------- */
+    /* Телеметрия героя (исследование 2026-09-27 «без лагов и без ожидания», */
+    /* план полосы preload, п.5.8). Жалоба с ТВ — «пока грузится логотип, на */
+    /* месте названия пусто» и «серый фон вместо кадра при листании» — до    */
+    /* сих пор читалась только с фото, без чисел. Зонд меряет это СНАРУЖИ    */
+    /* героя (src/48_hero.js не знает о нём ничего):                         */
+    /*   - hover:focus карточки — слушатель в захвате на корне экрана героя  */
+    /*     (LC.focus.capture, те же события, что у самого героя);            */
+    /*   - название — MutationObserver на .lumen-hero__title (текст) и на    */
+    /*     .lumen-hero/.lumen-hero__logo (класс lumen-hero--logo и картинка  */
+    /*     логотипа);                                                        */
+    /*   - кадр — MutationObserver на слоях .lumen-hero__bg (класс is-active */
+    /*     и src) и подложке .lumen-hero__lqip;                              */
+    /*   - сеть — PerformanceObserver 'resource' (startTime записи) против   */
+    /*     времён нажатий серии.                                             */
+    /* Один и тот же зонд служит второй строке HUD и стадии 9 самотеста     */
+    /* (src/69_bench.js). Создаётся только ими: выключенный HUD — ни одного  */
+    /* слушателя и наблюдателя.                                             */
+    /*                                                                      */
+    /* Показ — фокус, дождавшийся СВОЕГО названия: карточка, с которой       */
+    /* фокус ушёл раньше, в окно не идёт (её героя пользователь не ждал).    */
+    /* Отсчёт — от последнего hover:focus на этой карточке. Окно — последние */
+    /* HERO_WIN показов.                                                    */
+    /*   T_title — до появления в герое её названия: текст, равный названию  */
+    /*             карточки, или её логотип (путь из деталей этого фильма в  */
+    /*             картинке .lumen-hero__logo при классе lumen-hero--logo);  */
+    /*   T_frame — до слоя кадра is-active с картинкой ЭТОГО фильма (любой   */
+    /*             его backdrop или постер — размытый вариант); подложка     */
+    /*             LQIP кадром не считается. Показ, с которого фокус ушёл    */
+    /*             раньше кадра, в T_frame не идёт — число в скобках          */
+    /*             говорит, у скольких показов окна кадр дождались;          */
+    /*   gray    — показ, у которого между выводом названия и кадром был     */
+    /*             миг без единого активного слоя (оба кадра и подложка       */
+    /*             погашены — нейтральный фон, holdFrame/neutralFrame);      */
+    /*   pf h/m  — детали героя взяты из памяти предзагрузки или нет: между  */
+    /*             фокусом и названием вырос счётчик LC.prefetch.stats().hits */
+    /*             (своего промаха у stats() нет — промах = не вырос). Нет   */
+    /*             модуля или счётчика — поле не пишется;                    */
+    /*   net-in-burst — запросов картинок и API (записи resource), чей        */
+    /*             startTime попал в [нажатие, +KEY_WIN] для нажатия СЕРИИ    */
+    /*             (прошлое нажатие — меньше KEY_GAP назад, то же правило,   */
+    /*             что у героя), за время окна показов; n/a — браузер не     */
+    /*             отдаёт resource.                                         */
+    /* -------------------------------------------------------------------- */
+    var HERO_WIN = 20;
+    /* Копия BURST_GAP из src/48_hero.js литералом: одно число, ради которого
+       не стоит заводить зависимость между модулями. */
+    var KEY_GAP = 700;
+    var KEY_WIN = 120;
+    /* Запись resource приходит, когда загрузка КОНЧИЛАСЬ, — картинка,
+       начатая под нажатием, может доехать через секунды. Столько помним
+       нажатия серии. */
+    var KEY_KEEP = 60000;
+    var KEY_MAX = 2000;
+    /* Картинки (img, фон через css) и запросы API; скрипты, стили и прочее
+       — не то, что конкурирует с листанием. */
+    var NET_TYPES = { img: 1, image: 1, css: 1, xmlhttprequest: 1, 'fetch': 1, other: 1 };
+    /* Стрелки пульта: OK и «Назад» в серию не входят (открытие карточки —
+       законная сеть). */
+    var ARROWS = { 37: 1, 38: 1, 39: 1, 40: 1 };
+
+    function clock() {
+      try {
+        if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
+      } catch (e) { }
+      return Date.now();
+    }
+
+    function hasClass(el, name) {
+      try { return !!(el && el.classList && el.classList.contains(name)); } catch (e) { return false; }
+    }
+
+    /* Путь картинки TMDB («/abc.jpg») встречается в адресе — прокси, размер
+       и обёртка url("…") ему не мешают. */
+    function hasPath(url, paths) {
+      if (!url) return false;
+      for (var i = 0; i < paths.length; i++) {
+        if (paths[i] && typeof paths[i] === 'string' && url.indexOf(paths[i]) !== -1) return true;
+      }
+      return false;
+    }
+
+    function filePaths(list) {
+      var out = [];
+      for (var i = 0; list && i < list.length; i++) if (list[i]) out.push(list[i].file_path);
+      return out;
+    }
+
+    function heroDetails(id) {
+      try {
+        if (LC.hero && typeof LC.hero.details === 'function') return LC.hero.details(id);
+      } catch (e) { }
+      return null;
+    }
+
+    function prefetchHits() {
+      var s = prefetchStats();
+      return s && typeof s.hits === 'number' ? s.hits : null;
+    }
+
+    /* Чистая часть окна показов — наружу ради теста. shows — записи
+       {title, frame (-1 — не дождались), gray, hit (true/false/null)},
+       net — число или null (n/a). */
+    function heroStats(shows, net) {
+      var title = [];
+      var frame = [];
+      var out = { n: shows.length, title: null, frame: null, frameN: 0, gray: 0, pf: false, hit: 0, miss: 0, net: net };
+      for (var i = 0; i < shows.length; i++) {
+        var s = shows[i];
+        if (s.title >= 0) title.push(s.title);
+        if (s.frame >= 0) frame.push(s.frame);
+        if (s.gray) out.gray++;
+        if (s.hit === true) { out.hit++; out.pf = true; } else if (s.hit === false) { out.miss++; out.pf = true; }
+      }
+      title.sort(num);
+      frame.sort(num);
+      if (title.length) out.title = [Math.round(pct(title, 0.5)), Math.round(pct(title, 0.95))];
+      if (frame.length) out.frame = [Math.round(pct(frame, 0.5)), Math.round(pct(frame, 0.95))];
+      out.frameN = frame.length;
+      return out;
+    }
+
+    function pairText(p) {
+      return p ? p[0] + '/' + p[1] : '-/-';
+    }
+
+    /* «hero 20: T_title 530/1130 · T_frame 820/2400 (14) · gray 3 ·
+       pf h/m 12/8 · net-in-burst 0» — числа в мс, p50/p95. */
+    function heroText(s) {
+      return 'hero ' + s.n + ': T_title ' + pairText(s.title) + ' · T_frame ' + pairText(s.frame) + ' (' + s.frameN + ')' +
+        ' · gray ' + s.gray + (s.pf ? ' · pf h/m ' + s.hit + '/' + s.miss : '') +
+        ' · net-in-burst ' + (s.net === null || typeof s.net === 'undefined' ? 'n/a' : s.net);
+    }
+
+    /* Зонд. opts.keys — слушать стрелки пульта самому (HUD); самотест
+       листает Controller.move, клавиш у него нет, и нажатия он отдаёт сам
+       (key(t)). Наружу: sync() — найти героя и подписаться (HUD зовёт раз в
+       интервал строки: главная могла смонтироваться заново), key(t),
+       summary(), shows() — записи окна, stop(). */
+    function probe(opts) {
+      opts = opts || {};
+      var shows = [];
+      var cur = null;
+      var keys = [];
+      var nets = [];
+      var lastKey = -Infinity;
+      /* Начало окна для сети: миг, когда показ, вытесненный последним,
+         вывел название, — серия, которая привела к самому старому показу
+         окна, считается вместе с ним. До первого вытеснения — старт зонда. */
+      var from = clock();
+      var att = null;
+      var resObs = null;
+      var onKey = null;
+      var dead = false;
+
+      function titleShown(card) {
+        if (!att || !att.title) return false;
+        if (hasClass(att.hero, 'lumen-hero--logo')) {
+          var bg = '';
+          try { bg = att.logo && att.logo.style ? att.logo.style.backgroundImage || '' : ''; } catch (e) { bg = ''; }
+          if (!bg || bg === 'none') return false;
+          var d = heroDetails(card.id);
+          return hasPath(bg, filePaths(d && d.images && d.images.logos));
+        }
+        var name = card.title || card.name || '';
+        return !!name && att.title.textContent === name;
+      }
+
+      function frameShown(card) {
+        var paths = [card.backdrop_path, card.poster_path];
+        var d = heroDetails(card.id);
+        if (d) paths = paths.concat([d.backdrop_path, d.poster_path], filePaths(d.images && d.images.backdrops));
+        for (var i = 0; i < att.frames.length; i++) {
+          var n = att.frames[i];
+          if (hasClass(n, 'is-active') && hasPath(n.getAttribute('src') || '', paths)) return true;
+        }
+        return false;
+      }
+
+      function gray() {
+        if (!att.frames.length) return false;
+        for (var i = 0; i < att.frames.length; i++) if (hasClass(att.frames[i], 'is-active')) return false;
+        return !hasClass(att.lqip, 'is-active');
+      }
+
+      function evaluate(t) {
+        var c = cur;
+        if (!c || !att) return;
+        if (c.frame < 0 && frameShown(c.card)) {
+          c.frame = Math.round(t - c.at);
+          if (c.rec) c.rec.frame = c.frame;
+        }
+        if (!c.rec && titleShown(c.card)) {
+          var h = prefetchHits();
+          c.rec = { id: c.id, at: c.at, title: Math.round(t - c.at), frame: c.frame, gray: false,
+            hit: h === null || c.hits0 === null ? null : h > c.hits0 };
+          shows.push(c.rec);
+          if (shows.length > HERO_WIN) {
+            var gone = shows.shift();
+            from = gone.at + gone.title;
+          }
+          prune(t);
+        }
+        if (c.rec && c.rec.frame < 0 && !c.rec.gray && gray()) c.rec.gray = true;
+      }
+
+      function onFocus(e) {
+        if (dead) return;
+        var el = e && e.target;
+        if (!hasClass(el, 'card')) return;
+        var card = el.card_data;
+        if (!card || card.id == null) return;
+        /* Повторное событие на той же карточке (Lampa возвращает фокус на
+           место) — отсчёт не перезапускается, как и у героя. */
+        if (cur && String(cur.id) === String(card.id)) return;
+        var t = clock();
+        cur = null;
+        /* Герой уже показывает эту карточку (вернулись раньше, чем он
+           сменился) — ждать нечего, это не показ. */
+        if (titleShown(card)) return;
+        cur = { id: card.id, card: card, at: t, frame: -1, rec: null, hits0: prefetchHits() };
+      }
+
+      function detach() {
+        var a = att;
+        att = null;
+        cur = null;
+        if (!a) return;
+        try { if (a.mo) a.mo.disconnect(); } catch (e) { }
+        try { if (a.onFocus && LC.focus) LC.focus.release(a.root, a.onFocus); } catch (e2) { }
+      }
+
+      function attach(hero) {
+        var root = hero.parentNode;
+        if (!root) return;
+        var stage = root.querySelector('.lumen-hero-stage');
+        var frames = [];
+        var list = stage ? stage.querySelectorAll('.lumen-hero__bg') : [];
+        for (var i = 0; i < list.length; i++) frames.push(list[i]);
+        var a = {
+          hero: hero, root: root, frames: frames,
+          title: hero.querySelector('.lumen-hero__title'), logo: hero.querySelector('.lumen-hero__logo'),
+          lqip: stage ? stage.querySelector('.lumen-hero__lqip') : null, mo: null, onFocus: null
+        };
+        att = a;
+        if (LC.focus && typeof LC.focus.capture === 'function') {
+          a.onFocus = onFocus;
+          if (!LC.focus.capture(root, a.onFocus)) a.onFocus = null;
+        }
+        var MO = window.MutationObserver;
+        if (!MO) return;
+        a.mo = new MO(function () { if (att === a) evaluate(clock()); });
+        a.mo.observe(hero, { attributes: true, attributeFilter: ['class'] });
+        if (a.title) a.mo.observe(a.title, { childList: true, characterData: true, subtree: true });
+        if (a.logo) a.mo.observe(a.logo, { attributes: true, attributeFilter: ['style'] });
+        var layers = a.lqip ? frames.concat([a.lqip]) : frames;
+        for (var j = 0; j < layers.length; j++) a.mo.observe(layers[j], { attributes: true, attributeFilter: ['class', 'src'] });
+      }
+
+      function sync() {
+        if (dead) return;
+        var hero = null;
+        try { hero = document.querySelector('.lumen-hero'); } catch (e) { hero = null; }
+        if (att && hero === att.hero && hero.parentNode === att.root) return;
+        detach();
+        if (!hero) return;
+        try { attach(hero); } catch (e2) { detach(); }
+      }
+
+      function prune(t) {
+        var i = 0;
+        while (i < keys.length && (keys[i] < t - KEY_KEEP || keys.length - i > KEY_MAX)) i++;
+        if (i) keys.splice(0, i);
+        var j = 0;
+        while (j < nets.length && nets[j] < from) j++;
+        if (j) nets.splice(0, j);
+      }
+
+      function key(t) {
+        if (dead) return;
+        if (typeof t !== 'number' || !(t >= 0)) t = clock();
+        if (t - lastKey < KEY_GAP) keys.push(t);
+        if (t > lastKey) lastKey = t;
+        prune(t);
+      }
+
+      /* Старт записи — внутри окна нажатия серии? Нажатия идут по
+         возрастанию: с конца пропускаем более поздние, первое не позднее
+         старта решает (старше — ещё дальше). */
+      function inBurst(s) {
+        for (var i = keys.length - 1; i >= 0; i--) {
+          if (keys[i] > s) continue;
+          return s - keys[i] <= KEY_WIN;
+        }
+        return false;
+      }
+
+      function onEntries(list) {
+        if (dead) return;
+        var entries = list.getEntries();
+        for (var i = 0; i < entries.length; i++) {
+          var s = Number(entries[i].startTime);
+          if (NET_TYPES[entries[i].initiatorType] && inBurst(s)) nets.push(s);
+        }
+      }
+
+      function summary() {
+        var n = 0;
+        for (var i = 0; i < nets.length; i++) if (nets[i] >= from) n++;
+        return heroStats(shows, resObs ? n : null);
+      }
+
+      function stop() {
+        dead = true;
+        detach();
+        try { if (resObs) resObs.disconnect(); } catch (e) { }
+        try { if (onKey) window.removeEventListener('keydown', onKey, true); } catch (e2) { }
+        onKey = null;
+      }
+
+      try {
+        var PO = window.PerformanceObserver;
+        if (PO && PO.supportedEntryTypes && PO.supportedEntryTypes.indexOf('resource') !== -1) {
+          resObs = new PO(onEntries);
+          resObs.observe({ type: 'resource' });
+        }
+      } catch (e) { resObs = null; }
+      if (opts.keys) {
+        onKey = function (e) {
+          if (!e || !ARROWS[e.keyCode]) return;
+          var now = clock();
+          /* Метка события — момент нажатия (в той же шкале, что startTime
+             записей), а не момент, когда занятый поток дошёл до слушателя;
+             старые движки кладут туда эпоху — тогда «сейчас». */
+          var ts = Number(e.timeStamp);
+          key(ts > 0 && ts <= now ? ts : now);
+        };
+        try { window.addEventListener('keydown', onKey, true); } catch (e3) { onKey = null; }
+      }
+      sync();
+
+      return {
+        sync: sync, key: key, summary: summary, stop: stop,
+        shows: function () { return shows.slice(); }
+      };
+    }
+
     /* state.last обязан жить в ТОЙ ЖЕ шкале, что и t (DOMHighResTimeStamp
        rAF, отсчитываемый от старта документа, обычно единицы-десятки тысяч
        мс) — раньше его заводили через performance.now()/Date.now() отдельно
@@ -422,6 +769,8 @@
         var sums = totals();
         var st = sums.stats;
         var lay = layerCounts();
+        /* Полоса телеметрии: вторая строка — ожидание героя (зонд выше). */
+        state.probe.sync();
         state.node.textContent = format({
           fps: Math.round(state.frames * 1000 / elapsed), avg: st.avg, p95: st.p95, P: st.P, lat95: st.lat95,
           w: window.innerWidth, h: window.innerHeight,
@@ -430,7 +779,7 @@
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
           loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
           raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), tr: trailerStatus(), tint: accentStatus()
-        });
+        }) + '\n' + heroText(state.probe.summary());
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в
            самый старый слот. Окно из SLOTS интервалов уезжает вместе с ним,
@@ -445,11 +794,19 @@
       if (state) return;
       var node = document.createElement('div');
       node.className = 'lumen-hud';
+      /* Полоса телеметрии: строка героя — с новой строки. Правило .lumen-hud
+         (src/30_css.js) держит white-space:normal, и перевод строки в тексте
+         слился бы в пробел; pre-line его сохраняет, переносы по ширине — как
+         были. */
+      try { node.style.whiteSpace = 'pre-line'; } catch (e) { }
       document.body.appendChild(node);
       var slots = [];
       for (var i = 0; i < SLOTS; i++) slots.push(newSlot());
       state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false, loafSup: false,
-        slots: slots, at: 0, raf: 0, obs: null, loafObs: null };
+        slots: slots, at: 0, raf: 0, obs: null, loafObs: null, probe: null };
+      /* Полоса телеметрии: зонд героя живёт ровно столько, сколько HUD —
+         выключенный HUD не держит ни одного слушателя. */
+      state.probe = probe({ keys: true });
       /* window.PerformanceObserver — не голый PerformanceObserver: тот же
          повод, что у raf/unraf выше (окружение подменяет window целиком, а
          глобал — нет; в Node, например, PerformanceObserver — свой глобал
@@ -482,6 +839,7 @@
     function stop() {
       if (!state) return;
       unraf(state.raf);
+      try { state.probe.stop(); } catch (e5) { }
       try { if (state.obs) state.obs.disconnect(); } catch (e2) { }
       try { if (state.loafObs) state.loafObs.disconnect(); } catch (e4) { }
       try { state.node.parentNode.removeChild(state.node); } catch (e3) { }
@@ -520,7 +878,10 @@
       /* Ревью Task 40 (п.6): наружу ради теста и ради живой проверки с
          телевизора (window.lumen_card.hud.hardware() в консоли, если она
          есть) — по этим числам срабатывает LC.perf.weakHardware. */
-      hardware: hardware
+      hardware: hardware,
+      /* Полоса телеметрии: зонд героя — и для самотеста (стадия 9,
+         src/69_bench.js); чистые окно и строка — ради теста. */
+      probe: probe, heroStats: heroStats, heroText: heroText
     };
   })();
 
