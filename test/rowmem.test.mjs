@@ -94,7 +94,8 @@ function makeEnv(opts) {
     Controller: { enabled: () => ({ name: env.ctrl }) }
   };
   const { api } = loadCtx('58_rowmem.js', {
-    pref: (name, def) => (name === 'lumen_rowmem' ? env.pref : name === 'lumen_rowmem_bytes' ? env.bytes : def),
+    /* env.bytes === undefined — ключа в Storage нет: дефолт модуля. */
+    pref: (name, def) => (name === 'lumen_rowmem' ? env.pref : name === 'lumen_rowmem_bytes' ? (env.bytes === undefined ? def : env.bytes) : def),
     enabled: () => env.enabled
   });
   let seq = 0;
@@ -176,6 +177,26 @@ test('rowmem: байты — снимаются у загруженных пос
   env.bytes = false;
   env.advance(R.QUIET_MS + 5000);
   assert.equal(R.stats().dropped, 5 * 6 - 2, 'ряды 0..4: 5 рядов по 6 постеров, минус заглушка и недоехавший');
+});
+
+/* Решение координатора перед 1.0.0: отпускание байтов постеров выключено по
+   умолчанию до проверки на ТВ — вернувшийся src при сетевом сбое чинит
+   только Card.onerror Lampa (4 ошибки — img_broken.svg навсегда; 20 ошибок
+   за 10 с — зеркало картинок забанено и сменено в Storage). Сон рядов —
+   включён. */
+test('rowmem: по умолчанию (lumen_rowmem_bytes не задан) ряды спят, но src постеров не снимается', () => {
+  const env = makeEnv({ rows: 20, active: 19 });
+  env.bytes = undefined;
+  const R = env.api;
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  assert.ok(env.lines.filter(asleep).length >= 15, 'ряды дальше FAR спят');
+  assert.ok(env.lines.every((l) => l.cards.every((c) => c.img.getAttribute('src'))), 'у всех постеров src на месте');
+  assert.equal(R.stats().dropped, 0);
+  env.bytes = true;
+  env.focus(19);
+  env.advance(R.QUIET_MS + 10000);
+  assert.ok(R.stats().dropped > 0, 'включили — дальние ряды отпускают байты');
 });
 
 test('rowmem: перевод фокуса будит ближние ряды СИНХРОННО и возвращает байты заранее', () => {

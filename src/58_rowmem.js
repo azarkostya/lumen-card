@@ -31,7 +31,8 @@
   /*   - дальше BYTES_FAR рядов спящий ряд ещё и отпускает сжатые байты    */
   /*     загруженных постеров: src снимается (removeAttribute — без         */
   /*     load/error, обработчики карточки Lampa не зовутся), адрес — в поле */
-  /*     узла;                                                              */
+  /*     узла. ТОЛЬКО при lumen_rowmem_bytes = 'true': по умолчанию         */
+  /*     выключено до проверки на ТВ (см. bytesOn);                         */
   /*   - на переводе фокуса, СИНХРОННО: ряды в пределах BYTES_NEAR получают */
   /*     src обратно (сеть — за несколько шагов до показа), в пределах NEAR */
   /*     просыпаются (класс и лента на место). Между NEAR и FAR — ничего:   */
@@ -123,11 +124,18 @@
       }
     }
 
+    /* Отпускание байтов постеров — по умолчанию ВЫКЛЮЧЕНО, до проверки на
+       ТВ. Вернувшийся src при сетевом сбое чинит только Card.onerror Lampa
+       (vendor/lampa/app.min.js:20890-20915): после 4 ошибок — img_broken.svg
+       навсегда, а каждая ошибка идёт в TMDB.broken → ImageMirror.broken
+       (:19273-19291): 20 ошибок за 10 с — зеркало картинок забанено, выбор
+       другого сохраняется в Storage (tmdb_img_mirror). Включить:
+       Lampa.Storage.set('lumen_rowmem_bytes', 'true'). */
     function bytesOn() {
       try {
-        return LC.pref ? LC.pref('lumen_rowmem_bytes', true) !== false : true;
+        return LC.pref ? LC.pref('lumen_rowmem_bytes', false) === true : false;
       } catch (e) {
-        return true;
+        return false;
       }
     }
 
