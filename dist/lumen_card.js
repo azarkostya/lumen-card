@@ -17566,8 +17566,32 @@ var HOLD_DECODE = 150;
 
 
 
+
+
+
+
+
+
+
+
+
+var logoRatios = {};
+var logoRatioKeys = 0;
+function rememberRatios(logos) {
+for (var i = 0; logos && i < logos.length; i++) {
+var item = logos[i];
+if (!item || !item.file_path || Object.prototype.hasOwnProperty.call(logoRatios, item.file_path)) continue;
+var r = logoRatioOf(item);
+if (!(r > 0)) continue;
+if (logoRatioKeys >= 800) { logoRatios = {}; logoRatioKeys = 0; }
+logoRatioKeys++;
+logoRatios[item.file_path] = r;
+}
+}
+
 function pickLogoItem(logos, lang) {
 lang = lang || 'ru';
+rememberRatios(logos);
 var own = null;
 var en = null;
 var neutral = null;
@@ -18100,6 +18124,17 @@ return LC.util.frameSize(width);
 
 function logoSizeFor(width) {
 return (Number(width) || 0) * 0.85 > 500 ? 'w780' : 'w500';
+}
+
+
+
+
+
+
+function logoSizeByWidth(width) {
+var need = (Number(width) || 0) * 0.85;
+if (need > 500) return 'w780';
+return need > 300 ? 'w500' : 'w300';
 }
 
 
@@ -19742,7 +19777,11 @@ showLogo(state.node, url, path);
 
 
 function logoUrl(path) {
-return path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+if (!path) return '';
+var r = Object.prototype.hasOwnProperty.call(logoRatios, path) ? logoRatios[path] : 0;
+var box = r > 0 ? logoBox(r) : null;
+if (!box) return imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1)));
+return imageUrl(path, logoSizeByWidth(LC.util.emPx(box.w * TEXT_ZOOM, 1)));
 }
 
 
@@ -21934,6 +21973,7 @@ frameFor: frameFor,
 shouldUpdate: shouldUpdate,
 sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
+logoSizeByWidth: logoSizeByWidth,
 logoBox: logoBox,
 detailsRequest: detailsRequest,
 
@@ -32623,7 +32663,276 @@ return { fly: fly, idle: idleQueue.length, feats: featKeys.length, blocked: bloc
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.thumbs;
 
 
+/* ---- 58_posters.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.posters = (function () {
+
+var SLOTS = 4;
+var KEEP = 96;
+
+var AHEAD = 2;
+
+
+
+
+
+
+
+
+
+
+
+var ROWS = 0;
+
+var VIEW = 7;
+
+var queue = [];
+var busy = 0;
+var started = {};
+var startedN = 0;
+var kept = [];
+var gen = 0;
+
+
+
+
+function pathOf(item) {
+if (!item) return '';
+return item.poster_path || item.profile_path || '';
+}
+
+function styleOf(params) {
+var s = params && params.style;
+return s && s.name ? s.name : '';
+}
+
+function viewOf(params, fallback) {
+var v = params && params.items && params.items.view;
+return typeof v === 'number' && v > 0 ? v : fallback;
+}
+
+
+
+
+
+function planPaths(lines, at, pending, ahead, rows) {
+var out = [];
+var seen = {};
+function add(item) {
+var p = pathOf(item);
+if (p && !seen[p]) {
+seen[p] = true;
+out.push(p);
+}
+}
+
+
+
+
+
+
+
+var line = lines[at];
+if (line && line.results && !line.style && (line.active || 0) > 0) {
+var view = line.view > 0 ? line.view : VIEW;
+var upto = Math.min(line.results.length, (line.active || 0) + view * ahead + 1);
+for (var i = line.made || 0; i < upto; i++) add(line.results[i]);
+}
+var below = lines.length - 1 - at;
+var need = Math.max(0, rows - below);
+for (var k = 0; k < pending.length && k < need; k++) {
+var row = pending[k];
+if (!row || !row.results || row.style) continue;
+var v = row.view > 0 ? row.view : VIEW;
+for (var j = 0; j < row.results.length && j < v + 1; j++) add(row.results[j]);
+}
+return out;
+}
+
+
+
+function snapshot() {
+var comp = null;
+try {
+var a = Lampa.Activity.active();
+comp = a && a.activity && a.activity.component;
+} catch (e) {
+return null;
+}
+if (!comp || !comp.items || !comp.items.length || typeof comp.items.length !== 'number') return null;
+var lines = [];
+for (var i = 0; i < comp.items.length; i++) {
+var it = comp.items[i];
+var d = it && it.data;
+lines.push({
+results: d && d.results && d.results.length ? d.results : null,
+made: it && it.items && typeof it.items.length === 'number' ? it.items.length : 0,
+active: it && typeof it.active === 'number' ? it.active : 0,
+view: it && typeof it.view === 'number' ? it.view : viewOf(d && d.params, VIEW),
+style: styleOf(d && d.params)
+});
+}
+var pending = [];
+var loaded = comp.loaded;
+if (loaded && typeof loaded.length === 'number') {
+for (var k = 0; k < loaded.length; k++) {
+var part = loaded[k];
+if (!part || typeof part.length !== 'number') continue;
+for (var j = 0; j < part.length; j++) {
+var row = part[j];
+pending.push({
+results: row && row.results && row.results.length ? row.results : null,
+view: viewOf(row && row.params, VIEW),
+style: styleOf(row && row.params)
+});
+}
+}
+}
+var at = typeof comp.active === 'number' ? comp.active : 0;
+if (at < 0) at = 0;
+if (at > lines.length - 1) at = lines.length - 1;
+return { lines: lines, at: at, pending: pending };
+}
+
+function urlOf(path) {
+try {
+return Lampa.Api.img(path) || '';
+} catch (e) {
+return '';
+}
+}
+
+function pump() {
+var captured = gen;
+while (busy < SLOTS && queue.length) {
+var url = queue.shift();
+if (started[url]) continue;
+started[url] = true;
+startedN++;
+var img = new Image();
+try { img.fetchPriority = 'low'; } catch (e) { }
+busy++;
+img.onload = img.onerror = done(img, captured);
+img.src = url;
+kept.push(img);
+while (kept.length > KEEP) kept.shift();
+}
+
+
+
+if (startedN > 400) {
+started = {};
+startedN = 0;
+for (var i = 0; i < kept.length; i++) started[kept[i].src] = true;
+}
+}
+
+function done(img, captured) {
+return function () {
+img.onload = img.onerror = null;
+busy--;
+if (busy < 0) busy = 0;
+if (captured === gen) pump();
+};
+}
+
+
+
+
+
+var planTimer = null;
+function around() {
+if (planTimer) return;
+planTimer = setTimeout(function () {
+planTimer = null;
+plan();
+}, 0);
+}
+
+function plan() {
+var snap = snapshot();
+if (!snap) return;
+var paths = planPaths(snap.lines, snap.at, snap.pending, AHEAD, ROWS);
+var list = [];
+for (var i = 0; i < paths.length; i++) {
+var url = urlOf(paths[i]);
+if (url && !started[url]) list.push(url);
+}
+queue = list;
+pump();
+}
+
+
+
+
+function stop() {
+gen++;
+queue = [];
+if (planTimer) {
+clearTimeout(planTimer);
+planTimer = null;
+}
+}
+
+function stats() {
+return { fly: busy, queue: queue.length, kept: kept.length };
+}
+
+return {
+planPaths: planPaths,
+around: around,
+stop: stop,
+stats: stats
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.posters;
+
+
 /* ---- 58_prefetch.js ---- */
+
 
 
 
@@ -33363,6 +33672,16 @@ idleTimer = null;
 }
 }
 
+
+
+function posters(name) {
+try {
+if (LC.posters && typeof LC.posters[name] === 'function') LC.posters[name]();
+} catch (e) {
+warn('prefetch: posters failed', e);
+}
+}
+
 function around(el) {
 gen++;
 queue.length = 0;
@@ -33372,6 +33691,7 @@ stopColorWait();
 stopLooks();
 stopIdle();
 if (!el) return;
+posters('around');
 prevEl = focusEl;
 focusEl = el;
 var captured = gen;
@@ -33409,6 +33729,7 @@ if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
 plan(out);
 planColors(out);
 planLooks(out);
+posters('around');
 } catch (e) {
 warn('prefetch: warm failed', e);
 }
@@ -33422,6 +33743,7 @@ function stop() {
 gen++;
 queue.length = 0;
 stopIdle();
+posters('stop');
 colors.length = 0;
 frames.length = 0;
 stopColorWait();

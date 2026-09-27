@@ -244,8 +244,32 @@
        затем первый безъязыкий (такие логотипы обычно и есть «оригинальные»).
        Нет ни одного — null, и тогда рисуется текстовый заголовок
        (ограничение брифа 2, поправка контроллера: без панели-фолбэка). */
+    /* Исследование 2026-09-27 (полоса images): пропорции логотипов по пути
+       файла. Размер картинки логотипа выбирается по его НАСТОЯЩЕЙ ширине на
+       экране (logoBox — равная площадь), а не по рамке LOGO_EM, которую
+       заполняют только логотипы шире 14:1. Пропорцию знает только ответ
+       деталей (images.logos[].aspect_ratio), а адрес строит logoUrl(path)
+       для героя, предзагрузки, карточки и рулетки, — поэтому одна память
+       на всех: один путь — один адрес — один ключ кэша. Заполняется здесь,
+       в выборе логотипа, который каждый из них зовёт до logoUrl; путь без
+       пропорции — прежняя ступень по рамке. */
+    var logoRatios = {};
+    var logoRatioKeys = 0;
+    function rememberRatios(logos) {
+      for (var i = 0; logos && i < logos.length; i++) {
+        var item = logos[i];
+        if (!item || !item.file_path || Object.prototype.hasOwnProperty.call(logoRatios, item.file_path)) continue;
+        var r = logoRatioOf(item);
+        if (!(r > 0)) continue;
+        if (logoRatioKeys >= 800) { logoRatios = {}; logoRatioKeys = 0; }
+        logoRatioKeys++;
+        logoRatios[item.file_path] = r;
+      }
+    }
+
     function pickLogoItem(logos, lang) {
       lang = lang || 'ru';
+      rememberRatios(logos);
       var own = null;
       var en = null;
       var neutral = null;
@@ -778,6 +802,17 @@
        если TMDB его прекратит, здесь нужно будет опуститься на w500. */
     function logoSizeFor(width) {
       return (Number(width) || 0) * 0.85 > 500 ? 'w780' : 'w500';
+    }
+
+    /* Полоса images (2026-09-27): ступень по НАСТОЯЩЕЙ ширине логотипа
+       (физические px) — с w300 снизу, тем же допуском 0.85. Замер на 24
+       логотипах прогона стенда (пропорции 1.2-16:1): по рамке все 24 шли в
+       w780 — 3.65 МБ; по ширине 8 уходят в w300, 10 в w500, 6 остаются
+       w780 — 1.2 МБ, растяжение не больше 1.18 (как и прежде). */
+    function logoSizeByWidth(width) {
+      var need = (Number(width) || 0) * 0.85;
+      if (need > 500) return 'w780';
+      return need > 300 ? 'w500' : 'w300';
     }
 
     /* Языки логотипов: язык интерфейса + английский + безъязыкие. */
@@ -2420,7 +2455,11 @@
        Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно 1:
        lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
     function logoUrl(path) {
-      return path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+      if (!path) return '';
+      var r = Object.prototype.hasOwnProperty.call(logoRatios, path) ? logoRatios[path] : 0;
+      var box = r > 0 ? logoBox(r) : null;
+      if (!box) return imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1)));
+      return imageUrl(path, logoSizeByWidth(LC.util.emPx(box.w * TEXT_ZOOM, 1)));
     }
 
     /* Ставит логотип текущей модели: известный — сразу, неизвестный (и
@@ -4612,6 +4651,7 @@
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,
+      logoSizeByWidth: logoSizeByWidth,
       logoBox: logoBox,
       detailsRequest: detailsRequest,
       /* Task 28: правило «можно ли сейчас заводить фоновый ролик в герое» —

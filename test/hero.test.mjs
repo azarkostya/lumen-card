@@ -7702,3 +7702,31 @@ test('без ожидания, п.2: подложки в памяти нет —
   assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY);
   assert.equal(stage.find('.lumen-hero__lqip').hasClass('is-active'), false, 'подложка без байтов встала вместо нейтрального фона');
 });
+
+/* Исследование 2026-09-27 (полоса images): размер логотипа по его ширине  */
+/* ====================================================================== */
+
+test('полоса images: logoSizeByWidth — w300/w500/w780 по ширине самого логотипа, допуск 0.85', () => {
+  assert.equal(H.logoSizeByWidth(0), 'w300');
+  assert.equal(H.logoSizeByWidth(352), 'w300');
+  assert.equal(H.logoSizeByWidth(360), 'w500');
+  assert.equal(H.logoSizeByWidth(588), 'w500');
+  assert.equal(H.logoSizeByWidth(600), 'w780');
+  assert.equal(H.logoSizeByWidth(1900), 'w780', 'выше w780 не идём');
+});
+
+test('полоса images: адрес логотипа — по его пропорции из деталей (2 → w300, 4 → w500, 12 → w780), без пропорции — прежняя рамка', () => {
+  const f = heroIn('full');
+  f.env.requests[f.env.requests.length - 1].ok({ id: 1, images: { logos: [
+    { file_path: '/r2.png', iso_639_1: 'ru', aspect_ratio: 2 },
+    { file_path: '/r4.png', iso_639_1: 'en', aspect_ratio: 4 },
+    { file_path: '/r12.png', aspect_ratio: 12 }
+  ] } });
+  f.env.advance(200);
+  assert.ok(f.env.images.some((i) => i.src === 'https://img/t/p/w300/r2.png'), 'герой грузит логотип не по его ширине');
+  assert.ok(!f.env.images.some((i) => i.src === 'https://img/t/p/w780/r2.png'), 'логотип ушёл в w780');
+  assert.equal(f.env.hero.logoUrl('/r2.png'), 'https://img/t/p/w300/r2.png');
+  assert.equal(f.env.hero.logoUrl('/r4.png'), 'https://img/t/p/w500/r4.png');
+  assert.equal(f.env.hero.logoUrl('/r12.png'), 'https://img/t/p/w780/r12.png');
+  assert.equal(f.env.hero.logoUrl('/unknown.png'), 'https://img/t/p/w780/unknown.png');
+});

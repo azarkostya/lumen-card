@@ -43,8 +43,9 @@
   /* простое и не раньше, чем герой выбрал кадр своей карточки: к показу    */
   /* соседа выбор его первого кадра решается из памяти, без потолка         */
   /* LOOK_WAIT (разбор — у переменной looks).                               */
-  /* Кадры w1280 заранее НЕ грузятся: 3.7 МБ растра на кадр — это память   */
-  /* и канал, отнятые у кадра карточки под фокусом. decode() не зовётся.   */
+  /* Кадры w1280 заранее не декодируются: 3.7 МБ растра на кадр. Байты    */
+  /* кадра показа — карточке под фокусом и следующей по ходу (дорожка      */
+  /* кадра, раунд «без ожидания»). decode() не зовётся.                    */
   /*                                                                       */
   /* Память:                                                               */
   /*   - детали — LRU из DETAILS_KEEP записей по ключу media/id/язык;      */
@@ -737,6 +738,16 @@
       }
     }
 
+    /* Исследование 2026-09-27 (полоса images): постеры рядов, которых
+       Lampa ещё не создала, — без ожидания покоя (src/58_posters.js). */
+    function posters(name) {
+      try {
+        if (LC.posters && typeof LC.posters[name] === 'function') LC.posters[name]();
+      } catch (e) {
+        warn('prefetch: posters failed', e);
+      }
+    }
+
     function around(el) {
       gen++;
       queue.length = 0;
@@ -746,6 +757,7 @@
       stopLooks();
       stopIdle();
       if (!el) return;
+      posters('around');
       prevEl = focusEl;
       focusEl = el;
       var captured = gen;
@@ -783,6 +795,7 @@
         plan(out);
         planColors(out);
         planLooks(out);
+        posters('around');
       } catch (e) {
         warn('prefetch: warm failed', e);
       }
@@ -796,6 +809,7 @@
       gen++;
       queue.length = 0;
       stopIdle();
+      posters('stop');
       colors.length = 0;
       frames.length = 0;
       stopColorWait();
