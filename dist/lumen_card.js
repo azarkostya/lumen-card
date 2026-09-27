@@ -33674,7 +33674,16 @@ var IDLE = 250;
 var SLOTS = 2;
 
 
-var AHEAD = { full: 3, lite: 2 };
+
+
+
+
+
+
+
+
+
+var AHEAD = { full: 3, lite: 3 };
 var BEHIND = { full: 2, lite: 1 };
 
 

@@ -283,13 +283,14 @@ for (const type of ['hover:focus', 'hover:hover']) {
 /* Окно: по направлению движения, затем назад, затем следующий ряд         */
 /* ====================================================================== */
 
-test('prefetch: порядок окна в «Лёгких» — +1, +2, −1 и три карточки ряда ниже от той, куда встанет фокус (фокуса там не было — первые)', () => {
+test('prefetch: порядок окна в «Лёгких» — +1…+3, −1 и три карточки ряда ниже от той, куда встанет фокус (фокуса там не было — первые)', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][2]);
   env.advance(100);
   focus(main, main.rows[0][3]);
   env.advance(250);
-  assert.deepEqual(drain(env, 104), [105, 106, 103, 201, 202, 203]);
+  /* Этап 2в: вперёд в «Лёгких» — +3 (было +2). */
+  assert.deepEqual(drain(env, 104), [105, 106, 107, 103, 201, 202, 203]);
 });
 
 test('prefetch: порядок окна в «Полном» — +1…+3, −1…−2 и ряд ниже от цели', () => {
@@ -307,7 +308,7 @@ test('prefetch: листание влево — окно разворачива�
   env.advance(100);
   focus(main, main.rows[0][4]);
   env.advance(250);
-  assert.deepEqual(drain(env, 105), [104, 103, 106, 201, 202, 203]);
+  assert.deepEqual(drain(env, 105), [104, 103, 102, 106, 201, 202, 203]);
 });
 
 test('prefetch: край ряда и последний ряд — только то, что есть', () => {
@@ -367,25 +368,27 @@ test('без ожидания: карточка под фокусом — пер
   env.advance(400);
   drain(env);
   env.advance(1000);
-  /* Серия из трёх нажатий шагом 150 мс: 104, 105, 106 — в окно 103 (+2)
-     106 не входит. */
+  /* Серия из четырёх нажатий шагом 150 мс: 104…107 — в окно 103 (+3,
+     этап 2в; было +2 и три нажатия) 107 не входит. */
   focus(main, main.rows[0][3]);
   env.advance(150);
   focus(main, main.rows[0][4]);
   env.advance(150);
   focus(main, main.rows[0][5]);
+  env.advance(150);
+  focus(main, main.rows[0][6]);
   env.advance(249);
-  const before = env.requests.filter((r) => idOf(r.url) === 106).length;
+  const before = env.requests.filter((r) => idOf(r.url) === 107).length;
   env.advance(1);
-  const mine = pending(env).filter((r) => idOf(r.url) === 106);
-  assert.equal(before, 0, 'подготовка: 106 раньше не запрашивалась');
+  const mine = pending(env).filter((r) => idOf(r.url) === 107);
+  assert.equal(before, 0, 'подготовка: 107 раньше не запрашивалась');
   assert.equal(mine.length, 1, 'детали карточки под фокусом не запрошены через IDLE');
-  assert.equal(idOf(pending(env)[0].url), 106, 'карточка под фокусом не первая');
-  answer(mine[0], withLogo(106, { runtime: 100 }));
-  assert.equal(logoImgs(env, 106).length, 1, 'логотип карточки под фокусом не пошёл следом за деталями');
-  land(logoImgs(env, 106)[0]);
+  assert.equal(idOf(pending(env)[0].url), 107, 'карточка под фокусом не первая');
+  answer(mine[0], withLogo(107, { runtime: 100 }));
+  assert.equal(logoImgs(env, 107).length, 1, 'логотип карточки под фокусом не пошёл следом за деталями');
+  land(logoImgs(env, 107)[0]);
   env.advance(BURST_DELAY - 250);
-  assert.equal(env.requests.filter((r) => idOf(r.url) === 106).length, 1, 'показ запросил детали второй раз');
+  assert.equal(env.requests.filter((r) => idOf(r.url) === 107).length, 1, 'показ запросил детали второй раз');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип не встал в первом выводе показа');
   assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.deepEqual(warnLog, []);
@@ -441,7 +444,7 @@ test('prefetch: логотип соседа грузится следом за �
   /* Раунд «без ожидания», п.1: первое место — у запроса самой карточки
      под фокусом (104). */
   assert.deepEqual(pending(env).map((r) => idOf(r.url)), [104], 'детали следующего соседа обогнали логотип');
-  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 5, hits: 0 });
+  assert.deepEqual(env.pf.stats(), { fly: 2, queue: 6, hits: 0 }, 'в очереди — остаток окна «Лёгких» (+3 вперёд — этап 2в)');
   assert.equal(env.hero.logoState('/l105.png'), 'load');
   land(logoImgs(env, 105)[0]);
   assert.equal(env.hero.logoState('/l105.png'), 'ok');
@@ -979,9 +982,9 @@ test('C3: дорожка цвета — низ решённого кадра; к
   env.advance(1000);
   assert.deepEqual(acc.calls, [103], 'пока идёт расчёт, следующий не стартует');
   drainColors(env, acc);
-  /* Окно в «Лёгких»: +2 вперёд, −1 назад, три карточки ряда ниже от цели. */
-  assert.deepEqual(acc.calls, [103, 104, 105, 102, 201, 202, 203]);
-  assert.deepEqual(acc.frames, ['/b103.jpg', '/b104.jpg', '/b105.jpg', '/b102.jpg', '/b201.jpg', '/b202.jpg', '/b203.jpg']);
+  /* Окно в «Лёгких»: +3 вперёд (этап 2в), −1 назад, три карточки ряда ниже от цели. */
+  assert.deepEqual(acc.calls, [103, 104, 105, 106, 102, 201, 202, 203]);
+  assert.deepEqual(acc.frames, ['/b103.jpg', '/b104.jpg', '/b105.jpg', '/b106.jpg', '/b102.jpg', '/b201.jpg', '/b202.jpg', '/b203.jpg']);
   assert.deepEqual(warnLog, []);
 });
 
@@ -1036,25 +1039,26 @@ test('цвет сразу / C3: известный цвет и нерешённ�
   env.advance(COLOR_GAP);
   acc.jobs[0].finish();
   env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 102], 'цвет 104 известен — пропущен; у 105 деталей нет — кадр не решён, ждёт');
+  /* warmDetails — детали 101…105 (окно 102); 106 (+3 от 103, этап 2в) — нет. */
+  assert.deepEqual(acc.calls, [103, 105], 'цвет 104 известен — пропущен; у 106 деталей нет — кадр не решён, ждёт');
 
-  /* Фокус ушёл дальше, расчёт 102 ещё идёт: он доживает, а очередь старого
-     окна (201…) выброшена. */
+  /* Фокус ушёл дальше, расчёт 105 ещё идёт: он доживает, а очередь старого
+     окна (102, 201…) выброшена. */
   focus(main, main.rows[0][6]);
   env.advance(250);
   drain(env);
   env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 102], 'новый расчёт — только после текущего');
+  assert.deepEqual(acc.calls, [103, 105], 'новый расчёт — только после текущего');
   acc.jobs[1].finish();
   env.advance(COLOR_GAP);
   /* Раунд «без ожидания», п.1: детали самой карточки под фокусом (107)
      предзагрузка заказала первыми — её кадр решён, и её цвет — первый. */
-  assert.deepEqual(acc.calls, [103, 102, 107], 'очередь нового окна: первой — карточка под фокусом');
+  assert.deepEqual(acc.calls, [103, 105, 107], 'очередь нового окна: первой — карточка под фокусом');
 
   env.hero.unmount();
   assert.equal(acc.jobs[2].cancelled, true, 'уход с главной снял расчёт в пути');
   env.advance(5000);
-  assert.deepEqual(acc.calls, [103, 102, 107], 'после ухода — ни одного расчёта');
+  assert.deepEqual(acc.calls, [103, 105, 107], 'после ухода — ни одного расчёта');
 });
 
 /* Раунд правок финальной проверки, A9: повтор в очереди цвета — по ключу
@@ -1190,8 +1194,8 @@ test('E3: дорожка вердиктов — соседи окна по од�
     const open = th.calls.find((c) => th.verdict(c.p, c.f) === undefined && !c.cancelled);
     if (open) th.answer(open, false);
   }
-  /* Окно «Лёгких»: +2 вперёд, −1 назад, три карточки ряда ниже от цели. */
-  assert.deepEqual(th.pairs().slice(3), ['105:a105', '102:a102', '201:a201', '202:a202', '203:a203']);
+  /* Окно «Лёгких»: +3 вперёд (этап 2в), −1 назад, три карточки ряда ниже от цели. */
+  assert.deepEqual(th.pairs().slice(3), ['105:a105', '106:a106', '102:a102', '201:a201', '202:a202', '203:a203']);
   assert.deepEqual(warnLog, []);
 });
 
@@ -1681,10 +1685,10 @@ test('этап 2а, п.3: окно берёт в рядах выше и ниже
   env.advance(100);
   focus(main, main.rows[1][2]);
   env.advance(250);
-  /* 203: вперёд 204, 205, назад 202, ниже — от 303 (был фокус): 303, 304
-     (дальше ряда нет), выше — 105. */
+  /* 203: вперёд 204, 205, 206 (этап 2в: +3), назад 202, ниже — от 303
+     (был фокус): 303, 304 (дальше ряда нет), выше — 105. */
   const order = drain(env, 203);
-  assert.deepEqual(order, [204, 205, 202, 303, 304, 105], 'окно: ' + order);
+  assert.deepEqual(order, [204, 205, 206, 202, 303, 304, 105], 'окно: ' + order);
   assert.deepEqual([101, 102, 103, 301, 302].filter((id) => order.indexOf(id) !== -1), [], 'первые карточки рядов, куда фокус не встанет');
   assert.deepEqual(warnLog, []);
 });
@@ -1695,7 +1699,7 @@ test('этап 2а, п.3: в ряду без посещений — первая
   env.advance(100);
   focus(main, main.rows[1][1]);
   env.advance(250);
-  assert.deepEqual(drain(env, 202), [203, 204, 201, 301, 302, 303, 104], 'ряд ниже без посещений — от первой карточки, выше — посещённая');
+  assert.deepEqual(drain(env, 202), [203, 204, 205, 201, 301, 302, 303, 104], 'ряд ниже без посещений — от первой карточки, выше — посещённая');
   env.pf.stop();
   focus(main, main.rows[1][3]);
   env.advance(250);
