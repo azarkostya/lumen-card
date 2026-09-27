@@ -4696,6 +4696,12 @@
     css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
+    /* Раунд «без ожидания», п.1: первый вывод после монтирования ждёт
+       логотип (не дольше TITLE_WAIT) всем блоком — название, мета и
+       описание появляются одним кадром (writeTitle в src/48_hero.js).
+       visibility, а не display: раскладка блока не меняется, и логотип,
+       вставший на место, ничего не сдвигает. */
+    css.push('.lumen-hero.lumen-hero--await .lumen-hero__text{visibility:hidden}');
     css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
     /* Скелетон, пока грузятся детали (ограничение брифа 3): плашка меты —
@@ -4951,6 +4957,40 @@
        Стопы зеркальны прежней маске: сплошной фон до 2em, к 2.5em — полная
        прозрачность. Фокусный ряд не теряет ни пикселя, он начинается ровно
        на 2.5em. */
+    /* Раунд «без ожидания», п.4 (фото с ТВ 27.09, photo_15/16: при смене
+       ряда подписи плиток уезжающего ряда наезжают на описание героя,
+       подпись ряда «двоится»). Переход ленты рядов .3s — штатный и
+       обязательный (урок B1 ниже), и все 300 мс уезжающий вверх ряд
+       рисуется в зоне отступа Lampa над фокусным рядом: область рядов
+       обрезана по СВОЕЙ кромке (overflow:hidden выше), а она на
+       LAMPA_ROW_PAD выше фокусного ряда — ровно под описанием героя (стенд
+       960×540@2: кромка области 288.3 CSS px, низ описания 292.5, фокусный
+       ряд 316.8; кадры перехода на 100 и 200 мс — плитки и подписи
+       уходящего ряда прямо под описанием и поверх его второй строки).
+       Обрезка теперь по верху фокусного ряда: .scroll__content — overflow:
+       clip с overflow-clip-margin:content-box, то есть по его content-box,
+       без отступа 2.5em сверху. Это такая же прямоугольная обрезка, как
+       overflow:hidden области (не маска и не clip-path: на движущемся слое
+       те дороги — docs/research/2026-09-18-android-tv-animations.md), сам
+       переход ленты не тронут, раскладки и геометрии, по которой Lampa
+       считает прокрутку и Layer.visible (getBoundingClientRect,
+       padding-top у .scroll__content), правило не меняет. Прокручивающим
+       контейнером overflow:clip не делает (в отличие от hidden). В покое
+       в зоне отступа ничего нет: зазор между рядами ROW_GAP не меньше
+       отступа, прошлый ряд целиком выше области.
+       Низ: content-box кончается на 2.5em выше области, а область в покое
+       уходит за низ экрана на ROWS_SHIFT_VH (стенд: 569.7 при экране 540,
+       край content-box — 541.2) — на 16:9 разницы не видно; шире 1.85:1
+       ряд у нижней кромки срезается на несколько пикселей раньше (под
+       нижним затемнением кадра).
+       Движок без overflow:clip или без рамки в overflow-clip-margin
+       (стенд: Chromium 148 — есть; ТВ — Chromium 153) правило игнорирует
+       или обрезает по padding-box, то есть как прежде.
+       Только без .lumen-rows-up: в поднятом состоянии зону отступа и так
+       закрывает сплошной градиент :after ниже, а низ области там — ровно
+       низ экрана. За порогом «кадра нет» (медиазапрос heroMinRatio) героя
+       нет — правило снимается там же. */
+    css.push('.lumen-main:not(.lumen-rows-up) .scroll.layer--wheight>.scroll__content{overflow:clip;overflow-clip-margin:content-box}');
     css.push('.lumen-main .scroll.layer--wheight:after{content:"";position:absolute;top:0;left:0;right:0;height:2.5em;z-index:1;pointer-events:none;opacity:0}');
     css.push(AR.fadeTop);
     css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight:after{opacity:1}');
@@ -5066,6 +5106,7 @@
     var rowsFull ='{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
+      '.lumen-main:not(.lumen-rows-up) .scroll.layer--wheight>.scroll__content{overflow:visible}' +
       '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}' +
       /* Правка 2026-09-26: заливка у кромки — только без кадра (разбор — у
          правила .lumen-main:after). */

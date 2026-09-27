@@ -597,6 +597,54 @@
       return r.wait ? undefined : (r.path || '');
     }
 
+    /* Раунд «без ожидания», п.3 (фото с ТВ 27.09: «ธี่หยด: สมิงเขา…» в
+       кадре героя). У фильма нет перевода на язык интерфейса — TMDB отдаёт
+       в title оригинальное название (movie/1556321, «ธี่หยด: สมิงเขาขวาง»,
+       2026: title == original_title, original_language th, переводов ru
+       нет, логотипов нет). Название, записанное письмом, которого
+       пользователь не читает, заменяется читаемым: сперва оригинальное
+       (оно бывает латиницей при названии-транслитерации), потом
+       альтернативное название из того же ответа деталей
+       (append_to_response alternative_titles — 200–500 байт; у 1556321:
+       US «Saming the Werebeast») — США, Великобритания, любое читаемое.
+       Читаемым считается название с латиницей (включая расширенную) или
+       кириллицей; «чужим» — с буквами тайского, CJK, хангыля, арабского,
+       иврита, индийских, грузинского, армянского, греческого письма и без
+       единой читаемой буквы. Название из одних цифр («2012», «1917»)
+       остаётся как есть: оно не чужое. Нет читаемого варианта — как было. */
+    var READABLE_RE = /[A-Za-zÀ-ɏЀ-ӿ]/;
+    var FOREIGN_RE = /[Ͱ-Ͽ԰-֏֐-׿؀-ۿऀ-෿฀-໿က-႟Ⴀ-ჿᄀ-ᇿក-៿぀-ヿ㐀-鿿가-힯]/;
+    var ALT_COUNTRIES = ['US', 'GB'];
+
+    function foreignTitle(s) {
+      s = '' + (s || '');
+      return !!s && FOREIGN_RE.test(s) && !READABLE_RE.test(s);
+    }
+
+    function altTitleOf(details) {
+      var alt = details && details.alternative_titles;
+      var list = alt && (alt.titles || alt.results);
+      if (!list || !list.length) return '';
+      for (var c = 0; c < ALT_COUNTRIES.length; c++) {
+        for (var i = 0; i < list.length; i++) {
+          var a = list[i];
+          if (a && a.iso_3166_1 === ALT_COUNTRIES[c] && a.title && READABLE_RE.test(a.title)) return '' + a.title;
+        }
+      }
+      for (var k = 0; k < list.length; k++) {
+        if (list[k] && list[k].title && READABLE_RE.test(list[k].title) && !foreignTitle(list[k].title)) return '' + list[k].title;
+      }
+      return '';
+    }
+
+    function heroTitle(card, details) {
+      var t = (card && (card.title || card.name)) || (details && (details.title || details.name)) || '';
+      if (!foreignTitle(t)) return t;
+      var orig = (card && (card.original_title || card.original_name)) || (details && (details.original_title || details.original_name)) || '';
+      if (orig && READABLE_RE.test(orig) && !foreignTitle(orig)) return '' + orig;
+      return altTitleOf(details) || t;
+    }
+
     /* Модель героя: card — это el.card_data ряда (есть сразу), details —
        ответ movie/{id}|tv/{id} с images (приходит позже, может не прийти
        вовсе). words — строки интерфейса (собирает runtime из LC.STRINGS),
@@ -646,7 +694,8 @@
       return {
         id: card.id,
         media: media,
-        title: card.title || card.name || '',
+        /* Раунд «без ожидания», п.3: чужое письмо — читаемый вариант. */
+        title: heroTitle(card, details),
         /* Волна 3: с деталями — кадр без надписей, не ключевой арт
            (heroBackdrop); до деталей — backdrop_path ряда. */
         backdrop: heroBackdrop(details && details.images, (details && details.backdrop_path) || card.backdrop_path || ''),
@@ -749,7 +798,9 @@
            выбирается тематическая атмосфера кадра (LC.themes.matchTheme).
            Отдельного запроса они не стоят: append_to_response довешивает их
            к тому же ответу, который герой и так забирает раз на карточку. */
-        params: { filter: { append_to_response: 'images,keywords', include_image_language: imageLanguages(lang) } },
+        /* Раунд «без ожидания», п.3: и альтернативные названия — читаемое
+           название фильма без перевода (heroTitle); 200–500 байт к ответу. */
+        params: { filter: { append_to_response: 'images,keywords,alternative_titles', include_image_language: imageLanguages(lang) } },
         life: DETAILS_LIFE
       };
     }
@@ -2287,6 +2338,9 @@
       if (state.logoWhite === null) state.logoWhite = logoTone(path) === 'dark';
       logo.toggleClass('lumen-logo-white', !!state.logoWhite);
       node.addClass('lumen-hero--logo');
+      /* Раунд «без ожидания», п.1: первый вывод после монтирования ждал
+         логотип скрытым блоком — логотип встал, блок виден целиком. */
+      revealText();
       /* Полное ревью c644bfd: проба, снятая уходом фокуса (dropTones),
          заводится снова, когда логотип на экране и фокус на нём: тон — к
          следующему показу, варианты тёмного — к нему же. */
@@ -2429,45 +2483,74 @@
        52, 58, 45, 374 мс. SWAP_MS этого не лечил: он откладывает весь вывод
        разом, а не ждёт логотип.
 
-       Теперь место заголовка остаётся ПУСТЫМ, пока исход логотипа неизвестен:
-         - деталей ещё нет (model.pending) — логотип приходит только с ними,
-           и до ответа неизвестно даже, есть ли он у фильма;
-         - картинка логотипа едет ('wait' от applyLogo).
-       Мета и описание при этом выводятся как обычно — пустует только строка
-       названия. Скачка раскладки от этого нет: высота .lumen-hero__title
-       фиксированная (height:1.29em, src/30_css.js), пустой он занимает ровно
-       столько же места.
+       С правки 2026-09-22 до раунда «без ожидания» место заголовка
+       оставалось ПУСТЫМ, пока исход логотипа был неизвестен (детали не
+       пришли или картинка логотипа ехала), а мета и описание выводились
+       как обычно, — не дольше потолка TITLE_WAIT = 600 мс. Правило
+       «один вывод названия» осталось; пустоту рядом с метой убрал раунд
+       «без ожидания» (ниже).
 
-       Потолок ожидания TITLE_WAIT = 600 мс. Дольше держать название пустым
-       нельзя: на медленной сети логотип может не доехать вовсе, а пустое
-       место вместо имени фильма хуже подмены. 600 мс с запасом покрывают и
-       самый долгий логотип из замеров выше (374 мс), и путь «ответ деталей
-       плюс логотип» (ответы деталей на том же стенде — 41, 47, 49, 51, 148,
-       157, 247 мс).
-
-       Отдельного сторожа у ожидания нет намеренно: отмену при быстром
-       листании делает тот же gen, что у отсрочки swapTimer, — фокус ушёл,
-       gen вырос, отложенный вывод чужого названия отброшен. Между уходом
-       фокуса и новым показом (DELAY) gen ещё прежний — там потолок ждёт
-       дальше сам (forceTitleText, волна «Логотипы сразу»).
+       Отдельного сторожа у ожидания первого вывода нет намеренно: отмену
+       при быстром листании делает тот же gen, что у отсрочки swapTimer, —
+       фокус ушёл, gen вырос, отложенный вывод чужого названия отброшен.
+       Между уходом фокуса и новым показом (DELAY) gen ещё прежний — там
+       потолок ждёт дальше сам (forceTitleText, волна «Логотипы сразу»).
 
        Настройка «Логотип названия» выключена — ждать нечего: logoAllowed()
        ложно, applyLogo возвращает 'none', текст выводится сразу. */
+    /* Раунд «без ожидания», п.1 (фото с ТВ 27.09, photo_12/15: мета и
+       описание на экране, а на месте названия пусто). Пустое место
+       названия рядом с уже выведенной метой — то же ожидание, только
+       видимое. Стенд (ТВ-профиль, CPU ×10, задержка сети 150–300 мс, 81
+       показ на реальных фильмах главной): пусто у 18 показов, медиана
+       496 мс, p95 719; в серии нажатий — у 10 из 12, в двойном «вниз» —
+       у 6 из 10.
+       Правило теперь такое: название выводится ВМЕСТЕ с метой, одним
+       кадром, и больше до конца показа не меняется.
+         - логотип в памяти (applyLogo → 'logo') — логотип;
+         - иначе — текст сразу, и логотип, доехавший позже, в этом показе
+           не ставится (state.titleForced): подмены «текст → логотип» нет;
+           исход логотипа при этом записан, следующий показ — логотипом.
+       Одно исключение — первый вывод после монтирования, когда текста
+       героя на экране ещё нет вовсе (state.textShown): там ждать не значит
+       держать пустое место рядом с метой — весь блок текста (название,
+       мета, описание) скрыт классом .lumen-hero--await и появляется разом,
+       логотипом или текстом, не позже TITLE_WAIT.
+       Чтобы логотип был в памяти к выводу, его заранее тянет предзагрузка
+       (src/58_prefetch.js) — с этого раунда и для самой карточки под
+       фокусом, первой в очереди. */
     function writeTitle(model, logoState) {
-      /* Ждём, пока логотип едет, и пока не пришли детали, которые только и
-         могут его принести. Второе — лишь при включённой настройке: иначе
-         логотипа не будет в любом случае. */
+      var title = state.node.find('.lumen-hero__title');
+      if (logoState === 'logo') {
+        /* Логотип на экране — текст под ним не пишем вовсе: .lumen-hero--logo
+           его и так прячет, но пустой узел честнее показывает, что видимого
+           вывода названия текстом не было. */
+        stopTimer('titleTimer');
+        title.text('');
+        revealText();
+        return;
+      }
+      /* Логотип ещё может быть: едет картинка или не пришли детали, которые
+         только и могут его принести (второе — лишь при включённой
+         настройке: иначе логотипа не будет в любом случае). */
       var waiting = logoState === 'wait' || (logoState === 'none' && model.pending && logoAllowed());
-      if (waiting && !state.titleForced) {
-        state.node.find('.lumen-hero__title').text('');
+      if (waiting && !state.titleForced && !state.textShown) {
+        title.text('');
+        state.node.addClass('lumen-hero--await');
         startTitleTimer();
         return;
       }
       stopTimer('titleTimer');
-      /* Логотип на экране — текст под ним не пишем вовсе: .lumen-hero--logo
-         его и так прячет, но пустой узел честнее показывает, что видимого
-         вывода названия текстом не было. */
-      state.node.find('.lumen-hero__title').text(logoState === 'logo' ? '' : model.title);
+      if (waiting) state.titleForced = true;
+      title.text(model.title);
+      revealText();
+    }
+
+    /* Текст героя виден (снят .lumen-hero--await первого вывода). */
+    function revealText() {
+      if (!state) return;
+      state.textShown = true;
+      state.node.removeClass('lumen-hero--await');
     }
 
     /* Потолок ожидания. Сторож — gen: ушедший дальше фокус поднимает его в
@@ -2516,6 +2599,7 @@
       }
       state.titleForced = true;
       if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
+      revealText();
     }
 
     /* Записывает модель в узлы. swap=true — смена карточки, иначе это
@@ -2729,6 +2813,83 @@
           lqip.removeAttr('src');
         } catch (e) {}
       }, LQIP_FREE);
+    }
+
+    /* Раунд «без ожидания», п.2: адрес кадра показа — тот же, что соберёт
+       loadFrame (w1280/original по экрану), и его подложки w300. Нужен
+       предзагрузке (src/58_prefetch.js): совпадение адреса и есть
+       попадание в кэш Blink в памяти. */
+    function frameUrl(path) {
+      return path ? imageUrl(path, sizeFor(screenWidth())) : '';
+    }
+
+    function lqipUrl(path) {
+      return path ? imageUrl(path, 'w300') : '';
+    }
+
+    /* Раунд «без ожидания», п.2: байты кадров, заказанные предзагрузкой, —
+       карточки под фокусом и следующей по ходу (LC.prefetch). Картинка
+       держится сильной ссылкой (как логотипы — разбор у LOGO_KEEP: на ТВ
+       нет HTTP-кэша, есть только кэш Blink в памяти, и ресурс без клиента
+       из него уходит), не больше FRAME_KEEP кадров и LQIP_KEEP подложек.
+       decode() не зовётся: декодирует loadFrame показа, когда кадр
+       понадобится, — растр 3.7 МБ появляется только у показанного кадра,
+       до того в памяти сжатые байты (кадр w1280 — 100–300 КБ, w300 —
+       10–30 КБ). Загрузка, вытесненная из списка недоехавшей, снимается и
+       в сети (removeAttribute). Возвращает 'ok' | 'load' | ''. */
+    var FRAME_KEEP = 3;
+    var LQIP_KEEP = 6;
+    var frameKept = [];
+    var lqipKept = [];
+
+    function keepImage(list, max, url, low) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url === url) {
+          var hit = list.splice(i, 1)[0];
+          list.push(hit);
+          return hit.done ? 'ok' : 'load';
+        }
+      }
+      var img = new Image();
+      img.decoding = 'async';
+      /* Свойство fetchPriority — Chrome 101+; старее — просто поле. Кадр
+         героя, который грузит сам показ, стоит на 'high' (loadFrame), и
+         заранее заказанный не имеет права его обгонять. */
+      img.fetchPriority = low ? 'low' : 'auto';
+      var entry = { url: url, img: img, done: false };
+      img.onload = img.onerror = function () {
+        entry.done = true;
+        img.onload = null;
+        img.onerror = null;
+      };
+      img.src = url;
+      list.push(entry);
+      while (list.length > max) {
+        var old = list.shift();
+        if (!old.done) {
+          old.img.onload = null;
+          old.img.onerror = null;
+          try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+        }
+      }
+      return 'load';
+    }
+
+    function preloadFrame(path, low) {
+      if (!path || motionMode() === 'off') return '';
+      var url = frameUrl(path);
+      if (!url) return '';
+      var small = lqipUrl(path);
+      if (small) keepImage(lqipKept, LQIP_KEEP, small, low);
+      return keepImage(frameKept, FRAME_KEEP, url, low);
+    }
+
+    /* Подложка кадра уже в памяти (байты доехали) — для заглушки holdFrame. */
+    function lqipReady(url) {
+      for (var i = 0; i < lqipKept.length; i++) {
+        if (lqipKept[i].url === url) return lqipKept[i].done && !!lqipKept[i].img.naturalWidth;
+      }
+      return false;
     }
 
     /* Предзагрузка кадра фокусной карточки. Кадра нет — берём постер и
@@ -3244,11 +3405,32 @@
          и подложка, и под текстом остаются фон страницы и затемнения слоя
          кадра — тень подкраски (src/30_css.js, accentRules). */
       try {
-        neutralFrame();
+        if (!ownLqip()) neutralFrame();
       } catch (e) {
         warn('hero: hold failed', e);
       }
       settleAccent(true);
+    }
+
+    /* Раунд «без ожидания», п.2 (фото с ТВ 27.09, photo_5/12: серый фон
+       при листании). Кадр этого показа выбран, а его подложка w300 уже в
+       памяти (предзагрузка, preloadFrame) — вместо нейтрального фона встаёт
+       она: размытый, но СВОЙ кадр фильма, пока едет или декодируется w1280.
+       Подложки нет в памяти — нейтральный фон, как прежде (показывать
+       пустую картинку, которая «проявится» посреди ожидания, — лишняя
+       смена). Уходит подложка так же, как на первом кадре: swapFrame и
+       releaseLqip через LQIP_FREE после показа кадра. */
+    function ownLqip() {
+      var path = state.framePath;
+      if (!path) return false;
+      var small = lqipUrl(path);
+      if (!small || !lqipReady(small)) return false;
+      neutralFrame();
+      var lqip = state.stage.find('.lumen-hero__lqip');
+      lqip.attr('src', small);
+      lqip.addClass('is-active');
+      state.lqipUrl = small;
+      return true;
     }
 
     /* Нейтральный фон вместо кадра: гаснут оба слоя кадра и подложка
@@ -3897,6 +4079,10 @@
              (writeTitle). */
           titleTimer: null,
           titleForced: false,
+          /* Раунд «без ожидания», п.1: текст героя уже был виден в этом
+             монтировании — дальше название выводится сразу, без ожидания
+             логотипа (writeTitle). */
+          textShown: false,
           /* Волна «хвосты героя», п.D: белый силуэт логотипа в этом показе —
              null, пока логотип не выводился (showLogo). */
           logoWhite: null,
@@ -4391,6 +4577,12 @@
       cardLogoBox: cardLogoBox,
       logoUrl: logoUrl,
       waitLogo: waitLogo,
+      /* Раунд «без ожидания», п.2: байты кадра показа заранее — для
+         предзагрузки соседей (src/58_prefetch.js). */
+      frameUrl: frameUrl,
+      preloadFrame: preloadFrame,
+      /* Раунд «без ожидания», п.3: читаемое название (наружу ради теста). */
+      heroTitle: heroTitle,
       TITLE_WAIT: TITLE_WAIT,
       /* Волна «Логотипы сразу»: общее хранилище логотипов — для
          предзагрузки соседей (src/58_prefetch.js). */

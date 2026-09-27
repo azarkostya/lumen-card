@@ -263,6 +263,8 @@
           pumpLooks();
           /* Раунд C, C3: и дорожку цвета — кадр соседа решается по деталям. */
           pumpColors();
+          /* Раунд «без ожидания», п.2: и байты кадра — по той же причине. */
+          pumpFrames();
         }
       }
       try {
@@ -372,11 +374,37 @@
 
     /* План по списку карточек, без повторов. Детали уже в памяти —
        сразу задача логотипа (в начало очереди, в порядке окна; известный
-       логотип при этом освежается), нет — задача деталей в конец. */
-    function plan(cards) {
+       логотип при этом освежается), нет — задача деталей в конец.
+
+       Раунд «без ожидания» (фото с ТВ 27.09: мета и описание на экране, а
+       на месте названия пусто), п.1: lead — САМА карточка под фокусом, и
+       её задачи — самыми первыми в очереди, впереди соседей. До правки окно
+       было только из соседей: карточка, на которой остановилась серия
+       нажатий (шаг 150 мс, покоя IDLE между нажатиями нет) или двойное
+       «вниз», в окно прошлой остановки не попадала, и её детали с
+       логотипом просил только сам показ — через BURST_DELAY/DELAY, а
+       логотип — ещё позже, по ответу деталей. Стенд (ТВ-профиль, CPU ×10,
+       задержка сети 150–300 мс): серия — логотип в памяти к показу у 2 из
+       11, название пустое у 10 из 12 показов, медиана 500 мс. Теперь запрос
+       уходит через IDLE (250 мс) после последнего нажатия, то есть за
+       450 мс до показа серии и за 100 мс до одиночного; показ склеивается с
+       ним (send, logoFlight героя). */
+    function plan(cards, lead) {
       var seen = {};
       var logos = [];
+      var head = [];
       for (var i = 0; i < queue.length; i++) if (queue[i].req) seen[queue[i].req.key] = true;
+      var lreq = lead ? requestOf(lead) : null;
+      if (lreq && !seen[lreq.key]) {
+        seen[lreq.key] = true;
+        var ljson = recall(lreq.key);
+        if (ljson) {
+          var ljob = logoJob(ljson);
+          if (ljob) head.push(ljob);
+        } else if (!flight[lreq.key]) {
+          head.push({ req: lreq });
+        }
+      }
       for (var c = 0; c < cards.length; c++) {
         var req = requestOf(cards[c]);
         if (!req || seen[req.key]) continue;
@@ -389,7 +417,7 @@
           queue.push({ req: req });
         }
       }
-      queue = logos.concat(queue);
+      queue = head.concat(logos, queue);
       pump();
     }
 
@@ -580,6 +608,7 @@
               pumpLooks();
               /* Раунд C, C3: кадр соседа мог решиться этим ответом. */
               pumpColors();
+              pumpFrames();
             }
           });
         } catch (e) {
@@ -593,8 +622,51 @@
         if (entry.over) {
           pumpLooks();
           pumpColors();
+          pumpFrames();
         }
       });
+    }
+
+    /* Раунд «без ожидания», п.2 (фото с ТВ 27.09: серый фон вместо кадра
+       при листании). Байты кадра показа w1280 — заранее, для двух карточек:
+       под фокусом и следующей по ходу листания. Стенд (ТВ-профиль, CPU ×10,
+       задержка 150–300 мс): от остановки до кадра медиана 834 мс, из них
+       сеть w1280 — 250–500 мс, и у 71 из 81 показа между кадром прошлого
+       фильма и своим был нейтральный фон (медиана 80 мс, p95 277).
+       Декодирования здесь нет (decode() не зовётся): растр 3.7 МБ на кадр
+       появляется, только когда герой его покажет, а до того в памяти лежат
+       сжатые байты — 100–300 КБ. Карточка ждёт, пока её кадр не решён
+       (frameOf: детали и ответы сравнения с постером в памяти) — зовут
+       снова ответ деталей и ответ сравнения, как у дорожки цвета. Кадр
+       карточки под фокусом сам показ грузил бы через DELAY/BURST_DELAY —
+       здесь тот же адрес уходит раньше, и загрузка показа склеивается с ним
+       (кэш Blink в памяти, LC.hero.preloadFrame); следующая по ходу —
+       ставка: 100–300 КБ канала, приоритет низкий. */
+    var frames = [];
+
+    function frameAllowed() {
+      if (!LC.hero || typeof LC.hero.preloadFrame !== 'function' || typeof LC.hero.frameFor !== 'function') return false;
+      try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
+    }
+
+    function pumpFrames() {
+      if (!frames.length || !ready()) return;
+      for (var i = 0; i < frames.length; i++) {
+        var path = frameOf(frames[i].card);
+        if (path === undefined) continue;
+        var job = frames.splice(i, 1)[0];
+        i--;
+        if (!path) continue;
+        try { LC.hero.preloadFrame(path, job.low); } catch (e) { warn('prefetch: frame failed', e); }
+      }
+    }
+
+    function planFrames(lead, ahead) {
+      frames.length = 0;
+      if (!frameAllowed()) return;
+      if (lead) frames.push({ card: lead, low: false });
+      if (ahead && ahead !== lead) frames.push({ card: ahead, low: true });
+      pumpFrames();
     }
 
     /* Очередь вердиктов — карточки окна в его порядке, без повторов. */
@@ -669,6 +741,7 @@
       gen++;
       queue.length = 0;
       colors.length = 0;
+      frames.length = 0;
       stopColorWait();
       stopLooks();
       stopIdle();
@@ -681,7 +754,11 @@
         if (captured !== gen || !ready()) return;
         try {
           var near = windowOf(el);
-          plan(near);
+          /* Раунд «без ожидания», п.1: сама карточка — первой. */
+          plan(near, el.card_data);
+          /* П.2: байты кадра — её и следующей по ходу (near[0] — первый
+             сосед по направлению шага, windowOf). */
+          planFrames(el.card_data, near[0]);
           /* Цвет — и самой карточке под фокусом, первой: герой покажет её
              через DELAY, и её цвет нужен раньше соседских. */
           planColors([el.card_data].concat(near));
@@ -720,6 +797,7 @@
       queue.length = 0;
       stopIdle();
       colors.length = 0;
+      frames.length = 0;
       stopColorWait();
       stopLooks();
       if (colorJob) {

@@ -5573,6 +5573,12 @@ css.push('.lumen-hero .lumen-hero__logo.lumen-logo-white,.lumen-card .lumen-logo
 css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
 css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
+
+
+
+
+
+css.push('.lumen-hero.lumen-hero--await .lumen-hero__text{visibility:hidden}');
 css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
 
@@ -5828,6 +5834,40 @@ css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMar
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main:not(.lumen-rows-up) .scroll.layer--wheight>.scroll__content{overflow:clip;overflow-clip-margin:content-box}');
 css.push('.lumen-main .scroll.layer--wheight:after{content:"";position:absolute;top:0;left:0;right:0;height:2.5em;z-index:1;pointer-events:none;opacity:0}');
 css.push(AR.fadeTop);
 css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight:after{opacity:1}');
@@ -5943,6 +5983,7 @@ heroOffAt = heroMinRatio;
 var rowsFull ='{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
 css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
+'.lumen-main:not(.lumen-rows-up) .scroll.layer--wheight>.scroll__content{overflow:visible}' +
 '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}' +
 
 
@@ -17885,6 +17926,54 @@ return r.wait ? undefined : (r.path || '');
 
 
 
+
+
+
+
+
+
+
+
+var READABLE_RE = /[A-Za-zÀ-ɏЀ-ӿ]/;
+var FOREIGN_RE = /[Ͱ-Ͽ԰-֏֐-׿؀-ۿऀ-෿฀-໿က-႟Ⴀ-ჿᄀ-ᇿក-៿぀-ヿ㐀-鿿가-힯]/;
+var ALT_COUNTRIES = ['US', 'GB'];
+
+function foreignTitle(s) {
+s = '' + (s || '');
+return !!s && FOREIGN_RE.test(s) && !READABLE_RE.test(s);
+}
+
+function altTitleOf(details) {
+var alt = details && details.alternative_titles;
+var list = alt && (alt.titles || alt.results);
+if (!list || !list.length) return '';
+for (var c = 0; c < ALT_COUNTRIES.length; c++) {
+for (var i = 0; i < list.length; i++) {
+var a = list[i];
+if (a && a.iso_3166_1 === ALT_COUNTRIES[c] && a.title && READABLE_RE.test(a.title)) return '' + a.title;
+}
+}
+for (var k = 0; k < list.length; k++) {
+if (list[k] && list[k].title && READABLE_RE.test(list[k].title) && !foreignTitle(list[k].title)) return '' + list[k].title;
+}
+return '';
+}
+
+function heroTitle(card, details) {
+var t = (card && (card.title || card.name)) || (details && (details.title || details.name)) || '';
+if (!foreignTitle(t)) return t;
+var orig = (card && (card.original_title || card.original_name)) || (details && (details.original_title || details.original_name)) || '';
+if (orig && READABLE_RE.test(orig) && !foreignTitle(orig)) return '' + orig;
+return altTitleOf(details) || t;
+}
+
+
+
+
+
+
+
+
 function heroModel(card, details, words) {
 if (!card) return null;
 words = words || {};
@@ -17927,7 +18016,8 @@ var logoItem = details ? pickLogoItem(details.images && details.images.logos, wo
 return {
 id: card.id,
 media: media,
-title: card.title || card.name || '',
+
+title: heroTitle(card, details),
 
 
 backdrop: heroBackdrop(details && details.images, (details && details.backdrop_path) || card.backdrop_path || ''),
@@ -18030,7 +18120,9 @@ url: media + '/' + id,
 
 
 
-params: { filter: { append_to_response: 'images,keywords', include_image_language: imageLanguages(lang) } },
+
+
+params: { filter: { append_to_response: 'images,keywords,alternative_titles', include_image_language: imageLanguages(lang) } },
 life: DETAILS_LIFE
 };
 }
@@ -19570,6 +19662,9 @@ logo.toggleClass('lumen-logo-white', !!state.logoWhite);
 node.addClass('lumen-hero--logo');
 
 
+revealText();
+
+
 
 if (!focusAway()) {
 var tone = logoTone(path);
@@ -19734,21 +19829,50 @@ return out;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 function writeTitle(model, logoState) {
+var title = state.node.find('.lumen-hero__title');
+if (logoState === 'logo') {
+
+
+
+stopTimer('titleTimer');
+title.text('');
+revealText();
+return;
+}
 
 
 
 var waiting = logoState === 'wait' || (logoState === 'none' && model.pending && logoAllowed());
-if (waiting && !state.titleForced) {
-state.node.find('.lumen-hero__title').text('');
+if (waiting && !state.titleForced && !state.textShown) {
+title.text('');
+state.node.addClass('lumen-hero--await');
 startTitleTimer();
 return;
 }
 stopTimer('titleTimer');
+if (waiting) state.titleForced = true;
+title.text(model.title);
+revealText();
+}
 
 
-
-state.node.find('.lumen-hero__title').text(logoState === 'logo' ? '' : model.title);
+function revealText() {
+if (!state) return;
+state.textShown = true;
+state.node.removeClass('lumen-hero--await');
 }
 
 
@@ -19797,6 +19921,7 @@ return;
 }
 state.titleForced = true;
 if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
+revealText();
 }
 
 
@@ -20010,6 +20135,83 @@ lqip.removeClass('is-active');
 lqip.removeAttr('src');
 } catch (e) {}
 }, LQIP_FREE);
+}
+
+
+
+
+
+function frameUrl(path) {
+return path ? imageUrl(path, sizeFor(screenWidth())) : '';
+}
+
+function lqipUrl(path) {
+return path ? imageUrl(path, 'w300') : '';
+}
+
+
+
+
+
+
+
+
+
+
+
+var FRAME_KEEP = 3;
+var LQIP_KEEP = 6;
+var frameKept = [];
+var lqipKept = [];
+
+function keepImage(list, max, url, low) {
+for (var i = 0; i < list.length; i++) {
+if (list[i].url === url) {
+var hit = list.splice(i, 1)[0];
+list.push(hit);
+return hit.done ? 'ok' : 'load';
+}
+}
+var img = new Image();
+img.decoding = 'async';
+
+
+
+img.fetchPriority = low ? 'low' : 'auto';
+var entry = { url: url, img: img, done: false };
+img.onload = img.onerror = function () {
+entry.done = true;
+img.onload = null;
+img.onerror = null;
+};
+img.src = url;
+list.push(entry);
+while (list.length > max) {
+var old = list.shift();
+if (!old.done) {
+old.img.onload = null;
+old.img.onerror = null;
+try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+}
+}
+return 'load';
+}
+
+function preloadFrame(path, low) {
+if (!path || motionMode() === 'off') return '';
+var url = frameUrl(path);
+if (!url) return '';
+var small = lqipUrl(path);
+if (small) keepImage(lqipKept, LQIP_KEEP, small, low);
+return keepImage(frameKept, FRAME_KEEP, url, low);
+}
+
+
+function lqipReady(url) {
+for (var i = 0; i < lqipKept.length; i++) {
+if (lqipKept[i].url === url) return lqipKept[i].done && !!lqipKept[i].img.naturalWidth;
+}
+return false;
 }
 
 
@@ -20525,11 +20727,32 @@ return;
 
 
 try {
-neutralFrame();
+if (!ownLqip()) neutralFrame();
 } catch (e) {
 warn('hero: hold failed', e);
 }
 settleAccent(true);
+}
+
+
+
+
+
+
+
+
+
+function ownLqip() {
+var path = state.framePath;
+if (!path) return false;
+var small = lqipUrl(path);
+if (!small || !lqipReady(small)) return false;
+neutralFrame();
+var lqip = state.stage.find('.lumen-hero__lqip');
+lqip.attr('src', small);
+lqip.addClass('is-active');
+state.lqipUrl = small;
+return true;
 }
 
 
@@ -21180,6 +21403,10 @@ titleTimer: null,
 titleForced: false,
 
 
+
+textShown: false,
+
+
 logoWhite: null,
 
 
@@ -21672,6 +21899,12 @@ logoRatioOf: logoRatioOf,
 cardLogoBox: cardLogoBox,
 logoUrl: logoUrl,
 waitLogo: waitLogo,
+
+
+frameUrl: frameUrl,
+preloadFrame: preloadFrame,
+
+heroTitle: heroTitle,
 TITLE_WAIT: TITLE_WAIT,
 
 
@@ -32656,6 +32889,8 @@ if (ok && json) {
 pumpLooks();
 
 pumpColors();
+
+pumpFrames();
 }
 }
 try {
@@ -32766,10 +33001,36 @@ warn('prefetch: job failed', e);
 
 
 
-function plan(cards) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function plan(cards, lead) {
 var seen = {};
 var logos = [];
+var head = [];
 for (var i = 0; i < queue.length; i++) if (queue[i].req) seen[queue[i].req.key] = true;
+var lreq = lead ? requestOf(lead) : null;
+if (lreq && !seen[lreq.key]) {
+seen[lreq.key] = true;
+var ljson = recall(lreq.key);
+if (ljson) {
+var ljob = logoJob(ljson);
+if (ljob) head.push(ljob);
+} else if (!flight[lreq.key]) {
+head.push({ req: lreq });
+}
+}
 for (var c = 0; c < cards.length; c++) {
 var req = requestOf(cards[c]);
 if (!req || seen[req.key]) continue;
@@ -32782,7 +33043,7 @@ if (job) logos.push(job);
 queue.push({ req: req });
 }
 }
-queue = logos.concat(queue);
+queue = head.concat(logos, queue);
 pump();
 }
 
@@ -32973,6 +33234,7 @@ if (!sync) {
 pumpLooks();
 
 pumpColors();
+pumpFrames();
 }
 });
 } catch (e) {
@@ -32986,8 +33248,51 @@ sync = false;
 if (entry.over) {
 pumpLooks();
 pumpColors();
+pumpFrames();
 }
 });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var frames = [];
+
+function frameAllowed() {
+if (!LC.hero || typeof LC.hero.preloadFrame !== 'function' || typeof LC.hero.frameFor !== 'function') return false;
+try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
+}
+
+function pumpFrames() {
+if (!frames.length || !ready()) return;
+for (var i = 0; i < frames.length; i++) {
+var path = frameOf(frames[i].card);
+if (path === undefined) continue;
+var job = frames.splice(i, 1)[0];
+i--;
+if (!path) continue;
+try { LC.hero.preloadFrame(path, job.low); } catch (e) { warn('prefetch: frame failed', e); }
+}
+}
+
+function planFrames(lead, ahead) {
+frames.length = 0;
+if (!frameAllowed()) return;
+if (lead) frames.push({ card: lead, low: false });
+if (ahead && ahead !== lead) frames.push({ card: ahead, low: true });
+pumpFrames();
 }
 
 
@@ -33062,6 +33367,7 @@ function around(el) {
 gen++;
 queue.length = 0;
 colors.length = 0;
+frames.length = 0;
 stopColorWait();
 stopLooks();
 stopIdle();
@@ -33074,7 +33380,11 @@ idleTimer = null;
 if (captured !== gen || !ready()) return;
 try {
 var near = windowOf(el);
-plan(near);
+
+plan(near, el.card_data);
+
+
+planFrames(el.card_data, near[0]);
 
 
 planColors([el.card_data].concat(near));
@@ -33113,6 +33423,7 @@ gen++;
 queue.length = 0;
 stopIdle();
 colors.length = 0;
+frames.length = 0;
 stopColorWait();
 stopLooks();
 if (colorJob) {

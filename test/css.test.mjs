@@ -8643,3 +8643,28 @@ test('фон подборок: один неподвижный слой без �
   const lampa = ruleBodies(css).find((r) => r.selectors.indexOf('body.lumen-screen-on:not(.ambience--enable) .background') !== -1);
   assert.ok(lampa && /display:none/.test(lampa.decl), 'фон Lampa под подборками не погашен');
 });
+
+/* Раунд «без ожидания», п.4 (фото с ТВ 27.09: подписи уходящего ряда
+   наезжают на описание героя). Уходящий вверх ряд обрезается по верху
+   фокусного ряда (content-box .scroll__content), а не по кромке области
+   на LAMPA_ROW_PAD выше; обрезка прямоугольная (overflow:clip), без маски и
+   clip-path, переход ленты не тронут (тест B1 выше); в поднятом состоянии
+   и за порогом «кадра нет» — не действует. */
+test('без ожидания, п.4: уходящий ряд обрезается по верху фокусного ряда — overflow:clip по content-box, без маски, не в поднятом состоянии и не без героя', () => {
+  const rules = ruleBodiesWithMedia(css).filter((r) => r.selectors.some((s) => /\.layer--wheight\s*>\s*\.scroll__content/.test(s)));
+  const clip = rules.filter((r) => !r.media && /overflow:clip/.test(r.decl));
+  assert.equal(clip.length, 1, 'правила обрезки нет');
+  assert.ok(clip[0].selectors.every((s) => /^\.lumen-main:not\(\.lumen-rows-up\)\s/.test(s)), 'обрезка действует и в поднятом состоянии: ' + clip[0].selectors.join(','));
+  assert.match(clip[0].decl, /overflow-clip-margin:content-box/);
+  assert.ok(!/mask|clip-path|transition|transform/.test(clip[0].decl), 'в правиле обрезки лишнее: ' + clip[0].decl);
+  const off = heroOffMedia(css);
+  assert.ok(off && off.indexOf('.lumen-main:not(.lumen-rows-up) .scroll.layer--wheight>.scroll__content{overflow:visible}') !== -1, 'за порогом «кадра нет» обрезка не снята');
+  /* Отступ Lampa над фокусным рядом правило не трогает: по нему Lampa
+     считает прокрутку (maxOffset, wheel). */
+  assert.ok(!rules.some((r) => /padding/.test(r.decl)), 'правило меняет отступ .scroll__content');
+});
+
+test('без ожидания, п.1: первый вывод героя ждёт логотип скрытым блоком — visibility, а не display', () => {
+  const d = findDecl(css, (s) => s === '.lumen-hero.lumen-hero--await .lumen-hero__text');
+  assert.equal(d, 'visibility:hidden');
+});

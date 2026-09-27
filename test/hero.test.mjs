@@ -341,8 +341,9 @@ test('detailsRequest: url media/id, images с языком интерфейса,
   const r = H.detailsRequest('movie', 550, 'ru');
   assert.equal(r.url, 'movie/550');
   /* Task 21 (фаза 3): к логотипам добавлены ключевые слова — по ним герой
-     выбирает тематическую атмосферу кадра, отдельного запроса на это нет. */
-  assert.deepEqual(r.params, { filter: { append_to_response: 'images,keywords', include_image_language: 'ru,en,null' } });
+     выбирает тематическую атмосферу кадра, отдельного запроса на это нет.
+     Раунд «без ожидания», п.3: и альтернативные названия (heroTitle). */
+  assert.deepEqual(r.params, { filter: { append_to_response: 'images,keywords,alternative_titles', include_image_language: 'ru,en,null' } });
   assert.equal(r.life, 1440);
   assert.deepEqual(H.detailsRequest('tv', 1, 'en').params.filter.include_image_language, 'en,null');
 });
@@ -5131,8 +5132,12 @@ test('Task 71 (ревью М5): вторая попытка удалась — �
   env.advance(200);
   env.requests[1].ok(LOGO_RU);
   assert.equal(logoLoads(env).length, 2, 'повторной попытки за логотипом не было');
+  /* Раунд «без ожидания», п.1: текст героя уже был на экране (первый
+     показ), и логотипа нет в памяти к выводу — название текстом сразу, без
+     пустого места; доехавший повтор этот показ не подменяет. */
+  assert.notEqual(node.find('.lumen-hero__title').text(), '', 'название пустовало, пока ехал повтор логотипа');
   logoLoader(env).onload();
-  assert.equal(node.hasClass('lumen-hero--logo'), true, 'удачный повтор обязан поставить логотип');
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'текст подменён логотипом посреди показа');
 
   rest(env);
   main.card2.removeClass('focus');
@@ -7532,4 +7537,168 @@ test('C3: frameFor — решённый кадр по ответам сравн�
   const bare = makeEnv({ fxHeavy: () => false });
   assert.equal(bare.hero.frameFor(card, LOOK_DETAILS(11)), '/c1.jpg', 'без LC.thumbs — первый годный (heroBackdrop)');
   assert.equal(bare.hero.frameFor({ id: 12, poster_path: '/p.jpg' }, {}), '', 'кадров нет вовсе — ""');
+});
+
+/* ====================================================================== */
+/* Раунд «без ожидания» (фото с ТВ 27.09)                                  */
+/* ====================================================================== */
+
+/* П.3: «ธี่หยด: สมิงเขาขวาง» (movie/1556321) — перевода на язык интерфейса
+   нет, TMDB отдаёт оригинальное название тайским письмом. */
+test('без ожидания, п.3: название чужим письмом — читаемое из альтернативных (США, Великобритания, любое), цифры и латиница — как есть', () => {
+  const thai = { id: 1556321, title: 'ธี่หยด: สมิงเขาขวาง', original_title: 'ธี่หยด: สมิงเขาขวาง', original_language: 'th' };
+  const alt = { alternative_titles: { titles: [
+    { iso_3166_1: 'TH', title: 'Saming Kao Kwang', type: '' },
+    { iso_3166_1: 'US', title: 'Saming the Werebeast', type: '' }
+  ] } };
+  assert.equal(H.heroTitle(thai, alt), 'Saming the Werebeast', 'США впереди транслитерации');
+  assert.equal(H.heroModel(thai, alt, WORDS).title, 'Saming the Werebeast', 'модель героя берёт читаемое название');
+  assert.equal(H.heroTitle(thai, { alternative_titles: { titles: [{ iso_3166_1: 'TH', title: 'Saming Kao Kwang' }, { iso_3166_1: 'CN', title: '鬼滴语' }] } }), 'Saming Kao Kwang', 'нет США и Великобритании — любое читаемое');
+  assert.equal(H.heroTitle(thai, null), 'ธี่หยด: สมิงเขาขวาง', 'деталей нет — как было');
+  assert.equal(H.heroTitle(thai, { alternative_titles: { titles: [{ iso_3166_1: 'CN', title: '鬼滴语' }] } }), 'ธี่หยด: สมิงเขาขวาง', 'читаемого нет — как было');
+  /* Сериал: у TMDB список в results, а не в titles. */
+  assert.equal(H.heroTitle({ id: 1, name: '오징어 게임', original_name: '오징어 게임' }, { alternative_titles: { results: [{ iso_3166_1: 'US', title: 'Squid Game' }] } }), 'Squid Game');
+  /* Оригинал читаем, а локальное — нет. */
+  assert.equal(H.heroTitle({ id: 2, title: '千と千尋', original_title: 'Spirited Away' }, null), 'Spirited Away');
+  assert.equal(H.heroTitle({ id: 3, title: '2012', original_title: '2012' }, null), '2012', 'цифры — не чужое письмо');
+  assert.equal(H.heroTitle({ id: 4, title: 'Первая ведьма', original_title: 'ธี่หยด 3' }, alt), 'Первая ведьма', 'перевод есть — не трогаем');
+  assert.equal(H.heroTitle({ id: 5, title: 'Mission: 東京', original_title: 'x' }, alt), 'Mission: 東京', 'есть латиница — читаемо');
+});
+
+/* П.1: первый вывод после монтирования — текста героя на экране ещё нет, и
+   логотип ждётся всем блоком (.lumen-hero--await), не дольше TITLE_WAIT. */
+test('без ожидания, п.1: первый вывод ждёт логотип скрытым блоком — мета без названия не видна; логотип встал — блок виден целиком', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--await'), true, 'мета выведена без названия и видна');
+  env.requests[0].ok(Object.assign({ runtime: 100 }, LOGO_RU));
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · ★ 7.2', 'мета записана заранее');
+  assert.equal(node.hasClass('lumen-hero--await'), true, 'блок открылся раньше логотипа');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(node.hasClass('lumen-hero--await'), false, 'логотип встал, а блок так и скрыт');
+  assert.deepEqual(warnLog, []);
+});
+
+test('без ожидания, п.1: первый вывод — логотип не доехал к потолку TITLE_WAIT: блок открывается текстом', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  env.advance(env.hero.TITLE_WAIT);
+  assert.equal(node.hasClass('lumen-hero--await'), false, 'блок скрыт дольше потолка');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'поздний логотип подменил текст');
+});
+
+/* П.1: дальше текст на экране уже был — название выводится вместе с метой,
+   сразу, и в этом показе больше не меняется. */
+test('без ожидания, п.1: следующий показ — логотипа нет в памяти: название текстом в том же выводе, что и мета; доехавший логотип не подменяет', () => {
+  const { env, main, node } = heroIn('lite');
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: первый показ — логотипом');
+
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(180);
+  /* Деталей второго ещё нет — логотип неизвестен, а мета уже выведена. */
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'подготовка: текст второго выведен');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Второй', 'место названия пустует рядом с метой');
+  assert.equal(node.hasClass('lumen-hero--await'), false);
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  detailsOf(env, 22).ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru' }] } });
+  const second = env.images.filter((i) => i.src === 'https://img/t/p/w780/l2.png');
+  assert.equal(second.length, 1, 'исход логотипа для следующего показа не запрошен');
+  second[0].onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'текст подменён логотипом посреди показа');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Второй');
+
+  /* Возврат на второй — логотип уже в памяти: сразу логотипом. */
+  rest(env);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  detailsOf(env, 11).ok(LOGO_RU);
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru' }] } });
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'известный логотип не встал в первом выводе');
+  assert.deepEqual(warnLog, []);
+});
+
+/* П.2: байты кадра заранее (LC.prefetch → preloadFrame). */
+test('без ожидания, п.2: preloadFrame — кадр w1280 и подложка w300 одним вызовом, не больше трёх кадров, недоехавший вытесненный снимается', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  assert.equal(env.hero.frameUrl('/f1.jpg'), 'https://img/t/p/w1280/f1.jpg', 'адрес — тот же, что соберёт показ');
+  assert.equal(env.hero.preloadFrame('/f1.jpg', false), 'load');
+  const big1 = env.images.find((i) => i.src === 'https://img/t/p/w1280/f1.jpg');
+  const small1 = env.images.find((i) => i.src === 'https://img/t/p/w300/f1.jpg');
+  assert.ok(big1 && small1, 'кадр и подложка не запрошены');
+  assert.equal(big1.fetchPriority, 'auto');
+  assert.equal(big1.decoding, 'async');
+  assert.equal(env.hero.preloadFrame('/f1.jpg'), 'load', 'тот же кадр запрошен второй раз');
+  assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w1280/f1.jpg').length, 1);
+  big1.onload();
+  assert.equal(env.hero.preloadFrame('/f1.jpg'), 'ok');
+  env.hero.preloadFrame('/f2.jpg', true);
+  const big2 = env.images.find((i) => i.src === 'https://img/t/p/w1280/f2.jpg');
+  assert.equal(big2.fetchPriority, 'low', 'сосед по ходу — с низким приоритетом');
+  let removed = false;
+  big2.removeAttribute = (n) => { if (n === 'src') removed = true; };
+  env.hero.preloadFrame('/f3.jpg', true);
+  env.hero.preloadFrame('/f1.jpg');
+  env.hero.preloadFrame('/f4.jpg', true);
+  assert.equal(removed, true, 'вытесненный недоехавший кадр тянет байты дальше');
+  assert.equal(env.hero.preloadFrame('/f1.jpg'), 'ok', 'освежённый кадр вытеснен');
+  const off = makeEnv({ motionMode: () => 'off' });
+  assert.equal(off.hero.preloadFrame('/f1.jpg'), '', 'в «Выкл» кадр не грузится вовсе');
+  assert.equal(off.images.length, 0);
+});
+
+test('без ожидания, п.2: подложка кадра нового фильма уже в памяти — вместо нейтрального фона встаёт она, потом сам кадр', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+  const lqip = () => stage.find('.lumen-hero__lqip');
+  env.hero.preloadFrame('/b2.jpg', true);
+  const small = env.images.find((i) => i.src === 'https://img/t/p/w300/b2.jpg');
+  small.complete = true;
+  small.naturalWidth = 300;
+  small.onload();
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(249);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'раньше 250 мс кадр прошлого не уходит');
+  env.advance(2);
+  assert.equal(active(), EMPTY, 'кадр прошлого фильма остался под новым текстом');
+  assert.equal(lqip().attr('src'), 'https://img/t/p/w300/b2.jpg', 'вместо своей подложки — нейтральный фон');
+  assert.equal(lqip().hasClass('is-active'), true);
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b2.jpg', 'кадр не сменил подложку');
+  assert.deepEqual(warnLog, []);
+});
+
+test('без ожидания, п.2: подложки в памяти нет — нейтральный фон, как прежде (пустая картинка посреди ожидания не ставится)', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(251);
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY);
+  assert.equal(stage.find('.lumen-hero__lqip').hasClass('is-active'), false, 'подложка без байтов встала вместо нейтрального фона');
 });
