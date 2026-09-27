@@ -17916,6 +17916,9 @@ var HOLD_MS = 250;
 var HOLD_DECODE = 150;
 
 
+var HOLD_SOON = 200;
+
+
 
 
 
@@ -21102,6 +21105,8 @@ if (state.framePath) return;
 if (state.framePath === '' && !model.backdrop) return;
 stopTimer('frameWait');
 state.framePath = model.backdrop || '';
+var soon = state.holdSoon;
+state.holdSoon = null;
 
 
 
@@ -21125,6 +21130,7 @@ settleAccent(!kept);
 });
 
 if (motionMode() === 'off') prefetch('warm', state.root);
+if (soon) soon();
 }
 
 
@@ -21222,6 +21228,7 @@ if (own) {
 settleAccent(false);
 return;
 }
+if (!late && !failed && holdSoon(captured)) return;
 
 
 
@@ -21296,6 +21303,40 @@ if (over) return;
 over = true;
 settleAccent(true);
 }, TINT_WAIT);
+return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function holdSoon(captured) {
+if (!(state.framePath === null && (state.look || state.lookTimer))) return false;
+var over = false;
+function fire() {
+if (over) return;
+over = true;
+if (gen !== captured || !state) return;
+state.holdSoon = null;
+stopTimer('holdTimer');
+holdFrame(captured, true);
+}
+state.holdSoon = fire;
+state.holdTimer = setTimeout(function heroHoldSoon() {
+if (state) state.holdTimer = null;
+fire();
+}, HOLD_SOON);
 return true;
 }
 

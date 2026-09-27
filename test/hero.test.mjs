@@ -6486,6 +6486,72 @@ test('п.C2: ответы уже в памяти (возврат на фильм
   assert.deepEqual(w1280(env), ['/c2.jpg']);
 });
 
+/* Раунд «без лагов», этап 2в: детали из памяти выводят текст сразу, и
+   потолок заглушки (HOLD_MS от вывода) приходит раньше потолка выбора кадра
+   (LOOK_WAIT от тех же деталей). Пока выбор идёт, кадр прошлого фильма
+   держится ещё до HOLD_SOON; решён — сразу его картинка, без нейтрального
+   фона между ними. */
+const HOLD_SOON = 200;
+
+test('этап 2в: на потолке HOLD_MS выбор кадра ещё идёт — кадр прошлого держится до решения; решение — сразу подложка выбранного кадра, без заглушки между', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok(LOOK_DETAILS(22));
+  const n = thumbs.calls.length;
+  assert.ok(n > 0, 'предусловие: сравнение с постером в пути');
+  env.advance(251);
+  assert.deepEqual(seen, [], 'выбор идёт — заглушка на потолке HOLD_MS');
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр прошлого ушёл раньше решения');
+  thumbs.answer(n - 1, false);
+  assert.deepEqual(seen, [NEUTRAL], 'решение — кадр прошлого не ушёл');
+  const lqip = stage.find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/c1.jpg', 'в тике решения на слое не подложка выбранного кадра');
+  assert.equal(lqip.hasClass('is-active'), true);
+  frameImg(env, '/c1.jpg').onload();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/c1.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в: сравнение не ответило — на потолке выбора (LOOK_WAIT, по известному) сразу подложка решённого кадра; деталей нет (выбора нет) — заглушка через HOLD_MS, как прежде', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok(LOOK_DETAILS(22));
+  env.advance(251);
+  assert.deepEqual(seen, []);
+  env.advance(300 - 251 - 2);
+  assert.deepEqual(seen, [], 'раньше потолка выбора');
+  env.advance(2);
+  assert.deepEqual(seen, [NEUTRAL], 'потолок выбора — кадр прошлого не ушёл');
+  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), 'https://img/t/p/w300/c1.jpg', 'потолок выбора — не подложка решённого кадра');
+
+  /* Деталей нет (выбора нет вовсе) — заглушка через HOLD_MS от текста. */
+  const b = makeEnv({ fxHeavy: () => false, thumbs: fakeThumbs() });
+  const bm = makeMain();
+  b.hero.mount(bm.activity);
+  const bs = shownFrame(b, bm);
+  const bseen = layerLog(b, bs);
+  fireFocus(bm.activity, bm.card2);
+  b.advance(350);
+  b.advance(180);
+  b.advance(249);
+  assert.deepEqual(bseen, []);
+  b.advance(2);
+  assert.deepEqual(bseen, [NEUTRAL], 'деталей нет — заглушка через HOLD_MS, как прежде');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Раунд C, E3: у всех трёх кандидатов вердикт «не чистый» — герой берёт
    наименее похожий по счёту пары (LC.thumbs.scoreOf), а не первый. */
 test('E3: все кандидаты не чистые — кадр с наименьшим счётом пары', () => {

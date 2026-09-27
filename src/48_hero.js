@@ -253,6 +253,9 @@
     /* Ревью волны 3, п.2: отсрочка заглушки, когда байты нового кадра уже
        доехали и его декодирует браузер (разбор — у holdFrame). */
     var HOLD_DECODE = 150;
+    /* Этап 2в: отсрочка заглушки, пока выбор кадра этого фильма идёт под
+       своим потолком (разбор — у holdSoon). */
+    var HOLD_SOON = 200;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без DOM, Lampa и window).                           */
@@ -3441,6 +3444,8 @@
       if (state.framePath === '' && !model.backdrop) return;
       stopTimer('frameWait');
       state.framePath = model.backdrop || '';
+      var soon = state.holdSoon;
+      state.holdSoon = null;
       /* Раунд C, C3: цвет фильма — низ этого кадра (w300, src/57_color.js);
          заказ — сейчас, параллельно с w1280: к тику кадра он обычно готов.
          В «Выкл» кадра нет, и цвета нет. Четвёртый аргумент — кадр показа:
@@ -3464,6 +3469,7 @@
       });
       /* В «Выкл» кадр не грузится (loadFrame), и колбэка не будет. */
       if (motionMode() === 'off') prefetch('warm', state.root);
+      if (soon) soon();
     }
 
     /* Волна «Логотипы сразу»: точки предзагрузки соседей
@@ -3561,6 +3567,7 @@
         settleAccent(false);
         return;
       }
+      if (!late && !failed && holdSoon(captured)) return;
       /* Волна «хвосты героя», п.C2: заглушка — нейтральный фон, без
          картинки. Прежде это был постер карточки из ряда, растянутый на
          весь кадр, — тот же арт, что под героем в ряду, то есть ровно
@@ -3635,6 +3642,40 @@
         over = true;
         settleAccent(true);
       }, TINT_WAIT);
+      return true;
+    }
+
+    /* Раунд «без лагов», этап 2в (серый глазами после п.1–3: стенд, ряды
+       «вниз 2 с + вправо 1.5 с» — серый в 25 из 36 показов, p50 41 мс).
+       Детали из памяти выводят текст сразу, и потолок HOLD_MS от вывода
+       (~250 мс) приходит раньше потолка выбора кадра LOOK_WAIT (300 мс от
+       тех же деталей): сравнение с постером ещё идёт (state.look/
+       lookTimer), кадра этого фильма нет — заглушка, нейтральный фон, а
+       через десятки миллисекунд выбор решён, и встаёт подложка (у дорожки
+       кадра она обычно уже в памяти — ставка п.2). Между кадром прошлого и
+       подложкой мелькал тёмный фон. Теперь, как у HOLD_DECODE, — ещё
+       HOLD_SOON, один раз: выбор решён раньше — сразу его картинка
+       (startFrame зовёт state.holdSoon: подложка или заглушка, как на
+       потолке), иначе — заглушка на HOLD_SOON. Выбора нет вовсе (деталей
+       ещё нет) и отказ кадра — заглушка через HOLD_MS, как прежде. Кадр
+       прошлого фильма под новым текстом живёт от этого не дольше потолка
+       выбора, а он сам — LOOK_WAIT от деталей. */
+    function holdSoon(captured) {
+      if (!(state.framePath === null && (state.look || state.lookTimer))) return false;
+      var over = false;
+      function fire() {
+        if (over) return;
+        over = true;
+        if (gen !== captured || !state) return;
+        state.holdSoon = null;
+        stopTimer('holdTimer');
+        holdFrame(captured, true);
+      }
+      state.holdSoon = fire;
+      state.holdTimer = setTimeout(function heroHoldSoon() {
+        if (state) state.holdTimer = null;
+        fire();
+      }, HOLD_SOON);
       return true;
     }
 
