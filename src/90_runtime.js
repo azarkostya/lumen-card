@@ -781,8 +781,11 @@
         } catch (ePrefillKill) {
           warn('prefill destroy failed', ePrefillKill);
         }
+        /* Уничтоженная главная, от которой раньше ушли вглубь, будить при
+           выключении плагина больше нечего — rowmem отпускает её компонент. */
         try {
           if (LC.rowmem && LC.rowmem.active() && LC.rowmem.owns(deadRender)) LC.rowmem.unmount();
+          if (LC.rowmem && typeof LC.rowmem.forget === 'function') LC.rowmem.forget(deadRender);
         } catch (eRowmemKill) {
           warn('rowmem destroy failed', eRowmemKill);
         }

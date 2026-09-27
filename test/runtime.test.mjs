@@ -1631,6 +1631,27 @@ test('долг Task 11: backward A->B — start возвращаемой осв�
    карточка открывалась под ней. Панель принадлежит экрану — значит снимать
    её обязана смена экрана, а она видна ровно по 'start' той активности, куда
    ушли (для покидаемой Lampa событий не шлёт вовсе). */
+/* Проверка логики lg8-А: rowmem помнит главную, от которой ушли вглубь,
+   чтобы выключение плагина из карточки разбудило её ряды. Уничтоженная
+   активность главной (вытеснена из истории, закрыта) — повод эту память
+   отпустить, даже если модуль на ней сейчас не смонтирован. */
+test('rowmem: destroy главной — LC.rowmem.forget с её корнем, unmount только своей', () => {
+  const { LC } = initLC();
+  const seen = [];
+  LC.rowmem = {
+    detach() {}, mount() {}, active: () => false, owns: () => true,
+    unmount: () => seen.push('unmount'), forget: (r) => seen.push(r)
+  };
+  const objMain = makeActivityObj('Главная', false, null);
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: objMain });
+  assert.deepEqual(seen, [objMain.activity.render()], 'не смонтирован — только forget');
+  LC.rowmem.active = () => true;
+  seen.length = 0;
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: objMain });
+  assert.deepEqual(seen, ['unmount', objMain.activity.render()]);
+  assert.deepEqual(warnLog, []);
+});
+
 test('Task 27 (дефект): старт любой активности снимает панель мини-карты', () => {
   const { LC, nav } = initLC();
   const objCard = makeActivityObj('Карточка', false, null);

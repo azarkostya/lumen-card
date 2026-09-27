@@ -44,8 +44,16 @@
   /* Переходы лент Lampa модуль не трогает (урок B1). Незнакомая форма      */
   /* компонента или ряда — тихий отказ.                                     */
   /*                                                                       */
+  /* Ушли с главной вглубь (detach) — её ряды спят дальше, а компонент      */
+  /* остаётся в списке «припаркованных»: выключение плагина не с главной    */
+  /* (uninstall) будит и их, иначе при «Назад» пустые полосы до перезапуска */
+  /* Lampa (выключенный плагин главную не пересобирает). Список чистится,   */
+  /* когда главная снова смонтирована (mount того же корня) или уничтожена  */
+  /* (forget на 'destroy' её активности).                                   */
+  /*                                                                       */
   /* API: mount(root) / mountCurrent() / detach(render) / owns(render) /    */
-  /*   unmount() / wakeAll() / active() / stats();                          */
+  /*   forget(render) / unmount() / uninstall() / wakeAll() / active() /    */
+  /*   parked() / stats();                                                  */
   /*   plan(at, n, flags) — чистая функция решений (для тестов);            */
   /*   tick() — одна единица работы простоя (для тестов).                   */
   /* -------------------------------------------------------------------- */
@@ -71,6 +79,9 @@
     var MARK = 'lumen-rowmem-lv';
 
     var state = null;
+    /* Главные, от которых ушли вглубь: [{root, comp}] (см. шапку). В истории
+       Lampa их может быть больше одной — «Главная» из меню делает push. */
+    var parked = [];
 
     function setT(fn, ms) {
       var hook = api._timers;
@@ -133,6 +144,8 @@
           var r = act.activity.render();
           if (r && r[0] && state.root[0] && r[0] !== state.root[0]) return null;
         }
+        /* Компонент своей главной — на случай ухода с неё (detach). */
+        if (state) state.comp = c;
         return c;
       } catch (e) {
         return null;
@@ -374,11 +387,10 @@
       }
     }
 
-    /* Все ряды главной — как были (выключение, смена размера окна). */
-    function wakeAll() {
+    /* Все ряды компонента главной — как были. */
+    function wakeAllOf(c) {
       try {
-        var c = component();
-        if (!c) return;
+        if (!c || !Array.isArray(c.items)) return;
         for (var i = 0; i < c.items.length; i++) {
           var line = c.items[i];
           if (!line) continue;
@@ -389,6 +401,11 @@
       } catch (e) {
         warn('rowmem: wake all failed', e);
       }
+    }
+
+    /* Все ряды открытой главной (выключение настройки, смена размера окна). */
+    function wakeAll() {
+      wakeAllOf(component());
     }
 
     function onResize() {
@@ -402,10 +419,13 @@
         if (!root || !root.length || !root[0]) return;
         if (state && state.root && state.root[0] === root[0]) { onFocus(); return; }
         unmount();
+        /* Вернулись на припаркованную главную — дальше она снова наша. */
+        forget(root);
         state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize,
           stats: { slept: 0, woke: 0, cards: 0, dropped: 0, back: 0 } };
         if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
         try { window.addEventListener('resize', state.resize); } catch (eR) { state.resize = null; }
+        state.comp = component();
         arm(QUIET_MS);
       } catch (e) {
         warn('rowmem: mount failed', e);
@@ -422,20 +442,36 @@
       try { if (s.resize) window.removeEventListener('resize', s.resize); } catch (e2) { warn('rowmem: unmount failed', e2); }
     }
 
-    function owns(render) {
-      if (!state || !render || !render.length) return false;
+    /* Корень root — это render или лежит в нём. */
+    function inside(root, render) {
       try {
-        var node = state.root[0];
-        var box = render[0];
+        var node = root && root[0];
+        var box = render && render.length ? render[0] : null;
         return !!(box && node && (box === node || (typeof box.contains === 'function' && box.contains(node))));
       } catch (e) {
         return false;
       }
     }
 
+    function owns(render) {
+      return !!state && inside(state.root, render);
+    }
+
+    /* Главная больше не припаркована: её активность уничтожена ('destroy' —
+       вытеснена из истории, закрыта «Назад») или снова смонтирована. */
+    function forget(render) {
+      var keep = [];
+      for (var i = 0; i < parked.length; i++) {
+        if (!inside(parked[i].root, render)) keep.push(parked[i]);
+      }
+      parked = keep;
+    }
+
     function detach(render) {
       if (!state) return;
       if (owns(render)) return;
+      /* Ушли вглубь: главная остаётся в истории со своими спящими рядами. */
+      if (state.comp) parked.push({ root: state.root, comp: state.comp });
       unmount();
     }
 
@@ -450,18 +486,22 @@
       }
     }
 
-    /* Выключение плагина: всё разбудить, потом снять. */
+    /* Выключение плагина: всё разбудить — и открытую главную, и те, от
+       которых ушли вглубь, — потом снять. */
     function uninstall() {
-      if (state) wakeAll();
+      if (state) wakeAllOf(state.comp || component());
+      for (var i = 0; i < parked.length; i++) wakeAllOf(parked[i].comp);
+      parked = [];
       unmount();
     }
 
     var api = {
       NEAR: NEAR, FAR: FAR, BYTES_FAR: BYTES_FAR, BYTES_NEAR: BYTES_NEAR, QUIET_MS: QUIET_MS, MARK: MARK,
       decide: decide, plan: plan,
-      mount: mount, unmount: unmount, uninstall: uninstall, detach: detach, owns: owns, mountCurrent: mountCurrent,
+      mount: mount, unmount: unmount, uninstall: uninstall, detach: detach, owns: owns, forget: forget, mountCurrent: mountCurrent,
       wakeAll: wakeAll, tick: tick, onFocus: onFocus,
       active: function () { return !!state; },
+      parked: function () { return parked.length; },
       stats: function () { return state ? { slept: state.stats.slept, woke: state.stats.woke, cards: state.stats.cards, dropped: state.stats.dropped, back: state.stats.back } : null; },
       _timers: null,
       _idle: null

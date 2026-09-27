@@ -284,3 +284,81 @@ test('rowmem: detach — снимается, если корень вне ста
   R.detach([{ contains: () => false }]);
   assert.equal(R.active(), false);
 });
+
+/* Проверка логики lg8-А: выключение плагина НЕ с главной. На главной ряды
+   уснули (и отпустили байты); открыли карточку — 'start' чужой активности →
+   detach → unmount; в карточке выключили плагин → deactivate → uninstall.
+   Раньше uninstall без state ничего не будил, а на «Назад» главную никто не
+   пересобирает (LC.onActivityEvent при выключенном плагине выходит сразу) —
+   пустые полосы до перезапуска Lampa. Теперь компонент главной помнится при
+   detach и uninstall будит его ряды, хотя открыта карточка. */
+test('rowmem: выключение плагина из карточки — ряды главной, от которой ушли вглубь, просыпаются с байтами', () => {
+  const env = makeEnv({ rows: 16, active: 15 });
+  const R = env.api;
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  assert.ok(env.lines.filter(asleep).length >= 10, 'до ухода ряды спят');
+  assert.ok(env.lines.some((l) => l.cards.some((c) => c.img.getAttribute('src') === null)), 'и часть — без байтов');
+  env.component = 'full';
+  R.detach([{ contains: () => false }]);
+  assert.equal(R.active(), false);
+  assert.equal(R.parked(), 1, 'главная припаркована');
+  R.uninstall();
+  assert.equal(env.lines.filter(asleep).length, 0, 'спящих рядов не осталось');
+  assert.ok(env.lines.every((l) => l.cards.every((c) => c.img.getAttribute('src'))), 'байты постеров вернулись');
+  assert.ok(env.lines.every((l) => lv(l) === 6 && !l.body.style.height), 'класс и высота — как были');
+  assert.equal(R.parked(), 0);
+});
+
+test('rowmem: припаркованная главная — снова своя при mount того же корня, отпускается на её destroy (forget)', () => {
+  const env = makeEnv({ rows: 16, active: 15 });
+  const R = env.api;
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  const slept = env.lines.filter(asleep).length;
+  const card = { contains: () => false };
+  env.component = 'full';
+  R.detach([card]);
+  /* Вернулись «Назад»: 'start' главной → detach (state нет) → mount. */
+  env.component = 'main';
+  R.detach([env.root]);
+  R.mount([env.root]);
+  assert.equal(R.parked(), 0, 'смонтированная главная не числится припаркованной');
+  assert.equal(env.lines.filter(asleep).length, slept, 'возврат сам ряды не будит — это делает фокус');
+  /* Снова вглубь, и главную вытеснили из истории: DOM ушёл, будить нечего. */
+  env.component = 'full';
+  R.detach([card]);
+  assert.equal(R.parked(), 1);
+  R.forget([card]);
+  assert.equal(R.parked(), 1, 'чужой корень — главная остаётся');
+  R.forget([env.root]);
+  assert.equal(R.parked(), 0, 'destroy её активности — отпущена');
+  R.uninstall();
+  assert.equal(env.lines.filter(asleep).length, slept, 'уничтоженную главную uninstall не трогает');
+});
+
+test('rowmem: две главные в истории («Главная» из меню — push) — выключение будит обе', () => {
+  const env = makeEnv({ rows: 16, active: 15 });
+  const R = env.api;
+  const rootA = env.root;
+  const linesA = env.lines;
+  R.mount([rootA]);
+  env.advance(R.QUIET_MS + 10000);
+  assert.ok(linesA.filter(asleep).length > 0);
+  /* Главная B поверх A: своё окружение — другой корень и компонент. */
+  const envB = makeEnv({ rows: 16, active: 15 });
+  const RB = envB.api;
+  assert.notEqual(RB, R);
+  /* Модуль один на плагин: переносим в окружение B тот же экземпляр R. */
+  R._timers = RB._timers; R._idle = RB._idle;
+  R.detach([envB.root]);
+  R.mount([envB.root]);
+  envB.advance(R.QUIET_MS + 10000);
+  assert.ok(envB.lines.filter(asleep).length > 0, 'B тоже уснула');
+  envB.component = 'full';
+  R.detach([{ contains: () => false }]);
+  assert.equal(R.parked(), 2);
+  R.uninstall();
+  assert.equal(linesA.filter(asleep).length, 0, 'A проснулась');
+  assert.equal(envB.lines.filter(asleep).length, 0, 'B проснулась');
+});
