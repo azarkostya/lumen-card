@@ -1375,7 +1375,10 @@ test('дорожка кадра: карточка под фокусом — ср
 test('дорожка кадра: байты кадра под фокусом доехали раньше — сосед всё равно не раньше FRAME_AFTER от перевода фокуса', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][0]);
-  env.advance(400);
+  /* Правки ревью rv7, Р3: второе нажатие — одиночное (покой не короче
+     BURST_GAP): шаг 400 мс — медленная серия, в ней дорожка кадра ждёт
+     LEAD_CALM, а предмет теста — одиночный шаг. */
+  env.advance(700);
   drain(env);
   focus(main, main.rows[0][1]);
   env.advance(250);
@@ -1394,7 +1397,10 @@ test('дорожка кадра: байты кадра под фокусом д�
 test('дорожка кадра: шаг вниз (в другой ряд) кадр соседа не грузит — только шаг по ряду; кадр карточки под фокусом — да', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][0]);
-  env.advance(400);
+  /* Правки ревью rv7, Р3: второе нажатие — одиночное (покой не короче
+     BURST_GAP): шаг 400 мс — медленная серия, в ней дорожка кадра ждёт
+     LEAD_CALM, а предмет теста — одиночный шаг. */
+  env.advance(700);
   drain(env);
   focus(main, main.rows[1][0]);
   env.advance(250);
@@ -1418,7 +1424,10 @@ test('дорожка кадра: шаг вниз (в другой ряд) кад
 test('дорожка кадра: перевод фокуса до FRAME_AFTER снимает ожидание соседа; байты, сброшенные вытеснением, очередь не держат', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][0]);
-  env.advance(400);
+  /* Правки ревью rv7, Р3: второе нажатие — одиночное (покой не короче
+     BURST_GAP): шаг 400 мс — медленная серия, в ней дорожка кадра ждёт
+     LEAD_CALM, а предмет теста — одиночный шаг. */
+  env.advance(700);
   drain(env);
   focus(main, main.rows[0][1]);
   env.advance(250);
@@ -1433,7 +1442,7 @@ test('дорожка кадра: перевод фокуса до FRAME_AFTER с
      зависает на загрузке, которой больше нет. */
   const b = mounted();
   focus(b.main, b.main.rows[0][0]);
-  b.env.advance(400);
+  b.env.advance(700);
   drain(b.env);
   focus(b.main, b.main.rows[0][1]);
   b.env.advance(250);
@@ -1821,5 +1830,66 @@ test('этап 2в, п.1: серия шагом 400 мс по готовым к�
   assert.equal(shownOf(node), 'о 102');
   env.advance(1);
   assert.equal(shownOf(node), 'о 106', 'последняя карточка серии не показана к BURST_DELAY');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Правки ревью rv7, Р3: в медленной серии (шаг 250–700 мс) дорожка кадра  */
+/* карточки под фокусом ждёт, пока серия кончится                          */
+/* ====================================================================== */
+
+test('rv7 Р3: серия шагом 400 мс — ни срочных миниатюр, ни сравнений, ни байтов кадра карточки под фокусом; план окна (детали) — как прежде; кончилась — через LEAD_CALM (450 мс)', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][0]);
+  wait(env, 1500);
+  /* Первое нажатие после покоя — одиночное: его дорожка через IDLE. */
+  focus(main, main.rows[0][1]);
+  wait(env, 300);
+  answerLooks(env);
+  wait(env, 100);
+  const primes0 = th.primes.length;
+  const calls0 = th.calls.length;
+  const w0 = anyW1280(env).length;
+  for (let i = 2; i <= 4; i++) {
+    focus(main, main.rows[0][i]);
+    wait(env, 300);
+    answerLooks(env);
+    wait(env, 100);
+  }
+  assert.ok(env.requests.some((q) => idOf(q.url) === 104), 'план окна в серии не просил детали: он идёт через IDLE, как прежде');
+  assert.equal(th.primes.length - primes0, 0, 'срочные миниатюры в серии 400 мс');
+  assert.equal(th.calls.length - calls0, 0, 'сравнения в серии 400 мс');
+  assert.equal(anyW1280(env).length - w0, 0, 'кадры в серии 400 мс');
+  /* Последнее нажатие было 400 мс назад (4-я итерация). Кончилась: 450. */
+  focus(main, main.rows[0][5]);
+  wait(env, 300);
+  answerLooks(env);
+  wait(env, 140);
+  assert.equal(th.primes.length - primes0, 0, 'раньше LEAD_CALM после последнего нажатия');
+  wait(env, 20);
+  assert.ok(th.primes.slice(primes0).some((p) => p.kind === 'poster' && p.urgent), 'серия кончилась — миниатюры карточки под фокусом не пошли');
+  assert.deepEqual(th.pairs().slice(calls0), ['106:a106'], 'серия кончилась — пара карточки под фокусом не пошла');
+  assert.deepEqual(warnLog, []);
+});
+
+test('rv7 Р3: серия шагом 150 мс — дорожка кадра через 300 мс покоя (вдвое дольше шага); одиночное нажатие — через IDLE, как прежде', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][0]);
+  wait(env, 240);
+  assert.equal(th.primes.length, 0, 'одиночное: раньше IDLE');
+  wait(env, 20);
+  assert.equal(th.primes.length, 1, 'одиночное: миниатюра постера через IDLE');
+  wait(env, 1500);
+  const p0 = th.primes.length;
+  focus(main, main.rows[0][1]);
+  env.advance(150);
+  focus(main, main.rows[0][2]);
+  wait(env, 290);
+  assert.equal(th.primes.length, p0, 'серия 150 мс: раньше 300 мс покоя');
+  wait(env, 20);
+  assert.equal(th.primes.length, p0 + 1, 'серия 150 мс: к 300 мс покоя миниатюры не пошли');
+  assert.equal(th.primes[p0].path, '/p103.jpg');
   assert.deepEqual(warnLog, []);
 });

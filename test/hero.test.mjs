@@ -7867,6 +7867,97 @@ test('этап 2а, п.2: цвет кадров не читает (подкра�
   assert.equal(w300Of(bare, '/f3.jpg')[0].crossOrigin, undefined, 'без LC.accent — без CORS');
 });
 
+/* Правки ревью rv7, Р4: подложка встаёт на слой в тике потолка, не дожидаясь
+   своих байтов, а цвет фильма решается ОДИН раз на сеанс. Цвет кадра ещё не
+   посчитан — тик цвета ждёт его ответа (не дольше TINT_WAIT), а не ставит
+   постер, который закрепился бы за фильмом под проявившейся подложкой. */
+const TINT_WAIT = 300;
+function tintAccent(knownFrame) {
+  const acc = corsAccent(true);
+  acc.waits = [];
+  acc.knownFrame = () => knownFrame;
+  acc.known = () => false;
+  acc.prepareFrame = (path, done) => { if (typeof done === 'function') acc.waits.push({ path: path, done: done }); return null; };
+  return acc;
+}
+
+test('rv7 Р4: подложка встала, цвет её кадра в пути — цвет не в тике потолка, а по ответу расчёта; запись одна, полный кадр её не повторяет', () => {
+  const acc = tintAccent(false);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  const before = acc.applied.length;
+  env.advance(251);
+  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), 'https://img/t/p/w300/b2.jpg', 'предусловие: подложка на слое');
+  assert.equal(acc.applied.length, before, 'цвет кадра в пути, а в тике подложки встал цвет (постер закрепился бы за фильмом)');
+  const w = acc.waits.filter((x) => x.path === '/b2.jpg');
+  assert.equal(w.length, 1, 'тик цвета не ждёт ответа расчёта цвета кадра');
+  env.advance(100);
+  w[0].done();
+  assert.deepEqual(acc.applied.slice(before), [[22, '/b2.jpg']], 'ответ расчёта — цвет по кадру, один раз');
+  frameImg(env, '/b2.jpg').onload();
+  env.advance(TINT_WAIT);
+  assert.equal(acc.applied.length, before + 1, 'цвет записан второй раз');
+  assert.deepEqual(warnLog, []);
+});
+
+test('rv7 Р4: ответа расчёта нет — цвет через TINT_WAIT (под новым фильмом не стоит цвет прошлого дольше потолка); цвет кадра известен — в тике подложки, как прежде', () => {
+  const acc = tintAccent(false);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  const before = acc.applied.length;
+  env.advance(251);
+  env.advance(TINT_WAIT - 2);
+  assert.equal(acc.applied.length, before, 'раньше TINT_WAIT');
+  env.advance(2);
+  assert.deepEqual(acc.applied.slice(before), [[22, '/b2.jpg']], 'к TINT_WAIT цвет не встал');
+  acc.waits.forEach((x) => x.done());
+  assert.equal(acc.applied.length, before + 1, 'поздний ответ записал цвет второй раз');
+
+  const known = tintAccent(true);
+  const k = makeEnv({ fxHeavy: () => false, accent: known });
+  const km = makeMain();
+  k.hero.mount(km.activity);
+  shownFrame(k, km);
+  fireFocus(km.activity, km.card2);
+  k.advance(350);
+  detailsOf(k, 22).ok({ id: 22 });
+  const kb = known.applied.length;
+  k.advance(251);
+  assert.deepEqual(known.applied.slice(kb), [[22, '/b2.jpg']], 'цвет кадра известен — не в тике подложки');
+  assert.deepEqual(warnLog, []);
+});
+
+test('rv7 Р4: ушли с карточки, пока тик цвета ждёт, — цвета нет, пока фокус не вернулся; вернулись — цвет один раз', () => {
+  const acc = tintAccent(false);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  const before = acc.applied.length;
+  env.advance(251);
+  fireFocus(main.activity, main.card1);
+  env.advance(TINT_WAIT * 2);
+  acc.waits.forEach((x) => x.done());
+  assert.equal(acc.applied.length, before, 'цвет ушедшего фильма встал, пока фокус на другой карточке');
+  fireFocus(main.activity, main.card2);
+  env.advance(TINT_WAIT * 2);
+  assert.deepEqual(acc.applied.slice(before), [[22, '/b2.jpg']], 'вернулись — цвет не встал или встал дважды');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Раунд «без лагов», этап 2а (предложение полосы 2б): подпись плитки в ряду
    для названия чужим письмом. Читаемое название есть только в деталях
    (alternative_titles) — когда они пришли для показанной карточки, оно

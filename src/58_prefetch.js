@@ -70,6 +70,22 @@
        остановились, а шаг зажатой стрелки (около 100 мс) до плана не
        доживает ни разу. */
     var IDLE = 250;
+    /* Правки ревью rv7, Р3: в «медленной серии» (нажатия каждые 250–700 мс)
+       IDLE покоя от серии не защищал: через 250 мс уходили срочные
+       миниатюры карточки под фокусом (fetchPriority 'high' — впереди
+       видимых постеров ряда), её сравнения кусками на главном потоке и
+       ставка w1280 (этап 2в, п.2), а следующее нажатие приходило через
+       400 мс — всё зря. Серия — то же правило, что у героя (BURST_GAP,
+       копия литералом из src/48_hero.js): прошлое нажатие ближе 700 мс.
+       Кончилась она — покой вдвое дольше её шага (та же логика, что у
+       раннего показа героя, BURST_EARLY): шаг 150 мс — 300 мс покоя,
+       шаг от 225 мс — LEAD_CALM. До этого дорожка кадра карточки под
+       фокусом стоит (leadAt): ни миниатюр, ни сравнений, ни байтов кадра;
+       план окна (детали, логотипы) — как прежде, через IDLE. */
+    var BURST_GAP = 700;
+    var LEAD_CALM = 450;
+    var focusAt = 0;
+    var leadAt = 0;
     /* Запросов предзагрузки в пути одновременно. Собственные запросы
        героя сюда не входят. */
     var SLOTS = 2;
@@ -874,6 +890,8 @@
       if (!frames.length || !ready() || !frameAllowed()) return;
       var job = frames[0];
       var wait = frameAt - Date.now();
+      /* Правки ревью rv7, Р3: серия ещё может продолжиться. */
+      if (job.lead && job.at > Date.now()) { framesLater(job.at - Date.now()); return; }
       if (!job.lead) {
         if (wait > 0) { framesLater(wait); return; }
         if (frameBusy && Date.now() - frameBusyAt < FRAME_BUSY_MAX) return;
@@ -935,7 +953,7 @@
       stopFrames();
       if (!frameAllowed()) return;
       frameAt = Date.now() + FRAME_AFTER - IDLE;
-      if (lead) frames.push({ card: lead, lead: true });
+      if (lead) frames.push({ card: lead, lead: true, at: leadAt });
       if (ahead && ahead !== lead && rowStep) frames.push({ card: ahead, lead: false });
       pumpFrames();
     }
@@ -1076,6 +1094,11 @@
       stopIdle();
       if (!el) return;
       posters('around');
+      /* Правки ревью rv7, Р3: когда дорожке кадра можно трогать карточку. */
+      var now = Date.now();
+      var step = now - focusAt;
+      leadAt = now + (focusAt && step < BURST_GAP ? Math.min(LEAD_CALM, Math.max(IDLE, 2 * step)) : IDLE);
+      focusAt = now;
       prevEl = focusEl;
       focusEl = el;
       /* Этап 2а, п.3: посещения рядов (targetIn) — только запись. */
@@ -1142,6 +1165,7 @@
       }
       focusEl = null;
       prevEl = null;
+      focusAt = 0;
       visited.length = 0;
       /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): корень
          снятой главной не держим в памяти; на возврате warm спланирует

@@ -3573,16 +3573,69 @@
          повторяет. Подложка — кадр ЭТОГО фильма (framePath показа), и цвет
          фильма — низ этого же кадра (applyFor с кадром), если он посчитан:
          считается он по тем же байтам w300, что и подложка (тот же адрес и
-         режим CORS — lqipCors; заказ — в startFrame или дорожкой цвета, не
-         позже подложки), так что доехала подложка — посчитан и цвет. Байты
-         ещё едут — постер, как у нейтрального фона: цвета дольше потолка
-         HOLD_MS не ждём, иначе под новым фильмом стоял бы цвет прошлого. */
+         режим CORS — lqipCors; заказ — в startFrame или дорожкой цвета).
+         Правки ревью rv7, Р4: прежде здесь стояло «доехала подложка —
+         посчитан и цвет», но ownLqip байтов подложки не ждёт, и цвет кадра
+         к этому тику мог быть ещё в пути — тогда applyFor ставил цвет
+         постера, и он закреплялся за фильмом до конца сеанса (films в
+         src/57_color.js), а под ним проявлялась подложка кадра. Теперь, если
+         на слой встала подложка, а цвет её кадра ещё не известен, тик цвета
+         ждёт сам цвет (waitTint), не дольше TINT_WAIT; запись по-прежнему
+         одна. Нейтральный фон (подложки нет) — цвет сразу, как прежде:
+         цвета дольше потолка HOLD_MS не ждём. */
+      var lqip = false;
       try {
-        if (!ownLqip()) neutralFrame();
+        lqip = ownLqip();
+        if (!lqip) neutralFrame();
       } catch (e) {
         warn('hero: hold failed', e);
       }
+      if (lqip && waitTint(captured)) return;
       settleAccent(true);
+    }
+
+    /* Правки ревью rv7, Р4: цвет кадра показа в пути (его w300 — те же
+       байты, что у подложки на слое) — тик цвета ждёт его ответа
+       (LC.accent.prepareFrame склеивается с расчётом, заказанным в
+       startFrame; кадр цвета не дал — постер), но не дольше TINT_WAIT: под
+       текстом нового фильма не стоит цвет прошлого дольше потолка. Цвет
+       фильма уже решён или цвет кадра известен — ждать нечего (false).
+       Ожидание живёт в holdTimer: уход фокуса, новый показ, парковка и
+       снятие героя снимают его теми же путями, что и отсчёт заглушки;
+       поздний ответ отсекают gen и accentWait (settleAccent — один раз). */
+    var TINT_WAIT = 300;
+
+    function waitTint(captured) {
+      var acc = LC.accent;
+      var path = state.framePath;
+      var card = state.shownCard;
+      if (!path || !acc || typeof acc.knownFrame !== 'function' || typeof acc.prepareFrame !== 'function') return false;
+      var sync = true;
+      var over = false;
+      function tint() {
+        if (over) return;
+        over = true;
+        if (sync || gen !== captured || !state) return;
+        stopTimer('holdTimer');
+        settleAccent(true);
+      }
+      try {
+        if (acc.knownFrame(path) || (typeof acc.known === 'function' && acc.known(card))) return false;
+        acc.prepareFrame(path, tint, card, true);
+      } catch (e) {
+        warn('hero: tint wait failed', e);
+        return false;
+      }
+      sync = false;
+      if (over) return false;
+      state.holdTimer = setTimeout(function heroTintWait() {
+        if (gen !== captured || !state) return;
+        state.holdTimer = null;
+        if (over) return;
+        over = true;
+        settleAccent(true);
+      }, TINT_WAIT);
+      return true;
     }
 
     /* Раунд «без ожидания», п.2 (фото с ТВ 27.09, photo_5/12: серый фон

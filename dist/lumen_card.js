@@ -21238,12 +21238,65 @@ return;
 
 
 
+
+
+
+
+
+
+var lqip = false;
 try {
-if (!ownLqip()) neutralFrame();
+lqip = ownLqip();
+if (!lqip) neutralFrame();
 } catch (e) {
 warn('hero: hold failed', e);
 }
+if (lqip && waitTint(captured)) return;
 settleAccent(true);
+}
+
+
+
+
+
+
+
+
+
+
+var TINT_WAIT = 300;
+
+function waitTint(captured) {
+var acc = LC.accent;
+var path = state.framePath;
+var card = state.shownCard;
+if (!path || !acc || typeof acc.knownFrame !== 'function' || typeof acc.prepareFrame !== 'function') return false;
+var sync = true;
+var over = false;
+function tint() {
+if (over) return;
+over = true;
+if (sync || gen !== captured || !state) return;
+stopTimer('holdTimer');
+settleAccent(true);
+}
+try {
+if (acc.knownFrame(path) || (typeof acc.known === 'function' && acc.known(card))) return false;
+acc.prepareFrame(path, tint, card, true);
+} catch (e) {
+warn('hero: tint wait failed', e);
+return false;
+}
+sync = false;
+if (over) return false;
+state.holdTimer = setTimeout(function heroTintWait() {
+if (gen !== captured || !state) return;
+state.holdTimer = null;
+if (over) return;
+over = true;
+settleAccent(true);
+}, TINT_WAIT);
+return true;
 }
 
 
@@ -33671,6 +33724,22 @@ LC.prefetch = (function () {
 var IDLE = 250;
 
 
+
+
+
+
+
+
+
+
+
+
+var BURST_GAP = 700;
+var LEAD_CALM = 450;
+var focusAt = 0;
+var leadAt = 0;
+
+
 var SLOTS = 2;
 
 
@@ -34473,6 +34542,8 @@ function pumpFrames() {
 if (!frames.length || !ready() || !frameAllowed()) return;
 var job = frames[0];
 var wait = frameAt - Date.now();
+
+if (job.lead && job.at > Date.now()) { framesLater(job.at - Date.now()); return; }
 if (!job.lead) {
 if (wait > 0) { framesLater(wait); return; }
 if (frameBusy && Date.now() - frameBusyAt < FRAME_BUSY_MAX) return;
@@ -34534,7 +34605,7 @@ function planFrames(lead, ahead) {
 stopFrames();
 if (!frameAllowed()) return;
 frameAt = Date.now() + FRAME_AFTER - IDLE;
-if (lead) frames.push({ card: lead, lead: true });
+if (lead) frames.push({ card: lead, lead: true, at: leadAt });
 if (ahead && ahead !== lead && rowStep) frames.push({ card: ahead, lead: false });
 pumpFrames();
 }
@@ -34675,6 +34746,11 @@ stopLooks();
 stopIdle();
 if (!el) return;
 posters('around');
+
+var now = Date.now();
+var step = now - focusAt;
+leadAt = now + (focusAt && step < BURST_GAP ? Math.min(LEAD_CALM, Math.max(IDLE, 2 * step)) : IDLE);
+focusAt = now;
 prevEl = focusEl;
 focusEl = el;
 
@@ -34741,6 +34817,7 @@ try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: st
 }
 focusEl = null;
 prevEl = null;
+focusAt = 0;
 visited.length = 0;
 
 
