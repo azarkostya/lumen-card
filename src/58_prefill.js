@@ -337,7 +337,7 @@
       for (var k = 1; k <= NEXT_ROWS; k++) {
         if (needsCards(c.items[at + k], false)) return 'next';
       }
-      if (Array.isArray(c.loaded) && c.loaded.length && c.items.length - 1 - at < ROWS_AHEAD) return 'row';
+      if (!c.lumen_prefill_rows_stuck && Array.isArray(c.loaded) && c.loaded.length && c.items.length - 1 - at < ROWS_AHEAD) return 'row';
       return '';
     }
 
@@ -361,8 +361,19 @@
           if (needsCards(c.items[at + k], false)) { addCard(c.items[at + k], false, false); break; }
         }
       } else if (kind === 'row') {
+        /* SEC4-3: onPushLoaded Lampa снимает ряд с очереди (loaded.shift,
+           app.min.js:35185). Очередь не уменьшилась (другая версия Lampa,
+           чужой плагин подменил компонент главной) — ветка 'row' для этого
+           компонента закрыта: иначе та же единица шла бы в каждом простое
+           без конца. */
+        var before = c.loaded.length;
         c.emit('pushLoaded');
-        state.stats.rows++;
+        if (Array.isArray(c.loaded) && c.loaded.length < before) {
+          state.stats.rows++;
+        } else {
+          c.lumen_prefill_rows_stuck = true;
+          state.stats.stuck++;
+        }
       }
     }
 

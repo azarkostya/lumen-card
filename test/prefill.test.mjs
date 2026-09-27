@@ -416,6 +416,43 @@ test('prefill: ряды главной — pushLoaded только в полно
   assert.equal(env.comp.loaded.length, 1);
 });
 
+/* SEC4-3: pushLoaded, который не снимает ряд с очереди loaded (другая
+   версия Lampa, чужой плагин подменил компонент главной той же формы), —
+   ветка 'row' шла бы в каждом колбэке простоя без конца (PoC: 17e5a3d —
+   1000+ emit за 3 с, tvlong — 50+). Одна попытка, компонент помечен, дальше
+   ноль; прочая работа идёт. */
+test('prefill: pushLoaded не уменьшил loaded — одна попытка, компонент помечен, дальше ни одной (SEC4-3)', () => {
+  const env = makeEnv({ lines: [line(20, { tag: 'a' }), line(8, { tag: 'b' })], loaded: [[1], [2]] });
+  const P = env.api;
+  let emits = 0;
+  env.comp.emit = (name) => { if (name === 'pushLoaded') emits++; };
+  P.mount([env.root]);
+  env.advance(P.IDLE_MS + 60000);
+  assert.equal(emits, 1, 'ровно одна попытка');
+  assert.equal(env.comp.lumen_prefill_rows_stuck, true);
+  assert.equal(env.comp.loaded.length, 2);
+  assert.equal(P.built(env.comp.items[0]), 20, 'ряд под фокусом достраивается как обычно');
+  const st = P.stats();
+  assert.equal(st.rows, 0, 'ряд не вставлен — не считается');
+  assert.equal(st.stuck, 1);
+  const asks = env.idleAsks;
+  env.comp.active = 1; P.poke();
+  env.advance(60000);
+  assert.equal(emits, 1, 'и после перевода фокуса — ноль');
+  env.advance(600000);
+  assert.equal(emits, 1);
+  assert.ok(env.idleAsks - asks < 5, 'в покое — паузы REST_MS, не заявки на простой: ' + (env.idleAsks - asks));
+  /* Очередь, которая уменьшилась, — рабочая: у нового компонента ветка
+     открыта. */
+  const ok = makeEnv({ lines: [line(8, { tag: 'a' }), line(8, { tag: 'b' })], loaded: [[1], [2]] });
+  ok.api.mount([ok.root]);
+  ok.advance(ok.api.IDLE_MS + 60000);
+  assert.equal(ok.comp.pushed, 1);
+  assert.equal(ok.comp.lumen_prefill_rows_stuck, undefined);
+  assert.equal(ok.api.stats().rows, 1);
+  assert.equal(ok.api.stats().stuck, 0);
+});
+
 test('prefill: не главная, меню/настройки поверх, скрытая вкладка, настройка выкл, плагин выкл — стоим', () => {
   for (const what of ['component', 'ctrl', 'hidden', 'pref', 'enabled']) {
     const env = makeEnv();
