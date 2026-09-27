@@ -1,9 +1,12 @@
 /* Lumen Card для Lampa — короткий адрес установки.
    Подгружает сборку dist/lumen_card.js, лежащую рядом с этим файлом
-   (GitHub Pages или jsDelivr). Строгий ES5. */
+   (GitHub Pages или jsDelivr). Строгий ES5.
+   Стабильная версия — ветка main (GitHub Pages с 1.0.0 берёт её); бета —
+   ветка feat/lumen-v2 через jsDelivr. Запасной адрес (браузер без
+   document.currentScript) — стабильная ветка. */
 (function () {
   'use strict';
-  var FALLBACK = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/';
+  var FALLBACK = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/';
   var cur = document.currentScript;
   var src = (cur && cur.src) || '';
   var base = src ? src.replace(/[?#].*$/, '').replace(/[^\/]*$/, '') : FALLBACK;

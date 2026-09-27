@@ -149,8 +149,8 @@ test('get: возвращает DEFAULT до вызова load', () => {
   assert.ok(d.collections.length >= 40);
 });
 
-/* Task 20: каталог опубликован на GitHub Pages (ветка feat/lumen-v2, корень
-   репозитория), поэтому адрес зашит в LC.MANIFEST_URL — плагин подтягивает
+/* Task 20: каталог опубликован на GitHub Pages (с релиза 1.0.0 — ветка main,
+   корень репозитория), поэтому адрес зашит в LC.MANIFEST_URL — плагин подтягивает
    свежий каталог сам, без настройки. Настройка lumen_manifest_url остаётся
    приоритетнее (src/42_manifest.js, load). */
 test('Task 20: LC.MANIFEST_URL — адрес каталога на хостинге, https и .json', () => {

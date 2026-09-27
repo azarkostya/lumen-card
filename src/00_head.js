@@ -8,12 +8,13 @@
 
   var LC = {};
   if (typeof window !== 'undefined') window.lumen_card = LC;
-  LC.VERSION = '0.2.0';
+  LC.VERSION = '1.0.0';
 
-  /* Адрес каталога подборок на хостинге (Task 20). Репозиторий отдаётся
-     GitHub Pages с ветки feat/lumen-v2, корнем, поэтому manifest.json из
-     корня репозитория доступен по этому адресу (проверено curl: 200,
-     Content-Type application/json). Плагин тянет каталог отсюда сам,
+  /* Адрес каталога подборок на хостинге (Task 20). С релиза 1.0.0
+     репозиторий отдаётся GitHub Pages с ветки main, корнем (до релиза —
+     с feat/lumen-v2), поэтому manifest.json из корня стабильной ветки
+     доступен по этому адресу (проверено curl: 200, Content-Type
+     application/json). Плагин тянет каталог отсюда сам,
      кэширует 12 ч в Lampa.Storage и падает на встроенный DEFAULT, если
      сети нет или ответ не проходит validate (src/42_manifest.js).
      Пользователь может подставить свой адрес настройкой lumen_manifest_url

@@ -34,7 +34,19 @@ test('ревью S5: https: и свой сервер — адрес не тро�
   assert.equal(load('https://azarkostya.github.io/lumen-card/lumen.js'), 'https://azarkostya.github.io/lumen-card/dist/lumen_card.js');
   assert.equal(load('http://localhost:8766/lumen.js'), 'http://localhost:8766/dist/lumen_card.js');
   assert.equal(load('http://192.168.1.5/github.io/lumen.js'), 'http://192.168.1.5/github.io/dist/lumen_card.js', 'чужой хост с github.io в пути');
-  assert.equal(load(null), 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/dist/lumen_card.js');
+  assert.equal(load(null), 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/dist/lumen_card.js');
+});
+
+/* Релиз 1.0.0: стабильная версия — ветка main (GitHub Pages переключён на
+   неё), бета — jsDelivr с @feat/lumen-v2. Запасной адрес загрузчика без
+   document.currentScript обязан вести в стабильную ветку, а не в бету;
+   адрес беты, набранный с http:, по-прежнему уходит на https: в свою ветку. */
+test('релиз 1.0.0: запасной адрес — стабильная ветка main, бета @feat/lumen-v2 — своя ветка', () => {
+  assert.ok(SRC.indexOf('@feat/') === -1, 'в загрузчике не осталось адреса беты');
+  assert.equal(load('http://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/lumen.js'),
+    'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/dist/lumen_card.js');
+  assert.equal(load('https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/lumen.js'),
+    'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/dist/lumen_card.js');
 });
 
 /* Финальная проверка, SEC-2: запасной http:-путь (следующий раунд, п.7)
