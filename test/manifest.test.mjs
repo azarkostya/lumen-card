@@ -551,11 +551,49 @@ test('наборы: validate — also и movies коллекции только 
   });
   const good = okCatalog();
   good.collections[2].sources.movie.also = [556, '125574'];
-  good.collections[2].sources.movie.movies = new Array(24).fill(841);
-  assert.deepEqual(M.validate(good), { ok: true });
+  good.collections[2].sources.movie.movies = new Array(17).fill(841);
+  assert.deepEqual(M.validate(good), { ok: true }, '1 + 2 + 17 = 20 запросов — на пределе');
   const list = okCatalog();
   list.collections[2].sources.tv.also = [556];
   assert.deepEqual(M.validate(list), { ok: true }, 'у списка лишнее поле не читается — как и прочие незнакомые поля');
+});
+
+/* SEC4-2: удалённый каталог с also и movies по 24 у movie и у tv проходил
+   проверку и давал 98 запросов TMDB на одну плитку (и ещё 98 на
+   «Английские постеры»). Теперь у источника-набора всего — базовая
+   коллекция, also и movies вместе, повторы считаются — не больше 20. */
+test('наборы: validate — всего запросов у источника-набора не больше 20 (SEC4-2)', () => {
+  const ids = (n, base) => Array.from({ length: n }, (_, i) => base + i);
+  const evil = okCatalog();
+  evil.collections[2].sources = {
+    movie: { type: 'collection', id: 1, also: ids(24, 100), movies: ids(24, 1000) },
+    tv: { type: 'collection', id: 2, also: ids(24, 200), movies: ids(24, 2000) }
+  };
+  assert.deepEqual(M.validate(evil), { ok: false, reason: 'bad_sources: col' }, '24 + 24');
+  const over = okCatalog();
+  over.collections[2].sources.movie.also = [556, 557];
+  over.collections[2].sources.movie.movies = ids(18, 1000);
+  assert.deepEqual(M.validate(over), { ok: false, reason: 'bad_sources: col' }, '1 + 2 + 18 = 21');
+  const dup = okCatalog();
+  dup.collections[2].sources.movie.also = new Array(20).fill(7);
+  assert.deepEqual(M.validate(dup), { ok: false, reason: 'bad_sources: col' }, 'повторы тоже считаются: 1 + 20');
+  const alsoOnly = okCatalog();
+  alsoOnly.collections[2].sources.movie.also = ids(19, 100);
+  assert.deepEqual(M.validate(alsoOnly), { ok: true }, '1 + 19 — только also');
+  const tvOver = okCatalog();
+  tvOver.collections[2].sources.tv = { type: 'collection', id: 2, movies: ids(20, 1) };
+  assert.deepEqual(M.validate(tvOver), { ok: false, reason: 'bad_sources: col' }, 'у tv — тот же предел');
+  /* Встроенный каталог влезает: самый большой набор на 27.09 — 15
+     («Классика Marvel»), запас 5 — на рост франшиз. */
+  let max = 0;
+  for (const c of M.DEFAULT.collections) {
+    for (const m of ['movie', 'tv']) {
+      const s = c.sources && c.sources[m];
+      if (s && s.type === 'collection') max = Math.max(max, 1 + (s.also || []).length + (s.movies || []).length);
+    }
+  }
+  assert.ok(max >= 15 && max <= 20, 'самый большой набор встроенного каталога: ' + max);
+  assert.deepEqual(M.validate(M.DEFAULT), { ok: true });
 });
 
 /* Жалоба 2026-09-27: «в ЧП добавь старые фильмы про него, как и в Бэтмена

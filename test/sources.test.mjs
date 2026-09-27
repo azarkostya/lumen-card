@@ -330,8 +330,16 @@ test('наборы: setRequests — базовая коллекция, доба�
     assert.equal(r.life, 10080);
     assert.deepEqual(r.params, {});
   }
-  const many = S.setRequests({ type: 'collection', id: 1, movies: new Array(30).fill(7) });
-  assert.equal(many.length, 1 + 24, 'добавок не больше 24 на поле, как в проверке каталога');
+  /* SEC4-2: всего не больше 20 (как в проверке каталога), повторы — один
+     раз: каталог мог прийти и без проверки. */
+  const ids = (n, base) => Array.from({ length: n }, (_, i) => base + i);
+  const many = S.setRequests({ type: 'collection', id: 1, also: ids(24, 100), movies: ids(30, 1000) });
+  assert.equal(many.length, 20, 'всего запросов на источник — не больше 20');
+  assert.deepEqual(many.slice(0, 2).map(r => r.url), ['collection/1', 'collection/100'], 'порядок прежний: база, also, movies');
+  assert.equal(many[19].url, 'collection/118');
+  const dup = S.setRequests({ type: 'collection', id: 7, also: [7, 556, '556', 556], movies: new Array(30).fill(841).concat([7, 2661, 2661]) });
+  assert.deepEqual(dup.map(r => r.url), ['collection/7', 'collection/556', 'movie/841', 'movie/7', 'movie/2661'],
+    'повторы не множат запросы; фильм 7 и коллекция 7 — разные запросы');
 });
 
 test('наборы: partOf — детали фильма в виде части коллекции (genres → genre_ids)', () => {

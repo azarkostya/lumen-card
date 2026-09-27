@@ -1138,6 +1138,109 @@ test('наборы: отмена — поздние ответы частей п
   } finally { s.restore(); }
 });
 
+/* SEC4-2: удалённый каталог (lumen_manifest_url или подменённый GitHub
+   Pages) с also и movies по 24 у movie и у tv давал 98 запросов TMDB разом
+   на одну плитку. Теперь — не больше 20 на источник, не больше 4 в полёте
+   на источник, повторы — один раз. */
+function idsFrom(n, base) { var a = []; for (var i = 0; i < n; i++) a.push(base + i); return a; }
+function inFlight(calls) { return calls.filter(function (c) { return !c.done; }).length; }
+function answer(c, json) { c.done = true; if (json === null) c.err(); else c.ok(json); }
+
+test('наборы: не больше 4 запросов набора одновременно; следующий — по ответу или ошибке (SEC4-2)', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    var item = { id: 'big', title: 'Big', sources: { movie: { type: 'collection', id: 1, also: idsFrom(6, 100), movies: idsFrom(8, 1000) } } };
+    s.S['fetch'](item, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    assert.equal(s.calls.length, 4, 'в полёте сразу — четыре');
+    assert.deepEqual(s.calls.map(function (c) { return c.url; }), ['collection/1', 'collection/100', 'collection/101', 'collection/102']);
+    answer(s.calls[1], { parts: [{ id: 5, title: 'a', release_date: '2001-01-01' }] });
+    assert.equal(s.calls.length, 5, 'ответ — уходит следующий');
+    answer(s.calls[0], null);
+    assert.equal(s.calls.length, 6, 'ошибка — тоже уходит следующий');
+    s.calls[1].err();
+    s.calls[0].ok({ parts: [] });
+    assert.equal(s.calls.length, 6, 'второй колбэк того же запроса — не новый слот');
+    var max = 0;
+    var guard = 0;
+    while (inFlight(s.calls) && guard++ < 100) {
+      max = Math.max(max, inFlight(s.calls));
+      var c = s.calls.filter(function (x) { return !x.done; })[0];
+      answer(c, c.url.indexOf('movie/') === 0 ? { id: Number(c.url.slice(6)), title: 'm', release_date: '1990-01-01', genres: [] } : { parts: [] });
+    }
+    assert.equal(max, 4, 'одновременно — не больше четырёх');
+    assert.equal(s.calls.length, 15, 'все 15 запросов ушли');
+    assert.equal(got.length, 1);
+    assert.equal(got[0].results.length, 9, 'коллекция 100 и восемь фильмов');
+  } finally { s.restore(); }
+});
+
+test('наборы: синхронный ответ (кэш Lampa) — очередь не рвётся и не переполняется (SEC4-2)', function () {
+  var s = setupSet();
+  try {
+    var urls = [];
+    global.Lampa.Api.sources.tmdb.get = function (url, params, ok) {
+      urls.push(url);
+      ok(url.indexOf('movie/') === 0 ? { id: Number(url.slice(6)), title: 'm', release_date: '1990-01-01', genres: [] } : { parts: [] });
+    };
+    var got = [];
+    var item = { id: 'big', title: 'Big', sources: { movie: { type: 'collection', id: 1, also: idsFrom(6, 100), movies: idsFrom(8, 1000) } } };
+    s.S['fetch'](item, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    assert.equal(urls.length, 15);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].results.length, 8);
+  } finally { s.restore(); }
+});
+
+test('наборы: каталог 24 + 24 у movie и у tv — не 98 запросов, а не больше 20 на источник и 4 в полёте (SEC4-2)', function () {
+  var s = setupSet('original');
+  try {
+    var item = { id: 'evil', title: 'Evil', sources: {
+      movie: { type: 'collection', id: 1, also: idsFrom(24, 100), movies: idsFrom(24, 1000) },
+      tv: { type: 'collection', id: 2, also: idsFrom(24, 200), movies: idsFrom(24, 2000) }
+    } };
+    s.S['fetch'](item, 1, function () {}, function () {}, null);
+    assert.equal(s.calls.length, 8, 'по четыре на источник');
+    var max = 0;
+    var guard = 0;
+    while (inFlight(s.calls) && guard++ < 500) {
+      max = Math.max(max, inFlight(s.calls));
+      answer(s.calls.filter(function (x) { return !x.done; })[0], { parts: [] });
+    }
+    assert.equal(max, 8);
+    assert.equal(s.calls.length, 40, 'по 20 на источник');
+    var seen = {};
+    s.calls.forEach(function (c) { seen[c.url] = 1; });
+    assert.equal(Object.keys(seen).length, 40);
+    s.calls.length = 0;
+    s.S.posters(item, [{ id: 1, poster_path: '/x.jpg' }], function () {}, null, 1);
+    assert.equal(s.calls.length, 40, '«Английские постеры» — тоже не больше 20 на источник');
+  } finally { s.restore(); }
+});
+
+test('наборы: повторы id не множат запросы (SEC4-2)', function () {
+  var s = setupSet();
+  try {
+    var same = new Array(24).fill(7);
+    s.S['fetch']({ id: 'dup', title: 'D', sources: { movie: { type: 'collection', id: 7, also: same, movies: same } } }, 1, function () {}, function () {}, null);
+    assert.deepEqual(s.calls.map(function (c) { return c.url; }), ['collection/7', 'movie/7']);
+  } finally { s.restore(); }
+});
+
+test('наборы: подборку закрыли — очередь набора новых запросов не шлёт (SEC4-2)', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    var item = { id: 'big', title: 'Big', sources: { movie: { type: 'collection', id: 1, movies: idsFrom(10, 1000) } } };
+    var h = s.S['fetch'](item, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    assert.equal(s.calls.length, 4);
+    h.clear();
+    s.calls.slice().forEach(function (c) { answer(c, { id: 1, title: 'm', genres: [] }); });
+    assert.equal(s.calls.length, 4, 'после отмены — ни одного нового запроса');
+    assert.equal(got.length, 0);
+  } finally { s.restore(); }
+});
+
 test('наборы: обычная коллекция без добавок — прежний единственный запрос', function () {
   var s = setupSet();
   try {

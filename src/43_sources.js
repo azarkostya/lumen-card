@@ -298,15 +298,25 @@
        каталога (LC.manifest.validate): лишнее не запрашивается, даже если
        каталог пришёл без проверки. */
     var SET_MAX = 24;
+    /* SEC4-2: запросов на источник-набор всего (базовая коллекция + also +
+       movies, без повторов) — тот же SET_TOTAL, что в проверке каталога.
+       Без него удалённый каталог с also и movies по 24 у movie и у tv
+       давал 98 запросов на одну плитку и ещё 98 на «Английские постеры». */
+    var SET_TOTAL = 20;
+    /* И не больше SET_PARALLEL запросов набора одновременно. */
+    var SET_PARALLEL = 4;
     /* Свой дедлайн — короче общего (FETCH_TIMEOUT): то, что пришло,
        успевает уйти подборке раньше, чем её сборщик закроется пустым. */
     var SET_TIMEOUT = 12000;
 
+    /* Повторы — один раз и в предел поля не идут. */
     function idList(v) {
       var out = [];
+      var seen = {};
       if (!Array.isArray(v)) return out;
       for (var i = 0; i < v.length && out.length < SET_MAX; i++) {
-        if (NUM_ID.test(String(v[i]))) out.push(String(v[i]));
+        var id = String(v[i]);
+        if (NUM_ID.test(id) && !seen[id]) { seen[id] = 1; out.push(id); }
       }
       return out;
     }
@@ -316,14 +326,22 @@
       return !!(spec && spec.type === 'collection' && (idList(spec.also).length || idList(spec.movies).length));
     }
 
-    /* Все запросы источника-набора: базовая коллекция, добавочные, фильмы. */
+    /* Все запросы источника-набора: базовая коллекция, добавочные, фильмы;
+       повторы — один раз, всего не больше SET_TOTAL. */
     function setRequests(spec) {
-      var out = [{ url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC, kind: 'collection' }];
+      var out = [];
+      var seen = {};
+      function add(url, kind) {
+        if (seen[url] || out.length >= SET_TOTAL) return;
+        seen[url] = 1;
+        out.push({ url: url, params: {}, life: LIFE_STATIC, kind: kind });
+      }
+      add('collection/' + encodeURIComponent(spec.id), 'collection');
       var also = idList(spec.also);
       var movies = idList(spec.movies);
       var i;
-      for (i = 0; i < also.length; i++) out.push({ url: 'collection/' + also[i], params: {}, life: LIFE_STATIC, kind: 'collection' });
-      for (i = 0; i < movies.length; i++) out.push({ url: 'movie/' + movies[i], params: {}, life: LIFE_STATIC, kind: 'movie' });
+      for (i = 0; i < also.length; i++) add('collection/' + also[i], 'collection');
+      for (i = 0; i < movies.length; i++) add('movie/' + movies[i], 'movie');
       return out;
     }
 
@@ -375,30 +393,49 @@
     }
 
     /* Набор целиком: ok(ответ вида normalize('collection')) — если пришёл
-       хоть один ответ; err — если не пришло ничего. */
+       хоть один ответ; err — если не пришло ничего. Запросы — не больше
+       SET_PARALLEL одновременно: следующий уходит, когда ответил (или
+       упал) один из летящих; подборку закрыли — новые не уходят. */
     function fetchSet(spec, ok, err, alive) {
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
       var reqs = setRequests(spec);
       var answers = [];
       var got = 0;
+      var next = 0;
+      var flying = 0;
       var gate = LC.util.gate(reqs.length, SET_TIMEOUT, function () {
         if (dead()) return;
         if (!got) { err({ set_failed: true }); return; }
         ok(normalize('collection', { parts: setParts(reqs, answers) }));
       });
-      LC.util.each(reqs, function (r, i) {
+      function send(i) {
+        var r = reqs[i];
+        var over = false;
+        function end() {
+          if (over) return;
+          over = true;
+          flying--;
+          gate.tick();
+          pump();
+        }
+        flying++;
         Lampa.Api.sources.tmdb.get(
           r.url,
           r.params,
           function (json) {
             if (json && !dead()) { answers[i] = json; got++; }
-            gate.tick();
+            end();
           },
-          function () { gate.tick(); },
+          end,
           { life: r.life }
         );
-      });
+      }
+      function pump() {
+        if (dead()) { gate.cancel(); return; }
+        while (flying < SET_PARALLEL && next < reqs.length) send(next++);
+      }
+      pump();
     }
 
     /* Строит URL для Lampa.Activity.push({component:'category_full', url:…}).

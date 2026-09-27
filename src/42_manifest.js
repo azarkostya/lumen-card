@@ -1595,7 +1595,8 @@
        - источник: discover (ключи params — только известные Lampa, ключи
          filter — вида with_runtime.lte, значения — числа или строки из
          [\w.,|:-]), collection/list (числовой id; у collection ещё
-         необязательные also и movies — непустые массивы до 24 числовых id),
+         необязательные also и movies — непустые массивы до 24 числовых id,
+         а с базовой коллекцией вместе — не больше SET_TOTAL запросов),
          kp (collection — [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
        - темы: id и preset — [a-z0-9-], accent — #rrggbb;
        - необязательные поля подборки (финальная проверка, L3): season —
@@ -1667,6 +1668,13 @@
     /* also / movies у коллекции (набор, src/43_sources.js): непустой массив
        id TMDB, не длиннее SET_MAX — столько же запрашивает LC.sources. */
     var SET_MAX = 24;
+    /* SEC4-2: и всего запросов у источника-набора — базовая коллекция,
+       also и movies вместе (повторы считаются) — не больше SET_TOTAL, как в
+       LC.sources: иначе удалённый каталог с also и movies по 24 у movie и у
+       tv давал 98 запросов TMDB на одну плитку. Встроенный максимум — 15
+       («Классика Marvel»: 1 + 4 + 10), следующий — 11 («Классика DC»);
+       запас — на рост франшиз. */
+    var SET_TOTAL = 20;
     function idsOk(v) {
       if (!Array.isArray(v) || !v.length || v.length > SET_MAX) return false;
       for (var i = 0; i < v.length; i++) {
@@ -1682,7 +1690,7 @@
         if (!NUM_ID_RE.test(String(spec.id))) return false;
         if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;
         if (typeof spec.movies !== 'undefined' && !idsOk(spec.movies)) return false;
-        return true;
+        return 1 + (spec.also ? spec.also.length : 0) + (spec.movies ? spec.movies.length : 0) <= SET_TOTAL;
       }
       if (spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
       if (spec.type !== 'discover') return false;
