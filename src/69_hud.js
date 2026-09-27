@@ -542,8 +542,21 @@
           var d = heroDetails(card.id);
           return hasPath(bg, filePaths(d && d.images && d.images.logos));
         }
-        var name = card.title || card.name || '';
+        var name = heroName(card);
         return !!name && att.title.textContent === name;
+      }
+
+      /* Ревью этапа 1: название чужим письмом герой пишет читаемым
+         вариантом (LC.hero.heroTitle, src/48_hero.js: оригинальное
+         латиницей или альтернативное из деталей) — сравнивать с тем, что он
+         пишет, а не с card.title, иначе такие показы в T_title не попадали.
+         Детали — те, что у героя сейчас (для чужой карточки их нет, как и у
+         героя до ответа). Без героя — прежнее название карточки. */
+      function heroName(card) {
+        try {
+          if (LC.hero && typeof LC.hero.heroTitle === 'function') return LC.hero.heroTitle(card, heroDetails(card.id)) || '';
+        } catch (e) { }
+        return card.title || card.name || '';
       }
 
       function frameShown(card) {

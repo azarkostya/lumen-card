@@ -34038,13 +34038,22 @@ var at = line.active > 0 ? line.active : 0;
 return Math.min(total, (Math.round(at / view) + 2) * view + 1);
 }
 
+
+
+
+
+
+
+
 function lineWork(line, full) {
 if (!isLine(line)) return false;
 var have = built(line);
-if (have < wanted(line, full)) {
+if (!line.lumen_prefill_stuck && have < wanted(line, full)) {
+var before = line.items.length;
 line.emit('createAndAppend', line.data.results[have]);
 line.lumen_prefill_dirty = true;
-state.stats.cards++;
+if (line.items.length > before) state.stats.cards++;
+else { line.lumen_prefill_stuck = true; state.stats.stuck++; }
 return true;
 }
 if (line.lumen_prefill_dirty) {
@@ -34132,7 +34141,7 @@ try {
 if (!root || !root.length || !root[0]) return;
 if (state && state.root && state.root[0] === root[0]) { poke(); return; }
 unmount();
-state = { root: root, timer: null, focusAt: now(), failed: 0, handler: poke, keys: null, stats: { cards: 0, visible: 0, rows: 0 } };
+state = { root: root, timer: null, focusAt: now(), failed: 0, handler: poke, keys: null, stats: { cards: 0, visible: 0, rows: 0, stuck: 0 } };
 if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
 var k = keypad();
 if (k) { k.follow('keydown', poke); state.keys = k; }
@@ -34189,7 +34198,7 @@ IDLE_MS: IDLE_MS, ROWS_AHEAD: ROWS_AHEAD, NEXT_ROWS: NEXT_ROWS,
 wanted: wanted, built: built,
 mount: mount, unmount: unmount, detach: detach, owns: owns, mountCurrent: mountCurrent, poke: poke, tick: tick,
 active: function () { return !!state; },
-stats: function () { return state ? { cards: state.stats.cards, visible: state.stats.visible, rows: state.stats.rows } : null; },
+stats: function () { return state ? { cards: state.stats.cards, visible: state.stats.visible, rows: state.stats.rows, stuck: state.stats.stuck } : null; },
 
 _now: function () { return Date.now(); },
 _timers: null
@@ -37710,19 +37719,47 @@ showMinimap();
 
 
 
+
+
+
+
+
+
+
+
+function shown(el) {
+return el.offsetParent !== null && !el.classList.contains('hide');
+}
+
 function sibling(el, dir, n) {
 var cur = el;
 var left = n;
 while (cur && left > 0) {
 cur = dir === 'right' ? cur.nextElementSibling : cur.previousElementSibling;
-if (cur && cur.classList && cur.classList.contains('selector')) left--;
+if (cur && cur.classList && cur.classList.contains('selector') && shown(cur)) left--;
 }
 return left === 0 ? cur : null;
+}
+
+
+
+
+
+
+
+function soundOn() {
+try {
+return !!(window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function' &&
+Lampa.Storage.field('interface_sound_play'));
+} catch (e) {
+return false;
+}
 }
 
 function jump(dir, ev) {
 if (!ev || typeof ev.preventDefault !== 'function') return false;
 if (controllerName() !== 'items_line') return false;
+if (soundOn()) return false;
 try {
 
 
@@ -41350,8 +41387,21 @@ if (!bg || bg === 'none') return false;
 var d = heroDetails(card.id);
 return hasPath(bg, filePaths(d && d.images && d.images.logos));
 }
-var name = card.title || card.name || '';
+var name = heroName(card);
 return !!name && att.title.textContent === name;
+}
+
+
+
+
+
+
+
+function heroName(card) {
+try {
+if (LC.hero && typeof LC.hero.heroTitle === 'function') return LC.hero.heroTitle(card, heroDetails(card.id)) || '';
+} catch (e) { }
+return card.title || card.name || '';
 }
 
 function frameShown(card) {

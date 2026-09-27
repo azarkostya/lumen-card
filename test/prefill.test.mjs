@@ -39,7 +39,11 @@ function line(n, opts) {
     emit(name, el) {
       if (name !== 'createAndAppend') return;
       if (opts.throws) throw new Error('boom');
-      l.created.push(el); l.items.push({ el: el });
+      l.created.push(el);
+      /* Create.onCreateAndAppend (app.min.js:19135-19146) ловит исключение карточки
+         сам: наружу ничего не летит, items просто не растёт. */
+      if (opts.broken != null && el === res[opts.broken]) return;
+      l.items.push({ el: el });
     }
   };
   if (opts.moreFirst) { l.more = { more: true }; l.items.push(l.more); }
@@ -102,7 +106,7 @@ function makeEnv(opts) {
   let seq = 0;
   api._now = () => env.now;
   api._timers = {
-    set: (fn, ms) => { const t = { id: ++seq, at: env.now + ms, fn, done: false }; timers.push(t); return t.id; },
+    set: (fn, ms) => { const t = { id: ++seq, at: env.now + ms, ms, fn, done: false }; timers.push(t); return t.id; },
     clear: (id) => { const t = timers.find((x) => x.id === id); if (t) t.done = true; }
   };
   env.api = api; env.LC = LC;
@@ -239,6 +243,33 @@ test('prefill: два отказа подряд — модуль замолка�
   env.advance(60000);
   assert.equal(warnLog.filter((w) => /prefill: work failed/.test(w.msg)).length, 2);
   assert.equal(env.timers.filter((t) => !t.done).length, 0, 'таймер не взведён');
+});
+
+/* Ревью этапа 1 (MAJOR): карточка, которую Lampa создать не может, —
+   Create.onCreateAndAppend глотает исключение, items не растёт, и модуль
+   строил тот же results[have] снова и снова (стенд: 545 попыток за 3 с). */
+test('prefill: битая карточка (emit не растит items) — одна попытка, ряд помечен, повторного arm(0) нет; остальная работа идёт', () => {
+  warnLog.length = 0;
+  const env = makeEnv({ lines: [line(20, { tag: 'a', broken: 10 }), line(20, { tag: 'b' })], loaded: [[1], [2]] });
+  const P = env.api;
+  const zeros = () => env.timers.filter((t) => t.ms === 0).length;
+  P.mount([env.root]);
+  env.advance(P.IDLE_MS + 60000);
+  const [a, b] = env.comp.items;
+  assert.deepEqual(a.created.map((x) => x.id), ['a:8', 'a:9', 'a:10'], 'битая — ровно одна попытка, дальше ряд не достраивается');
+  assert.equal(a.items.length, 10);
+  assert.equal(a.lumen_prefill_stuck, true);
+  assert.deepEqual(env.visible, [a.scroll.render()], 'Layer.visible дописанного — остаётся');
+  assert.equal(env.comp.pushed, 1, 'pushLoaded при фокусе на битом ряду — как обычно');
+  assert.deepEqual(P.stats(), { cards: 2, visible: 1, rows: 1, stuck: 1 });
+  const z = zeros();
+  env.advance(60000);
+  assert.equal(zeros(), z, 'в покое — только паузы REST_MS, ни одной немедленной задачи');
+  assert.equal(a.created.length, 3);
+  env.comp.active = 1; P.poke();
+  env.advance(60000);
+  assert.equal(b.items.length, 20, 'соседний ряд достраивается как обычно');
+  assert.deepEqual(warnLog.filter((w) => /prefill/.test(w.msg)), []);
 });
 
 test('prefill: detach — корень внутри стартующей активности остаётся, чужой — снимается', () => {
