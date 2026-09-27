@@ -161,7 +161,9 @@
       if (cut > -1) s = s.substring(0, cut);
       cut = s.indexOf('#');
       if (cut > -1) s = s.substring(0, cut);
-      return s.replace(/^[a-z]+:\/\//i, '');
+      /* Адрес прокси картинок бывает с «логин:пароль@» — в HUD и в warn
+         учётки не место. «@» в пути (jsDelivr «@main») не задевается. */
+      return s.replace(/^[a-z]+:\/\//i, '').replace(/^[^\/@]*@/, '');
     }
 
     function mark(state, url) {

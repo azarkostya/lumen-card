@@ -1771,6 +1771,19 @@ test('status: цвет получен — ok и адрес без ключей',
   });
 });
 
+test('status: адрес прокси с «логин:пароль@» — в HUD без учётки, «@» в пути цел', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const api = fresh().api;
+    api.fromImage('https://user:p%40ss@imagetmdb.com/t/p/w185/a.jpg?email=me@example.com', () => { });
+    dom.state.images[0].onload();
+    assert.equal(api.status().url, 'imagetmdb.com/t/p/w185/a.jpg', 'логин и пароль отрезаны');
+    api.fromImage('https://proxy@cdn.example.net/gh/a/b@main/p.jpg', () => { });
+    dom.state.images[1].onload();
+    assert.equal(api.status().url, 'cdn.example.net/gh/a/b@main/p.jpg', 'только часть до хоста');
+  });
+});
+
 test('status: пиксели закрыты — cors, и только на SecurityError', () => {
   const dom = fakeDom({ tainted: true });
   withDom(dom, () => {
