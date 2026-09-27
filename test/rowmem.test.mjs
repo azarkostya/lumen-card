@@ -39,7 +39,10 @@ function cardNode(src, loaded) {
 /* Ряд Lampa: scroll.render(true) — .scroll, его родитель — .items-line__body. */
 function line(n, opts) {
   opts = opts || {};
-  const body = { style: {}, offsetHeight: opts.height == null ? 180 : opts.height };
+  /* offsetHeight — целое (как в DOM), getBoundingClientRect — дробная
+     высота раскладки; по умолчанию совпадают. */
+  const h = opts.height == null ? 180 : opts.height;
+  const body = { style: {}, offsetHeight: Math.round(h), rectHeight: h, getBoundingClientRect() { return { height: this.rectHeight }; } };
   const cards = [];
   for (let i = 0; i < n; i++) cards.push(cardNode(opts.src === null ? '' : 'https://img/t/p/w300/' + (opts.tag || 'r') + i + '.jpg', opts.loaded));
   const sc = el(['scroll']);
@@ -58,7 +61,7 @@ function makeEnv(opts) {
   const root = { listeners: [], addEventListener(name, fn, cap) { root.listeners.push([name, fn, cap]); }, removeEventListener(name, fn, cap) { root.listeners = root.listeners.filter((l) => !(l[0] === name && l[1] === fn && l[2] === cap)); } };
   root.contains = (x) => x === root;
   const lines = [];
-  for (let i = 0; i < (opts.rows || 16); i++) lines.push(line(opts.cards || 6, { tag: 'r' + i + '_' }));
+  for (let i = 0; i < (opts.rows || 16); i++) lines.push(line(opts.cards || 6, { tag: 'r' + i + '_', height: opts.height }));
   const comp = { items: lines, active: opts.active || 0 };
   const env = {
     now: 0, timers, root, comp, lines, ctrl: 'items_line', component: 'main', pref: true, bytes: true, enabled: true, winListeners: [],
@@ -238,6 +241,7 @@ test('rowmem: выключили посреди сеанса — спящие р
 test('rowmem: ряд не в раскладке (высота 0) — не трогается и больше не пробуется', () => {
   const env = makeEnv({ rows: 12, active: 11 });
   env.lines[0].body.offsetHeight = 0;
+  env.lines[0].body.rectHeight = 0;
   const R = env.api;
   R.mount([env.root]);
   env.advance(R.QUIET_MS + 10000);
@@ -245,6 +249,21 @@ test('rowmem: ряд не в раскладке (высота 0) — не тро
   assert.equal(env.lines[0].body.style.height, undefined);
   assert.ok(env.lines[0].lumen_rowmem_skip);
   assert.ok(asleep(env.lines[1]));
+});
+
+/* Проверка логики lg8-Б: высота тела ряда дробная (ширина карточки —
+   calc(vh − em), постер 150 % ширины), а offsetHeight её округляет. Стенд
+   960x540@2: 183.6875 против 184 — каждый спящий ряд выше фокуса сдвигал
+   ленту главной на 0.31 px, 10 рядов — на 3 px. */
+test('rowmem: высота спящего ряда закрепляется дробной (getBoundingClientRect), а не округлённой', () => {
+  const env = makeEnv({ rows: 12, active: 11, height: 183.6875 });
+  const R = env.api;
+  assert.equal(env.lines[0].body.offsetHeight, 184, 'окружение: offsetHeight округлён');
+  R.mount([env.root]);
+  env.advance(R.QUIET_MS + 10000);
+  const slept = env.lines.filter(asleep);
+  assert.ok(slept.length >= 7);
+  for (const l of slept) assert.equal(l.body.style.height, '183.6875px');
 });
 
 test('rowmem: смена размера окна и выключение — все ряды просыпаются, слушатели сняты', () => {

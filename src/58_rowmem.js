@@ -198,7 +198,10 @@
       var sc = tape(line);
       if (!sc || line.lumen_rowmem_sleep) return false;
       var body = sc.parentNode;
-      var h = body.offsetHeight;
+      /* Дробная высота, не offsetHeight: тот округляет до целого, и каждый
+         спящий ряд выше фокуса сдвигал бы ленту главной на долю пикселя
+         (стенд 960x540@2: 183.6875 → 184, 10 рядов — 3 px). */
+      var h = body.getBoundingClientRect().height;
       /* Ряд не в раскладке (главная скрыта) — высоту не узнать: не трогаем. */
       if (!h) return false;
       body.style.height = h + 'px';
