@@ -8539,18 +8539,21 @@ test('фокус подборок: увеличение во всех режим
 });
 
 test('фокус подборок: соседи приглушены плашкой без перехода, кольцо фокуса перебивает её порядком', () => {
+  /* Этап 2б (design P3): в сетках (lumen_grid и штатная сетка плагина)
+     плашка плотнее — на ярких постерах .42 почти не видна (замер у
+     GRID_DIM, src/30_css.js); у плиток хаба — прежняя. */
   const cases = [
-    ['.lumen-hub__tiles.lumen-dim .lumen-tile:after', '.lumen-hub__tiles .lumen-tile.focus:after'],
-    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-grid__items .lumen-gcard.focus .card__view:after'],
-    ['.lumen-full.lumen-dim .card .card__view:after', '.lumen-full .card.focus .card__view:after']
+    ['.lumen-hub__tiles.lumen-dim .lumen-tile:after', '.lumen-hub__tiles .lumen-tile.focus:after', 0.3, 0.45],
+    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-grid__items .lumen-gcard.focus .card__view:after', 0.5, 0.6],
+    ['.lumen-full.lumen-dim .card .card__view:after', '.lumen-full .card.focus .card__view:after', 0.5, 0.6]
   ];
   const bodies = ruleBodies(css);
   const at = (sel) => bodies.findIndex((r) => r.selectors.indexOf(sel) !== -1);
-  for (const [dimSel, focusSel] of cases) {
+  for (const [dimSel, focusSel, lo, hi] of cases) {
     const dim = findDecl(css, (sel) => sel === dimSel);
     assert.ok(dim && /display:block/.test(dim), 'нет приглушения: ' + dimSel);
     const a = parseFloat(/background:rgba\([\d,]+,([\d.]+)\)/.exec(dim)[1]);
-    assert.ok(a >= 0.3 && a <= 0.45, 'приглушение соседей ' + a + ' — вне .3–.45 (≈ opacity .55–.7): ' + dim);
+    assert.ok(a >= lo && a <= hi, 'приглушение соседей ' + a + ' — вне ' + lo + '–' + hi + ': ' + dim);
     assert.equal(/transition|animation|filter|opacity/.test(dim), false, 'приглушение без анимации и без opacity (слой на каждую плитку): ' + dim);
     assert.ok(at(focusSel) > at(dimSel), 'кольцо фокуса обязано стоять ПОСЛЕ приглушения (та же специфичность): ' + focusSel);
   }

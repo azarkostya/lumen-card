@@ -531,6 +531,17 @@
   var FOCUS_RING = 0.27;
   var FOCUS_HAIR = 0.09;
   var FOCUS_DIM = 0.42;
+  /* Этап 2б (design P3, фото ТВ 27.09: на ярких постерах приглушение .42
+     почти не видно): соседи в СЕТКЕ подборки — плотнее. Замер на стенде
+     (960×540@2, снимок, средняя относительная яркость Y постера с отступом
+     от кольца): «Pixar» — яркие постеры — .42: самый светлый сосед 1.10
+     яркости карточки в фокусе, и один из 11 соседей светлее неё; .55 —
+     0.67 и ни одного; .62 — 0.49. «Классика Marvel» (тёмные постеры):
+     .36 / .22 / .16. Взято .55: фокус выделен и на ярких постерах, а
+     медиана соседей (Y .049) ещё читается. Плитки хаба — прежние .42: их
+     плашка ложится и на подпись плитки. Плашка — фон темы без filter и
+     opacity (разбор — у FOCUS_RING выше). */
+  var GRID_DIM = 0.55;
   /* Увеличение плитки хаба в фокусе: было 1.05 и только в «Полных»; 1.08 —
      как у карточки сетки и у пары focused/unfocused Apple для 16:9 (×1.089,
      docs/research/2026-09-21-tv-design-specs.md §1). */
@@ -538,7 +549,7 @@
   function focusRingCss(P) {
     return 'border:' + emCss(FOCUS_RING) + ' solid ' + P.text + ';outline:' + emCss(FOCUS_HAIR) + ' solid rgba(0,0,0,.6);outline-offset:-' + emCss(FOCUS_RING + FOCUS_HAIR);
   }
-  LC.focusNumbers = { ring: FOCUS_RING, hair: FOCUS_HAIR, dim: FOCUS_DIM };
+  LC.focusNumbers = { ring: FOCUS_RING, hair: FOCUS_HAIR, dim: FOCUS_DIM, gridDim: GRID_DIM };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
@@ -4177,7 +4188,7 @@
        снята — её роль у кольца. Мышиный вариант штатного кольца
        (.card.hover) по-прежнему погашен базовым правилом. */
     css.push('.lumen-grid .lumen-gcard .card__view:after{display:none}');
-    css.push('.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:.31em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
+    css.push('.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:.31em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(GRID_DIM) + ')}');
     css.push('.lumen-grid__items .lumen-gcard.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard,.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
     /* Этап 2б: штатная сетка Lampa (category_full), открытая плагином, —
@@ -4189,7 +4200,7 @@
        (.card__img, 1em). Сетки, которые Lampa открывает сама, класса не
        несут и остаются штатными. */
     css.push('.lumen-full .card .card__view:after{display:none}');
-    css.push('.lumen-full.lumen-dim .card .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:1em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
+    css.push('.lumen-full.lumen-dim .card .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:1em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(GRID_DIM) + ')}');
     css.push('.lumen-full .card.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
        что у строки «Продолжить» в карточке — Lampa.Timeline. */
