@@ -411,7 +411,9 @@
     /*             говорит, у скольких показов окна кадр дождались;          */
     /*   gray    — показ, у которого между выводом названия и кадром был     */
     /*             миг без единого активного слоя (оба кадра и подложка       */
-    /*             погашены — нейтральный фон, holdFrame/neutralFrame);      */
+    /*             погашены — нейтральный фон, holdFrame/neutralFrame) или   */
+    /*             с подложкой, чьи байты ещё едут (её слой горит, а глазами */
+    /*             под текстом всё тот же нейтральный фон);                  */
     /*   pf h/m  — детали героя взяты из памяти предзагрузки или нет: между  */
     /*             фокусом и названием вырос счётчик LC.prefetch.stats().hits */
     /*             (своего промаха у stats() нет — промах = не вырос). Нет   */
@@ -542,8 +544,14 @@
           var d = heroDetails(card.id);
           return hasPath(bg, filePaths(d && d.images && d.images.logos));
         }
+        var text = att.title.textContent;
         var name = heroName(card);
-        return !!name && att.title.textContent === name;
+        /* Этап 2в, п.3: читаемое название, которое герой взял из деталей
+           (d4d9d42, relabelTile), лежит и в card.lumen_title — сравнение и с
+           ним: детали для зонда отдаёт LC.hero.details(id) строгим
+           сравнением id, и карточка, чей id пришёл строкой, иначе в
+           T_title не попадала бы. */
+        return (!!name && text === name) || (!!card.lumen_title && text === card.lumen_title);
       }
 
       /* Ревью этапа 1: название чужим письмом герой пишет читаемым
@@ -570,10 +578,22 @@
         return false;
       }
 
+      /* Этап 2в, п.3 (стенд этапа 2а: HUD — gray 0 из 10 серий, глазами —
+         серый в 10 из 10). Подложку герой ставит на слой сразу, даже если
+         её байты ещё едут (holdFrame → ownLqip, loadFrame), и класс
+         is-active у неё горит, а под текстом — нейтральный фон. Подложка
+         считается картинкой, только когда её байты доехали: complete &&
+         naturalWidth, тот же признак, что у самого героя (loadFrame).
+         Слоям кадра проверки не нужно: src и is-active им ставит swapFrame
+         уже после загрузки байтов. */
       function gray() {
         if (!att.frames.length) return false;
         for (var i = 0; i < att.frames.length; i++) if (hasClass(att.frames[i], 'is-active')) return false;
-        return !hasClass(att.lqip, 'is-active');
+        return !(hasClass(att.lqip, 'is-active') && landed(att.lqip));
+      }
+
+      function landed(img) {
+        try { return !!(img.complete && img.naturalWidth); } catch (e) { return false; }
       }
 
       function evaluate(t) {

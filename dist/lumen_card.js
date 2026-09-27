@@ -42005,6 +42005,8 @@ return null;
 
 
 
+
+
 var HERO_WIN = 20;
 
 
@@ -42125,8 +42127,14 @@ if (!bg || bg === 'none') return false;
 var d = heroDetails(card.id);
 return hasPath(bg, filePaths(d && d.images && d.images.logos));
 }
+var text = att.title.textContent;
 var name = heroName(card);
-return !!name && att.title.textContent === name;
+
+
+
+
+
+return (!!name && text === name) || (!!card.lumen_title && text === card.lumen_title);
 }
 
 
@@ -42153,10 +42161,22 @@ if (hasClass(n, 'is-active') && hasPath(n.getAttribute('src') || '', paths)) ret
 return false;
 }
 
+
+
+
+
+
+
+
+
 function gray() {
 if (!att.frames.length) return false;
 for (var i = 0; i < att.frames.length; i++) if (hasClass(att.frames[i], 'is-active')) return false;
-return !hasClass(att.lqip, 'is-active');
+return !(hasClass(att.lqip, 'is-active') && landed(att.lqip));
+}
+
+function landed(img) {
+try { return !!(img.complete && img.naturalWidth); } catch (e) { return false; }
 }
 
 function evaluate(t) {

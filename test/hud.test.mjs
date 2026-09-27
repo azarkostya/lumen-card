@@ -982,9 +982,12 @@ test('телеметрия: gray — погасли оба слоя кадра �
   e.focus(DUNE);
   e.at(500);
   e.showTitle('Дюна');
-  /* Подложка этого фильма: слой кадра погас, LQIP горит — не серый. */
+  /* Подложка этого фильма: слой кадра погас, LQIP горит, и её байты
+     доехали (этап 2в, п.3) — не серый. */
   e.at(700);
   e.lqip.attrs.src = IMG + 'w300/dune-key.jpg';
+  e.lqip.complete = true;
+  e.lqip.naturalWidth = 300;
   e.lqip.className = 'lumen-hero__lqip is-active';
   e.off(e.bgA);
   assert.equal(p.summary().gray, 0);
@@ -997,6 +1000,49 @@ test('телеметрия: gray — погасли оба слоя кадра �
   e.frame(e.bgA, '/dune-key.jpg');
   assert.deepEqual(p.summary().frame, [1800, 1800], 'ключевой арт из карточки — тоже кадр этого фильма');
   p.stop();
+});
+
+/* Этап 2в, п.3 (стенд этапа 2а: HUD — gray 0 из 10 серий, глазами — 10 из
+   10). Герой ставит подложку на слой сразу, даже если её байты ещё едут
+   (holdFrame → ownLqip), — класс горит, а глазами под текстом нейтральный
+   фон. Такой миг — серый; байты, доехавшие потом, серый не отменяют. */
+test('этап 2в, п.3: gray — подложка горит, но её байты ещё едут (complete/naturalWidth) — серый; доехали позже — серый остаётся', () => {
+  const e = heroEnv();
+  const p = e.api.probe({ keys: false });
+  e.at(0);
+  e.focus(DUNE);
+  e.at(500);
+  e.showTitle('Дюна');
+  e.at(750);
+  e.lqip.attrs.src = IMG + 'w300/dune-clean.jpg';
+  e.lqip.complete = false;
+  e.lqip.naturalWidth = 0;
+  e.lqip.className = 'lumen-hero__lqip is-active';
+  e.off(e.bgA);
+  assert.equal(p.summary().gray, 1, 'подложка без байтов — глазами нейтральный фон');
+  /* Байты доехали, слой тот же — серый уже был. */
+  e.lqip.complete = true;
+  e.lqip.naturalWidth = 300;
+  e.at(900);
+  e.frame(e.bgB, '/dune-key.jpg');
+  assert.equal(p.summary().gray, 1);
+  assert.deepEqual(p.summary().frame, [900, 900]);
+  /* Битая подложка (complete, но naturalWidth 0) — тоже не картинка. */
+  const f = heroEnv();
+  const q = f.api.probe({ keys: false });
+  f.at(0);
+  f.focus(DUNE);
+  f.at(400);
+  f.showTitle('Дюна');
+  f.lqip.attrs.src = IMG + 'w300/dune-clean.jpg';
+  f.lqip.complete = true;
+  f.lqip.naturalWidth = 0;
+  f.lqip.className = 'lumen-hero__lqip is-active';
+  f.at(600);
+  f.off(f.bgA);
+  assert.equal(q.summary().gray, 1, 'битая подложка — серый');
+  p.stop();
+  q.stop();
 });
 
 test('телеметрия: логотип — считается только логотип ЭТОГО фильма (путь из его деталей), поздний логотип прошлого — нет', () => {
@@ -1183,6 +1229,32 @@ test('телеметрия: название чужим письмом — по�
   e.showTitle('Pob');
   assert.equal(p.summary().n, 2);
   assert.deepEqual(p.summary().title, [300, 640]);
+  p.stop();
+});
+
+/* Этап 2в, п.3: читаемое название из деталей герой пишет и в данные
+   карточки (card.lumen_title, d4d9d42). Детали зонду отдаёт
+   LC.hero.details(id) строгим сравнением id — у карточки, чей id пришёл
+   строкой, их для зонда нет, и без lumen_title показ в T_title не попадал. */
+test('этап 2в, п.3: название — ещё и card.lumen_title: id строкой, деталей у зонда нет, герой пишет читаемое — показ засчитан', () => {
+  const THAI = { id: '9', title: 'ธี่หยด: สมิงเขาขวาง', original_title: 'ธี่หยด: สมิงเขาขวาง', backdrop_path: '/thai9-key.jpg' };
+  const e = heroEnv();
+  const p = e.api.probe({ keys: false });
+  e.at(0);
+  e.focus(THAI);
+  e.heroState.details = { id: 9, backdrop_path: '/thai9-key.jpg', images: { backdrops: [], logos: [] },
+    alternative_titles: { titles: [{ iso_3166_1: 'US', title: 'Saming the Werebeast' }] } };
+  THAI.lumen_title = 'Saming the Werebeast';
+  e.at(700);
+  e.showTitle('Saming the Werebeast');
+  assert.equal(p.summary().n, 1, 'читаемое название из card.lumen_title не засчитано');
+  assert.deepEqual(p.summary().title, [700, 700]);
+  /* Чужое название (не то и не другое) — не показ. */
+  e.at(1000);
+  e.focus({ id: '10', title: 'ปอบ', lumen_title: 'Pob' });
+  e.at(1200);
+  e.showTitle('Saming the Werebeast');
+  assert.equal(p.summary().n, 1, 'чужое название засчитано');
   p.stop();
 });
 
