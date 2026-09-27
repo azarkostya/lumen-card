@@ -339,7 +339,7 @@ test('франшизы: «Киновселенная Marvel» и «Вселен�
   assert.ok(typeof dc.cover === 'string' && dc.cover, 'кадр задан: первым по дате идёт «Бэтмен: Начало», как у «Тёмного рыцаря»');
 
   const franchises = M.DEFAULT.collections.filter(c => c.group === 'franchise');
-  assert.equal(franchises.length, 34, 'две добавлены, две сняты');
+  assert.equal(franchises.length, 38, 'две добавлены, две сняты (2026-09-25); +4 классики (2026-09-27)');
   assert.ok(franchises.findIndex(c => c.id === 'mcu') < franchises.findIndex(c => c.id === 'avengers'));
   assert.ok(franchises.findIndex(c => c.id === 'dc-universe') < franchises.findIndex(c => c.id === 'dark-knight'));
 });
@@ -380,7 +380,7 @@ test('темы: 15 новых, у каждой перевод, кадр и то�
     }
   }
   assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 52, 'раунд holB: +5 сезонных');
-  assert.equal(M.DEFAULT.collections.length, 170);
+  assert.equal(M.DEFAULT.collections.length, 174, '+4 франшизы 2026-09-27');
 });
 
 /* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
@@ -523,6 +523,90 @@ test('L3: validate — season, aliases и cover подборки только п
   assert.deepEqual(M.validate(good), { ok: true });
   assert.deepEqual(good.collections[2].season, [9], 'месяц числом — массив из одного: потребители ждут массив');
   assert.deepEqual(good.collections[0].season, [12, 1]);
+});
+
+/* Правка 2026-09-27: у коллекции — необязательные also (ещё коллекции) и
+   movies (отдельные фильмы). Формат — только непустые массивы числовых id
+   TMDB до 24 штук: значения идут в путь запроса collection/{id} и
+   movie/{id}. */
+test('наборы: validate — also и movies коллекции только по формату', () => {
+  const bad = [
+    (s) => { s.also = 556; },
+    (s) => { s.also = []; },
+    (s) => { s.also = ['556/../x']; },
+    (s) => { s.also = [{ id: 1 }]; },
+    (s) => { s.also = [null]; },
+    (s) => { s.also = [1.5]; },
+    (s) => { s.movies = '841'; },
+    (s) => { s.movies = [-1]; },
+    (s) => { s.movies = ['841&api_key=x']; },
+    (s) => { s.movies = new Array(25).fill(841); }
+  ];
+  bad.forEach((fn, i) => {
+    const m = okCatalog();
+    fn(m.collections[2].sources.movie);
+    const r = M.validate(m);
+    assert.equal(r.ok, false, 'случай ' + i);
+    assert.equal(r.reason, 'bad_sources: col', 'случай ' + i);
+  });
+  const good = okCatalog();
+  good.collections[2].sources.movie.also = [556, '125574'];
+  good.collections[2].sources.movie.movies = new Array(24).fill(841);
+  assert.deepEqual(M.validate(good), { ok: true });
+  const list = okCatalog();
+  list.collections[2].sources.tv.also = [556];
+  assert.deepEqual(M.validate(list), { ok: true }, 'у списка лишнее поле не читается — как и прочие незнакомые поля');
+});
+
+/* Жалоба 2026-09-27: «в ЧП добавь старые фильмы про него, как и в Бэтмена
+   и прочее, например старый Марвел до КВМ». Сторож держит состав: базовая
+   коллекция у «Человека-паука» прежняя (плагин без поддержки also покажет
+   КВМ, как раньше), а добавки — ровно эпохи Рэйми, Уэбба и «Через
+   вселенные». id плиток прежние: их помнят ряды главной и рулетка. */
+test('франшизы: «Человек-паук» и «Бэтмен» — все эпохи, «Классика Marvel» и «Классика DC»', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  const sorted = (a) => a.map(Number).sort((x, y) => x - y);
+
+  const spider = byId['spiderman-mcu'];
+  assert.equal(spider.title, 'Человек-паук');
+  assert.equal(spider.sources.movie.type, 'collection');
+  assert.equal(spider.sources.movie.id, 531241, 'базовая — КВМ, как было');
+  assert.deepEqual(sorted(spider.sources.movie.also), [556, 125574, 573436], 'Рэйми, Уэбб, «Через вселенные»');
+
+  const bat = byId['dark-knight'];
+  assert.equal(bat.title, 'Бэтмен');
+  assert.equal(bat.sources.movie.id, 263);
+  assert.deepEqual(sorted(bat.sources.movie.also), [120794, 948485], 'Бёртон/Шумахер и Ривз');
+  assert.ok(bat.sources.movie.movies.indexOf(2661) >= 0, '«Бэтмен» 1966 — вне коллекций TMDB');
+  assert.equal(bat.i18n.en, 'Batman');
+
+  const mc = byId['marvel-classic'];
+  assert.ok(mc, 'нет «Классики Marvel»');
+  assert.equal(mc.group, 'franchise');
+  const mcAll = [mc.sources.movie.id].concat(mc.sources.movie.also, mc.sources.movie.movies).map(Number);
+  for (const id of [735, 556, 9744, 90306, 635362, 10658, 8867, 36657, 36658, 36668, 9480, 1927, 9947]) {
+    assert.ok(mcAll.indexOf(id) >= 0, '«Классика Marvel» без ' + id);
+  }
+  for (const id of [748, 453993, 531241, 1726]) {
+    assert.equal(mcAll.indexOf(id), -1, id + ' — фильмы КВМ-эпохи, не классика');
+  }
+
+  const dc = byId['dc-classic'];
+  assert.ok(dc, 'нет «Классики DC»');
+  const dcAll = [dc.sources.movie.id].concat(dc.sources.movie.also, dc.sources.movie.movies).map(Number);
+  for (const id of [8537, 120794, 263, 2661, 1452, 13183, 44912]) {
+    assert.ok(dcAll.indexOf(id) >= 0, '«Классика DC» без ' + id);
+  }
+
+  for (const c of [spider, bat, mc, dc, byId['star-trek'], byId['planet-apes']]) {
+    assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'нет перевода у ' + c.id);
+    assert.ok(typeof c.cover === 'string', 'нет кадра у ' + c.id + ' — плитка стоила бы всех запросов набора');
+    const s = c.sources.movie;
+    const n = 1 + (s.also || []).length + (s.movies || []).length;
+    assert.ok(n <= 16, c.id + ': ' + n + ' запросов на сетку');
+  }
+  assert.deepEqual(byId['dune'].sources.movie.movies, [841], '«Дюна» Линча');
 });
 
 /* Загрузка с настоящим LC.manifest: Lampa.Storage и Lampa.Reguest — моки. */

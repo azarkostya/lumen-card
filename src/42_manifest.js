@@ -92,7 +92,7 @@
          без ключа плитка обязана сказать «нужен ключ». */
       collections: [
 
-        /* === FRANCHISE (34 подборки) === */
+        /* === FRANCHISE (38 подборок) === */
 
         /* Существующие (8) */
         /* Сериальная половина франшиз — по СТУДИЯМ, а не по ключевому слову
@@ -194,13 +194,37 @@
           id: 'mission-impossible', title: 'Миссия невыполнима', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 87359 } }
         },
+        /* Правка 2026-09-27: + «Матрица: Воскрешение» (624860, 2021) — у
+           TMDB она вне коллекции 2344. */
         {
           id: 'matrix', title: 'Матрица', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 2344 } }
+          sources: { movie: { type: 'collection', id: 2344, movies: [624860] } }
         },
         {
           id: 'terminator', title: 'Терминатор', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 528 } }
+        },
+        /* Правка 2026-09-27 («в ЧП добавь старые фильмы про него, как и в
+           Бэтмена и прочее, например старый Марвел до КВМ»). Классические
+           франшизы, которых в каталоге не было вовсе, — наборы коллекций
+           (also/movies, разбор в src/43_sources.js). Живые запросы TMDB
+           через прокси Lampa, ru-RU, 2026-09-27.
+           «Звёздный путь» — три коллекции фильмов: TOS (151, 1979-1991, 6),
+           «Следующее поколение» (115570, 1994-2002, 4), перезапуск (115575,
+           2009-2016, 3) — 13 фильмов по дате. Сериалов нет: общего
+           ключевого слова у них нет (у TOS и TNG — «trek» 157156, у DS9 —
+           «star trek» 327763, у «Вояджера» и «Дискавери» — ни того, ни
+           другого), студии разные (Desilu, Paramount Television, CBS).
+           «Планета обезьян» — классика (1709, 1968-1973, 5), перезапуск
+           (173710, 2011-2024, 4) и фильм Бёртона 2001 года (869, вне
+           коллекций) — 10 фильмов. */
+        {
+          id: 'star-trek', title: 'Звёздный путь', i18n: { en: 'Star Trek', uk: 'Зоряний шлях' }, group: 'franchise', icon: 'film', cover: '/meqmvZjKpQ7WRhpZvIoKIAvioSD.jpg',
+          sources: { movie: { type: 'collection', id: 151, also: [115570, 115575] } }
+        },
+        {
+          id: 'planet-apes', title: 'Планета обезьян', i18n: { en: 'Planet of the Apes', uk: 'Планета мавп' }, group: 'franchise', icon: 'film', cover: '/gmJOXle5QeOOVFEYOVBOkmIJUWV.jpg',
+          sources: { movie: { type: 'collection', id: 1709, also: [173710], movies: [869] } }
         },
 
         /* Новые (26), проверены live — API_NOTES_4.md */
@@ -246,6 +270,36 @@
           id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 748 } }
         },
+        /* Правка 2026-09-27: «Классика Marvel» — Marvel до КВМ. Состав —
+           фильмы по комиксам Marvel, вышедшие до «Железного человека»
+           (2 мая 2008), и прямые продолжения тех же серий, снятые вне КВМ
+           до 2011 года («Каратель: Территория войны», «Росомаха» 2009,
+           «Призрачный гонщик 2»). Перезапуски после 2011 («Люди Икс: Первый
+           класс», «Новый Человек-паук») — в своих плитках.
+           Почему не discover: по студиям Marvel (420|7505|19551|…) с
+           primary_release_date.lte выдача теряет «Блэйда» и «Блэйда 2»,
+           «Говарда-утку» и «Карателя» 1989 года — у них на TMDB нет студии
+           Marvel в титрах. Поэтому состав задан явно: коллекции «Блэйд» (735,
+           1998-2004), «Человек-паук» Рэйми (556), «Каратель» (635362, 2004 и
+           2008), «Фантастическая четвёрка» (9744, 2005 и 2007), «Призрачный
+           гонщик» (90306, 2007 и 2011) и отдельные фильмы: «Говард-утка»
+           (10658, 1986), «Каратель» (8867, 1989), «Капитан Америка» (13995,
+           1990), «Люди Икс» (36657), «Люди Икс 2» (36658), «Люди Икс:
+           Последняя битва» (36668), «Люди Икс: Начало. Росомаха» (2080),
+           «Сорвиголова» (9480), «Халк» (1927), «Электра» (9947) — 22 фильма
+           по дате, 15 запросов (кэш неделя). Коллекции «Люди Икс» (748) и
+           «Росомаха» (453993) целиком не берутся: в них фильмы 2011-2019.
+           Не взяты: телефильмы 1977-1998 («Человек-паук», «Невероятный
+           Халк», «Капитан Америка» 1979, «Ник Фьюри»), «Леший» (18882, 2005 —
+           премьера на ТВ, 235 голосов) и неизданная «Фантастическая
+           четвёрка» 1994 года (22059).
+           Кадр плитки — «Блэйд» (1998): первым по дате шёл бы «Говард-утка»,
+           а кадр «Людей Икс» (2000) уже у плитки «Люди Икс» (первый по дате в
+           748) — на стенде две плитки подряд были одинаковыми. */
+        {
+          id: 'marvel-classic', title: 'Классика Marvel', i18n: { en: 'Classic Marvel', uk: 'Класика Marvel' }, group: 'franchise', icon: 'film', cover: '/7NKfxJrQn053UJeLftlx4m4NTzo.jpg',
+          sources: { movie: { type: 'collection', id: 735, also: [556, 635362, 9744, 90306], movies: [10658, 8867, 13995, 36657, 36658, 36668, 2080, 9480, 1927, 9947] } }
+        },
         /* «Вселенная DC» — все игровые фильмы и сериалы по комиксам DC, не
            только DCEU. Ключевые слова DCEU (229266) и DCU (312528) дают 18
            фильмов 2013-2026 и не знают ни Нолана, ни «Джокера», ни «Бэтмена»
@@ -274,9 +328,38 @@
             tv:    { type: 'discover', params: { companies: '429|9993|184898', sort_by: 'popularity.desc', filter: { without_genres: '99,10762,10751', 'vote_count.gte': 50 } } }
           }
         },
+        /* Правка 2026-09-27: «Классика DC» — DC до DCEU («Человек из
+           стали», 2013): игровые фильмы о героях DC. Коллекции «Супермен» с
+           Ривом (8537, 1978-1987, 4), «Бэтмен» Бёртона и Шумахера (120794,
+           1989-1997, 4), «Тёмный рыцарь» Нолана (263, 3) и отдельные фильмы:
+           «Бэтмен» 1966 (2661), «Супергёрл» (9651, 1984), «Женщина-кошка»
+           (314, 2004), «Константин» (561, 2005; коллекция 1025281 не взята —
+           в ней «Константин 2» без даты), «Возвращение Супермена» (1452,
+           2006), «Хранители» (13183, 2009), «Джона Хекс» (20533, 2010),
+           «Зелёный Фонарь» (44912, 2011) — 19 фильмов, 11 запросов. «Бэтмен»
+           1989, «Супермен» 1978 и «Константин» во «Вселенную DC» не попадают
+           (у них на TMDB нет студии DC в титрах, разбор выше), здесь они есть.
+           Не взяты: «Болотная тварь» (17918, 491 голос) и её продолжение,
+           «Сталь» (8854, 298 голосов), экранизации Vertigo и Paradox не о
+           героях DC («V значит вендетта», «Проклятый путь»).
+           Кадр плитки — «Супермен» (1978). */
         {
-          id: 'dark-knight', title: 'Тёмный рыцарь', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 263 } }
+          id: 'dc-classic', title: 'Классика DC', i18n: { en: 'Classic DC', uk: 'Класика DC' }, group: 'franchise', icon: 'film', cover: '/5PfHGXosySGs0l1JfeREspy3v6G.jpg',
+          sources: { movie: { type: 'collection', id: 8537, also: [120794, 263], movies: [2661, 9651, 314, 561, 1452, 13183, 20533, 44912] } }
+        },
+        /* Правка 2026-09-27: «Тёмный рыцарь» стал «Бэтменом» — все
+           игровые сольные фильмы о нём и полнометражный мультфильм, шедший в
+           кино: «Бэтмен» 1966 (2661), Бёртон и Шумахер (120794, 1989-1997),
+           «Бэтмен: Маска фантазма» (14919, 1993), Нолан (263, 2005-2012),
+           «Бэтмен» Ривза (948485: 2022 и анонс «Бэтмен 2», 2028) — 11
+           позиций, 5 запросов. id прежний: по нему плитку помнят ряды
+           главной, выбранные вручную (lumen_home_rows), и рулетка. «Тёмный
+           рыцарь» в синонимы не вынесен: синонимы каталога — только у сезонных
+           подборок (test/search.test.mjs), а сам фильм поиск Lampa находит.
+           Кадр — «Бэтмен» (1989). */
+        {
+          id: 'dark-knight', title: 'Бэтмен', i18n: { en: 'Batman', uk: 'Бетмен' }, group: 'franchise', icon: 'film', cover: '/rhc7OF7tC9HPu0X8DBKQJzaGRbu.jpg',
+          sources: { movie: { type: 'collection', id: 263, also: [120794, 948485], movies: [2661, 14919] } }
         },
         {
           id: 'james-bond', title: 'Джеймс Бонд', group: 'franchise', icon: 'film',
@@ -286,13 +369,22 @@
           id: 'fast-furious', title: 'Форсаж', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 9485 } }
         },
+        /* Правка 2026-09-27: коллекция «Чужой» (8091) — только четыре
+           фильма 1979-1997. Добавлены приквелы «Прометей» и «Завет»
+           (135416), «Чужой против Хищника» 2004 и 2007 (115762) и «Чужой:
+           Ромул» (945961; его коллекция 1434946 не взята — в ней сиквел без
+           даты) — 9 фильмов, 4 запроса. «Хищнику» (399: 1987-2025, 6) — те же
+           «Чужой против Хищника» и мультфильм «Хищник: Убийца убийц»
+           (1376434, 2025) — 9 фильмов, 3 запроса. Кадры плиток прежние
+           (первые по дате не изменились) — заданы, чтобы плитка не стоила
+           всех запросов набора. */
         {
-          id: 'alien', title: 'Чужой', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 8091 } }
+          id: 'alien', title: 'Чужой', group: 'franchise', icon: 'film', cover: '/AmR3JG1VQVxU8TfAvljUhfSFUOx.jpg',
+          sources: { movie: { type: 'collection', id: 8091, also: [135416, 115762], movies: [945961] } }
         },
         {
-          id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 399 } }
+          id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film', cover: '/YL3GPOiDcNraIJOVDCZsoOBoDy.jpg',
+          sources: { movie: { type: 'collection', id: 399, also: [115762], movies: [1376434] } }
         },
         {
           id: 'jurassic-park', title: 'Парк Юрского периода', group: 'franchise', icon: 'film',
@@ -306,9 +398,11 @@
           id: 'back-to-future', title: 'Назад в будущее', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 264 } }
         },
+        /* Правка 2026-09-27: + «Крид» 1-3 (312221, 480530, 677179; коллекция
+           553717 не взята — в ней «Крид 4» без даты) — 9 фильмов. */
         {
-          id: 'rocky', title: 'Рокки', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 1575 } }
+          id: 'rocky', title: 'Рокки', group: 'franchise', icon: 'film', cover: '/bacOuUnRBoAO1NjMfsAGX2EKRrS.jpg',
+          sources: { movie: { type: 'collection', id: 1575, movies: [312221, 480530, 677179] } }
         },
         {
           id: 'die-hard', title: 'Крепкий орешек', group: 'franchise', icon: 'film',
@@ -318,9 +412,15 @@
           id: 'pirates-caribbean', title: 'Пираты Карибского моря', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 295 } }
         },
+        /* Правка 2026-09-27: коллекция 8650 — только фильмы Бэя (2007-2017).
+           Вне коллекций на TMDB: мультфильм «Трансформеры» 1986 года (1857),
+           «Бамблби» (424783, 2018), «Трансформеры: Восхождение Звероботов»
+           (667538, 2023), «Трансформеры: Начало» (698687, 2024) — 9 фильмов.
+           Кадр — прежний («Трансформеры» 2007): первым по дате стал бы
+           мультфильм 1986 года. */
         {
-          id: 'transformers', title: 'Трансформеры', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 8650 } }
+          id: 'transformers', title: 'Трансформеры', group: 'franchise', icon: 'film', cover: '/iCDMBi6WLjUBnt24dNwHqqF81UL.jpg',
+          sources: { movie: { type: 'collection', id: 8650, movies: [1857, 424783, 667538, 698687] } }
         },
         {
           id: 'twilight', title: 'Сумерки. Сага', group: 'franchise', icon: 'film',
@@ -330,9 +430,11 @@
           id: 'hunger-games', title: 'Голодные игры', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 131635 } }
         },
+        /* Правка 2026-09-27: + «Дюна» Линча (841, 1984) — у TMDB она вне
+           коллекций. Кадр плитки теперь от неё (первая по дате). */
         {
           id: 'dune', title: 'Дюна', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 726871 } }
+          sources: { movie: { type: 'collection', id: 726871, movies: [841] } }
         },
         {
           id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film',
@@ -346,9 +448,19 @@
           id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 86066 } }
         },
+        /* Правка 2026-09-27: «Человек-паук» — все игровые фильмы и
+           «Через вселенные», а не только КВМ: Рэйми (556, 2002-2007), Уэбб
+           (125574, 2012-2014), КВМ (531241, 2017-2026), «Через вселенные»
+           (573436: 2018, 2023 и анонс 2027) — 12 позиций, 4 запроса. id
+           прежний (его помнят ряды главной и рулетка), базовая коллекция —
+           прежняя 531241: плагин без поддержки also покажет, как раньше, КВМ.
+           Не взяты телефильмы 1977-1981 (коллекция 225941: 218, 86 и 54
+           голоса) и «Вселенная Sony» («Веном», «Морбиус», «Мадам Паутина»,
+           «Крэйвен») — это не фильмы о Человеке-пауке. Кадр — «Человек-паук»
+           (2002). */
         {
-          id: 'spiderman-mcu', title: 'Человек-паук', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 531241 } }
+          id: 'spiderman-mcu', title: 'Человек-паук', i18n: { en: 'Spider-Man', uk: 'Людина-павук' }, group: 'franchise', icon: 'film', cover: '/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
+          sources: { movie: { type: 'collection', id: 531241, also: [556, 125574, 573436] } }
         },
         {
           id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film',
@@ -1361,8 +1473,9 @@
        - id подборок, групп, настроений, групп хаба и group — [\w-]{1,64};
        - источник: discover (ключи params — только известные Lampa, ключи
          filter — вида with_runtime.lte, значения — числа или строки из
-         [\w.,|:-]), collection/list (числовой id), kp (collection —
-         [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
+         [\w.,|:-]), collection/list (числовой id; у collection ещё
+         необязательные also и movies — непустые массивы до 24 числовых id),
+         kp (collection — [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
        - темы: id и preset — [a-z0-9-], accent — #rrggbb;
        - необязательные поля подборки (финальная проверка, L3): season —
          месяц 1–12 или массив месяцев, aliases — массив подписей (как
@@ -1430,10 +1543,27 @@
       return typeof v === 'string' && VALUE_RE.test(v);
     }
 
+    /* also / movies у коллекции (набор, src/43_sources.js): непустой массив
+       id TMDB, не длиннее SET_MAX — столько же запрашивает LC.sources. */
+    var SET_MAX = 24;
+    function idsOk(v) {
+      if (!Array.isArray(v) || !v.length || v.length > SET_MAX) return false;
+      for (var i = 0; i < v.length; i++) {
+        if ((typeof v[i] !== 'number' && typeof v[i] !== 'string') || !NUM_ID_RE.test(String(v[i]))) return false;
+      }
+      return true;
+    }
+
     function specOk(spec) {
       if (!spec || typeof spec !== 'object') return false;
       if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
-      if (spec.type === 'collection' || spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
+      if (spec.type === 'collection') {
+        if (!NUM_ID_RE.test(String(spec.id))) return false;
+        if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;
+        if (typeof spec.movies !== 'undefined' && !idsOk(spec.movies)) return false;
+        return true;
+      }
+      if (spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
       if (spec.type !== 'discover') return false;
       var p = spec.params;
       if (typeof p === 'undefined') return true;

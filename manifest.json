@@ -374,7 +374,10 @@
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 2344
+          "id": 2344,
+          "movies": [
+            624860
+          ]
         }
       }
     },
@@ -387,6 +390,50 @@
         "movie": {
           "type": "collection",
           "id": 528
+        }
+      }
+    },
+    {
+      "id": "star-trek",
+      "title": "Звёздный путь",
+      "i18n": {
+        "en": "Star Trek",
+        "uk": "Зоряний шлях"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/meqmvZjKpQ7WRhpZvIoKIAvioSD.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 151,
+          "also": [
+            115570,
+            115575
+          ]
+        }
+      }
+    },
+    {
+      "id": "planet-apes",
+      "title": "Планета обезьян",
+      "i18n": {
+        "en": "Planet of the Apes",
+        "uk": "Планета мавп"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/gmJOXle5QeOOVFEYOVBOkmIJUWV.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 1709,
+          "also": [
+            173710
+          ],
+          "movies": [
+            869
+          ]
         }
       }
     },
@@ -448,6 +495,41 @@
       }
     },
     {
+      "id": "marvel-classic",
+      "title": "Классика Marvel",
+      "i18n": {
+        "en": "Classic Marvel",
+        "uk": "Класика Marvel"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/7NKfxJrQn053UJeLftlx4m4NTzo.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 735,
+          "also": [
+            556,
+            635362,
+            9744,
+            90306
+          ],
+          "movies": [
+            10658,
+            8867,
+            13995,
+            36657,
+            36658,
+            36668,
+            2080,
+            9480,
+            1927,
+            9947
+          ]
+        }
+      }
+    },
+    {
       "id": "dc-universe",
       "title": "Вселенная DC",
       "i18n": {
@@ -483,14 +565,58 @@
       }
     },
     {
-      "id": "dark-knight",
-      "title": "Тёмный рыцарь",
+      "id": "dc-classic",
+      "title": "Классика DC",
+      "i18n": {
+        "en": "Classic DC",
+        "uk": "Класика DC"
+      },
       "group": "franchise",
       "icon": "film",
+      "cover": "/5PfHGXosySGs0l1JfeREspy3v6G.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 263
+          "id": 8537,
+          "also": [
+            120794,
+            263
+          ],
+          "movies": [
+            2661,
+            9651,
+            314,
+            561,
+            1452,
+            13183,
+            20533,
+            44912
+          ]
+        }
+      }
+    },
+    {
+      "id": "dark-knight",
+      "title": "Бэтмен",
+      "i18n": {
+        "en": "Batman",
+        "uk": "Бетмен"
+      },
+      "group": "franchise",
+      "icon": "film",
+      "cover": "/rhc7OF7tC9HPu0X8DBKQJzaGRbu.jpg",
+      "sources": {
+        "movie": {
+          "type": "collection",
+          "id": 263,
+          "also": [
+            120794,
+            948485
+          ],
+          "movies": [
+            2661,
+            14919
+          ]
         }
       }
     },
@@ -523,10 +649,18 @@
       "title": "Чужой",
       "group": "franchise",
       "icon": "film",
+      "cover": "/AmR3JG1VQVxU8TfAvljUhfSFUOx.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 8091
+          "id": 8091,
+          "also": [
+            135416,
+            115762
+          ],
+          "movies": [
+            945961
+          ]
         }
       }
     },
@@ -535,10 +669,17 @@
       "title": "Хищник",
       "group": "franchise",
       "icon": "film",
+      "cover": "/YL3GPOiDcNraIJOVDCZsoOBoDy.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 399
+          "id": 399,
+          "also": [
+            115762
+          ],
+          "movies": [
+            1376434
+          ]
         }
       }
     },
@@ -583,10 +724,16 @@
       "title": "Рокки",
       "group": "franchise",
       "icon": "film",
+      "cover": "/bacOuUnRBoAO1NjMfsAGX2EKRrS.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 1575
+          "id": 1575,
+          "movies": [
+            312221,
+            480530,
+            677179
+          ]
         }
       }
     },
@@ -619,10 +766,17 @@
       "title": "Трансформеры",
       "group": "franchise",
       "icon": "film",
+      "cover": "/iCDMBi6WLjUBnt24dNwHqqF81UL.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 8650
+          "id": 8650,
+          "movies": [
+            1857,
+            424783,
+            667538,
+            698687
+          ]
         }
       }
     },
@@ -658,7 +812,10 @@
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 726871
+          "id": 726871,
+          "movies": [
+            841
+          ]
         }
       }
     },
@@ -701,12 +858,22 @@
     {
       "id": "spiderman-mcu",
       "title": "Человек-паук",
+      "i18n": {
+        "en": "Spider-Man",
+        "uk": "Людина-павук"
+      },
       "group": "franchise",
       "icon": "film",
+      "cover": "/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg",
       "sources": {
         "movie": {
           "type": "collection",
-          "id": 531241
+          "id": 531241,
+          "also": [
+            556,
+            125574,
+            573436
+          ]
         }
       }
     },

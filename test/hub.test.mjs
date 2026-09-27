@@ -335,6 +335,32 @@ test('sortLocal: rating/new/popular, копия массива', function () {
   assert.deepEqual(H.sortLocal(list, 'new').map(function (x) { return x.id; }), [2, 3, 1]);
   assert.equal(list[0].id, 1, 'исходный массив не переставлен');
 });
+/* Правка 2026-09-27: франшиза из коллекций TMDB открывается «По годам»
+   (разбор у byYears в src/46_hub.js). */
+test('sortModes: у подборки из коллекций первым — «По годам», и сетка открывается им', function () {
+  var col = { id: 's', sources: { movie: { type: 'collection', id: 531241, also: [556] } } };
+  assert.deepEqual(H.sortModes(col).map(function (x) { return x.id; }), ['years', 'popular', 'rating', 'new']);
+  assert.equal(H.sortModes(col)[0].key, 'lumen_fr_order_release', 'строка «По годам» ряда «Смотреть по порядку»');
+  assert.equal(H.defaultSort(col), 'years');
+  var disc = { id: 'd', sources: { movie: { type: 'discover', params: {} } } };
+  var kp = { id: 'k', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+  var list = { id: 'l', sources: { movie: { type: 'list', id: 10 } } };
+  var mixed = { id: 'm', sources: { movie: { type: 'collection', id: 1241 }, tv: { type: 'discover', params: {} } } };
+  [disc, kp, list, mixed, null].forEach(function (it) {
+    assert.deepEqual(H.sortModes(it).map(function (x) { return x.id; }), ['popular', 'rating', 'new']);
+    assert.equal(H.defaultSort(it), 'popular');
+  });
+});
+
+test('sortLocal: years — старые первыми, анонс без даты в конце', function () {
+  var list = [
+    { id: 1, release_date: '2017-07-05' }, { id: 2, release_date: '' },
+    { id: 3, release_date: '2002-05-01' }, { id: 4, first_air_date: '1999-01-01' }
+  ];
+  assert.deepEqual(H.sortLocal(list, 'years').map(function (x) { return x.id; }), [4, 3, 1, 2]);
+  assert.deepEqual(list.map(function (x) { return x.id; }), [1, 2, 3, 4], 'копия, оригинал не тронут');
+});
+
 test('sortLocal: пустое/мусор не роняет', function () {
   assert.deepEqual(H.sortLocal(null, 'rating'), []);
   assert.deepEqual(H.sortLocal([{ id: 1 }], 'nope').map(function (x) { return x.id; }), [1]);
@@ -1888,12 +1914,15 @@ test('lumen_grid: коллекция сортируется на месте, б�
   });
   g.comp.start();
   var chips = g.root.all('lumen-chip');
-  assert.equal(chips.length, 3, 'три чипа сортировки');
+  /* Правка 2026-09-27: у подборки из коллекций TMDB первый чип — «По
+     годам», и сетка открывается им. */
+  assert.equal(chips.length, 4, '«По годам» и три чипа сортировки');
+  assert.ok(chips[0].hasClass('lumen-chip--on'), 'открыта «По годам»');
   assert.equal(g.root.all('lumen-gcard')[0].card_data.id, 1, 'исходный порядок — хронологический');
-  fire(chips[1], 'hover:enter');
+  fire(chips[2], 'hover:enter');
   assert.equal(g.h.fetchCalls.length, 1, 'коллекция уже загружена целиком — в сеть не идём');
   assert.equal(g.root.all('lumen-gcard')[0].card_data.id, 2, 'первым — с большим рейтингом');
-  assert.ok(chips[1].hasClass('lumen-chip--on'));
+  assert.ok(chips[2].hasClass('lumen-chip--on'));
 });
 
 test('lumen_grid: у discover-подборки смена сортировки уходит в запрос через sort_by', function () {

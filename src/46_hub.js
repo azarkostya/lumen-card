@@ -8,7 +8,7 @@
   /*   openTarget(item) → объект для Lampa.Activity.push                    */
   /*   open(item) — открыть подборку (фолбэк на свою сетку; «Ещё» рядов)    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
-  /*   sortModes() / applySort(item, mode) / sortLocal(results, mode)       */
+  /*   sortModes(item) / defaultSort(item) / applySort / sortLocal         */
   /*   needsLocalSort(item) / cardMedia(card)                              */
   /*   hasMore(json)                                                        */
   /*   install() — регистрация компонентов и пункта меню (идемпотентно)     */
@@ -332,12 +332,38 @@
       'new': { movie: 'primary_release_date.desc', tv: 'first_air_date.desc' }
     };
 
-    function sortModes() {
-      return [
-        { id: 'popular', key: 'lumen_sort_popular' },
-        { id: 'rating', key: 'lumen_sort_rating' },
-        { id: 'new', key: 'lumen_sort_new' }
-      ];
+    /* Правка 2026-09-27: франшиза — это история, и смотрят её по порядку.
+       Сетка «Человека-паука» из четырёх коллекций TMDB по популярности
+       шла так: «Новый день» (2026), «Нет пути домой», «Паутина вселенных»,
+       «Человек-паук» (2002), «Через вселенные», «Возвращение домой», «Новый
+       Человек-паук», «Человек-паук 3»… — эпохи вперемешку (замер на стенде).
+       Поэтому у подборки из одних коллекций TMDB первый чип — «По годам»
+       (строка ряда «Смотреть по порядку», src/66_franchise.js), и сетка
+       открывается им. Прочим подборкам (discover, список TMDB, Кинопоиск)
+       порядок по годам ничего не добавляет — у них три прежних чипа. */
+    function byYears(item) {
+      var src = (item && item.sources) || {};
+      var any = false;
+      for (var k in src) {
+        if (!src.hasOwnProperty(k) || !src[k]) continue;
+        if (src[k].type !== 'collection') return false;
+        any = true;
+      }
+      return any;
+    }
+
+    function sortModes(item) {
+      var out = [];
+      if (byYears(item)) out.push({ id: 'years', key: 'lumen_fr_order_release' });
+      out.push({ id: 'popular', key: 'lumen_sort_popular' });
+      out.push({ id: 'rating', key: 'lumen_sort_rating' });
+      out.push({ id: 'new', key: 'lumen_sort_new' });
+      return out;
+    }
+
+    /* Режим, которым сетка открывается. */
+    function defaultSort(item) {
+      return byYears(item) ? 'years' : 'popular';
     }
 
     /* Подборка с подменённым sort_by у discover-источников. Оригинал не
@@ -401,6 +427,16 @@
           var db = cardDate(b);
           if (da > db) return -1;
           if (da < db) return 1;
+          return 0;
+        });
+      } else if (mode === 'years') {
+        /* По годам: старые первыми, без даты (анонс) — в конце, как в
+           LC.sources.normalize у коллекции. */
+        list.sort(function (a, b) {
+          var da = cardDate(a) || '9999';
+          var db = cardDate(b) || '9999';
+          if (da < db) return -1;
+          if (da > db) return 1;
           return 0;
         });
       }
@@ -1479,7 +1515,7 @@
 
       var gen = 0;
       var handles = [];
-      var sortMode = 'popular';
+      var sortMode = defaultSort(item);
       var page = 1;
       var totalPages = 1;
       var totalResults = 0;
@@ -1840,7 +1876,7 @@
 
       function renderSub() {
         var mode = null;
-        var modes = sortModes();
+        var modes = sortModes(item);
         for (var i = 0; i < modes.length; i++) if (modes[i].id === sortMode) mode = modes[i];
         var parts = [];
         if (totalResults) parts.push(LC.lang('lumen_grid_total') + ' ' + totalResults);
@@ -2016,7 +2052,7 @@
         head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
         head.append(subtitle);
         root.append(head);
-        var modes = sortModes();
+        var modes = sortModes(item);
         for (var i = 0; i < modes.length; i++) {
           var node = sortNode(modes[i]);
           sortsRow.append(node);
@@ -2238,6 +2274,7 @@
       rouletteMedia: rouletteMedia,
       franchiseItem: franchiseItem,
       sortModes: sortModes,
+      defaultSort: defaultSort,
       applySort: applySort,
       sortLocal: sortLocal,
       needsLocalSort: needsLocalSort,

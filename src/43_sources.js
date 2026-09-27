@@ -7,6 +7,7 @@
   /*   discoverUrl(spec, media) → строка для category_full                  */
   /*   kpToFinds(json, limit) → [imdbId, ...]                               */
   /*   mergeMedia(movies, tv) → [card, ...]                                 */
+  /*   isSet / setRequests / partOf / setParts — коллекция с also/movies    */
   /*   fetchOne(spec, media, page, ok, err, alive) — runtime, требует Lampa */
   /*   fetch(item, page, ok, err, alive) → {clear} — runtime, требует Lampa */
   /*                                                                        */
@@ -269,6 +270,137 @@
       return out;
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Франшиза из нескольких коллекций TMDB и отдельных фильмов.          */
+    /*                                                                     */
+    /* Жалоба 2026-09-27: «в ЧП добавь старые фильмы про него, как и в      */
+    /* Бэтмена и прочее, например старый Марвел до КВМ». Одна коллекция     */
+    /* TMDB — это одна эпоха: «Человек-паук» Рэйми (556), Уэбба (125574),   */
+    /* КВМ (531241) и «Через вселенные» (573436) — четыре разные коллекции, */
+    /* а ключевых слов персонажа («spider-man», «batman») у фильмов TMDB    */
+    /* больше нет (у 557, 1930, 315635, 268, 414906 их нет — проверено      */
+    /* живыми запросами), то есть discover по слову их не соберёт. Часть    */
+    /* фильмов не входит ни в одну коллекцию вовсе: «Дюна» Линча (841),     */
+    /* «Матрица: Воскрешение» (624860), «Бамблби» (424783), «Бэтмен» 1966   */
+    /* (2661).                                                              */
+    /*                                                                     */
+    /* Поэтому у источника collection два необязательных поля: also —       */
+    /* ещё коллекции, movies — отдельные фильмы (id TMDB). Базовая id       */
+    /* остаётся прежней: плагин без этой правки их не знает, проверку       */
+    /* каталога проходит и показывает, как раньше, одну базовую коллекцию.  */
+    /* Запросы — по одному на коллекцию и на фильм, параллельно, с кэшем    */
+    /* коллекции (неделя); части склеиваются без повторов и сортируются по  */
+    /* дате выхода, как одна коллекция (normalize).                         */
+    /* ------------------------------------------------------------------ */
+
+    var NUM_ID = /^\d{1,12}$/;
+    /* Предел на каждое поле — столько же, сколько пропускает проверка
+       каталога (LC.manifest.validate): лишнее не запрашивается, даже если
+       каталог пришёл без проверки. */
+    var SET_MAX = 24;
+    /* Свой дедлайн — короче общего (FETCH_TIMEOUT): то, что пришло,
+       успевает уйти подборке раньше, чем её сборщик закроется пустым. */
+    var SET_TIMEOUT = 12000;
+
+    function idList(v) {
+      var out = [];
+      if (!Array.isArray(v)) return out;
+      for (var i = 0; i < v.length && out.length < SET_MAX; i++) {
+        if (NUM_ID.test(String(v[i]))) out.push(String(v[i]));
+      }
+      return out;
+    }
+
+    /* Источник-коллекция с добавками (also/movies)? */
+    function isSet(spec) {
+      return !!(spec && spec.type === 'collection' && (idList(spec.also).length || idList(spec.movies).length));
+    }
+
+    /* Все запросы источника-набора: базовая коллекция, добавочные, фильмы. */
+    function setRequests(spec) {
+      var out = [{ url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC, kind: 'collection' }];
+      var also = idList(spec.also);
+      var movies = idList(spec.movies);
+      var i;
+      for (i = 0; i < also.length; i++) out.push({ url: 'collection/' + also[i], params: {}, life: LIFE_STATIC, kind: 'collection' });
+      for (i = 0; i < movies.length; i++) out.push({ url: 'movie/' + movies[i], params: {}, life: LIFE_STATIC, kind: 'movie' });
+      return out;
+    }
+
+    /* Ответ movie/{id} → запись того же вида, что part коллекции TMDB
+       (genres → genre_ids). Лишние поля деталей (бюджет, студии, …) в
+       карточку не идут: она живёт в DOM и в кэше рядов. */
+    function partOf(m) {
+      if (!m || !m.id) return null;
+      var g = [];
+      var list = m.genres || [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].id) g.push(list[i].id);
+      }
+      return {
+        adult: !!m.adult,
+        backdrop_path: m.backdrop_path || null,
+        id: m.id,
+        title: m.title || '',
+        original_title: m.original_title || '',
+        original_language: m.original_language || '',
+        overview: m.overview || '',
+        poster_path: m.poster_path || null,
+        media_type: 'movie',
+        genre_ids: g,
+        popularity: m.popularity || 0,
+        release_date: m.release_date || '',
+        video: !!m.video,
+        vote_average: m.vote_average || 0,
+        vote_count: m.vote_count || 0
+      };
+    }
+
+    /* Карточки ответов набора (по порядку запросов, пропуски — мимо). */
+    function setParts(reqs, answers) {
+      var parts = [];
+      var seen = {};
+      for (var i = 0; i < reqs.length; i++) {
+        var json = answers[i];
+        if (!json) continue;
+        var list = reqs[i].kind === 'movie' ? [partOf(json)] : (json.parts || []);
+        for (var k = 0; k < list.length; k++) {
+          var p = list[k];
+          if (!p || !p.id || seen[p.id]) continue;
+          seen[p.id] = 1;
+          parts.push(p);
+        }
+      }
+      return parts;
+    }
+
+    /* Набор целиком: ok(ответ вида normalize('collection')) — если пришёл
+       хоть один ответ; err — если не пришло ничего. */
+    function fetchSet(spec, ok, err, alive) {
+      var gen = alive ? alive() : 0;
+      function dead() { return alive && alive() !== gen; }
+      var reqs = setRequests(spec);
+      var answers = [];
+      var got = 0;
+      var gate = LC.util.gate(reqs.length, SET_TIMEOUT, function () {
+        if (dead()) return;
+        if (!got) { err({ set_failed: true }); return; }
+        ok(normalize('collection', { parts: setParts(reqs, answers) }));
+      });
+      LC.util.each(reqs, function (r, i) {
+        Lampa.Api.sources.tmdb.get(
+          r.url,
+          r.params,
+          function (json) {
+            if (json && !dead()) { answers[i] = json; got++; }
+            gate.tick();
+          },
+          function () { gate.tick(); },
+          { life: r.life }
+        );
+      });
+    }
+
     /* Строит URL для Lampa.Activity.push({component:'category_full', url:…}).
        Раскрывает filter{} как плоские параметры query.
        encodeURIComponent: числа и типичные строки (popularity.desc, KR) не меняются. */
@@ -436,6 +568,7 @@
        последним подписчиком). */
     function fetchOne(spec, media, page, ok, err, alive) {
       if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
+      if (isSet(spec)) { fetchSet(spec, ok, err, alive); return null; }
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
       var r = buildRequest(spec, media, page);
@@ -915,13 +1048,27 @@
       if (src.tv && src.tv.type !== 'kp') want.push('tv');
       if (!want.length) { done(0); return; }
 
+      /* Набор (коллекция с also/movies) — это несколько запросов, и
+         английский список нужен у каждого: иначе постеры сменились бы только
+         у базовой коллекции. */
+      var jobs = [];
+      LC.util.each(want, function (media) {
+        var spec = src[media];
+        if (isSet(spec)) {
+          LC.util.each(setRequests(spec), function (r) { jobs.push(r); });
+          return;
+        }
+        var one = buildRequest(spec, media, page || 1);
+        one.kind = spec.type;
+        jobs.push(one);
+      });
+
       var map = {};
-      var gate = LC.util.gate(want.length, POSTERS_TIMEOUT, function () {
+      var gate = LC.util.gate(jobs.length, POSTERS_TIMEOUT, function () {
         done(applyPosters(cards, map));
       });
 
-      LC.util.each(want, function (media) {
-        var r = buildRequest(src[media], media, page || 1);
+      LC.util.each(jobs, function (r) {
         var params = {};
         var k;
         for (k in r.params) {
@@ -932,7 +1079,7 @@
           r.url,
           params,
           function (json) {
-            if (!dead()) posterIndex(normalize(src[media].type, json).results, map);
+            if (!dead()) posterIndex(r.kind === 'movie' ? [json] : normalize(r.kind, json).results, map);
             gate.tick();
           },
           function () { gate.tick(); },
@@ -1008,6 +1155,11 @@
       mergeMedia: mergeMedia,
       sortSignature: sortSignature,
       fetchOne: fetchOne,
+      /* Набор коллекций и фильмов: чистые части наружу ради тестов. */
+      isSet: isSet,
+      setRequests: setRequests,
+      partOf: partOf,
+      setParts: setParts,
       kpPosters: kpPosters,
       bannerPath: bannerPath,
       /* Постеры: чистые части наружу ради тестов, posters — ради рядов

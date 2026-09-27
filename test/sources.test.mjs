@@ -306,3 +306,59 @@ test('S3: discoverUrl — неизвестные ключи и кривые кл
   const spec = { type: 'discover', params: { genres: 18, api_key: 'x', 'a&b': 1, filter: { 'x&y': 1, 'vote_count.gte': 50 } } };
   assert.equal(S.discoverUrl(spec, 'movie'), 'discover/movie?with_genres=18&vote_count.gte=50');
 });
+
+/* Правка 2026-09-27: франшиза из нескольких коллекций TMDB и отдельных
+   фильмов (collection + also/movies) — «Человек-паук» Рэйми, Уэбба, КВМ и
+   «Через вселенные», «Бэтмен» 1966, «Дюна» Линча. Разбор — у isSet в
+   src/43_sources.js. */
+test('наборы: isSet — только коллекция с непустыми also или movies', () => {
+  assert.equal(S.isSet({ type: 'collection', id: 531241 }), false, 'обычная коллекция — прежний путь');
+  assert.equal(S.isSet({ type: 'collection', id: 531241, also: [] }), false);
+  assert.equal(S.isSet({ type: 'collection', id: 531241, also: [556] }), true);
+  assert.equal(S.isSet({ type: 'collection', id: 726871, movies: [841] }), true);
+  assert.equal(S.isSet({ type: 'collection', id: 1, also: ['x/../y'] }), false, 'кривые id не считаются');
+  assert.equal(S.isSet({ type: 'list', id: 10, also: [556] }), false, 'у списка добавок нет');
+  assert.equal(S.isSet({ type: 'discover', params: {}, movies: [841] }), false);
+  assert.equal(S.isSet(null), false);
+});
+
+test('наборы: setRequests — базовая коллекция, добавочные, фильмы; кэш неделя; кривое и лишнее — мимо', () => {
+  const reqs = S.setRequests({ type: 'collection', id: 531241, also: [556, '125574', 'x'], movies: [2661] });
+  assert.deepEqual(reqs.map(r => r.url), ['collection/531241', 'collection/556', 'collection/125574', 'movie/2661']);
+  assert.deepEqual(reqs.map(r => r.kind), ['collection', 'collection', 'collection', 'movie']);
+  for (const r of reqs) {
+    assert.equal(r.life, 10080);
+    assert.deepEqual(r.params, {});
+  }
+  const many = S.setRequests({ type: 'collection', id: 1, movies: new Array(30).fill(7) });
+  assert.equal(many.length, 1 + 24, 'добавок не больше 24 на поле, как в проверке каталога');
+});
+
+test('наборы: partOf — детали фильма в виде части коллекции (genres → genre_ids)', () => {
+  const p = S.partOf({ id: 2661, title: 'Бэтмен', original_title: 'Batman', release_date: '1966-07-30', poster_path: '/p.jpg',
+    backdrop_path: '/b.jpg', vote_average: 6.2, vote_count: 1099, genres: [{ id: 28, name: 'боевик' }, { id: 35, name: 'комедия' }],
+    budget: 1377800, production_companies: [{ id: 1 }], belongs_to_collection: null, runtime: 105 });
+  assert.equal(p.id, 2661);
+  assert.equal(p.title, 'Бэтмен');
+  assert.deepEqual(p.genre_ids, [28, 35]);
+  assert.equal(p.media_type, 'movie');
+  assert.equal(p.budget, undefined, 'детали фильма в карточку не идут');
+  assert.equal(p.runtime, undefined);
+  assert.equal(S.partOf(null), null);
+  assert.equal(S.partOf({}), null);
+});
+
+test('наборы: setParts — по порядку запросов, без повторов и пропусков; normalize ставит по дате', () => {
+  const reqs = S.setRequests({ type: 'collection', id: 531241, also: [556], movies: [557, 2661] });
+  const answers = [
+    { parts: [{ id: 315635, title: 'Возвращение домой', release_date: '2017-07-05' }] },
+    undefined,
+    { id: 557, title: 'Человек-паук', release_date: '2002-05-01', genres: [] },
+    { id: 2661, title: 'Бэтмен', release_date: '1966-07-30', genres: [] }
+  ];
+  const parts = S.setParts(reqs, answers);
+  assert.deepEqual(parts.map(p => p.id), [315635, 557, 2661], 'пропавший ответ — мимо');
+  const both = S.setParts(reqs, [answers[0], { parts: [{ id: 557, title: 'Человек-паук', release_date: '2002-05-01' }] }, answers[2], answers[3]]);
+  assert.deepEqual(both.map(p => p.id), [315635, 557, 2661], 'фильм и в коллекции, и отдельно — один раз');
+  assert.deepEqual(S.normalize('collection', { parts: both }).results.map(p => p.id), [2661, 557, 315635]);
+});

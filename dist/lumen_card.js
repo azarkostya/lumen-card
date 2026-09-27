@@ -8226,13 +8226,37 @@ sources: { movie: { type: 'collection', id: 404609 } }
 id: 'mission-impossible', title: 'Миссия невыполнима', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 87359 } }
 },
+
+
 {
 id: 'matrix', title: 'Матрица', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 2344 } }
+sources: { movie: { type: 'collection', id: 2344, movies: [624860] } }
 },
 {
 id: 'terminator', title: 'Терминатор', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 528 } }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'star-trek', title: 'Звёздный путь', i18n: { en: 'Star Trek', uk: 'Зоряний шлях' }, group: 'franchise', icon: 'film', cover: '/meqmvZjKpQ7WRhpZvIoKIAvioSD.jpg',
+sources: { movie: { type: 'collection', id: 151, also: [115570, 115575] } }
+},
+{
+id: 'planet-apes', title: 'Планета обезьян', i18n: { en: 'Planet of the Apes', uk: 'Планета мавп' }, group: 'franchise', icon: 'film', cover: '/gmJOXle5QeOOVFEYOVBOkmIJUWV.jpg',
+sources: { movie: { type: 'collection', id: 1709, also: [173710], movies: [869] } }
 },
 
 
@@ -8299,6 +8323,36 @@ sources: { movie: { type: 'collection', id: 748 } }
 
 
 
+
+
+
+
+
+{
+id: 'marvel-classic', title: 'Классика Marvel', i18n: { en: 'Classic Marvel', uk: 'Класика Marvel' }, group: 'franchise', icon: 'film', cover: '/7NKfxJrQn053UJeLftlx4m4NTzo.jpg',
+sources: { movie: { type: 'collection', id: 735, also: [556, 635362, 9744, 90306], movies: [10658, 8867, 13995, 36657, 36658, 36668, 2080, 9480, 1927, 9947] } }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {
 id: 'dc-universe', title: 'Вселенная DC', i18n: { en: 'DC Universe', uk: 'Всесвіт DC' }, group: 'franchise', icon: 'film', cover: '/pcDc2WJAYGJTTvRSEIpRZwM3Ola.jpg',
 sources: {
@@ -8306,9 +8360,38 @@ movie: { type: 'discover', params: { companies: '429|9993|128064|184898', sort_b
 tv:    { type: 'discover', params: { companies: '429|9993|184898', sort_by: 'popularity.desc', filter: { without_genres: '99,10762,10751', 'vote_count.gte': 50 } } }
 }
 },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {
-id: 'dark-knight', title: 'Тёмный рыцарь', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 263 } }
+id: 'dc-classic', title: 'Классика DC', i18n: { en: 'Classic DC', uk: 'Класика DC' }, group: 'franchise', icon: 'film', cover: '/5PfHGXosySGs0l1JfeREspy3v6G.jpg',
+sources: { movie: { type: 'collection', id: 8537, also: [120794, 263], movies: [2661, 9651, 314, 561, 1452, 13183, 20533, 44912] } }
+},
+
+
+
+
+
+
+
+
+
+
+{
+id: 'dark-knight', title: 'Бэтмен', i18n: { en: 'Batman', uk: 'Бетмен' }, group: 'franchise', icon: 'film', cover: '/rhc7OF7tC9HPu0X8DBKQJzaGRbu.jpg',
+sources: { movie: { type: 'collection', id: 263, also: [120794, 948485], movies: [2661, 14919] } }
 },
 {
 id: 'james-bond', title: 'Джеймс Бонд', group: 'franchise', icon: 'film',
@@ -8318,13 +8401,22 @@ sources: { movie: { type: 'collection', id: 645 } }
 id: 'fast-furious', title: 'Форсаж', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 9485 } }
 },
+
+
+
+
+
+
+
+
+
 {
-id: 'alien', title: 'Чужой', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 8091 } }
+id: 'alien', title: 'Чужой', group: 'franchise', icon: 'film', cover: '/AmR3JG1VQVxU8TfAvljUhfSFUOx.jpg',
+sources: { movie: { type: 'collection', id: 8091, also: [135416, 115762], movies: [945961] } }
 },
 {
-id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 399 } }
+id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film', cover: '/YL3GPOiDcNraIJOVDCZsoOBoDy.jpg',
+sources: { movie: { type: 'collection', id: 399, also: [115762], movies: [1376434] } }
 },
 {
 id: 'jurassic-park', title: 'Парк Юрского периода', group: 'franchise', icon: 'film',
@@ -8338,9 +8430,11 @@ sources: { movie: { type: 'collection', id: 84 } }
 id: 'back-to-future', title: 'Назад в будущее', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 264 } }
 },
+
+
 {
-id: 'rocky', title: 'Рокки', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 1575 } }
+id: 'rocky', title: 'Рокки', group: 'franchise', icon: 'film', cover: '/bacOuUnRBoAO1NjMfsAGX2EKRrS.jpg',
+sources: { movie: { type: 'collection', id: 1575, movies: [312221, 480530, 677179] } }
 },
 {
 id: 'die-hard', title: 'Крепкий орешек', group: 'franchise', icon: 'film',
@@ -8350,9 +8444,15 @@ sources: { movie: { type: 'collection', id: 1570 } }
 id: 'pirates-caribbean', title: 'Пираты Карибского моря', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 295 } }
 },
+
+
+
+
+
+
 {
-id: 'transformers', title: 'Трансформеры', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 8650 } }
+id: 'transformers', title: 'Трансформеры', group: 'franchise', icon: 'film', cover: '/iCDMBi6WLjUBnt24dNwHqqF81UL.jpg',
+sources: { movie: { type: 'collection', id: 8650, movies: [1857, 424783, 667538, 698687] } }
 },
 {
 id: 'twilight', title: 'Сумерки. Сага', group: 'franchise', icon: 'film',
@@ -8362,9 +8462,11 @@ sources: { movie: { type: 'collection', id: 33514 } }
 id: 'hunger-games', title: 'Голодные игры', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 131635 } }
 },
+
+
 {
 id: 'dune', title: 'Дюна', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 726871 } }
+sources: { movie: { type: 'collection', id: 726871, movies: [841] } }
 },
 {
 id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film',
@@ -8378,9 +8480,19 @@ sources: { movie: { type: 'collection', id: 10194 } }
 id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 86066 } }
 },
+
+
+
+
+
+
+
+
+
+
 {
-id: 'spiderman-mcu', title: 'Человек-паук', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 531241 } }
+id: 'spiderman-mcu', title: 'Человек-паук', i18n: { en: 'Spider-Man', uk: 'Людина-павук' }, group: 'franchise', icon: 'film', cover: '/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
+sources: { movie: { type: 'collection', id: 531241, also: [556, 125574, 573436] } }
 },
 {
 id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film',
@@ -9402,6 +9514,7 @@ ambient: [
 
 
 
+
 var ID_RE = /^[\w-]{1,64}$/;
 var KP_RE = /^[A-Z0-9_]{1,64}$/;
 var NUM_ID_RE = /^\d{1,12}$/;
@@ -9462,10 +9575,27 @@ if (typeof v === 'boolean') return true;
 return typeof v === 'string' && VALUE_RE.test(v);
 }
 
+
+
+var SET_MAX = 24;
+function idsOk(v) {
+if (!Array.isArray(v) || !v.length || v.length > SET_MAX) return false;
+for (var i = 0; i < v.length; i++) {
+if ((typeof v[i] !== 'number' && typeof v[i] !== 'string') || !NUM_ID_RE.test(String(v[i]))) return false;
+}
+return true;
+}
+
 function specOk(spec) {
 if (!spec || typeof spec !== 'object') return false;
 if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
-if (spec.type === 'collection' || spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
+if (spec.type === 'collection') {
+if (!NUM_ID_RE.test(String(spec.id))) return false;
+if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;
+if (typeof spec.movies !== 'undefined' && !idsOk(spec.movies)) return false;
+return true;
+}
+if (spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
 if (spec.type !== 'discover') return false;
 var p = spec.params;
 if (typeof p === 'undefined') return true;
@@ -9694,6 +9824,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 43_sources.js ---- */
+
 
 
 
@@ -9968,6 +10099,137 @@ return out;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var NUM_ID = /^\d{1,12}$/;
+
+
+
+var SET_MAX = 24;
+
+
+var SET_TIMEOUT = 12000;
+
+function idList(v) {
+var out = [];
+if (!Array.isArray(v)) return out;
+for (var i = 0; i < v.length && out.length < SET_MAX; i++) {
+if (NUM_ID.test(String(v[i]))) out.push(String(v[i]));
+}
+return out;
+}
+
+
+function isSet(spec) {
+return !!(spec && spec.type === 'collection' && (idList(spec.also).length || idList(spec.movies).length));
+}
+
+
+function setRequests(spec) {
+var out = [{ url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC, kind: 'collection' }];
+var also = idList(spec.also);
+var movies = idList(spec.movies);
+var i;
+for (i = 0; i < also.length; i++) out.push({ url: 'collection/' + also[i], params: {}, life: LIFE_STATIC, kind: 'collection' });
+for (i = 0; i < movies.length; i++) out.push({ url: 'movie/' + movies[i], params: {}, life: LIFE_STATIC, kind: 'movie' });
+return out;
+}
+
+
+
+
+function partOf(m) {
+if (!m || !m.id) return null;
+var g = [];
+var list = m.genres || [];
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].id) g.push(list[i].id);
+}
+return {
+adult: !!m.adult,
+backdrop_path: m.backdrop_path || null,
+id: m.id,
+title: m.title || '',
+original_title: m.original_title || '',
+original_language: m.original_language || '',
+overview: m.overview || '',
+poster_path: m.poster_path || null,
+media_type: 'movie',
+genre_ids: g,
+popularity: m.popularity || 0,
+release_date: m.release_date || '',
+video: !!m.video,
+vote_average: m.vote_average || 0,
+vote_count: m.vote_count || 0
+};
+}
+
+
+function setParts(reqs, answers) {
+var parts = [];
+var seen = {};
+for (var i = 0; i < reqs.length; i++) {
+var json = answers[i];
+if (!json) continue;
+var list = reqs[i].kind === 'movie' ? [partOf(json)] : (json.parts || []);
+for (var k = 0; k < list.length; k++) {
+var p = list[k];
+if (!p || !p.id || seen[p.id]) continue;
+seen[p.id] = 1;
+parts.push(p);
+}
+}
+return parts;
+}
+
+
+
+function fetchSet(spec, ok, err, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+var reqs = setRequests(spec);
+var answers = [];
+var got = 0;
+var gate = LC.util.gate(reqs.length, SET_TIMEOUT, function () {
+if (dead()) return;
+if (!got) { err({ set_failed: true }); return; }
+ok(normalize('collection', { parts: setParts(reqs, answers) }));
+});
+LC.util.each(reqs, function (r, i) {
+Lampa.Api.sources.tmdb.get(
+r.url,
+r.params,
+function (json) {
+if (json && !dead()) { answers[i] = json; got++; }
+gate.tick();
+},
+function () { gate.tick(); },
+{ life: r.life }
+);
+});
+}
+
+
+
+
 function discoverUrl(spec, media) {
 var q = [];
 var p = spec.params || {};
@@ -10132,6 +10394,7 @@ return net;
 
 function fetchOne(spec, media, page, ok, err, alive) {
 if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
+if (isSet(spec)) { fetchSet(spec, ok, err, alive); return null; }
 var gen = alive ? alive() : 0;
 function dead() { return alive && alive() !== gen; }
 var r = buildRequest(spec, media, page);
@@ -10611,13 +10874,27 @@ if (src.movie && src.movie.type !== 'kp') want.push('movie');
 if (src.tv && src.tv.type !== 'kp') want.push('tv');
 if (!want.length) { done(0); return; }
 
+
+
+
+var jobs = [];
+LC.util.each(want, function (media) {
+var spec = src[media];
+if (isSet(spec)) {
+LC.util.each(setRequests(spec), function (r) { jobs.push(r); });
+return;
+}
+var one = buildRequest(spec, media, page || 1);
+one.kind = spec.type;
+jobs.push(one);
+});
+
 var map = {};
-var gate = LC.util.gate(want.length, POSTERS_TIMEOUT, function () {
+var gate = LC.util.gate(jobs.length, POSTERS_TIMEOUT, function () {
 done(applyPosters(cards, map));
 });
 
-LC.util.each(want, function (media) {
-var r = buildRequest(src[media], media, page || 1);
+LC.util.each(jobs, function (r) {
 var params = {};
 var k;
 for (k in r.params) {
@@ -10628,7 +10905,7 @@ Lampa.Api.sources.tmdb.get(
 r.url,
 params,
 function (json) {
-if (!dead()) posterIndex(normalize(src[media].type, json).results, map);
+if (!dead()) posterIndex(r.kind === 'movie' ? [json] : normalize(r.kind, json).results, map);
 gate.tick();
 },
 function () { gate.tick(); },
@@ -10704,6 +10981,11 @@ kpToFinds: kpToFinds,
 mergeMedia: mergeMedia,
 sortSignature: sortSignature,
 fetchOne: fetchOne,
+
+isSet: isSet,
+setRequests: setRequests,
+partOf: partOf,
+setParts: setParts,
 kpPosters: kpPosters,
 bannerPath: bannerPath,
 
@@ -13273,12 +13555,38 @@ rating: { movie: 'vote_average.desc', tv: 'vote_average.desc' },
 'new': { movie: 'primary_release_date.desc', tv: 'first_air_date.desc' }
 };
 
-function sortModes() {
-return [
-{ id: 'popular', key: 'lumen_sort_popular' },
-{ id: 'rating', key: 'lumen_sort_rating' },
-{ id: 'new', key: 'lumen_sort_new' }
-];
+
+
+
+
+
+
+
+
+
+function byYears(item) {
+var src = (item && item.sources) || {};
+var any = false;
+for (var k in src) {
+if (!src.hasOwnProperty(k) || !src[k]) continue;
+if (src[k].type !== 'collection') return false;
+any = true;
+}
+return any;
+}
+
+function sortModes(item) {
+var out = [];
+if (byYears(item)) out.push({ id: 'years', key: 'lumen_fr_order_release' });
+out.push({ id: 'popular', key: 'lumen_sort_popular' });
+out.push({ id: 'rating', key: 'lumen_sort_rating' });
+out.push({ id: 'new', key: 'lumen_sort_new' });
+return out;
+}
+
+
+function defaultSort(item) {
+return byYears(item) ? 'years' : 'popular';
 }
 
 
@@ -13342,6 +13650,16 @@ var da = cardDate(a);
 var db = cardDate(b);
 if (da > db) return -1;
 if (da < db) return 1;
+return 0;
+});
+} else if (mode === 'years') {
+
+
+list.sort(function (a, b) {
+var da = cardDate(a) || '9999';
+var db = cardDate(b) || '9999';
+if (da < db) return -1;
+if (da > db) return 1;
 return 0;
 });
 }
@@ -14420,7 +14738,7 @@ var subtitle = $('<div class="lumen-grid__sub"></div>');
 
 var gen = 0;
 var handles = [];
-var sortMode = 'popular';
+var sortMode = defaultSort(item);
 var page = 1;
 var totalPages = 1;
 var totalResults = 0;
@@ -14781,7 +15099,7 @@ cardNodes.push(node);
 
 function renderSub() {
 var mode = null;
-var modes = sortModes();
+var modes = sortModes(item);
 for (var i = 0; i < modes.length; i++) if (modes[i].id === sortMode) mode = modes[i];
 var parts = [];
 if (totalResults) parts.push(LC.lang('lumen_grid_total') + ' ' + totalResults);
@@ -14957,7 +15275,7 @@ screenBg(self.activity);
 head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
 head.append(subtitle);
 root.append(head);
-var modes = sortModes();
+var modes = sortModes(item);
 for (var i = 0; i < modes.length; i++) {
 var node = sortNode(modes[i]);
 sortsRow.append(node);
@@ -15179,6 +15497,7 @@ open: openCollection,
 rouletteMedia: rouletteMedia,
 franchiseItem: franchiseItem,
 sortModes: sortModes,
+defaultSort: defaultSort,
 applySort: applySort,
 sortLocal: sortLocal,
 needsLocalSort: needsLocalSort,

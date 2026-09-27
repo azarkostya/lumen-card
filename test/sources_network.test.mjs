@@ -1039,3 +1039,131 @@ test('S3: fetchKp и kpPosters — коллекция не по формату �
   assert.equal(urls.length, 1);
   assert.ok(urls[0].indexOf('collections?type=TOP_250_MOVIES&page=2') > 0, urls[0]);
 });
+
+/* ====================================================================== */
+/* Наборы: коллекция + also/movies (правка 2026-09-27).                    */
+/* ====================================================================== */
+
+function setupSet(mode) {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err, cache) {
+      calls.push({ url: url, params: params, ok: ok, err: err, cache: cache });
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  var timers = [];
+  globalThis.setTimeout = function (cb, ms) { timers.push({ cb: cb, ms: ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  var S = loadCtx('43_sources.js', {
+    pref: function () { return ''; },
+    postersMode: function () { return mode || 'lampa'; }
+  }).api;
+  return {
+    S: S, calls: calls, timers: timers,
+    restore: function () { globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; }
+  };
+}
+
+var SPIDER = { id: 'spiderman-mcu', title: 'Человек-паук', sources: { movie: { type: 'collection', id: 531241, also: [556], movies: [2661] } } };
+
+test('наборы: fetch — запрос на коллекцию и на фильм, склейка по дате, кэш неделя', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    s.S['fetch'](SPIDER, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    assert.deepEqual(s.calls.map(function (c) { return c.url; }), ['collection/531241', 'collection/556', 'movie/2661']);
+    s.calls.forEach(function (c) { assert.equal(c.cache.life, 10080); });
+    s.calls[1].ok({ parts: [{ id: 557, title: 'Человек-паук', release_date: '2002-05-01' }, { id: 558, title: 'Человек-паук 2', release_date: '2004-06-25' }] });
+    s.calls[0].ok({ parts: [{ id: 315635, title: 'Возвращение домой', release_date: '2017-07-05' }] });
+    assert.equal(got.length, 0, 'ответили не все — ждём');
+    s.calls[2].ok({ id: 2661, title: 'Бэтмен', release_date: '1966-07-30', genres: [{ id: 28 }] });
+    assert.equal(got.length, 1);
+    assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [2661, 557, 558, 315635], 'по дате выхода, как одна коллекция');
+    assert.equal(got[0].title, 'Человек-паук');
+    assert.equal(got[0].total_pages, 1, 'одна страница — сетка дальше не просит');
+    assert.equal(got[0].partial, undefined);
+  } finally { s.restore(); }
+});
+
+test('наборы: одна часть упала — остальное приходит; упали все — ошибка подборки', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    s.S['fetch'](SPIDER, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    s.calls[0].ok({ parts: [{ id: 315635, title: 'Возвращение домой', release_date: '2017-07-05' }] });
+    s.calls[1].err();
+    s.calls[2].err();
+    assert.equal(got.length, 1);
+    assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [315635]);
+
+    var item2 = { id: 'set-2', title: 'x', sources: { movie: { type: 'collection', id: 1, movies: [2] } } };
+    var got2 = [];
+    s.S['fetch'](item2, 1, function (r) { got2.push(r); }, function (e) { got2.push({ err: e }); }, null);
+    s.calls[3].err();
+    s.calls[4].err();
+    assert.equal(got2.length, 1);
+    assert.ok(got2[0].err && got2[0].err.all_failed, 'ни одного ответа — подборка отвечает ошибкой, а не пустым списком');
+  } finally { s.restore(); }
+});
+
+test('наборы: молчащая часть — свой дедлайн раньше общего, пришедшее не теряется', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    s.S['fetch'](SPIDER, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    var mine = s.timers.filter(function (t) { return t.ms === 12000; });
+    var all = s.timers.filter(function (t) { return t.ms === 15000; });
+    assert.equal(mine.length, 1, 'дедлайн набора');
+    assert.equal(all.length, 1, 'дедлайн подборки');
+    s.calls[0].ok({ parts: [{ id: 315635, title: 'Возвращение домой', release_date: '2017-07-05' }] });
+    mine[0].cb();
+    assert.equal(got.length, 1);
+    assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [315635]);
+    s.calls[1].ok({ parts: [{ id: 557, title: 'Человек-паук', release_date: '2002-05-01' }] });
+    assert.equal(got.length, 1, 'опоздавшая часть второго ответа не даёт');
+  } finally { s.restore(); }
+});
+
+test('наборы: отмена — поздние ответы частей подписчику не доходят', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    var h = s.S['fetch'](SPIDER, 1, function (r) { got.push(r); }, function (e) { got.push({ err: e }); }, null);
+    h.clear();
+    s.calls.forEach(function (c) { c.ok({ parts: [] }); });
+    assert.equal(got.length, 0);
+  } finally { s.restore(); }
+});
+
+test('наборы: обычная коллекция без добавок — прежний единственный запрос', function () {
+  var s = setupSet();
+  try {
+    var got = [];
+    s.S['fetch']({ id: 'dune', title: 'Дюна', sources: { movie: { type: 'collection', id: 726871 } } }, 1, function (r) { got.push(r); }, function () {}, null);
+    assert.deepEqual(s.calls.map(function (c) { return c.url; }), ['collection/726871']);
+    assert.equal(s.timers.filter(function (t) { return t.ms === 12000; }).length, 0, 'своего дедлайна у одиночной коллекции нет');
+  } finally { s.restore(); }
+});
+
+test('наборы: «английские» постеры спрашивают каждую часть набора, фильм — по id', function () {
+  var s = setupSet('original');
+  try {
+    var cards = [
+      { id: 557, title: 'Человек-паук', poster_path: '/ru557.jpg' },
+      { id: 2661, title: 'Бэтмен', poster_path: '/ru2661.jpg' },
+      { id: 315635, title: 'Возвращение домой', poster_path: '/ru315635.jpg' }
+    ];
+    var done = [];
+    s.S.posters(SPIDER, cards, function (n) { done.push(n); }, null, 1);
+    assert.deepEqual(s.calls.map(function (c) { return c.url; }), ['collection/531241', 'collection/556', 'movie/2661']);
+    s.calls.forEach(function (c) { assert.equal(c.params.langs, 'en'); });
+    s.calls[0].ok({ parts: [{ id: 315635, title: 'Homecoming', poster_path: '/en315635.jpg' }] });
+    s.calls[1].ok({ parts: [{ id: 557, title: 'Spider-Man', poster_path: '/en557.jpg' }] });
+    s.calls[2].ok({ id: 2661, title: 'Batman', poster_path: '/en2661.jpg' });
+    assert.deepEqual(done, [3]);
+    assert.deepEqual(cards.map(function (c) { return c.poster_path; }), ['/en557.jpg', '/en2661.jpg', '/en315635.jpg']);
+  } finally { s.restore(); }
+});
