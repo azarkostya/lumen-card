@@ -220,8 +220,15 @@
     }
   }
 
-  function stageScreen(component) {
-    if (component !== 'lumen_hub' && component !== 'lumen_grid') return false;
+  /* Этап 2б: и штатная сетка Lampa, если её открыл плагин (метка на
+     объекте активности, FULL_MARK в src/46_hub.js), — у неё тот же фон. */
+  function stageScreen(component, object) {
+    if (component === 'category_full') {
+      var mark = LC.hub && LC.hub.FULL_MARK;
+      if (!mark || !object || !object[mark]) return false;
+    } else if (component !== 'lumen_hub' && component !== 'lumen_grid') {
+      return false;
+    }
     try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
   }
 
@@ -586,6 +593,10 @@
         /* Task 16: то же поколение поднимает LC.personal — вторая подписка не нужна. */
         try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
       }
+      /* Этап 2б: выброшенная штатная сетка уносит свой фон и слушатель. */
+      if (e.type === 'destroy' && e.component === 'category_full') {
+        try { if (LC.hub && LC.hub.fullStage) LC.hub.fullStage.destroy(e.object); } catch (eFullKill) { warn('full stage destroy failed', eFullKill); }
+      }
 
       /* Task 18: герой главной. Смонтирован ровно один (модуль сам снимает
          предыдущего), и паркуется он на 'start' ЛЮБОЙ чужой активности
@@ -602,7 +613,14 @@
            откладывается на таймер — см. LC.refreshComponent. */
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
         markCardBody(e.component === 'full');
-        markScreenBody(stageScreen(e.component));
+        markScreenBody(stageScreen(e.component, e.object));
+        /* Этап 2б: фон штатной сетки, открытой плагином (src/46_hub.js,
+           fullStart): уходящие сетки — на паузу, эта — свой фон и кольцо. */
+        try {
+          if (LC.hub && LC.hub.fullStage) LC.hub.fullStage.start(e.component === 'category_full' ? e.object : null);
+        } catch (eFullStart) {
+          warn('full stage start failed', eFullStart);
+        }
         /* Волна 2 (ТВ 2026-09-24, D3): перехода «постер → кадр» при открытии
            карточки больше нет — пользователь просил убрать эффект открытия.
            Старт любого экрана, включая карточку, только снимает слой, если

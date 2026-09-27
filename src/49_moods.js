@@ -83,7 +83,10 @@
           title: title,
           component: 'category_full',
           source: 'tmdb',
-          page: 1
+          page: 1,
+          /* Этап 2б: подборка плагина в штатной сетке — фон и кольцо
+             фокуса (метка FULL_MARK, src/46_hub.js). */
+          lumen_stage: true
         };
       }
       return null;
@@ -300,6 +303,9 @@
 
     return {
       moodTitle: moodTitle,
+      /* Этап 2б: объект активности чипа (метка штатной сетки плагина) —
+         наружу ради теста. */
+      moodActivityObj: moodActivityObj,
       mount: mount,
       mountCurrent: mountCurrent,
       unmount: unmount,

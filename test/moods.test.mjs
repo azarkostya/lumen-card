@@ -523,3 +523,13 @@ test('Important 1: каталог не загружен — чипы берут 
     mf.restore();
   }
 });
+
+/* Этап 2б: чип настроения открывает подборку плагина в штатной сетке Lampa
+   — с меткой lumen_stage (FULL_MARK, src/46_hub.js): фон и кольцо фокуса. */
+test('moodActivityObj: штатная сетка с меткой подборки плагина', function () {
+  var M = freshMoods().api;
+  var obj = M.moodActivityObj(MOODS[2]);
+  assert.equal(obj.component, 'category_full');
+  assert.equal(obj.lumen_stage, true);
+  assert.equal(M.moodActivityObj({ sources: { movie: { type: 'collection', id: 1 } } }), null);
+});

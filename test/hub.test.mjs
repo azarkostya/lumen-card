@@ -3191,3 +3191,114 @@ test('фон подборок: кадр ждёт цвет низа кадра и
   });
   assert.deepEqual(warnLog, []);
 });
+
+/* ====================================================================== */
+/* Этап 2б: фон и фокус в штатной сетке Lampa (category_full), открытой    */
+/* плагином (src/46_hub.js, fullStart / guardBackground).                  */
+/* ====================================================================== */
+
+/* Нативные слушатели в фазе захвата — ими LC.focus.capture слушает фокус
+   карточек на корне активности. */
+El.prototype.addEventListener = function (name, fn, capture) {
+  (this._cap = this._cap || []).push({ name: name, fn: fn, capture: !!capture });
+};
+El.prototype.removeEventListener = function (name, fn, capture) {
+  this._cap = (this._cap || []).filter(function (l) { return !(l.name === name && l.fn === fn && l.capture === !!capture); });
+};
+function focusIn(root, target, type) {
+  var list = (root._cap || []).slice();
+  for (var i = 0; i < list.length; i++) if (list[i].name === (type || 'hover:focus') && list[i].capture) list[i].fn({ type: type || 'hover:focus', target: target });
+}
+function gridCard(data) {
+  var el = new El(['card', 'selector']);
+  el.card_data = data;
+  return el;
+}
+
+test('openTarget: штатная сетка несёт метку плагина FULL_MARK, своя сетка — нет', function () {
+  assert.equal(H.FULL_MARK, 'lumen_stage');
+  assert.equal(H.openTarget(MANIFEST.collections[2])[H.FULL_MARK], true);
+  assert.equal(H.openTarget(MANIFEST.collections[1])[H.FULL_MARK], undefined);
+});
+
+test('штатная сетка из плагина: кадр карточки в фокусе — одна смена после паузы; соседи приглушены; сетка без метки не трогается', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  warnLog.length = 0;
+  withImages(function (images) {
+    var env = setupLampa({ motion: 'lite' });
+    var h = loadHub({ motion: 'lite' });
+    h.api.install();
+    var act = new El(['activity']);
+    var obj = { activity: { render: function () { return act; } }, component: 'category_full' };
+    obj[h.api.FULL_MARK] = true;
+    var a = gridCard({ id: 1, backdrop_path: '/fa.jpg' });
+    var b = gridCard({ id: 2, backdrop_path: '/fb.jpg' });
+    var more = new El(['category-full__more', 'selector']);
+    act.append(a); act.append(b); act.append(more);
+    h.api.fullStage.start(obj);
+    assert.ok(act.hasClass('lumen-full') && act.hasClass('lumen-screen'), 'классы кольца и фона на активности');
+    assert.equal(h.api.fullStage.count(), 1);
+    h.api.fullStage.start(obj);
+    assert.equal(h.api.fullStage.count(), 1, 'возврат на экран не заводит второй фон');
+    focusIn(act, a);
+    assert.ok(act.hasClass('lumen-dim'), 'фокус на карточке — соседи приглушены');
+    t.mock.timers.tick(200);
+    focusIn(act, b, 'hover:hover');
+    t.mock.timers.tick(449);
+    assert.equal(images.length, 0, 'листание подряд не грузит кадров');
+    t.mock.timers.tick(1);
+    assert.equal(images.length, 1);
+    assert.ok(/\/t\/p\/w780\/fb\.jpg$/.test(images[0].src), 'кадр карточки под фокусом (мышь тоже): ' + images[0].src);
+    images[0]._ok();
+    var L = stageImgs(act);
+    assert.ok(/fb\.jpg$/.test(L.a.attr('src')));
+    assert.ok(act._children[0].hasClass('lumen-screen-stage'), 'слой фона — первым ребёнком активности');
+    focusIn(act, more);
+    assert.ok(!act.hasClass('lumen-dim'), 'не карточка — приглушения нет');
+    /* Уход на другую сетку Lampa (без метки): её не трогаем, наш фон — на паузе. */
+    var act2 = new El(['activity']);
+    var other = { activity: { render: function () { return act2; } }, component: 'category_full' };
+    focusIn(act, a);
+    h.api.fullStage.start(other);
+    t.mock.timers.tick(1000);
+    assert.equal(images.length, 1, 'пауза сняла отложенную смену');
+    assert.ok(!act2.hasClass('lumen-full') && !act2.hasClass('lumen-screen'), 'сетка, открытая Lampa, осталась штатной');
+    assert.equal(h.api.fullStage.count(), 1);
+    /* Экран выброшен — фон, классы и слушатель уходят. */
+    h.api.fullStage.destroy(obj);
+    assert.equal(h.api.fullStage.count(), 0);
+    assert.equal(act.all('lumen-screen-stage').length, 0);
+    assert.ok(!act.hasClass('lumen-full') && !act.hasClass('lumen-dim'));
+    assert.equal((act._cap || []).length, 0, 'слушатель фокуса снят');
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('Background.change Lampa: пока на body метка экрана с нашим фоном — не доходит; без метки — доходит; выключение возвращает штатный', function () {
+  var env = setupLampa({ motion: 'lite' });
+  var calls = [];
+  var orig = function (url) { calls.push(url); };
+  env.Lampa.Background = { change: orig };
+  var h = loadHub({ motion: 'lite' });
+  var had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
+  var prevDoc = globalThis.document;
+  globalThis.document = { body: env.doc.body };
+  try {
+    h.api.install();
+    assert.notEqual(env.Lampa.Background.change, orig);
+    env.Lampa.Background.change('u1');
+    env.doc.body.addClass(h.api.STAGE_BODY);
+    env.Lampa.Background.change('u2');
+    env.doc.body.removeClass(h.api.STAGE_BODY);
+    env.Lampa.Background.change('u3');
+    assert.deepEqual(calls, ['u1', 'u3']);
+    h.api.install();
+    env.doc.body.addClass(h.api.STAGE_BODY);
+    env.Lampa.Background.change('u4');
+    assert.deepEqual(calls, ['u1', 'u3'], 'повторная установка не заводит второй обёртки поверх');
+    h.api.uninstall();
+    assert.equal(env.Lampa.Background.change, orig, 'выключенный плагин возвращает штатный Background.change');
+  } finally {
+    if (had) globalThis.document = prevDoc; else delete globalThis.document;
+  }
+});

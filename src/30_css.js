@@ -4180,6 +4180,17 @@
     css.push('.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:.31em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
     css.push('.lumen-grid__items .lumen-gcard.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard,.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
+    /* Этап 2б: штатная сетка Lampa (category_full), открытая плагином, —
+       класс .lumen-full на активности, .lumen-dim — пока фокус на карточке
+       (src/46_hub.js, fullStart). Фокус — как у lumen_grid: кольцо внутри
+       кромки постера и приглушённые соседи; штатное кольцо Lampa (белая
+       рамка .3em с вылетом −.5em за постер, app.css:3466) и его мышиный
+       вариант погашены. Скругление — как у картинки карточки Lampa
+       (.card__img, 1em). Сетки, которые Lampa открывает сама, класса не
+       несут и остаются штатными. */
+    css.push('.lumen-full .card .card__view:after{display:none}');
+    css.push('.lumen-full.lumen-dim .card .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border:0;border-radius:1em;z-index:3;pointer-events:none;background:rgba(' + P.bgRgb + ',' + alphaCss(FOCUS_DIM) + ')}');
+    css.push('.lumen-full .card.focus .card__view:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1em;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
        что у строки «Продолжить» в карточке — Lampa.Timeline. */
     css.push('.lumen-grid .lumen-gcard__bar{position:absolute;left:.53em;right:.53em;bottom:.53em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden}');

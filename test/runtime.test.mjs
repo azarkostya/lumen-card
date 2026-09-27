@@ -2853,3 +2853,40 @@ test('фон подборок: body.lumen-screen-on — на старте хаб
   assert.equal(bodyEl.hasClass('lumen-screen-on'), false, 'выключенный плагин метку не держит');
   assert.deepEqual(warnLog, []);
 });
+
+/* Этап 2б: штатная сетка Lampa, открытая плагином (метка FULL_MARK на
+   объекте активности, src/46_hub.js), получает тот же фон, что хаб и сетка
+   подборки: метка body, старт фона на её 'start' и пауза фона на старте
+   любого другого экрана, снятие — на её 'destroy'. Сетка без метки
+   (открыла сама Lampa) остаётся штатной. */
+test('этап 2б: category_full из плагина — body.lumen-screen-on и фон; без метки — штатная; destroy снимает фон', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  const bodyEl = new FakeEl(['body']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyEl : EMPTY);
+  const starts = [];
+  const destroys = [];
+  LC.hub.FULL_MARK = 'lumen_stage';
+  LC.hub.fullStage = { start: (o) => starts.push(o), destroy: (o) => destroys.push(o) };
+
+  const marked = makeActivityObj('Pixar', false, null);
+  marked.lumen_stage = true;
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: marked });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), true, 'сетка плагина — фон Lampa гасится');
+  assert.equal(starts[starts.length - 1], marked, 'фон сетки заведён');
+  const plain = makeActivityObj('Каталог', false, null);
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: plain });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, 'сетка Lampa — фон штатный');
+  assert.equal(starts[starts.length - 1], plain, 'штатная сетка передаётся как есть — фон заводит только метка (fullStart)');
+  LC.onActivityEvent({ type: 'start', component: 'full', object: makeActivityObj('A', false, null) });
+  assert.equal(starts[starts.length - 1], null);
+  LC.onActivityEvent({ type: 'destroy', component: 'category_full', object: marked });
+  assert.deepEqual(destroys, [marked]);
+  const was = LC.motionMode;
+  LC.motionMode = () => 'off';
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: marked });
+  assert.equal(bodyEl.hasClass('lumen-screen-on'), false, '«Выкл»: кадра нет — фон Lampa не гасим');
+  LC.motionMode = was;
+  assert.deepEqual(warnLog, []);
+});

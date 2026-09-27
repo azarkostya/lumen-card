@@ -285,13 +285,17 @@
         var url = '';
         try { url = LC.sources.discoverUrl(item.sources[media], media); } catch (e) { warn('hub: discover url failed', e); }
         if (url && typeof url === 'string') {
-          return {
+          /* Этап 2б: метка «открыто плагином» — фон и кольцо фокуса в
+             штатной сетке (fullStart ниже). */
+          var target = {
             url: url,
             title: titleOf(item, lang()),
             component: 'category_full',
             source: 'tmdb',
             page: 1
           };
+          target[FULL_MARK] = true;
+          return target;
         }
       }
       return gridTarget(item);
@@ -800,6 +804,135 @@
         shown: function () { return shownPath; },
         wanted: function () { return want; }
       };
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Этап 2б: фон и фокус в штатной сетке Lampa (category_full), когда    */
+    /* её открыл плагин — подборки хаба, «Ещё» рядов главной, поиск          */
+    /* (openTarget) и чипы настроения (src/49_moods.js). Так хаб открывает  */
+    /* 103 из 170 подборок: только discover одного медиа.                    */
+    /*                                                                      */
+    /* Почему не своя сетка lumen_grid для всех: решение пользователя        */
+    /* 2026-09-24 (docs/plans/2026-09-22-lumen-final.md, «Полная сетка Lampa */
+    /* у сериальных подборок») — такие подборки остаются в штатной сетке,    */
+    /* «это смена поведения „Ещё“». Поэтому экран остаётся штатным, а       */
+    /* плагин приносит в него то же, что у своих экранов:                   */
+    /*  - кадр карточки под фокусом — тот же ScreenStage (одна смена после  */
+    /*    STAGE_DELAY, decode, w780), узел — первым ребёнком активности;    */
+    /*  - метку body lumen-screen-on ставит рантайм (stageScreen), и она    */
+    /*    гасит и .background Lampa (CSS), и его работу: Lampa на фокус     */
+    /*    карточки зовёт Background.change (component$l.onFocus, app.min.js: */
+    /*    39786), а тот грузит кадр w1280 и размывает его в канвас — под    */
+    /*    скрытым слоем. Обёртка guardBackground пропускает вызовы, пока    */
+    /*    метки нет, — как у героя главной (src/48_hero.js);                 */
+    /*  - кольцо и приглушённые соседи — классы .lumen-full и .lumen-dim на */
+    /*    активности (src/30_css.js), как у lumen_grid.                     */
+    /* Метка на объекте активности (FULL_MARK) — от плагина: сетки, которые */
+    /* Lampa открывает сама («Ещё» её рядов, меню), её не несут и остаются  */
+    /* как были. Метка живёт в объекте активности и переживает перезапуск   */
+    /* Lampa (активность восстанавливается из Storage вместе с полями).     */
+    /* ------------------------------------------------------------------ */
+
+    var FULL_MARK = 'lumen_stage';
+    /* Открытые экраны: {obj, root, stage, handler}. Их несколько, если
+       сетка лежит в истории под карточкой или другой сеткой. */
+    var fulls = [];
+
+    function fullRec(obj) {
+      for (var i = 0; i < fulls.length; i++) if (fulls[i].obj === obj) return fulls[i];
+      return null;
+    }
+
+    function fullMount(obj) {
+      var act = obj && obj.activity;
+      var root = null;
+      try { root = act && typeof act.render === 'function' ? act.render() : null; } catch (e) { root = null; }
+      if (!root || !root.length || !root[0]) return null;
+      var rec = { obj: obj, root: root, stage: ScreenStage(act), handler: null };
+      /* Фокус — на самой карточке (Controller.focus шлёт 'hover:focus'
+         узлу .card, мышь — 'hover:hover'), её данные Lampa кладёт в
+         card_data узла (Card.create, app.min.js:20921). Не карточка (кнопка
+         «Ещё» страницы) — соседей не приглушаем. */
+      rec.handler = function (e) {
+        var el = e && e.target;
+        var card = el && el.card_data;
+        var isCard = !!(card && el.classList && el.classList.contains('card'));
+        try { root.toggleClass('lumen-dim', isCard); } catch (eDim) { }
+        if (isCard && card.backdrop_path) rec.stage.show(card.backdrop_path);
+      };
+      if (!LC.focus.capture(root[0], rec.handler)) rec.handler = null;
+      try { root.addClass('lumen-screen lumen-full'); } catch (eCls) { }
+      fulls.push(rec);
+      return rec;
+    }
+
+    /* Старт любого экрана (рантайм, 'activity':start): фон уходящих сеток
+       встаёт на паузу, сетка с меткой получает свой (один раз на экран). */
+    function fullStart(obj) {
+      for (var i = 0; i < fulls.length; i++) {
+        if (fulls[i].obj !== obj) {
+          try { fulls[i].stage.pause(); } catch (e) { warn('hub: full stage pause failed', e); }
+        }
+      }
+      if (!obj || !obj[FULL_MARK] || fullRec(obj)) return;
+      try { fullMount(obj); } catch (e2) { warn('hub: full stage failed', e2); }
+    }
+
+    /* Экран выброшен ('activity':destroy) — снять фон и слушатель. */
+    function fullDestroy(obj) {
+      var rec = fullRec(obj);
+      if (!rec) return;
+      fulls.splice(fulls.indexOf(rec), 1);
+      try { if (rec.handler) LC.focus.release(rec.root[0], rec.handler); } catch (e) { }
+      try { rec.stage.destroy(); } catch (e2) { }
+      try { rec.root.removeClass('lumen-screen lumen-full lumen-dim'); } catch (e3) { }
+    }
+
+    function fullClear() {
+      while (fulls.length) fullDestroy(fulls[0].obj);
+    }
+
+    /* Обёртка Lampa.Background.change: пока на body метка экрана с нашим
+       фоном, вызов не доходит до Lampa. Ставится при установке хаба, одна
+       на включение плагина; снимается выключением, если сверху никто не
+       обернул (иначе остаётся в цепочке и без метки пропускает всё). */
+    var bgOrig = null;
+    var bgWrap = null;
+
+    function screenOn() {
+      try {
+        var body = document && document.body;
+        return !!(body && body.classList && body.classList.contains(STAGE_BODY));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function guardBackground() {
+      try {
+        var B = window.Lampa && Lampa.Background;
+        if (!B || typeof B.change !== 'function' || bgWrap) return;
+        var orig = B.change;
+        bgOrig = orig;
+        bgWrap = function () {
+          if (screenOn()) return;
+          return orig.apply(this, arguments);
+        };
+        B.change = bgWrap;
+      } catch (e) {
+        warn('hub: background guard failed', e);
+      }
+    }
+
+    function unguardBackground() {
+      try {
+        var B = window.Lampa && Lampa.Background;
+        if (bgWrap && B && B.change === bgWrap) B.change = bgOrig;
+      } catch (e) {
+        warn('hub: background unguard failed', e);
+      }
+      bgOrig = null;
+      bgWrap = null;
     }
 
     /* Год из даты выхода. */
@@ -2528,6 +2661,7 @@
       try {
         addComponents();
         addMenu();
+        guardBackground();
       } catch (e) {
         warn('hub: install failed', e);
       }
@@ -2545,6 +2679,9 @@
       }
       menu_node = null;
       try { $('.lumen-menu-hub').remove(); } catch (e2) {}
+      /* Этап 2б: фон штатных сеток и обёртка Background.change. */
+      fullClear();
+      unguardBackground();
     }
 
     function menuNode() {
@@ -2615,6 +2752,10 @@
       STAGE_DELAY: STAGE_DELAY,
       STAGE_SIZE: STAGE_SIZE,
       STAGE_BODY: STAGE_BODY,
+      /* Этап 2б: штатная сетка, открытая плагином, — метка объекта
+         активности и жизненный цикл её фона (рантайм, src/90_runtime.js). */
+      FULL_MARK: FULL_MARK,
+      fullStage: { start: fullStart, destroy: fullDestroy, clear: fullClear, count: function () { return fulls.length; } },
       moodItems: moodItems,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
          «Ещё» рядов главной (src/44_rows.js). */

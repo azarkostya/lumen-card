@@ -223,7 +223,7 @@ test('правка 2026-09-23: двухуровневое название — �
    правило — один background-image, чужой разметке он ничего не меняет. */
 /* Полное ревью, D1: .lumen-screen — класс плагина на активности его
    экранов (хаб, сетка, «Что посмотреть»), свой фон экрана. */
-const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
+const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-full', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -8497,7 +8497,9 @@ function stageTones(storage) {
 const FOCUS_RULES = [
   '.lumen-hub__tiles .lumen-tile.focus:after',
   '.lumen-grid__items .lumen-gcard.focus .card__view:after',
-  '.lumen-main .card.focus .card__view:after'
+  '.lumen-main .card.focus .card__view:after',
+  /* Этап 2б: штатная сетка Lampa, открытая плагином (src/46_hub.js, fullStart). */
+  '.lumen-full .card.focus .card__view:after'
 ];
 
 test('фокус подборок: кольцо поверх кромки у плитки хаба, карточки сетки и ряда главной — одно на все три', () => {
@@ -8539,7 +8541,8 @@ test('фокус подборок: увеличение во всех режим
 test('фокус подборок: соседи приглушены плашкой без перехода, кольцо фокуса перебивает её порядком', () => {
   const cases = [
     ['.lumen-hub__tiles.lumen-dim .lumen-tile:after', '.lumen-hub__tiles .lumen-tile.focus:after'],
-    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-grid__items .lumen-gcard.focus .card__view:after']
+    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-grid__items .lumen-gcard.focus .card__view:after'],
+    ['.lumen-full.lumen-dim .card .card__view:after', '.lumen-full .card.focus .card__view:after']
   ];
   const bodies = ruleBodies(css);
   const at = (sel) => bodies.findIndex((r) => r.selectors.indexOf(sel) !== -1);
@@ -8667,4 +8670,17 @@ test('без ожидания, п.4: уходящий ряд обрезаетс�
 test('без ожидания, п.1: первый вывод героя ждёт логотип скрытым блоком — visibility, а не display', () => {
   const d = findDecl(css, (s) => s === '.lumen-hero.lumen-hero--await .lumen-hero__text');
   assert.equal(d, 'visibility:hidden');
+});
+
+/* Этап 2б: штатная сетка Lampa (category_full), открытая плагином. Штатное
+   кольцо Lampa (белая рамка .3em с вылетом −.5em, app.css:3466) и его
+   мышиный вариант погашены только там, где стоит класс .lumen-full: сетки,
+   открытые самой Lampa, класса не несут и остаются штатными. */
+test('этап 2б: штатная сетка из плагина — штатное кольцо Lampa погашено только под .lumen-full, скругление кольца как у картинки карточки', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-full .card .card__view:after');
+  assert.ok(base && /(^|;)display:none(;|$)/.test(base), 'штатное кольцо Lampa не погашено: ' + base);
+  const ring = lastDecl(css, '.lumen-full .card.focus .card__view:after');
+  assert.ok(/(^|;)border-radius:1em(;|$)/.test(ring), 'скругление кольца — как у .card__img Lampa (1em): ' + ring);
+  const leaks = ruleBodies(css).filter((r) => r.selectors.some((sel) => /^\.card(\.focus|\.hover)? \.card__view:after$/.test(sel)));
+  assert.deepEqual(leaks.map((r) => r.selectors.join(',')), [], 'правило без .lumen-full задело бы все сетки Lampa');
 });
