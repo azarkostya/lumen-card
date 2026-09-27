@@ -2805,10 +2805,12 @@ test('Task 50c: ни одной тени с размытием ни на одн�
     if (!r.selectors.some((s) => /\.focus\b|\.hover\b/.test(s))) continue;
     for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(r.selectors.join(',') + ' -> ' + m[1]);
   }
-  /* Одиннадцать правил с тенью — кнопка карточки, «Стоп», серия, отзыв,
-     постер части франшизы, «Вся франшиза», плитка хаба, карточка сетки,
-     «Крутить» и кнопка рулетки, карточка главной; каждое удвоено префиксом. */
-  assert.ok(shadows.length >= 20, 'теней на правилах фокуса нашлось подозрительно мало — проверка почти пустая: ' + shadows.length);
+  /* Семь правил с тенью — кнопка карточки, «Стоп», серия, отзыв,
+     «Вся франшиза», кнопка рулетки, карточка главной; каждое удвоено
+     префиксом. 2026-09-27 (полоса «фокус на всех экранах»): у постера части
+     франшизы, «Крутить» и карточки полки «как Apple TV» тени больше нет —
+     фокус у них кольцом (тесты «фокус на всех экранах» ниже). */
+  assert.ok(shadows.length >= 14, 'теней на правилах фокуса нашлось подозрительно мало — проверка почти пустая: ' + shadows.length);
   assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s)), [],
     'тень с ненулевым размытием на шаге фокуса');
 });
@@ -6559,16 +6561,19 @@ test('фаза 3: текст на заливке акцентом читаетс
 
 test('фаза 3: смена акцента меняет всю четвёрку разом, включая новые акценты', () => {
   /* Task 43 снял акцент с фокуса кнопок карточки, Task 54 — с фокуса
-     остальных кнопок и строк списка (везде инверсия). Последний узел, где
-     четвёрка стоит вся разом, — «Крутить» в рулетке: заливка и текст на ней
-     в базовом правиле, светлое кольцо и свечение — в правиле фокуса. */
+     остальных кнопок и строк списка (везде инверсия). «Крутить» в рулетке
+     залита акцентом (заливка и текст на ней — в базовом правиле).
+     2026-09-27 (полоса «фокус на всех экранах»): её светлое кольцо .11em
+     акцентом (1 CSS px на ТВ) и свечение сменило кольцо цветом текста темы
+     с зазором — от акцента фокус «Крутить» больше не зависит (тест
+     «фокус на всех экранах: «Крутить»» ниже). Свечение акцентом — у кнопки
+     карточки. */
   const emerald = withStorage({ lumen_card_accent: 'emerald' }, (LC) => LC.buildCss());
   const spin = findDecl(emerald, (sel) => sel === '.lumen-roulette .lumen-roulette__spin');
   assert.ok(spin.indexOf('background:#7ACCA0') !== -1, 'заливка «Крутить» — цвет изумруда: ' + spin);
   assert.ok(spin.indexOf('color:#06170F') !== -1, 'текст на заливке — тёмный тон изумруда: ' + spin);
   const spinFocus = findDecl(emerald, (sel) => sel === '.lumen-roulette .lumen-roulette__spin.focus');
-  assert.ok(spinFocus.indexOf('border-color:#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда: ' + spinFocus);
-  assert.ok(spinFocus.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет: ' + spinFocus);
+  assert.equal(/#7ACCA0|#E4FBEE|122,204,160/i.test(spinFocus), false, 'кольцо «Крутить» зависит от акцента: ' + spinFocus);
   const focus = findDecl(emerald, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button.focus');
   assert.ok(focus.indexOf('rgba(122,204,160,0.35)') !== -1, 'ореол кнопки — тот же цвет: ' + focus);
 
@@ -8030,9 +8035,13 @@ test('fx2: вид «как Apple TV» — сцена строкой, бараб�
   assert.ok(tw / th >= 16 / 9, 'карточка уже 16:9: ' + tw.toFixed(1) + '×' + th);
 });
 
-test('fx2: вид «как Apple TV» — фокус полки подъёмом и кольцом outline, в «Лёгких» и «Выкл» без подъёма', () => {
+test('fx2: вид «как Apple TV» — фокус полки подъёмом и кольцом, в «Лёгких» и «Выкл» без подъёма', () => {
   const focus = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img');
-  assert.ok(focus && /outline:[^;]+solid/.test(focus) && /scale\(1\.06\)/.test(focus), focus);
+  assert.ok(focus && /scale\(1\.06\)/.test(focus), focus);
+  /* 2026-09-27: кольцо — не outline самого кадра (1 CSS px на ТВ), а общее
+     кольцо плагина псевдоэлементом (тест «фокус на всех экранах» ниже). */
+  const ring = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before');
+  assert.ok(ring && /border:\.27em solid/.test(ring), 'нет кольца полки: ' + ring);
   const lite = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-roulette-screen.is-atv .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img') !== -1);
   assert.ok(lite && /transform:none/.test(lite.decl), 'в «Лёгких» подъёма нет');
   const tr = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img') !== -1);
@@ -8686,4 +8695,198 @@ test('этап 2б: штатная сетка из плагина — штатн
   assert.ok(/(^|;)border-radius:1em(;|$)/.test(ring), 'скругление кольца — как у .card__img Lampa (1em): ' + ring);
   const leaks = ruleBodies(css).filter((r) => r.selectors.some((sel) => /^\.card(\.focus|\.hover)? \.card__view:after$/.test(sel)));
   assert.deepEqual(leaks.map((r) => r.selectors.join(',')), [], 'правило без .lumen-full задело бы все сетки Lampa');
+});
+
+/* ====================================================================== */
+/* 2026-09-27, полоса «фокус на всех экранах» (жалоба с ТВ: «нихуя не     */
+/* понятно что выбираем, подсветка очень не яркая»). Язык фокуса плагина  */
+/* один: картинка и строка-панель — кольцо P.text .27em поверх кромки,    */
+/* кнопка и пункт списка — инверсия P.text/P.bg. Разбор — у FOCUS_GAP     */
+/* (src/30_css.js). Толщина считается на ТВ пользователя: окно 960 CSS px, */
+/* кегль Lampa 11.4055 px (замер на стенде), DPR 2.                       */
+/* ====================================================================== */
+const TV_EM = 11.4055;
+
+/* em → CSS px на ТВ с учётом кегля элемента (k — font-size правила в em). */
+const tvPx = (em, k) => em * (k || 1) * TV_EM;
+
+test('фокус на всех экранах: постер части франшизы и карточка полки «как Apple TV» — то же кольцо, что у подборок', () => {
+  const ref = lastDecl(css, FOCUS_RULES[0]);
+  const form = (d) => declProp(d, 'border') + '|' + declProp(d, 'outline') + '|' + declProp(d, 'outline-offset');
+  const rules = [
+    '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after',
+    '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before'
+  ];
+  for (const sel of rules) {
+    const d = lastDecl(css, sel);
+    assert.ok(d, 'нет кольца: ' + sel);
+    assert.equal(form(d), form(ref), 'кольцо не то же, что у плитки хаба: ' + sel);
+    assert.ok(/(^|;)content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;/.test(d), 'кольцо обязано лежать внутри кромки картинки: ' + d);
+    assert.ok(/(^|;)border-radius:inherit(;|$)/.test(d) && /(^|;)pointer-events:none(;|$)/.test(d), d);
+    assert.equal(/box-shadow|filter|transition|animation/.test(d), false, 'ни тени, ни фильтра, ни анимации у кольца: ' + d);
+  }
+  /* Прежние тонкие обводки (рамка .13em акцентом, outline .14em — 1 CSS px
+     на ТВ) и тени под ними сняты. */
+  const frOld = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster');
+  assert.ok(!frOld || !/border|box-shadow/.test(frOld), 'у постера части франшизы осталась рамка или тень: ' + frOld);
+  const tileOld = lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img');
+  assert.equal(/outline|box-shadow/.test(tileOld), false, 'у кадра полки осталась обводка или тень: ' + tileOld);
+  /* Кольцо полки — над логотипом (z-index 1) и затемнением под ним. */
+  const logo = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile-logo');
+  const zRing = parseInt(declProp(lastDecl(css, rules[1]), 'z-index'), 10);
+  assert.ok(zRing > parseInt(declProp(logo, 'z-index'), 10), 'кольцо полки под логотипом');
+  /* Просмотренная часть под фокусом — в полную яркость: кольцо лежит внутри
+     постера и гасло бы вместе с ним. */
+  assert.equal(declProp(lastDecl(css, '.lumen-descr-row .lumen-fr-card--watched.focus .lumen-fr-card__poster'), 'opacity'), '1');
+});
+
+test('фокус на всех экранах: ряд частей франшизы не режет увеличенный постер и его кольцо', () => {
+  /* В «Полных» постер в фокусе растёт на 1.04; первый в ряду вылезал за
+     левую кромку ряда (overflow:hidden) на ширину × .02. */
+  const card = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-fr-card');
+  const w = parseFloat(/(?:^|;)width:([\d.]+)em/.exec(card)[1]);
+  const zoom = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster');
+  const s = parseFloat(/scale\(([\d.]+)\)/.exec(zoom)[1]);
+  const row = lastDecl(css, '.lumen-descr-row .lumen-fr__row');
+  assert.ok(/(^|;)overflow:hidden(;|$)/.test(row), row);
+  const pad = /(?:^|;)padding:([\d.]+)em ([\d.]+)em(;|$)/.exec(row);
+  assert.ok(pad, 'у ряда нет боковых полей: ' + row);
+  assert.ok(parseFloat('0' + pad[2]) >= w * (s - 1) / 2, 'боковое поле ' + pad[2] + 'em меньше вылета ' + (w * (s - 1) / 2).toFixed(3) + 'em');
+  assert.ok(new RegExp('(^|;)margin:0 -' + pad[2].replace('.', '\\.') + 'em(;|$)').test(row), 'поля ряда сдвинули карточки: ' + row);
+});
+
+test('фокус на всех экранах: плашка описания — кольцо цветом текста внутри кромки, той же толщины на ТВ', () => {
+  for (const theme of ['warm', 'black']) {
+    const storage = { lumen_theme: theme };
+    for (const tint of [null, lightestTint(theme)]) {
+      const built = withTint(storage, tint, (LC) => LC.buildCss());
+      const P = withTint(storage, tint, (LC) => LC.tokens());
+      const base = findDecl(built, (sel) => sel === '.lumen-descr-row .full-descr__text');
+      const k = parseFloat(declProp(base, 'font-size'));
+      const d = lastDecl(built, '.lumen-descr-row .full-descr__text.focus');
+      assert.ok(d, 'у плашки описания нет правила фокуса');
+      const m = /^([\d.]+)em solid (#[0-9A-Fa-f]{6})$/.exec(declProp(d, 'outline'));
+      assert.ok(m, 'кольцо плашки — outline одним цветом: ' + d);
+      assert.equal(m[2], P.text, 'кольцо — цвет текста темы');
+      assert.equal(declProp(d, 'outline-offset'), '-' + m[1] + 'em', 'кольцо обязано лежать внутри кромки плашки: ' + d);
+      const px = tvPx(parseFloat('0' + m[1]), k);
+      assert.ok(Math.abs(px - tvPx(0.27)) < 0.2, 'толщина кольца плашки ' + px.toFixed(2) + ' CSS px против ' + tvPx(0.27).toFixed(2) + ' у картинок');
+      /* Изнутри кольцо граничит с подложкой плашки над кадром — худшие кадры
+         белый и чёрный, с самой светлой подкраской фона. */
+      const plate = declProp(base, 'background');
+      for (const frame of ['#ffffff', '#000000']) {
+        const c = contrast(P.text, rgbaOver(plate, frame));
+        assert.ok(c >= 3, theme + ' ' + (tint || 'без подкраски') + ': кольцо к подложке над ' + frame + ' ' + c.toFixed(2));
+      }
+      assert.equal(/box-shadow|filter|transition|animation/.test(d), false, d);
+    }
+  }
+  const mask = lastDecl(css, '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text.focus');
+  assert.ok(mask && /(^|;)mask-image:none(;|$)/.test(mask), 'маска низа гасит нижнюю грань кольца: ' + mask);
+  const P = tokensWith({});
+  assert.equal(declProp(lastDecl(css, '.lumen-descr-row .full-descr__text.focus + .lumen-descr-more'), 'color'), P.text, 'подсказка «OK — весь текст» под фокусом не светлеет');
+});
+
+test('фокус на всех экранах: «Крутить» — кольцо цветом текста с зазором фона, от акцента не зависит', () => {
+  const bad = [];
+  for (const theme of ['warm', 'black']) {
+    for (const key of ACCENT_KEYS) {
+      const storage = { lumen_theme: theme, lumen_card_accent: key };
+      const built = withStorage(storage, (LC) => LC.buildCss());
+      const P = tokensWith(storage);
+      const base = findDecl(built, (sel) => sel === '.lumen-roulette .lumen-roulette__spin');
+      const k = parseFloat(declProp(base, 'font-size'));
+      const d = findDecl(built, (sel) => sel === '.lumen-roulette .lumen-roulette__spin.focus');
+      const m = /^([\d.]+)em solid (#[0-9A-Fa-f]{6})$/.exec(declProp(d, 'outline'));
+      assert.ok(m && m[2] === P.text, 'кольцо «Крутить» — outline цветом текста: ' + d);
+      const gap = parseFloat('0' + declProp(d, 'outline-offset'));
+      if (!(gap > 0)) bad.push(key + ': кольцо без зазора (' + declProp(d, 'outline-offset') + ')');
+      if (tvPx(gap, k) < 1.5) bad.push(key + ': зазор ' + tvPx(gap, k).toFixed(2) + ' CSS px');
+      const ring = tvPx(parseFloat('0' + m[1]), k);
+      if (Math.abs(ring - tvPx(0.27)) > 0.2) bad.push(key + ': толщина ' + ring.toFixed(2));
+      if (/border|box-shadow|filter|transition/.test(d)) bad.push(key + ': лишнее в правиле ' + d);
+      /* Снаружи и в зазоре — фон экрана рулетки; с самой светлой подкраской. */
+      for (const tint of [null, lightestTint(theme)]) {
+        const bg = withTint(storage, tint, (LC) => LC.tokens()).bg;
+        const c = contrast(P.text, bg);
+        if (c < 3) bad.push(theme + ' ' + key + ': кольцо к фону ' + c.toFixed(2));
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+  /* Зазор нужен потому, что к самой заливке светлое кольцо почти не
+     отличалось бы: у песка по умолчанию 1.55:1. */
+  const P = tokensWith({});
+  assert.ok(contrast(P.text, tokensWith({}).accent) < 3);
+  /* В виде «как Apple TV» кнопка вне фокуса тёмная, фокус — инверсия, кольцо
+     там лишнее. */
+  const atv = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__spin.focus');
+  assert.ok(/(^|;)outline:0(;|$)/.test(atv), 'кольцо стандартного вида протекло в вид «как Apple TV»: ' + atv);
+});
+
+test('фокус на всех экранах: пункты настроек плагина — инверсия, и только наши', () => {
+  for (const theme of ['warm', 'black']) {
+    const built = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const P = tokensWith({ lumen_theme: theme });
+    const rules = ruleBodies(built).filter((r) => r.selectors.some((s) => /\.settings-param/.test(s)));
+    const foreign = [];
+    for (const r of rules) for (const s of r.selectors) if (s.indexOf('[data-name^="lumen_"]') === -1) foreign.push(s);
+    assert.deepEqual(foreign, [], 'правило задевает чужие пункты настроек Lampa');
+    const d = lastDecl(built, 'body .settings .settings-param[data-name^="lumen_"].focus');
+    assert.ok(d, 'нет правила фокуса пунктов настроек');
+    assert.equal(declProp(d, 'background-color'), P.text);
+    assert.equal(declProp(d, 'color'), P.bg);
+    assert.ok(contrast(P.bg, P.text) >= 7, 'подпись на заливке фокуса');
+    /* Описание пункта у Lampa — opacity .5 от цвета пункта. */
+    assert.ok(contrast(mixHex(P.bg, 0.5, P.text), P.text) >= 3, 'описание пункта на заливке фокуса');
+    /* Панель настроек Lampa — rgb(38,40,41); штатный фокус без «стекла» —
+       #353535, 1.24:1 к ней. Наш — не ниже 3:1. */
+    assert.ok(contrast('#353535', '#262829') < 1.5);
+    assert.ok(contrast(P.text, '#262829') >= 3, 'пункт в фокусе к панели настроек');
+    assert.equal(/filter|box-shadow|transition/.test(d), false, d);
+  }
+});
+
+test('фокус на всех экранах: мини-карта — строка «где я» инверсией, геометрия прежняя', () => {
+  const variants = [
+    { storage: {}, tint: null }, { storage: {}, tint: lightestTint('warm') },
+    { storage: { lumen_theme: 'black' }, tint: null }, { storage: { lumen_theme: 'black' }, tint: lightestTint('black') },
+    { storage: { lumen_solid: true }, tint: lightestTint('warm') }
+  ];
+  const bad = [];
+  for (const v of variants) {
+    const built = withTint(v.storage, v.tint, (LC) => LC.buildCss());
+    const P = withTint(v.storage, v.tint, (LC) => LC.tokens());
+    const on = findDecl(built, (s) => s === '.lumen-minimap .lumen-minimap__row--on');
+    assert.equal(declProp(on, 'background'), P.text);
+    assert.equal(declProp(on, 'color'), P.bg);
+    assert.equal(declProp(on, 'border-left'), '.16em solid ' + P.text, 'полоса слева — в цвет заливки, строка не сдвигается');
+    assert.equal(declProp(on, 'padding-left'), '.37em');
+    const panel = declProp(findDecl(built, (s) => s === '.lumen-minimap'), 'background');
+    for (const frame of ['#ffffff', '#000000']) {
+      const c = contrast(P.text, rgbaOver(panel, frame));
+      if (c < 3) bad.push(JSON.stringify(v.storage) + ' ' + frame + ': строка к панели ' + c.toFixed(2));
+    }
+    if (contrast(P.bg, P.text) < 7) bad.push('подпись строки ' + contrast(P.bg, P.text).toFixed(2));
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('фокус на всех экранах: ни одно правило фокуса не несёт filter или backdrop-filter', () => {
+  /* Цена на ТВ (docs/research/2026-09-18-android-tv-animations.md): filter —
+     растрирование слоя, backdrop-filter — чтение пикселей под элементом
+     каждый кадр; на шаге фокуса оба перерисовывали бы площадь на каждое
+     нажатие. Проверяются ВСЕ правила таблицы с .focus в селекторе; «none»
+     разрешён — он фильтр снимает. */
+  const bad = [];
+  for (const theme of ['warm', 'black']) {
+    for (const flat of [false, true]) {
+      const built = withStorage({ lumen_theme: theme, lumen_flat: flat }, (LC) => LC.buildCss());
+      for (const r of ruleBodies(built)) {
+        if (!r.selectors.some((s) => /\.focus\b/.test(s))) continue;
+        if (/(^|;)(-webkit-)?(backdrop-)?filter:(?!none)/.test(r.decl)) bad.push(r.selectors.join(',') + ' -> ' + r.decl);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
 });

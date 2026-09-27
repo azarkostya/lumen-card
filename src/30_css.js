@@ -301,11 +301,12 @@
      инверсией P.text/P.bg и от акцента больше не зависит. Правило осталось
      бы в узле подкраски мёртвым грузом (ровно тот дефект, который ловили в
      Task 42 у кольца карточки).
-     Ещё два акцентных правила главной сюда сознательно НЕ взяты: статус
-     героя (.lumen-hero__status, строка ниже) и активная строка мини-карты
-     (.lumen-minimap__row--on). Оба мелкие и показываются не всегда, поэтому
-     их цвет догоняет остальных на ближайшей полной пересборке — при
-     открытии карточки или смене настройки. */
+     Ещё одно акцентное правило главной сюда сознательно НЕ взято: статус
+     героя (.lumen-hero__status, строка ниже). Он мелкий и показывается не
+     всегда, поэтому его цвет догоняет остальных на ближайшей полной
+     пересборке — при открытии карточки или смене настройки. (Активная
+     строка мини-карты была вторым таким правилом; с 2026-09-27 она —
+     инверсия P.text/P.bg, от акцента не зависит.) */
   function accentRules(P, t, live) {
     /* Волна 3: стопы низа затемнения героя зависят от размера кадра
        (HERO_VH / ROWS_TOP_VH ниже по файлу). */
@@ -546,10 +547,53 @@
      как у карточки сетки и у пары focused/unfocused Apple для 16:9 (×1.089,
      docs/research/2026-09-21-tv-design-specs.md §1). */
   var TILE_FOCUS = 1.08;
+  /* Зазор между залитой кнопкой и её кольцом фокуса (focusHaloCss ниже):
+     1.8 CSS px на ТВ — полоса фона экрана, которая отделяет светлое кольцо
+     от светлой заливки. */
+  var FOCUS_GAP = 0.16;
   function focusRingCss(P) {
     return 'border:' + emCss(FOCUS_RING) + ' solid ' + P.text + ';outline:' + emCss(FOCUS_HAIR) + ' solid rgba(0,0,0,.6);outline-offset:-' + emCss(FOCUS_RING + FOCUS_HAIR);
   }
-  LC.focusNumbers = { ring: FOCUS_RING, hair: FOCUS_HAIR, dim: FOCUS_DIM, gridDim: GRID_DIM };
+  LC.focusNumbers = { ring: FOCUS_RING, hair: FOCUS_HAIR, dim: FOCUS_DIM, gridDim: GRID_DIM, gap: FOCUS_GAP };
+
+  /* 2026-09-27, полоса «фокус на всех экранах» (тот же разбор с ТВ: «нихуя
+     не понятно что выбираем»). Язык фокуса плагина теперь один на все
+     экраны и у него две формы:
+       - картинка (постер, кадр, плитка) и строка-панель (раздача, файл) —
+         кольцо focusRingCss выше: рамка псевдоэлемента поверх кромки,
+         внутри контура, над кадром и метками;
+       - кнопка, чип, пункт списка — инверсия: заливка P.text, подпись P.bg
+         (Task 43/54, как было).
+     Два узла не укладываются ни в одну форму, для них — два варианта того
+     же кольца:
+       - focusOutlineCss — у элемента, которому псевдоэлемент не годится
+         (плашка описания: overflow:hidden режет по padding-box, а нижний
+         отступ у неё — прозрачная рамка, и кольцо псевдоэлемента легло бы
+         выше видимой кромки). outline с отрицательным отступом — внутри
+         кромки, поверх подложки; outline не входит в раскладку и
+         собственным overflow элемента не режется. k — кегль элемента
+         относительно базового: em в правиле считаются от него, а толщина
+         кольца обязана совпасть с кольцом картинок;
+       - focusHaloCss — у кнопки, которая и без фокуса залита (акцентная
+         «Крутить»): инверсия P.text по песку даёт 1.55:1, почти ничего.
+         Кольцо P.text с зазором FOCUS_GAP фона экрана вокруг кнопки: зазор
+         отделяет светлое кольцо от светлой заливки, снаружи кольцо на
+         тёмном фоне экрана. outline повторяет скругление кнопки (Chromium
+         ≥ 94; WebView ТВ — 153).
+     Ни тени, ни filter, ни перехода: кольцо появляется вместе с классом
+     .focus и перерисовывает только площадь самого элемента. */
+  function focusOutlineCss(P, k) {
+    var w = emCss(FOCUS_RING / (k || 1));
+    return 'outline:' + w + ' solid ' + P.text + ';outline-offset:-' + w;
+  }
+  function focusHaloCss(P, k) {
+    return 'outline:' + emCss(FOCUS_RING / (k || 1)) + ' solid ' + P.text + ';outline-offset:' + emCss(FOCUS_GAP / (k || 1));
+  }
+  /* Кольцо для правил, собранных вне этого файла (src/65_torrents.js):
+     цвет текста темы берётся у вызывающего — там свой набор токенов. */
+  LC.focusRingCss = function (text) {
+    return focusRingCss({ text: text });
+  };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
@@ -3293,6 +3337,20 @@
        строки, и на коротком тексте она избыточна. Это поведение не
        изменилось, оно лишь распространилось на все карточки. */
     css.push('.lumen-descr-row .lumen-descr-more{display:block;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin:.38em 0 0 .83em}');
+    /* 2026-09-27 (полоса «фокус на всех экранах»): у плашки описания в
+       фокусе не менялось НИЧЕГО — ни у Lampa (у .full-descr__text нет
+       правила .focus в app.css), ни у нас. Замер на стенде 960×540@2
+       («Матрица»): вычисленные стили плашки в фокусе и без него совпадают
+       (подложка rgba(21,32,22,.85), outline none), и отличить её от
+       соседней плашки «ПОДРОБНО» нельзя. Теперь — кольцо цветом текста
+       внутри кромки (focusOutlineCss, разбор у FOCUS_GAP): кегль плашки
+       1.27em, толщина пересчитана под него. Подсказка «OK — весь текст»
+       под плашкой в фокусе светлеет — это и есть «кнопка» описания.
+       Мягкая маска низа (ряд с отзывами) гасила бы нижнюю грань кольца —
+       под фокусом она снята. */
+    css.push('.lumen-descr-row .full-descr__text.focus{' + focusOutlineCss(P, 1.27) + '}');
+    css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text.focus{-webkit-mask-image:none;mask-image:none}');
+    css.push('.lumen-descr-row .full-descr__text.focus + .lumen-descr-more{color:' + P.text + '}');
     /* Правка 2026-09-23 (разбор композиции, пп.4.3 и 6): имя последней
        карточки в ленте людей резала ПРАВАЯ кромка экрана. Замер на стенде
        960×540@2 (карточка «Звёздные войны: Эпизод 5», ряд актёров): «Билли
@@ -3676,7 +3734,11 @@
        подкручивается сам (scrollToCard в src/66_franchise.js нет — карточки
        узкие, восемь частей помещаются в экран; при большем числе ряд просто
        обрезается по overflow). */
-    css.push('.lumen-descr-row .lumen-fr__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+    /* 2026-09-27: боковые поля .2em с таким же отрицательным отступом —
+       раскладка карточек прежняя, но в «Полных» увеличенный на 1.04 постер
+       первой части (вылет 7.9 × .02 = .16em) и его кольцо больше не режет
+       левая кромка ряда (overflow:hidden). */
+    css.push('.lumen-descr-row .lumen-fr__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em .2em;margin:0 -.2em}');
     css.push('.lumen-descr-row .lumen-fr-card{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:7.90em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;color:' + P.text + '}');
     css.push('.lumen-descr-row .lumen-fr-card__poster{position:relative;width:100%;height:11.84em;border-radius:.53em;overflow:hidden;background-color:' + P.panel + ';-webkit-background-size:cover;background-size:cover;background-position:' + POSTER_ANCHOR + ';background-repeat:no-repeat;border:.04em solid ' + P.line + '}');
     /* Просмотренная часть приглушается, а поверх постера ставится галочка —
@@ -3692,7 +3754,17 @@
     css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--watched{color:' + P.good + '}');
-    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* 2026-09-27 (полоса «фокус на всех экранах»): фокус части франшизы —
+       то же кольцо, что у постеров подборок (focusRingCss), псевдоэлементом
+       поверх кромки постера, над галочкой просмотра. Было: рамка .13em
+       акцентом и акцентная подложка — на ТВ вычисленная толщина рамки 1 CSS
+       px (2 физических), и на зелёном постере «Матрицы» с зелёным акцентом
+       от того же постера её не было видно вовсе (снимок стенда
+       before_tv_lite_card_frcard). Просмотренная часть под фокусом —
+       в полную яркость: кольцо лежит внутри постера и иначе гасло бы вместе
+       с ним до .45. */
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
+    css.push('.lumen-descr-row .lumen-fr-card--watched.focus .lumen-fr-card__poster{opacity:1}');
     css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__name{color:' + A + '}');
     css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{-webkit-transform:scale(1.04);transform:scale(1.04)}');
@@ -6109,7 +6181,15 @@
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
     css.push('.lumen-roulette .lumen-roulette__spin{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin:.88em 0 0;border-radius:1.58em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
-    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* 2026-09-27 (полоса «фокус на всех экранах»): «Крутить» залита
+       акцентом и без фокуса, а фокус добавлял к ней только рамку .11em
+       светлым тоном акцента (вычисленная толщина на ТВ — 1 CSS px) и
+       полупрозрачную полосу под ней: на снимке стенда 960×540@2 кнопка в
+       фокусе и без него отличалась тонкой светлой линией по контуру.
+       Инверсия, как у остальных кнопок, здесь не годится: P.text по песку —
+       1.55:1. Теперь — кольцо P.text с зазором фона экрана (focusHaloCss,
+       разбор у FOCUS_GAP): кегль кнопки 1.05em. Заливка и подпись прежние. */
+    css.push('.lumen-roulette .lumen-roulette__spin.focus{' + focusHaloCss(P, 1.05) + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
     /* Правка 2026-09-23 (разбор композиции, п.5.3): подсказка «Отметьте
        подборки и нажмите «Крутить»» под кнопкой убрана, а не поднята в
@@ -6260,7 +6340,10 @@
        плагине. Фокус на экран приходит сюда (focusTarget), так что первым
        взглядом кнопка белая. */
     css.push(ATV + ' .lumen-roulette__spin{-webkit-align-self:flex-start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;height:2.9em;padding:0 1.7em;margin:1.1em 0 0;border-radius:1.45em;border:0;background:' + P.buttonBg + ';color:' + P.text + ';font-weight:700}');
-    css.push(ATV + ' .lumen-roulette__spin.focus{border:0;background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06)}');
+    /* outline:0 — кольцо стандартного вида (правило .lumen-roulette
+       .lumen-roulette__spin.focus выше) здесь лишнее: заливка кнопки вне
+       фокуса тёмная, и инверсия выделяет её сама, как любую кнопку. */
+    css.push(ATV + ' .lumen-roulette__spin.focus{border:0;outline:0;background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06)}');
     /* Барабан — кадр 16:9 справа. Потолок — остаток области под шапкой,
        лентой и полкой (ATV_REST_EM выше); ширина держит 16:9 тем же
        потолком. */
@@ -6293,7 +6376,15 @@
        размытия под ней и кольцо outline цветом текста — на кадре любой
        яркости кольцо видно, а outline, в отличие от рамки, не сдвигает
        раскладку. */
-    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img{outline:.14em solid ' + P.text + ';outline-offset:.1em;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45);-webkit-transform:scale(1.06);transform:scale(1.06)}');
+    /* 2026-09-27 (полоса «фокус на всех экранах»): кольцо — то же, что у
+       плиток подборок (focusRingCss): рамка .27em псевдоэлементом :before
+       поверх кромки кадра, над логотипом (z-index 1) и затемнением под ним
+       (:after), с тёмной линией внутри. Было outline .14em с отступом .1em —
+       на ТВ вычисленная толщина 1 CSS px, и в «Лёгких» (без подъёма) фокус
+       на полке читался тонкой линией (снимок стенда before_tv_lite_atv_tile).
+       Жёсткая тень под кадром снята вместе с outline. */
+    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img{-webkit-transform:scale(1.06);transform:scale(1.06)}');
+    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img:before{content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:3;pointer-events:none;background:none;' + focusRingCss(P) + '}');
     css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-name{color:' + P.text + '}');
     /* Переход подъёма — только transform и только в «Полном» режиме. Правило
        нарочно под корнем .lumen-roulette, а не под обёрткой экрана: смена
@@ -6419,9 +6510,15 @@
        строка по-прежнему выделена акцентом, подложкой и полосой. */
     css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.12em;color:' + P.soft + ';margin-bottom:.61em}');
     css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.15;color:' + P.soft + ';min-height:1.76em;padding:.27em .53em;border-radius:.30em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
-    /* Активная строка — тот же паттерн, что у фокуса пункта меню (§0.13):
-       подложка приглушённым акцентом и полоса слева его же цветом. */
-    css.push('.lumen-minimap .lumen-minimap__row--on{background:rgba(' + A_RGB + ',.14);border-left:.16em solid ' + A + ';color:' + A + ';font-weight:600;padding-left:.37em}');
+    /* Активная строка — тот же паттерн, что у фокуса пункта меню (§0.13).
+       2026-09-27 (полоса «фокус на всех экранах»): пункт меню с Task 53/54
+       показывает фокус инверсией, а здесь оставались подложка акцентом .14
+       и полоса .16em: подложка отличалась от панели на 1.25:1, подпись
+       песком от соседних P.soft — на 1.2:1 (обе светлые), а полоса на ТВ —
+       1 CSS px. Строка «где я» читалась только жирностью. Теперь — та же
+       инверсия P.text/P.bg; полоса слева остаётся цветом заливки, чтобы
+       строка не сдвинулась. */
+    css.push('.lumen-minimap .lumen-minimap__row--on{background:' + P.text + ';border-left:.16em solid ' + P.text + ';color:' + P.bg + ';font-weight:600;padding-left:.37em}');
 
     /* Индикатор «где я в ряду»: появляется на прыжке и на ускоренном
        листании. Собственного образца в экранах 15–32 у него нет — взяты
@@ -6432,6 +6529,19 @@
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */
     css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');
+
+    /* 2026-09-27 (полоса «фокус на всех экранах»): пункты настроек плагина.
+       Панель настроек — штатная Lampa, и фокус пункта у неё без «стеклянного»
+       стиля (glass_style; на ТВ он выключен по умолчанию — app.min.js:47432
+       включает его только на мобильных) — заливка #353535 на панели
+       rgb(38,40,41): 1.24:1, на стенде фокус по списку не виден вовсе. Со
+       стеклянным стилем сама Lampa красит фокус белым с чёрной подписью
+       (app.css:16068-16072) — то есть та же инверсия, что у пунктов наших
+       меню (Task 53). Здесь она и стоит — только у НАШИХ пунктов: у всех
+       имя параметра начинается с lumen_ (src/81_prefs.js), и чужие разделы
+       настроек правило не задевает. Подпись, значение («Да»/«Нет», выбор)
+       и описание (у Lampa — opacity .5) наследуют цвет пункта. */
+    css.push('body .settings .settings-param[data-name^="lumen_"].focus{background-color:' + P.text + ';color:' + P.bg + '}');
 
     /* --- Task 73 (фаза 6): плоский вид («Как Apple TV» на остальные экраны) ---
        Отзыв пользователя 2026-09-21 (п.3): «„Как в Apple TV“ выглядит
