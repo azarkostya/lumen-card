@@ -179,9 +179,20 @@
       return text;
     }
 
+    /* Хост без логина и пароля: «user:pass@host» → «host». */
     function hostOf(url) {
       var m = /^[a-z][a-z0-9+.-]*:\/\/([^\/?#]+)/i.exec(url || '');
-      return m ? m[1] : '';
+      return m ? m[1].replace(/^.*@/, '') : '';
+    }
+
+    /* SEC4-1: invoker записи LoAF — полный адрес: у обработчика картинки
+       без id Chromium пишет IMG[src="<адрес с запросом>"].onload, у
+       classic-script — адрес скрипта с запросом. Lampa дописывает к
+       картинкам ?email=<почта CUB> (app.min.js:19316), к скриптам плагинов
+       — email=<base64> (addPluginParams, :36658); таблицу фотографируют
+       и присылают. На экран и в JSON — без запроса и без логина-пароля. */
+    function bare(s) {
+      return ('' + (s || '')).replace(/\?[^"\]\s]*/g, '').replace(/\/\/[^\/@"\s]*@/g, '//');
     }
 
     function na(v, fmt) {
@@ -426,7 +437,7 @@
         if (!best || Number(list[i].duration) > Number(best.duration)) best = list[i];
       }
       if (!best) return '';
-      return cut((hostOf(best.sourceURL) || 'inline') + (best.invoker ? ' ' + best.invoker : ''), 48);
+      return cut((hostOf(best.sourceURL) || 'inline') + (best.invoker ? ' ' + bare(best.invoker) : ''), 48);
     }
 
     /* Раунд «Листание» (трейс 2026-09-25, п.5 исследования): «n/a» в
@@ -468,7 +479,7 @@
         sl: sls > 0 ? start + dur - sls : 0,
         other: other > 0 ? other : 0,
         script: top ? cut((hostOf(top.sourceURL) || 'inline') + ' ' + (top.sourceFunctionName || '') + '@' + pos +
-          (top.invoker ? ' ' + top.invoker : ''), SCRIPT_MAX) : ''
+          (top.invoker ? ' ' + bare(top.invoker) : ''), SCRIPT_MAX) : ''
       };
     }
 

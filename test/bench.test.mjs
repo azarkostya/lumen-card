@@ -172,6 +172,62 @@ test('bench: partsOf — фазы долгого кадра: js, r+ev, st+l, frc
   assert.equal(inline.script, 'inline @', 'скрипт без адреса — inline, без функции и позиции');
 });
 
+/* SEC4-1: Chromium кладёт в invoker LoAF полный адрес — у обработчика
+   картинки без id IMG[src="<адрес с запросом>"].onload, у classic-script
+   адрес скрипта с запросом; Lampa дописывает к картинкам ?email=<почта
+   CUB>, к скриптам плагинов — email=<base64>. Таблицу фотографируют и
+   присылают: на экран и в JSON — без запроса и без логина-пароля. */
+const MAIL_IMG = 'IMG[src="https://imagetmdb.com/t/p/w300/8rpDcsfLJypbO6vREc0547VKqEv.jpg?email=user.name%40gmail.com"].onload';
+const MAIL_JS = 'https://bwa.to/rc/online.js?email=dXNlci5uYW1lQGdtYWlsLmNvbQ%3D%3D&logged=true';
+function mailFrame(script) {
+  return { startTime: 1000, duration: 180, blockingDuration: 130, renderStart: 1170, styleAndLayoutStart: 1172, scripts: [script] };
+}
+function noMail(text) {
+  return text.indexOf('email') === -1 && text.indexOf('user.name') === -1 && text.indexOf('dXNlci5uYW1l') === -1 &&
+    text.indexOf('logged') === -1 && text.indexOf('secret') === -1 && text.indexOf('?') === -1;
+}
+
+test('bench: partsOf — почта из запроса и логин-пароль из адреса не попадают в строку скрипта (SEC4-1)', () => {
+  const { api } = fresh();
+  const img = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: 'https://azarkostya.github.io/lumen-card/lumen_card.js?email=dXNlci5uYW1lQGdtYWlsLmNvbQ%3D%3D',
+    sourceFunctionName: '', sourceCharPosition: 283456, invoker: MAIL_IMG, invokerType: 'event-listener' }));
+  assert.ok(noMail(img.script), img.script);
+  assert.equal(img.script, 'azarkostya.github.io @283456 IMG[src="https://imagetmdb.com/t/p/w300/8rpDcsfLJypbO6vREc0547VKqEv.jpg"].onload',
+    'адрес картинки остаётся, отрезан только запрос');
+  const js = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: MAIL_JS, sourceFunctionName: '', sourceCharPosition: 0,
+    invoker: MAIL_JS, invokerType: 'classic-script' }));
+  assert.ok(noMail(js.script), js.script);
+  assert.equal(js.script, 'bwa.to @0 https://bwa.to/rc/online.js');
+  const creds = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: 'https://user:secret@proxy.example.org/app.js',
+    sourceFunctionName: 'f', sourceCharPosition: 7, invoker: 'IMG[src="http://user:secret@proxy.example.org/p.jpg"].onload' }));
+  assert.ok(noMail(creds.script), creds.script);
+  assert.equal(creds.script, 'proxy.example.org f@7 IMG[src="http://proxy.example.org/p.jpg"].onload');
+  /* Селектор с id и прочие invoker без адреса — как были. */
+  const plain = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: '', sourceFunctionName: 'frameVisible',
+    sourceCharPosition: 1, invoker: 'DIV#main.onwebkitTransitionEnd' }));
+  assert.equal(plain.script, 'inline frameVisible@1 DIV#main.onwebkitTransitionEnd');
+});
+
+test('bench: подвал «loaf max» и JSON — без почты из invoker (SEC4-1)', () => {
+  const e = makeEnv({ loaf: true });
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(1500);
+  e.loaf([
+    { startTime: 1e9, duration: 120, blockingDuration: 70, scripts: [{ duration: 60, sourceURL: 'https://u:secret@cdn.example.org/a.js?email=x',
+      invoker: 'IMG[src="//i.co/a.jpg?email=u%40g"].onload' }] },
+    { startTime: 1e9 + 200, duration: 300, blockingDuration: 10, scripts: [{ startTime: 1e9 + 201, duration: 90, sourceURL: MAIL_JS,
+      sourceFunctionName: '', sourceCharPosition: 0, invoker: MAIL_JS }] }
+  ]);
+  e.advance(RUN);
+  const row = e.api.last().rows[0];
+  assert.ok(row.worst && noMail(row.worst.host), JSON.stringify(row.worst));
+  assert.equal(row.worst.host, 'cdn.example.org IMG[src="//i.co/a.jpg"].onload', 'первая таблица — 48 символов, почта влезла бы');
+  assert.ok(noMail(row.top.script), row.top.script);
+  assert.ok(noMail(JSON.stringify(e.api.last())), 'JSON результата');
+  assert.ok(e.api.table(e.api.last()).every(noMail), 'строки обеих таблиц');
+});
+
 test('bench: вторая таблица — самый длинный кадр каждой стадии по фазам; обе таблицы — на одном экране 960×540', () => {
   const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k, hud: HUD });
   const lines = api.table(wideResult(api));
