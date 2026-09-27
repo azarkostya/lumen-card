@@ -7720,7 +7720,12 @@ test('без ожидания, п.2: подложка кадра нового ф
   assert.deepEqual(warnLog, []);
 });
 
-test('без ожидания, п.2: подложки в памяти нет — нейтральный фон, как прежде (пустая картинка посреди ожидания не ставится)', () => {
+/* Раунд «без лагов», этап 2а, п.2: прежде подложка без байтов в памяти на
+   слой не ставилась, и серый держался до w1280. Теперь она встаёт на слой в
+   тике потолка, как на первом кадре: под ней нейтральный фон, пока её байты
+   (13 КБ, заказаны показом вместе с w1280) не доехали, — и одна загрузка:
+   адрес тот же, что у заказа показа. */
+test('этап 2а, п.2: подложки в памяти ещё нет — в тике потолка она всё равно встаёт на слой (проявится, как доедет), вторая загрузка не заводится', () => {
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -7728,9 +7733,15 @@ test('без ожидания, п.2: подложки в памяти нет —
   fireFocus(main.activity, main.card2);
   env.advance(350);
   detailsOf(env, 22).ok({ id: 22 });
+  const ordered = env.images.filter((i) => i.src === 'https://img/t/p/w300/b2.jpg');
+  assert.equal(ordered.length, 1, 'предусловие: подложку заказал показ');
+  assert.equal(ordered[0].complete, undefined, 'предусловие: байты подложки ещё едут');
   env.advance(251);
-  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY);
-  assert.equal(stage.find('.lumen-hero__lqip').hasClass('is-active'), false, 'подложка без байтов встала вместо нейтрального фона');
+  const lqip = stage.find('.lumen-hero__lqip');
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'кадр прошлого фильма остался под новым текстом');
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b2.jpg', 'подложка без байтов не встала — серый до самого w1280');
+  assert.equal(lqip.hasClass('is-active'), true);
+  assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w300/b2.jpg').length, 1, 'подложку заказали второй раз');
 });
 
 /* Исследование 2026-09-27 (полоса images): размер логотипа по его ширине  */
@@ -7759,4 +7770,99 @@ test('полоса images: адрес логотипа — по его проп�
   assert.equal(f.env.hero.logoUrl('/r4.png'), 'https://img/t/p/w500/r4.png');
   assert.equal(f.env.hero.logoUrl('/r12.png'), 'https://img/t/p/w780/r12.png');
   assert.equal(f.env.hero.logoUrl('/unknown.png'), 'https://img/t/p/w780/unknown.png');
+});
+
+/* ====================================================================== */
+/* Раунд «без лагов», этап 2а, п.2: подложка LQIP на каждый показ, один    */
+/* режим CORS с цветом кадра                                               */
+/* ====================================================================== */
+
+/* Заглушка LC.accent: режим CORS цвета кадра (frameCors) и запись цвета. */
+function corsAccent(cors) {
+  const acc = { applied: [], cors: cors };
+  acc.frameCors = () => acc.cors;
+  acc.applyFor = (card, full, frame) => { acc.applied.push([card && card.id, frame]); };
+  acc.prepareFrame = () => null;
+  return acc;
+}
+/* Адрес, по которому цвет считает низ кадра (src/57_color.js: FRAME_SIZE
+   't/p/w300' + путь через Lampa.TMDB.image). */
+const colorW300 = (env, path) => env.Lampa.TMDB.image('t/p/w300' + path);
+const w300Of = (env, path) => env.images.filter((i) => i.src === 'https://img/t/p/w300' + path);
+
+test('этап 2а, п.2: на экране кадр другого фильма — показ заказывает байты подложки нового кадра, тем же адресом и в режиме CORS цвета; кадр встал раньше потолка — подложка на слой не выходит', () => {
+  const acc = corsAccent(true);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  const small = w300Of(env, '/b2.jpg');
+  assert.equal(small.length, 1, 'подложка нового кадра не заказана');
+  assert.equal(small[0].src, colorW300(env, '/b2.jpg'), 'подложка и цвет кадра — разные адреса');
+  assert.equal(small[0].crossOrigin, 'anonymous', 'подложка не в режиме CORS цвета — второй ресурс, вторая загрузка');
+  frameImg(env, '/b2.jpg').onload();
+  env.advance(1000);
+  const lqip = stage.find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('src'), undefined, 'кадр встал раньше потолка, а подложка вышла на слой — лишняя смена');
+  assert.equal(lqip.hasClass('is-active'), false);
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b2.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.2: подложка, заказанная показом, доехала к потолку — вместо нейтрального фона встаёт она (слой в режиме CORS цвета); цвет — в её тике и один раз', () => {
+  const acc = corsAccent(true);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+  const lqip = () => stage.find('.lumen-hero__lqip');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  const small = w300Of(env, '/b2.jpg')[0];
+  assert.ok(small, 'предусловие: подложку заказал показ');
+  small.complete = true;
+  small.naturalWidth = 300;
+  small.onload();
+  const before = acc.applied.length;
+  env.advance(249);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'раньше 250 мс кадр прошлого не уходит');
+  assert.equal(acc.applied.length, before, 'цвет раньше картинки');
+  env.advance(2);
+  assert.equal(active(), EMPTY, 'кадр прошлого фильма остался под новым текстом');
+  assert.equal(lqip().attr('src'), 'https://img/t/p/w300/b2.jpg', 'вместо своей подложки — нейтральный фон');
+  assert.equal(lqip().attr('crossorigin'), 'anonymous', 'слой подложки — не в режиме CORS цвета');
+  assert.equal(lqip().hasClass('is-active'), true);
+  assert.deepEqual(acc.applied.slice(before), [[22, '/b2.jpg']], 'цвет не встал в тике подложки или не по её кадру');
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b2.jpg', 'кадр не сменил подложку');
+  assert.equal(acc.applied.length, before + 1, 'полный кадр записал цвет второй раз');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.2: цвет кадров не читает (подкраска выключена, прокси без ACAO) или LC.accent нет — подложка без CORS; дорожка кадра — в том же режиме', () => {
+  const acc = corsAccent(false);
+  const env = makeEnv({ fxHeavy: () => false, accent: acc });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  const lqip = stageOf(heroOf(main.activity)).find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg', 'предусловие: подложка первого показа на слое');
+  assert.equal(lqip.attr('crossorigin'), undefined, 'подложка в режиме CORS, хотя цвет кадров не читает');
+  env.hero.preloadFrame('/f1.jpg', false);
+  assert.equal(w300Of(env, '/f1.jpg')[0].crossOrigin, undefined, 'дорожка: подложка в режиме CORS без цвета');
+  acc.cors = true;
+  env.hero.preloadFrame('/f2.jpg', false);
+  assert.equal(w300Of(env, '/f2.jpg')[0].crossOrigin, 'anonymous', 'дорожка: подложка не в режиме CORS цвета');
+  const big = env.images.find((i) => i.src === 'https://img/t/p/w1280/f2.jpg');
+  assert.equal(big.crossOrigin, undefined, 'полный кадр w1280 в режиме CORS — его пиксели никто не читает');
+  const bare = makeEnv({ fxHeavy: () => false });
+  bare.hero.preloadFrame('/f3.jpg', false);
+  assert.equal(w300Of(bare, '/f3.jpg')[0].crossOrigin, undefined, 'без LC.accent — без CORS');
 });

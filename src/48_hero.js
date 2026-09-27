@@ -2907,7 +2907,7 @@
       }
     }
 
-    function keepImage(list, max, url, low, done) {
+    function keepImage(list, max, url, low, done, cors) {
       for (var i = 0; i < list.length; i++) {
         if (list[i].url === url) {
           var hit = list.splice(i, 1)[0];
@@ -2923,6 +2923,8 @@
          героя, который грузит сам показ, стоит на 'high' (loadFrame), и
          заранее заказанный не имеет права его обгонять. */
       img.fetchPriority = low ? 'low' : 'auto';
+      /* Этап 2а, п.2: подложка — в режиме CORS цвета (lqipCors); до src. */
+      if (cors) img.crossOrigin = 'anonymous';
       var entry = { url: url, img: img, done: false, cbs: done ? [done] : [] };
       img.onload = img.onerror = function () { settleKept(entry); };
       img.src = url;
@@ -2945,16 +2947,35 @@
       var url = frameUrl(path);
       if (!url) return '';
       var small = low ? '' : lqipUrl(path);
-      if (small) keepImage(lqipKept, LQIP_KEEP, small, false);
+      if (small) keepImage(lqipKept, LQIP_KEEP, small, false, null, lqipCors());
       return keepImage(frameKept, FRAME_KEEP, url, low, done);
     }
 
-    /* Подложка кадра уже в памяти (байты доехали) — для заглушки holdFrame. */
-    function lqipReady(url) {
-      for (var i = 0; i < lqipKept.length; i++) {
-        if (lqipKept[i].url === url) return lqipKept[i].done && !!lqipKept[i].img.naturalWidth;
+    /* Раунд «без лагов», этап 2а, п.2 (исследование preload, 5.1): режим
+       CORS подложки — тот же, что у цвета низа кадра (LC.accent.frameCors,
+       src/57_color.js): цвет считается по w300 ТОГО ЖЕ кадра, адрес тот
+       же, и в одном режиме это один ресурс браузера и одна загрузка, а не
+       две (стенд, серии нажатий: w300 кадра уходил дважды — с
+       crossOrigin от цвета и без него от подложки). Цвет не читает пиксели
+       (подкраска выключена, прокси без ACAO) — подложка без CORS, как
+       прежде: в режиме CORS такой прокси её не отдал бы. */
+    function lqipCors() {
+      try {
+        return !!(LC.accent && typeof LC.accent.frameCors === 'function' && LC.accent.frameCors());
+      } catch (e) {
+        return false;
       }
-      return false;
+    }
+
+    /* Подложка на слой: режим CORS — до src (смена атрибута после src —
+       новая загрузка). */
+    function setLqip(url) {
+      var lqip = state.stage.find('.lumen-hero__lqip');
+      if (lqipCors()) lqip.attr('crossorigin', 'anonymous');
+      else lqip.removeAttr('crossorigin');
+      lqip.attr('src', url);
+      lqip.addClass('is-active');
+      state.lqipUrl = url;
     }
 
     /* Предзагрузка кадра фокусной карточки. Кадра нет — берём постер и
@@ -3014,14 +3035,25 @@
          карточки не мигает — ограничение брифа 1), и подложки из-под него не
          видно.
          Варианту «кадра нет, собираем из постера» подложка не нужна вовсе:
-         постер и так берётся в w92, что мельче w300. */
+         постер и так берётся в w92, что мельче w300.
+         Раунд «без лагов», этап 2а, п.2 (исследование preload, 5.1): на
+         экране кадр ДРУГОГО фильма — подложка этого кадра тоже нужна, но не
+         на слое, а в памяти (lqipKept): через HOLD_MS от вывода текста кадр
+         чужого фильма уходит, и вместо нейтрального серого встаёт она
+         (holdFrame → ownLqip). Прежде её байты заказывала только дорожка
+         кадра, и только карточке, на которой листание остановилось по
+         покою фокуса; у остальных показов на месте кадра был серый фон до
+         самого w1280. w300 — 13 КБ против 177 у w1280: к потолку HOLD_MS
+         он обычно уже здесь. Кадр встал раньше потолка — подложка на экран
+         не выходит вовсе (лишней смены нет). */
+      if (!blur && !slide && state.frameUrl && String(state.frameId) !== String(state.shownId)) {
+        var early = lqipUrl(path);
+        if (early) keepImage(lqipKept, LQIP_KEEP, early, false, null, lqipCors());
+      }
       if (!blur && !state.frameUrl) {
-        var small = imageUrl(path, 'w300');
+        var small = lqipUrl(path);
         if (small) {
-          var lqip = state.stage.find('.lumen-hero__lqip');
-          lqip.attr('src', small);
-          lqip.addClass('is-active');
-          state.lqipUrl = small;
+          setLqip(small);
           /* Волна 3: подложка — уже кадр этого фильма (holdFrame). */
           state.frameId = state.shownId;
         }
@@ -3469,6 +3501,16 @@
          «герой = карточка» на время загрузки кадра. Гаснут оба слоя кадра
          и подложка, и под текстом остаются фон страницы и затемнения слоя
          кадра — тень подкраски (src/30_css.js, accentRules). */
+      /* Этап 2а, п.2 — цвет и подложка. Цвет показа встаёт в этом тике,
+         вместе со сменой картинки (кадр прошлого уходит, на слой встаёт
+         подложка этого фильма), — одна запись, полный кадр потом её не
+         повторяет. Подложка — кадр ЭТОГО фильма (framePath показа), и цвет
+         фильма — низ этого же кадра (applyFor с кадром), если он посчитан:
+         считается он по тем же байтам w300, что и подложка (тот же адрес и
+         режим CORS — lqipCors; заказ — в startFrame или дорожкой цвета, не
+         позже подложки), так что доехала подложка — посчитан и цвет. Байты
+         ещё едут — постер, как у нейтрального фона: цвета дольше потолка
+         HOLD_MS не ждём, иначе под новым фильмом стоял бы цвет прошлого. */
       try {
         if (!ownLqip()) neutralFrame();
       } catch (e) {
@@ -3481,20 +3523,28 @@
        при листании). Кадр этого показа выбран, а его подложка w300 уже в
        памяти (предзагрузка, preloadFrame) — вместо нейтрального фона встаёт
        она: размытый, но СВОЙ кадр фильма, пока едет или декодируется w1280.
-       Подложки нет в памяти — нейтральный фон, как прежде (показывать
-       пустую картинку, которая «проявится» посреди ожидания, — лишняя
-       смена). Уходит подложка так же, как на первом кадре: swapFrame и
-       releaseLqip через LQIP_FREE после показа кадра. */
+       Уходит подложка так же, как на первом кадре: swapFrame и releaseLqip
+       через LQIP_FREE после показа кадра.
+       Раунд «без лагов», этап 2а, п.2 (исследование preload, 5.1): подложка
+       — на каждый показ, пока кадра этого фильма нет на экране, и на слой
+       она встаёт сразу, даже если её байты ещё едут, — как на первом кадре
+       (loadFrame): под ней нейтральный фон, и подложка проявляется, как
+       только доехала. Прежде подложка без байтов в памяти не ставилась
+       («лишняя смена»), и серый держался до самого w1280. Байты заказаны
+       раньше — дорожкой кадра (карточка под фокусом, как только её кадр
+       решён) или самим показом (loadFrame) — и w300 (13 КБ) обгоняет w1280
+       (177 КБ). Стенд (ТВ-профиль, CPU ×10, сеть +200 мс), серии 3 × 150
+       мс: серый глазами (ни одного слоя с доехавшими байтами) — медиана
+       364 → 246 мс на показ; ряды — показов с серым 15 → 12 из 24;
+       размытая подложка до резкого кадра — 40–175 мс. Кадр встал до потолка
+       HOLD_MS — подложка на экран не выходит вовсе. */
     function ownLqip() {
       var path = state.framePath;
       if (!path) return false;
       var small = lqipUrl(path);
-      if (!small || !lqipReady(small)) return false;
+      if (!small) return false;
       neutralFrame();
-      var lqip = state.stage.find('.lumen-hero__lqip');
-      lqip.attr('src', small);
-      lqip.addClass('is-active');
-      state.lqipUrl = small;
+      setLqip(small);
       return true;
     }
 

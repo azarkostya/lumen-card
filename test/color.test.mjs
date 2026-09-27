@@ -2216,6 +2216,33 @@ test('RV5-a: дорожка соседей — после одного отка�
 
 /* RV5-2: поздний ответ постера не переписывает цвет фильма, закреплённый
    кадром; «Назад» и карточка берут закреплённый. */
+/* Раунд «без лагов», этап 2а, п.2: подложка героя (w300 кадра) — тот же
+   файл, что цвет низа кадра; грузить её надо в том же режиме CORS, иначе
+   это вторая загрузка. frameCors — режим цвета: читает ли он пиксели кадров. */
+test('этап 2а, п.2: frameCors — да, пока цвет читает кадры; три отказа подряд, подкраска или движение выключены — нет', () => {
+  const dom = fakeDom({ datas: [FRAME_RED] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    assert.equal(ctx.LC.accent.frameCors(), true, 'подкраска включена, отказов нет');
+    ctx.LC.accent.prepareFrame('/red.jpg', null, MOVIE, true);
+    const img = dom.state.images[dom.state.images.length - 1];
+    assert.equal(img.src, 'https://image.tmdb.org/t/p/w300/red.jpg', 'цвет кадра — w300 того же пути (адрес подложки героя)');
+    ctx.LC.accent.applyFor({ id: 1, title: 'Отказ', poster_path: '/a.jpg' });
+    dom.state.images[dom.state.images.length - 1].onerror();
+    ctx.LC.accent.applyFor({ id: 2, title: 'Отказ', poster_path: '/b.jpg' });
+    dom.state.images[dom.state.images.length - 1].onerror();
+    ctx.LC.accent.applyFor({ id: 3, title: 'Отказ', poster_path: '/c.jpg' });
+    dom.state.images[dom.state.images.length - 1].onerror();
+    assert.equal(ctx.api.failRow(), 3, 'предусловие: три отказа подряд');
+    assert.equal(ctx.LC.accent.frameCors(), false, 'чтения отказывают (прокси без ACAO) — подложка в режиме CORS не доедет');
+    img.onload();
+    assert.equal(ctx.api.failRow(), 0, 'предусловие: удача сбрасывает счёт');
+    assert.equal(ctx.LC.accent.frameCors(), true, 'удача возвращает общий режим');
+  });
+  assert.equal(accentCtx({ prefs: { lumen_accent_auto: false } }).LC.accent.frameCors(), false, 'подкраска выключена — кадры никто не читает');
+  assert.equal(accentCtx({ prefs: {}, motion: 'off' }).LC.accent.frameCors(), false, '«Выкл» — кадры никто не читает');
+});
+
 test('RV5-b: постер фильма в пути, показ закрепил цвет кадра — поздний постер цвет фильма не меняет', () => {
   const dom = fakeDom({ datas: [FRAME_GRAY, FRAME_RED, POSTER_BLUE] });
   withDom(dom, () => {

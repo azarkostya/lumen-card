@@ -1529,6 +1529,16 @@
          (src/48_hero.js, src/58_prefetch.js). */
       prepareFrame: prepareFrame,
       knownFrame: function (path) { return knownKey(frameKey(path)); },
+      /* Раунд «без лагов», этап 2а, п.2: подложка LQIP героя — тот же файл,
+         что цвет низа кадра (w300 того же пути, тот же адрес
+         Lampa.TMDB.image), и грузить его надо в ТОМ ЖЕ режиме CORS: иначе
+         это два ресурса в кэше браузера и, без HTTP-кэша на ТВ, две
+         загрузки (стенд: w300 кадра уходил дважды на каждый показ). true —
+         модуль читает пиксели кадров (подкраска включена, чтения не
+         отказывают READ_FAILS раз подряд): подложке — crossOrigin
+         'anonymous'. Иначе — без CORS: прокси без заголовка ACAO подложку
+         в режиме CORS не отдал бы вовсе (src/48_hero.js, lqipCors). */
+      frameCors: function () { return on() && readable(); },
       /* 2026-09-27, фон подборок (src/46_hub.js, ScreenStage): цвет низа
          кадра, если он уже посчитан (prepareFrame), — округлённая доминанта
          или null («своего цвета нет»); undefined — ещё не считали. Экран

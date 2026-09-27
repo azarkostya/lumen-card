@@ -20229,7 +20229,7 @@ try { list[i](); } catch (e) { warn('hero: preload callback failed', e); }
 }
 }
 
-function keepImage(list, max, url, low, done) {
+function keepImage(list, max, url, low, done, cors) {
 for (var i = 0; i < list.length; i++) {
 if (list[i].url === url) {
 var hit = list.splice(i, 1)[0];
@@ -20245,6 +20245,8 @@ img.decoding = 'async';
 
 
 img.fetchPriority = low ? 'low' : 'auto';
+
+if (cors) img.crossOrigin = 'anonymous';
 var entry = { url: url, img: img, done: false, cbs: done ? [done] : [] };
 img.onload = img.onerror = function () { settleKept(entry); };
 img.src = url;
@@ -20267,16 +20269,35 @@ if (!path || motionMode() === 'off') return '';
 var url = frameUrl(path);
 if (!url) return '';
 var small = low ? '' : lqipUrl(path);
-if (small) keepImage(lqipKept, LQIP_KEEP, small, false);
+if (small) keepImage(lqipKept, LQIP_KEEP, small, false, null, lqipCors());
 return keepImage(frameKept, FRAME_KEEP, url, low, done);
 }
 
 
-function lqipReady(url) {
-for (var i = 0; i < lqipKept.length; i++) {
-if (lqipKept[i].url === url) return lqipKept[i].done && !!lqipKept[i].img.naturalWidth;
-}
+
+
+
+
+
+
+
+function lqipCors() {
+try {
+return !!(LC.accent && typeof LC.accent.frameCors === 'function' && LC.accent.frameCors());
+} catch (e) {
 return false;
+}
+}
+
+
+
+function setLqip(url) {
+var lqip = state.stage.find('.lumen-hero__lqip');
+if (lqipCors()) lqip.attr('crossorigin', 'anonymous');
+else lqip.removeAttr('crossorigin');
+lqip.attr('src', url);
+lqip.addClass('is-active');
+state.lqipUrl = url;
 }
 
 
@@ -20337,13 +20358,24 @@ if (!url || url === state.frameUrl) return;
 
 
 
+
+
+
+
+
+
+
+
+
+
+if (!blur && !slide && state.frameUrl && String(state.frameId) !== String(state.shownId)) {
+var early = lqipUrl(path);
+if (early) keepImage(lqipKept, LQIP_KEEP, early, false, null, lqipCors());
+}
 if (!blur && !state.frameUrl) {
-var small = imageUrl(path, 'w300');
+var small = lqipUrl(path);
 if (small) {
-var lqip = state.stage.find('.lumen-hero__lqip');
-lqip.attr('src', small);
-lqip.addClass('is-active');
-state.lqipUrl = small;
+setLqip(small);
 
 state.frameId = state.shownId;
 }
@@ -20791,6 +20823,16 @@ return;
 
 
 
+
+
+
+
+
+
+
+
+
+
 try {
 if (!ownLqip()) neutralFrame();
 } catch (e) {
@@ -20807,16 +20849,24 @@ settleAccent(true);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 function ownLqip() {
 var path = state.framePath;
 if (!path) return false;
 var small = lqipUrl(path);
-if (!small || !lqipReady(small)) return false;
+if (!small) return false;
 neutralFrame();
-var lqip = state.stage.find('.lumen-hero__lqip');
-lqip.attr('src', small);
-lqip.addClass('is-active');
-state.lqipUrl = small;
+setLqip(small);
 return true;
 }
 
@@ -31587,6 +31637,16 @@ prepare: prepare,
 
 prepareFrame: prepareFrame,
 knownFrame: function (path) { return knownKey(frameKey(path)); },
+
+
+
+
+
+
+
+
+
+frameCors: function () { return on() && readable(); },
 
 
 
