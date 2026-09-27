@@ -57,6 +57,10 @@
   /*     'ok'. Второй копии знания о логотипах нет.                         */
   /*                                                                       */
   /* HUD (src/69_hud.js) — поле «pf в пути/в очереди/попадания».           */
+  /*                                                                       */
+  /* Колбэки таймеров и простоя — именованные (pfWindowIdle, pfFrameTimer, */
+  /* pfLookIdle…): LoAF на ТВ подписывает длинный кадр таймера только      */
+  /* именем функции, и самотест по нему видит, чей таймер открыл кадр.     */
   /* -------------------------------------------------------------------- */
 
   LC.prefetch = (function () {
@@ -240,7 +244,7 @@
       }
       var mine = [sub];
       flight[key] = mine;
-      var limit = setTimeout(function () {
+      var limit = setTimeout(function pfSendLimit() {
         limit = null;
         settle(null, false);
       }, SEND_LIMIT);
@@ -468,7 +472,7 @@
     function pumpColors() {
       if (colorJob || colorWait || !colors.length) return;
       var captured = gen;
-      colorWait = idle(function () {
+      colorWait = idle(function pfColorIdle() {
         colorWait = null;
         if (captured !== gen || !ready()) return;
         var card = null;
@@ -573,11 +577,11 @@
     function pumpLooks() {
       if (lookJob || lookWait || !looks.length) return;
       var captured = gen;
-      lookWait = idle(function () {
+      lookWait = idle(function pfLookIdle() {
         lookWait = null;
         if (captured !== gen || !ready() || !lookAllowed()) return;
         if (heroChoosing()) {
-          var t = setTimeout(function () {
+          var t = setTimeout(function pfLookRetry() {
             lookWait = null;
             pumpLooks();
           }, LOOK_RETRY);
@@ -800,7 +804,7 @@
     function framesLater(ms) {
       if (frameTimer) clearTimeout(frameTimer);
       var captured = gen;
-      frameTimer = setTimeout(function () {
+      frameTimer = setTimeout(function pfFrameTimer() {
         frameTimer = null;
         if (captured === gen) pumpFrames();
       }, ms > 0 ? ms : 0);
@@ -1015,7 +1019,7 @@
       visited.push(el);
       if (visited.length > VISITED_MAX) visited.shift();
       var captured = gen;
-      idleTimer = setTimeout(function () {
+      idleTimer = setTimeout(function pfWindowIdle() {
         idleTimer = null;
         if (captured !== gen || !ready()) return;
         try {

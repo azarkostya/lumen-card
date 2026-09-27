@@ -34,6 +34,11 @@
   /* сменившийся DOM не пишет. unmount() снимает слушатель фокуса,          */
   /* все таймеры, предзагрузку кадра и незавершённый запрос деталей —       */
   /* герой на слабом ТВ не оставляет после себя ни одной живой подписки.    */
+  /*                                                                       */
+  /* Колбэки таймеров — именованные (heroShow, heroHold, heroBurstEnd…):   */
+  /* LoAF на ТВ подписывает длинный кадр таймера только именем функции     */
+  /* («TimerHandler:setTimeout» без имени), и самотест по нему видит, чей  */
+  /* таймер открыл кадр (src/69_bench.js).                                 */
   /* -------------------------------------------------------------------- */
 
   LC.hero = (function () {
@@ -1028,7 +1033,7 @@
          сразу силуэтом, а не тёмным, чтобы потом побелеть (подмена). Не
          успел — логотип встаёт как есть, силуэт — со следующего показа. */
       if (ok && fl.probe) {
-        fl.late = setTimeout(function () {
+        fl.late = setTimeout(function heroLogoLate() {
           fl.late = null;
           tellLogo(fl, true);
         }, TONE_WAIT);
@@ -1174,7 +1179,7 @@
       img.onload = function () { landLogo(path, fl, true); };
       img.onerror = function () { landLogo(path, fl, false); };
       /* Страховочный таймаут — как у кадра: байты есть — удача. */
-      fl.timer = setTimeout(function () {
+      fl.timer = setTimeout(function heroLogoTimeout() {
         fl.timer = null;
         landLogo(path, fl, !!(img.complete && img.naturalWidth));
       }, LOAD_TIMEOUT);
@@ -1192,7 +1197,7 @@
       var wait = (fl.keep || 0) - Date.now();
       if (wait > 0) {
         if (!fl.linger) {
-          fl.linger = setTimeout(function () {
+          fl.linger = setTimeout(function heroLogoLinger() {
             fl.linger = null;
             dropFlight(path, fl);
           }, wait);
@@ -1267,7 +1272,7 @@
          (TONE_WAIT в landLogo), — это логотип, а не текст: он встаёт с тем
          тоном, что известен (неизвестен — как есть). Иначе отсрочка ради
          тона выталкивала логотип за потолок, и весь показ шёл текстом. */
-      ceiling = setTimeout(function () {
+      ceiling = setTimeout(function heroLogoCeiling() {
         ceiling = null;
         once(logoSeen[path] === 'ok');
       }, TITLE_WAIT);
@@ -1756,7 +1761,7 @@
        меню, настройками и шапкой главную видно — ролик играет дальше. */
     function onToggle() {
       if (!state || !(state.trailerTimer || state.trailer)) return;
-      setTimeout(function () {
+      setTimeout(function heroToggle() {
         if (!state) return;
         if (state.trailer && homeHidden()) {
           cancelTrailer();
@@ -2013,7 +2018,7 @@
         try {
           if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
           stopTimer('videosTimer');
-          state.videosTimer = setTimeout(function () {
+          state.videosTimer = setTimeout(function heroVideosLimit() {
             if (state && tgen === captured) state.videosTimer = null;
             fail();
           }, VIDEOS_LIMIT);
@@ -2099,7 +2104,7 @@
       if (!trailerReady()) return;
       state.trailerPlan = trailerNote('plan');
       var captured = tgen;
-      state.trailerTimer = setTimeout(function () {
+      state.trailerTimer = setTimeout(function heroTrailerStart() {
         if (!state || tgen !== captured) return;
         state.trailerTimer = null;
         if (state.pending !== card || !isMounted()) { planDone('stop'); return; }
@@ -2199,7 +2204,7 @@
     function freeHidden(captured) {
       if (!state || !fxHeavy()) return;
       stopTimer('slideFree');
-      state.slideFree = setTimeout(function () {
+      state.slideFree = setTimeout(function heroSlideFree() {
         if (gen !== captured || !state) return;
         state.slideFree = null;
         try {
@@ -2605,7 +2610,7 @@
     function startTitleTimer() {
       if (state.titleTimer) return;
       var captured = gen;
-      state.titleTimer = setTimeout(function () {
+      state.titleTimer = setTimeout(function heroTitleWait() {
         if (gen !== captured || !state) return;
         state.titleTimer = null;
         forceTitleText();
@@ -2749,7 +2754,7 @@
       if (motionMode() === 'full') node.find('.lumen-hero__text').removeClass('is-in').addClass('is-swapping');
       var captured = gen;
       stopTimer('swapTimer');
-      state.swapTimer = setTimeout(function () {
+      state.swapTimer = setTimeout(function heroSwapText() {
         if (gen !== captured || !state) return;
         state.swapTimer = null;
         write();
@@ -2850,7 +2855,7 @@
       if (!state || !state.lqipUrl) return;
       var captured = gen;
       stopTimer('lqipTimer');
-      state.lqipTimer = setTimeout(function () {
+      state.lqipTimer = setTimeout(function heroLqipFree() {
         if (gen !== captured || !state) return;
         state.lqipTimer = null;
         state.lqipUrl = '';
@@ -3142,7 +3147,7 @@
          вкладке Chromium картинки не растеризует, и промис висит без
          исхода (замер координатора на стенде 2026-09-21; WebView телевизора
          уходит в hidden на скринсейвере и при переключении приложения). */
-      state.loadTimer = setTimeout(function () { finish(loaded()); }, LOAD_TIMEOUT);
+      state.loadTimer = setTimeout(function heroFrameTimeout() { finish(loaded()); }, LOAD_TIMEOUT);
       loader.src = url;
       /* Task 47: onload значит «байты пришли», а не «картинку можно
          показать»: декодирование в этот момент ещё впереди и на слабом ТВ
@@ -3381,7 +3386,7 @@
          уже известно, если раньше его не снимет новый показ. */
       if (!focusAway()) step();
       if (decided || !state || gen !== captured) return;
-      state.lookTimer = setTimeout(function () {
+      state.lookTimer = setTimeout(function heroLookWait() {
         if (!state || gen !== captured) return;
         state.lookTimer = null;
         if (decided) return;
@@ -3508,7 +3513,7 @@
          которое не кончается (скрытая вкладка), заглушку не держит. */
       var loader = state.loader;
       if (!late && loader && loader.complete && loader.naturalWidth) {
-        state.holdTimer = setTimeout(function () {
+        state.holdTimer = setTimeout(function heroHoldDecode() {
           if (gen !== captured || !state) return;
           state.holdTimer = null;
           holdFrame(captured, true, failed);
@@ -3607,7 +3612,7 @@
          полного кадра — отсчёт нужен цвету (holdFrame). */
       if (String(state.frameId) === String(state.shownId) && !state.accentWait) return;
       var held = gen;
-      state.holdTimer = setTimeout(function () {
+      state.holdTimer = setTimeout(function heroHold() {
         if (gen !== held || !state) return;
         state.holdTimer = null;
         holdFrame(held);
@@ -3666,7 +3671,7 @@
         loadDetails(card, captured);
         /* В «Выкл» кадр не грузится вовсе (loadFrame) — и ждать нечего. */
         if (gen === captured && state && state.framePath === null && motionMode() !== 'off') {
-          state.frameWait = setTimeout(function () {
+          state.frameWait = setTimeout(function heroFrameWait() {
             if (gen !== captured || !state) return;
             state.frameWait = null;
             startFrame(heroModel(card, null, words()), captured);
@@ -3814,7 +3819,7 @@
       if (!state) return;
       stopTimer('burstTimer');
       if (on) {
-        state.burstTimer = setTimeout(function () {
+        state.burstTimer = setTimeout(function heroBurstEnd() {
           if (!state) return;
           state.burstTimer = null;
           markBurst(false);
@@ -3922,7 +3927,7 @@
       dropTones(state.model && state.model.logo);
 
       var captured = gen;
-      state.timer = setTimeout(function () {
+      state.timer = setTimeout(function heroShow() {
         if (gen !== captured || !state) return;
         state.timer = null;
         if (!isMounted()) return;

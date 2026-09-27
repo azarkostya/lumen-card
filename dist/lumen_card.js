@@ -17697,6 +17697,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.hero = (function () {
 
 
@@ -18689,7 +18694,7 @@ if (ok) keepLogo(path, fl.img);
 
 
 if (ok && fl.probe) {
-fl.late = setTimeout(function () {
+fl.late = setTimeout(function heroLogoLate() {
 fl.late = null;
 tellLogo(fl, true);
 }, TONE_WAIT);
@@ -18835,7 +18840,7 @@ logoFlight[path] = fl;
 img.onload = function () { landLogo(path, fl, true); };
 img.onerror = function () { landLogo(path, fl, false); };
 
-fl.timer = setTimeout(function () {
+fl.timer = setTimeout(function heroLogoTimeout() {
 fl.timer = null;
 landLogo(path, fl, !!(img.complete && img.naturalWidth));
 }, LOAD_TIMEOUT);
@@ -18853,7 +18858,7 @@ if (fl.subs.length || logoFlight[path] !== fl) return;
 var wait = (fl.keep || 0) - Date.now();
 if (wait > 0) {
 if (!fl.linger) {
-fl.linger = setTimeout(function () {
+fl.linger = setTimeout(function heroLogoLinger() {
 fl.linger = null;
 dropFlight(path, fl);
 }, wait);
@@ -18928,7 +18933,7 @@ var load = preloadLogo(path, url, function (ok) { once(ok); });
 
 
 
-ceiling = setTimeout(function () {
+ceiling = setTimeout(function heroLogoCeiling() {
 ceiling = null;
 once(logoSeen[path] === 'ok');
 }, TITLE_WAIT);
@@ -19417,7 +19422,7 @@ state.trailerCard = null;
 
 function onToggle() {
 if (!state || !(state.trailerTimer || state.trailer)) return;
-setTimeout(function () {
+setTimeout(function heroToggle() {
 if (!state) return;
 if (state.trailer && homeHidden()) {
 cancelTrailer();
@@ -19674,7 +19679,7 @@ else planDone('err req');
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
 stopTimer('videosTimer');
-state.videosTimer = setTimeout(function () {
+state.videosTimer = setTimeout(function heroVideosLimit() {
 if (state && tgen === captured) state.videosTimer = null;
 fail();
 }, VIDEOS_LIMIT);
@@ -19760,7 +19765,7 @@ function scheduleTrailer(card) {
 if (!trailerReady()) return;
 state.trailerPlan = trailerNote('plan');
 var captured = tgen;
-state.trailerTimer = setTimeout(function () {
+state.trailerTimer = setTimeout(function heroTrailerStart() {
 if (!state || tgen !== captured) return;
 state.trailerTimer = null;
 if (state.pending !== card || !isMounted()) { planDone('stop'); return; }
@@ -19860,7 +19865,7 @@ try { s.destroy(); } catch (e) { warn('hero: slides destroy failed', e); }
 function freeHidden(captured) {
 if (!state || !fxHeavy()) return;
 stopTimer('slideFree');
-state.slideFree = setTimeout(function () {
+state.slideFree = setTimeout(function heroSlideFree() {
 if (gen !== captured || !state) return;
 state.slideFree = null;
 try {
@@ -20266,7 +20271,7 @@ state.node.removeClass('lumen-hero--await');
 function startTitleTimer() {
 if (state.titleTimer) return;
 var captured = gen;
-state.titleTimer = setTimeout(function () {
+state.titleTimer = setTimeout(function heroTitleWait() {
 if (gen !== captured || !state) return;
 state.titleTimer = null;
 forceTitleText();
@@ -20410,7 +20415,7 @@ return;
 if (motionMode() === 'full') node.find('.lumen-hero__text').removeClass('is-in').addClass('is-swapping');
 var captured = gen;
 stopTimer('swapTimer');
-state.swapTimer = setTimeout(function () {
+state.swapTimer = setTimeout(function heroSwapText() {
 if (gen !== captured || !state) return;
 state.swapTimer = null;
 write();
@@ -20511,7 +20516,7 @@ function releaseLqip() {
 if (!state || !state.lqipUrl) return;
 var captured = gen;
 stopTimer('lqipTimer');
-state.lqipTimer = setTimeout(function () {
+state.lqipTimer = setTimeout(function heroLqipFree() {
 if (gen !== captured || !state) return;
 state.lqipTimer = null;
 state.lqipUrl = '';
@@ -20803,7 +20808,7 @@ state.slideLoad = !!slide;
 
 
 
-state.loadTimer = setTimeout(function () { finish(loaded()); }, LOAD_TIMEOUT);
+state.loadTimer = setTimeout(function heroFrameTimeout() { finish(loaded()); }, LOAD_TIMEOUT);
 loader.src = url;
 
 
@@ -21042,7 +21047,7 @@ return;
 
 if (!focusAway()) step();
 if (decided || !state || gen !== captured) return;
-state.lookTimer = setTimeout(function () {
+state.lookTimer = setTimeout(function heroLookWait() {
 if (!state || gen !== captured) return;
 state.lookTimer = null;
 if (decided) return;
@@ -21169,7 +21174,7 @@ return;
 
 var loader = state.loader;
 if (!late && loader && loader.complete && loader.naturalWidth) {
-state.holdTimer = setTimeout(function () {
+state.holdTimer = setTimeout(function heroHoldDecode() {
 if (gen !== captured || !state) return;
 state.holdTimer = null;
 holdFrame(captured, true, failed);
@@ -21268,7 +21273,7 @@ if (!state || state.holdTimer) return;
 
 if (String(state.frameId) === String(state.shownId) && !state.accentWait) return;
 var held = gen;
-state.holdTimer = setTimeout(function () {
+state.holdTimer = setTimeout(function heroHold() {
 if (gen !== held || !state) return;
 state.holdTimer = null;
 holdFrame(held);
@@ -21327,7 +21332,7 @@ render(model, true);
 loadDetails(card, captured);
 
 if (gen === captured && state && state.framePath === null && motionMode() !== 'off') {
-state.frameWait = setTimeout(function () {
+state.frameWait = setTimeout(function heroFrameWait() {
 if (gen !== captured || !state) return;
 state.frameWait = null;
 startFrame(heroModel(card, null, words()), captured);
@@ -21475,7 +21480,7 @@ function markBurst(on) {
 if (!state) return;
 stopTimer('burstTimer');
 if (on) {
-state.burstTimer = setTimeout(function () {
+state.burstTimer = setTimeout(function heroBurstEnd() {
 if (!state) return;
 state.burstTimer = null;
 markBurst(false);
@@ -21583,7 +21588,7 @@ state.slideLook = null;
 dropTones(state.model && state.model.logo);
 
 var captured = gen;
-state.timer = setTimeout(function () {
+state.timer = setTimeout(function heroShow() {
 if (gen !== captured || !state) return;
 state.timer = null;
 if (!isMounted()) return;
@@ -33574,6 +33579,10 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
 LC.prefetch = (function () {
 
 
@@ -33755,7 +33764,7 @@ return;
 }
 var mine = [sub];
 flight[key] = mine;
-var limit = setTimeout(function () {
+var limit = setTimeout(function pfSendLimit() {
 limit = null;
 settle(null, false);
 }, SEND_LIMIT);
@@ -33983,7 +33992,7 @@ colorWait = null;
 function pumpColors() {
 if (colorJob || colorWait || !colors.length) return;
 var captured = gen;
-colorWait = idle(function () {
+colorWait = idle(function pfColorIdle() {
 colorWait = null;
 if (captured !== gen || !ready()) return;
 var card = null;
@@ -34088,11 +34097,11 @@ try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: look ca
 function pumpLooks() {
 if (lookJob || lookWait || !looks.length) return;
 var captured = gen;
-lookWait = idle(function () {
+lookWait = idle(function pfLookIdle() {
 lookWait = null;
 if (captured !== gen || !ready() || !lookAllowed()) return;
 if (heroChoosing()) {
-var t = setTimeout(function () {
+var t = setTimeout(function pfLookRetry() {
 lookWait = null;
 pumpLooks();
 }, LOOK_RETRY);
@@ -34315,7 +34324,7 @@ return entry.over;
 function framesLater(ms) {
 if (frameTimer) clearTimeout(frameTimer);
 var captured = gen;
-frameTimer = setTimeout(function () {
+frameTimer = setTimeout(function pfFrameTimer() {
 frameTimer = null;
 if (captured === gen) pumpFrames();
 }, ms > 0 ? ms : 0);
@@ -34530,7 +34539,7 @@ focusEl = el;
 visited.push(el);
 if (visited.length > VISITED_MAX) visited.shift();
 var captured = gen;
-idleTimer = setTimeout(function () {
+idleTimer = setTimeout(function pfWindowIdle() {
 idleTimer = null;
 if (captured !== gen || !ready()) return;
 try {
