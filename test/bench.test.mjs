@@ -89,11 +89,13 @@ test('bench: стадии — девять, в порядке ТЗ; тяжёлы
 const WIDE_HERO = { n: 20, title: [12345, 12345], frame: [12345, 12345], frameN: 20, gray: 20, pf: true, hit: 20, miss: 20, net: 999 };
 
 function wideResult(api) {
+  /* Полоса gc3: сборок за замер — не больше одной на тик датчика (18,4 с
+     / 0,5 с ≈ 37), совпавших кадров — не больше сборок. */
   const rows = api.STAGES.map((s, i) => Object.assign({
     n: i + 1, id: s.id, partial: i === 7, frames: 300, fps: 59.9, p50: 16.7, p95: 1234.5, miss1: 1234, miss2: 999,
     loafN: 123, loafMs: 98765, worst: { ms: 4321, host: 'very-long-cdn-hostname.example.com setTimeout handler with a long name' },
-    lat95: 123.4, anim: 1234, fxMs: 12.34,
-    top: { ms: 12345.6, block: 9876.5, js: 1234.4, rev: 2345.6, sl: 3456.7, forced: 456.7, other: 12345.6,
+    lat95: 123.4, anim: 1234, fxMs: 12.34, gc: { n: 37, hit: 37, t: [] },
+    top: { ms: 12345.6, block: 9876.5, js: 1234.4, rev: 2345.6, sl: 3456.7, forced: 456.7, other: 12345.6, gc: true,
       script: 'very-long-cdn-hostname.example.com someVeryLongFunctionName@1234567 DIV.onwebkitTransitionEnd' }
   }, s.stops ? { hero: WIDE_HERO } : {}));
   return {
@@ -289,6 +291,21 @@ function makeEnv(opts) {
     addEventListener: (t, fn, cap) => { (winListeners[t] = winListeners[t] || []).push({ fn, cap }); },
     removeEventListener: (t, fn) => { winListeners[t] = (winListeners[t] || []).filter((l) => l.fn !== fn); }
   };
+  /* Полоса gc3: FinalizationRegistry в заглушке. Минорная сборка (gc
+     'minor') собирает только пробы датчика (held > 0 — объекты без ссылок,
+     молодые), полная ('major') — всё зарегистрированное: метку датчик
+     регистрирует, только когда отпускает. Колбэки одной сборки идут
+     подряд, каждый на 0,01 мс позже — как в браузере. */
+  const gcReg = [];
+  if (opts.fr) {
+    win.FinalizationRegistry = function (cb) { this.cb = cb; };
+    win.FinalizationRegistry.prototype.register = function (target, held) { gcReg.push({ fr: this, held, done: false }); };
+  }
+  function collect(kind) {
+    for (const x of gcReg.slice()) {
+      if (!x.done && (kind === 'major' || x.held > 0)) { x.done = true; now += 0.01; x.fr.cb(x.held); }
+    }
+  }
   if (opts.loaf) {
     win.PerformanceObserver = function (cb) {
       win._loafCb = cb;
@@ -354,7 +371,7 @@ function makeEnv(opts) {
   }
   return {
     api, LC, log, overrides, storageWrites, noty, body, toggles, controllers, doc, win, hero, cards,
-    advance, timers, frames,
+    advance, timers, frames, gc: collect, gcReg, now: () => now,
     key: () => { const ls = (winListeners.keydown || []).slice(); let stopped = false; for (const l of ls) l.fn({ keyCode: 39, stopPropagation: () => { stopped = true; }, preventDefault() {} }); return { listeners: ls.length, stopped, capture: ls.every((l) => l.cap === true) }; },
     hide: () => { doc.hidden = true; (docListeners.visibilitychange || []).slice().forEach((fn) => fn({})); },
     activityStart: () => activity.slice().forEach((fn) => fn({ type: 'start', component: 'full' })),
@@ -423,6 +440,7 @@ test('bench: полный прогон — восемь стадий, подме
   assert.equal(r.rows[8].hero, null, 'зонда нет (LC.hud без probe) — строка героя n/a');
   assert.ok(e.api.table(r).indexOf('9 hero: n/a') !== -1, e.api.table(r).join('\n'));
   assert.equal(r.rows[0].hero, undefined, 'у прочих стадий строки героя нет');
+  assert.equal(r.rows[0].gc, null, 'нет FinalizationRegistry — датчик сборки молчит');
   assert.ok(r.rows[0].frames > 250, 'кадры считаются только в окне замера (5 с): ' + r.rows[0].frames);
   assert.ok(r.rows[0].frames < 320, 'прогрев в замер не идёт: ' + r.rows[0].frames);
   assert.equal(r.P, 16.7);
@@ -726,4 +744,91 @@ test('bench: колбэки таймеров и rAF — именованные; 
   e2.advance(LEAVE + 10);
   assert.ok(e2.frames.length > 0 && e2.frames.every((f) => f.fn.name === 'onBenchFrame'), 'кадр замера');
   e2.api.stop();
+});
+
+/* ====================================================================== */
+/* Полоса gc3: датчик полной сборки мусора (onBenchGc)                     */
+/* ====================================================================== */
+
+test('bench: gcHits — пачке колбэков один кадр: самый длинный, чьё окно [начало, конец + GC_NEAR_MS] её содержит', () => {
+  const { api } = fresh();
+  const W = api.GC_NEAR_MS;
+  assert.ok(W >= 17 && W <= 100, 'окно — несколько кадров: ' + W);
+  const frames = [[1000, 120], [1300, 60], [1330, 200], [5000, 80]];
+  assert.deepEqual(api.gcHits(frames, [1120 + W]), [true, false, false, false], 'на границе окна');
+  assert.deepEqual(api.gcHits(frames, [1120 + W + 1]), [false, false, false, false], 'позже окна');
+  assert.deepEqual(api.gcHits(frames, [999]), [false, false, false, false], 'раньше начала кадра');
+  assert.deepEqual(api.gcHits(frames, [1340]), [false, false, true, false], 'в окне двух кадров — самый длинный');
+  assert.deepEqual(api.gcHits(frames, [1010, 1100, 5050]), [true, false, false, true], 'две пачки в одном кадре — один кадр');
+  assert.deepEqual(api.gcHits([], [1]), []);
+});
+
+test('bench: датчик сборки — полная сборка в замере: «gc», совпадение с длинным кадром: «lf» и «gc» у худшего кадра; минорная и прогрев — мимо', () => {
+  const e = makeEnv({ loaf: true, fr: true });
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(600);                          /* стадия 1, прогрев; тик — ветеран отпущен */
+  e.gc('major');
+  e.advance(1500);                         /* замер идёт */
+  const t = e.now();
+  e.loaf([{ startTime: t, duration: 150, blockingDuration: 0, renderStart: 0, styleAndLayoutStart: 0, scripts: [] }]);
+  e.advance(155);
+  e.gc('major');                           /* колбэк — через 5 мс после конца кадра */
+  e.advance(200);
+  e.gc('minor');
+  e.advance(600);                          /* тик: отпущен следующий ветеран */
+  e.gc('major');
+  e.advance(RUN);
+  const r = e.api.last();
+  const row = r.rows[0];
+  assert.equal(row.gc.n, 2, 'две полные сборки за замер: ' + JSON.stringify(row.gc));
+  assert.equal(row.gc.hit, 1, 'с длинным кадром совпала одна');
+  assert.equal(row.gc.t.length, 2);
+  assert.ok(Math.abs(row.gc.t[0] - (t + 155)) < 1, 'время колбэка: ' + row.gc.t[0]);
+  assert.equal(row.top.gc, true, 'самый длинный кадр стадии — сборка');
+  assert.equal(r.rows[1].gc.n, 0, 'в другой стадии сборок не было');
+  const lines = e.api.table(r);
+  assert.ok(/\bgc\/lf$/.test(lines[1]), 'колонка gc/lf: «' + lines[1] + '»');
+  assert.ok(/\s2\/1$/.test(lines[2]), 'строка стадии 1: «' + lines[2] + '»');
+  assert.ok(/\s0\/0$/.test(lines[3]), 'строка стадии 2: «' + lines[3] + '»');
+  const head = lines.findIndex((l) => /^\s*#\s+max/.test(l));
+  assert.ok(/^\s*1\s+150\s+0\s+0\s+0\s+0\s+0\s+150\s+gc$/.test(lines[head + 1]), 'худший кадр помечен: «' + lines[head + 1] + '»');
+});
+
+test('bench: датчик сборки — своя метка отпускается, только пережив две сборки: до того полная сборка не видна', () => {
+  const e = makeEnv({ loaf: true, fr: true });
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(5 * STAGE + 1100);             /* стадия 6, замер */
+  const released = () => e.gcReg.filter((x) => x.held < 0).length;
+  assert.equal(released(), e.api.GC_POOL, 'ветераны отпущены все, и больше ничего: своим меткам сборок ещё не было');
+  e.gc('major');                           /* ветераны */
+  e.advance(1100);                         /* два тика: свои метки пережили одну сборку — держим */
+  assert.equal(released(), e.api.GC_POOL, 'метка, пережившая одну сборку, не отпущена');
+  e.gc('major');                           /* отпущенных нет — сборка не видна; метки пережили вторую */
+  e.advance(600);                          /* тик: отпущена старая метка */
+  assert.equal(released(), e.api.GC_POOL + 1);
+  e.gc('minor');                           /* минорная старую метку не собирает */
+  e.advance(200);
+  e.gc('major');
+  e.advance(RUN);
+  const row = e.api.last().rows[5];
+  assert.equal(row.id, 'lite scroll');
+  assert.equal(row.gc.n, 2, 'ветераны и старая метка; сборка без отпущенных меток не видна: ' + JSON.stringify(row.gc));
+  assert.equal(row.gc.hit, 0, 'длинных кадров не было');
+});
+
+test('bench: датчик сборки — таблица: «n/a» без FinalizationRegistry, «n/-» без LoAF', () => {
+  const e = makeEnv({ fr: true });
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(1500);
+  e.gc('major');
+  e.advance(RUN);
+  const r = e.api.last();
+  assert.deepEqual([r.rows[0].gc.n, r.rows[0].gc.hit], [1, null]);
+  const lines = e.api.table(r);
+  assert.ok(/\s1\/-$/.test(lines[2]), '«' + lines[2] + '»');
+  const none = e.api.table(Object.assign({}, r, { rows: r.rows.map((x) => Object.assign({}, x, { gc: null })) }));
+  assert.ok(/\sn\/a$/.test(none[2]), '«' + none[2] + '»');
 });

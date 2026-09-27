@@ -21,6 +21,9 @@
   /* (getAnimations) и средняя цена кадра частиц (LC.fx.stats). Раунд       */
   /* «Листание»: вторая таблица — самый длинный кадр каждой стадии по       */
   /* фазам LoAF (partsOf: js, r+ev, st+l, frc, other, главный скрипт).      */
+  /* Полоса gc3: колонка gc/lf — полные сборки мусора за замер (датчик     */
+  /* onBenchGc на FinalizationRegistry) и долгие кадры, совпавшие с ними;  */
+  /* «gc» во второй таблице — самый длинный кадр стадии и есть сборка.     */
   /* Сам цикл замера (rAF на каждом кадре) — не бесплатный: по трейсу при   */
   /* CPU ×10 он добавляет 40–70 мс на шаг листания, и сравнивать цифры      */
   /* стадий можно между собой и между прогонами, а не с «голой» главной.    */
@@ -59,6 +62,18 @@
     var STOP_STAGE_MS = STOP_GROUPS * ((STOP_STEPS - 1) * MOVE_MS + STOP_MS);
     /* Как часто спрашивать getAnimations() в окне замера. */
     var ANIM_MS = 500;
+    /* Датчик полной сборки мусора (полоса gc3; разбор — у onBenchGc):
+       тик раз в GC_MS; GC_POOL «ветеранов» — меток, созданных при загрузке
+       модуля; не больше GC_MAX меток в очереди; колбэки ближе GC_BATCH_MS
+       — одна сборка; длинный кадр совпал со сборкой, если колбэк пришёл
+       от его начала до GC_NEAR_MS после конца (стенд, CPU ×10: колбэк —
+       через −3…+7 мс от конца кадра со сборкой; окно — около трёх кадров
+       с запасом на очередь задач ТВ). */
+    var GC_MS = 500;
+    var GC_POOL = 40;
+    var GC_MAX = 64;
+    var GC_BATCH_MS = 50;
+    var GC_NEAR_MS = 50;
     /* Сколько раз поднимать фокус к первому ряду до старта. */
     var UP_TRIES = 6;
 
@@ -177,9 +192,11 @@
 
     function fixed2(v) { return (Math.round(v * 100) / 100).toFixed(2); }
 
-    /* Колонки таблицы: подпись, ширина, выравнивание влево. */
+    /* Колонки таблицы: подпись, ширина, выравнивание влево. Полоса gc3:
+       gc/lf — полных сборок мусора за замер / длинных кадров, совпавших с
+       ними (датчик onBenchGc); 96 символов из MAX_COLS 101. */
     var COLS = [['#', 2], ['stage', 13, true], ['fps', 6], ['p50', 7], ['p95', 8], ['-1', 6], ['-2+', 5],
-      ['loaf n/ms', 12], ['lat95', 7], ['anim', 6], ['fx ms', 7]];
+      ['loaf n/ms', 12], ['lat95', 7], ['anim', 6], ['fx ms', 7], ['gc/lf', 6]];
 
     function line(cells) {
       var out = '';
@@ -206,11 +223,14 @@
       return out.replace(/\s+$/, '');
     }
 
+    /* Полоса gc3: самый длинный кадр совпал с полной сборкой мусора —
+       «gc» перед скриптом (у кадра сборки скрипта обычно нет). */
     function topLine(row) {
       var tp = row.top;
       if (!tp) return line2(['' + row.n, '-']);
+      var script = tp.gc ? 'gc' + (tp.script ? ' ' + tp.script : '') : (tp.script || '-');
       return line2(['' + row.n, Math.round(tp.ms), Math.round(tp.block), Math.round(tp.js), Math.round(tp.rev),
-        Math.round(tp.sl), Math.round(tp.forced), Math.round(tp.other), tp.script || '-']);
+        Math.round(tp.sl), Math.round(tp.forced), Math.round(tp.other), script]);
     }
 
     /* Полоса телеметрии: строка героя стадии «stop scroll» — сразу под её
@@ -224,13 +244,20 @@
       return row.n + ' ' + hud.heroText(row.hero);
     }
 
+    /* «n/lf»: n/a — нет FinalizationRegistry (датчик молчит), «-» после
+       черты — нет LoAF. */
+    function gcCell(g) {
+      if (!g) return 'n/a';
+      return g.n + '/' + (g.hit === null || typeof g.hit === 'undefined' ? '-' : g.hit);
+    }
+
     function rowLine(row) {
       return line([
         '' + row.n, row.id + (row.partial ? '*' : ''),
         row.frames ? fixed(row.fps) : '-', row.frames ? fixed(row.p50) : '-', row.frames ? fixed(row.p95) : '-',
         '' + row.miss1, '' + row.miss2,
         row.loafN === null || typeof row.loafN === 'undefined' ? 'n/a' : row.loafN + '/' + Math.round(row.loafMs),
-        na(row.lat95, fixed), na(row.anim), na(row.fxMs, fixed2)
+        na(row.lat95, fixed), na(row.anim), na(row.fxMs, fixed2), gcCell(row.gc)
       ]);
     }
 
@@ -511,9 +538,15 @@
         /* Кадр без блокировки (0 мс — долгий из-за отрисовки) худшим не
            считается: его скрипта в подвале искать нечего. */
         if (ms > 0 && (!r.loaf.worst || ms > r.loaf.worst.ms)) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+        /* Полоса gc3: начало и длительность каждого кадра — для сверки с
+           датчиком сборки мусора (gcHits). */
+        r.loaf.frames.push([Number(e.startTime) || 0, Number(e.duration) || 0]);
         /* Раунд «Листание»: для фаз — самый длинный кадр (duration: сколько
            он держал экран), а не самый блокирующий. */
-        if (!r.loaf.top || (Number(e.duration) || 0) > r.loaf.top.ms) r.loaf.top = partsOf(e);
+        if (!r.loaf.top || (Number(e.duration) || 0) > r.loaf.top.ms) {
+          r.loaf.top = partsOf(e);
+          r.loaf.topAt = r.loaf.frames.length - 1;
+        }
       }
     }
 
@@ -526,6 +559,124 @@
         return obs;
       } catch (e) { }
       return null;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Датчик полной сборки мусора                                         */
+    /* ------------------------------------------------------------------ */
+
+    /* Полоса gc3 (2026-09-27): худшие кадры самотеста на ТВ (стадия 9 —
+       450 мс, стадия 6 — 300 мс, стадия 4 — other 136) — без скрипта, в
+       «other»/«r+ev»; на стенде такие кадры — полная сборка мусора V8
+       (MajorGC: «finalize incremental marking via task», 34–200 мс при CPU
+       ×10), отдельная задача без скриптов. LoAF сборку не называет — её
+       отмечает датчик: объект-метка, отпущенная датчиком, собирается, и
+       FinalizationRegistry зовёт onBenchGc отдельной задачей сразу после
+       сборки (стенд: через 1–26 мс после конца MajorGC). Нет
+       FinalizationRegistry — датчик молчит (в таблице n/a).
+       Минорные сборки (Scavenge) V8 тоже чистят слабые ссылки, но только
+       в молодом поколении (стенд, Chromium 148: метки, отпущенные сразу
+       или через 3 с, ловили и MinorGC — 25 и 14 пачек колбэков из 29 и 19).
+       Поэтому метка отпускается старой: она пережила две сборки — объект,
+       переживший две минорные (или одну полную), лежит в старом поколении,
+       и собрать его может только полная. Сборки считает проба: объект без
+       ссылок каждый тик (held — номер тика, > 0), его колбэк значит «после
+       тика была сборка»; метки этого тика и старше её пережили (seen + 1
+       за пачку колбэков). Метки — held < 0. Стенд (три полных прогона с
+       трейсом, CPU ×10): из 15 MajorGC трейса в окна замера попали 10, и
+       все 10 записаны (остальные — прогрев стадии 8 и после конца теста;
+       в прогоне с полным логом датчик сработал на 5 из 5); после 76
+       MinorGC — ни одной пачки меток. Пока своих старых меток
+       нет (первые сборки прогона), отпускаются ветераны — GC_POOL меток,
+       созданных при загрузке модуля: к запуску теста они пережили загрузку
+       главной. Отпуск — одна метка за тик: сборки чаще GC_MS сливаются.
+       Цена — два пустых объекта и одна регистрация за тик. */
+    var gcFr = null;
+    var gcMarks = [];
+    var gcN = 0;
+    var gcBatch = 0;
+    var gcProbeAt = -1e9;
+    var gcMajorAt = -1e9;
+    for (var g0 = 0; g0 < GC_POOL; g0++) gcMarks.push({ o: {}, k: 0, seen: 2, b: -1 });
+
+    function onBenchGc(held) {
+      var t = perfNow();
+      if (held > 0) {
+        if (t - gcProbeAt > GC_BATCH_MS) gcBatch++;
+        gcProbeAt = t;
+        for (var i = 0; i < gcMarks.length; i++) {
+          var m = gcMarks[i];
+          if (m.k <= held && m.b !== gcBatch) {
+            m.b = gcBatch;
+            m.seen++;
+          }
+        }
+        return;
+      }
+      var r = run;
+      if (t - gcMajorAt > GC_BATCH_MS && r && r.gc && r.phase === 'measure' && t >= r.measureFrom) r.gc.push(t);
+      gcMajorAt = t;
+    }
+
+    function gcReady() {
+      if (!gcFr) {
+        try {
+          var FR = window.FinalizationRegistry;
+          if (typeof FR === 'function') gcFr = new FR(onBenchGc);
+        } catch (e) {
+          gcFr = null;
+        }
+      }
+      return !!gcFr;
+    }
+
+    /* Тик: новая метка (её номер — до пробы того же тика), проба, отпуск
+       одной старой метки. */
+    function gcTick() {
+      if (!gcFr) return;
+      gcN++;
+      if (gcMarks.length < GC_MAX) gcMarks.push({ o: {}, k: gcN, seen: 0, b: -1 });
+      gcFr.register({}, gcN);
+      for (var i = 0; i < gcMarks.length; i++) {
+        if (gcMarks[i].seen >= 2) {
+          gcFr.register(gcMarks.splice(i, 1)[0].o, -gcN);
+          return;
+        }
+      }
+    }
+
+    /* Какие длинные кадры совпали со сборкой: каждой пачке колбэков меток
+       (times) — один кадр, самый длинный из тех, чьё окно [начало, конец +
+       GC_NEAR_MS] её содержит (колбэк — следующей задачей после сборки,
+       иногда кадром позже). frames — [[начало, длительность]]. Флаги по
+       кадрам. */
+    function gcHits(frames, times) {
+      var hit = [];
+      for (var i = 0; i < frames.length; i++) hit.push(false);
+      for (var j = 0; j < times.length; j++) {
+        var best = -1;
+        for (var k = 0; k < frames.length; k++) {
+          var from = frames[k][0];
+          var to = from + frames[k][1] + GC_NEAR_MS;
+          if (times[j] >= from && times[j] <= to && (best < 0 || frames[k][1] > frames[best][1])) best = k;
+        }
+        if (best >= 0) hit[best] = true;
+      }
+      return hit;
+    }
+
+    /* Сборки стадии для строки таблицы и JSON: n — полных сборок за замер,
+       hit — длинных кадров, совпавших с ними (null — LoAF нет), t — время
+       колбэков (мс performance.now). У самого длинного кадра — gc. */
+    function gcRow(r) {
+      if (!r.gc) return null;
+      var hits = gcHits(r.loaf.frames, r.gc);
+      var m = 0;
+      for (var i = 0; i < hits.length; i++) if (hits[i]) m++;
+      if (r.loaf.top && r.loaf.topAt >= 0) r.loaf.top.gc = !!hits[r.loaf.topAt];
+      var t = [];
+      for (var j = 0; j < r.gc.length; j++) t.push(r1(r.gc[j]));
+      return { n: r.gc.length, hit: r.obs ? m : null, t: t };
     }
 
     function listen(r) {
@@ -590,7 +741,8 @@
       r.phase = 'warm';
       r.deltas = [];
       r.lats = [];
-      r.loaf = { n: 0, ms: 0, worst: null, top: null };
+      r.loaf = { n: 0, ms: 0, worst: null, top: null, frames: [], topAt: -1 };
+      r.gc = gcFr ? [] : null;
       r.anim = -1;
       r.fx0 = null;
       r.measureFrom = -1;
@@ -606,6 +758,8 @@
         var k = 0;
         every(r, TINT_MS, function () { LC.accent.drive(TINTS[k++ % TINTS.length]); });
       }
+      /* Датчик сборки тикает и в прогреве: метки стареют всю стадию. */
+      if (gcFr) every(r, GC_MS, gcTick);
       later(r, WARM_MS, function () { measure(r, st); });
       later(r, WARM_MS + (st.ms || MEASURE_MS), function () {
         r.rows.push(rowOf(r, false));
@@ -717,7 +871,7 @@
         n: r.step + 1, id: st.id, partial: !!partial, frames: s.frames, fps: s.fps, p50: s.p50, p95: s.p95,
         miss1: s.miss1, miss2: s.miss2, lat95: s.lat95,
         loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst, top: r.loaf.top,
-        anim: r.anim, fxMs: fxAvg(r.fx0, fxStats())
+        anim: r.anim, fxMs: fxAvg(r.fx0, fxStats()), gc: gcRow(r)
       };
       /* Полоса телеметрии: окно показов зонда (LC.hud.heroStats) и сами
          показы — в JSON результата; null — зонда не было. */
@@ -848,8 +1002,8 @@
       }
       var r = {
         step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
-        loaf: { n: 0, ms: 0, worst: null, top: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
-        startEl: heroFocused(), tintSaved: null, tag: null, probe: null
+        loaf: { n: 0, ms: 0, worst: null, top: null, frames: [], topAt: -1 }, anim: -1, fx0: null, measureFrom: -1, obs: null,
+        startEl: heroFocused(), tintSaved: null, tag: null, probe: null, gc: null
       };
       run = r;
       try {
@@ -857,6 +1011,7 @@
         hero().benchHold(true);
         r.tintSaved = LC.accent && LC.accent.dominant ? LC.accent.dominant() : null;
         r.obs = observeLoaf();
+        gcReady();
         listen(r);
         tag(r);
         r.raf = raf(onBenchFrame);
@@ -889,6 +1044,7 @@
     var api = {
       STAGES: STAGES, MAX_COLS: MAX_COLS, MAX_LINES: MAX_LINES, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, LINE_EM: LINE_EM, PAD_PX: PAD_PX,
       overridesFor: overridesFor, summarize: summarize, period: period, table: table, partsOf: partsOf,
+      gcHits: gcHits, GC_MS: GC_MS, GC_POOL: GC_POOL, GC_NEAR_MS: GC_NEAR_MS, GC_BATCH_MS: GC_BATCH_MS,
       start: start,
       /* Прервать из консоли — тот же путь, что у клавиши. */
       stop: function () { finish('stop'); },
