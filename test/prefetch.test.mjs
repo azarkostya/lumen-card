@@ -1108,15 +1108,40 @@ const lookBd = (path) => Object.assign({ file_path: path, iso_639_1: null, width
    кадра /aN, /bN. */
 const lookDetails = (id) => ({ id: id, backdrop_path: '/k' + id + '.jpg', images: { logos: [], backdrops: [lookBd('/k' + id + '.jpg'), lookBd('/a' + id + '.jpg'), lookBd('/b' + id + '.jpg')] } });
 
+/* Этап 2а: как настоящий LC.thumbs (src/57_thumbs.js), та же пара в пути —
+   одно сравнение: второй вопрос встаёт в ждущие (subs), отмена снимает
+   своего ждущего, последний — само сравнение (cancelled). calls — только
+   заведённые сравнения; urgent — срочное ли. */
 function fakeLook() {
   const t = { calls: [], verdicts: {} };
   t.verdict = (p, f) => (Object.prototype.hasOwnProperty.call(t.verdicts, p + '|' + f) ? t.verdicts[p + '|' + f] : undefined);
-  t.compare = (p, f, cb) => {
-    const c = { p: p, f: f, cb: cb, cancelled: false };
-    t.calls.push(c);
-    return { cancel() { c.cancelled = true; } };
+  t.compare = (p, f, cb, urgent) => {
+    let c = t.calls.find((x) => x.p === p && x.f === f && !x.done && !x.cancelled && (x.urgent || !urgent));
+    if (!c) {
+      c = { p: p, f: f, subs: [], cancelled: false, done: false, urgent: !!urgent };
+      t.calls.push(c);
+    }
+    const sub = { cb: cb, live: true };
+    c.subs.push(sub);
+    return {
+      cancel() {
+        sub.live = false;
+        if (!c.done && !c.subs.some((s) => s.live)) c.cancelled = true;
+      }
+    };
   };
-  t.answer = (c, v) => { t.verdicts[c.p + '|' + c.f] = v; c.cb(v); };
+  t.answer = (c, v) => {
+    t.verdicts[c.p + '|' + c.f] = v;
+    c.done = true;
+    c.subs.forEach((s) => { if (s.live) { s.live = false; s.cb(v); } });
+  };
+  /* Этап 2а: миниатюры заранее (prime) — только запись. */
+  t.primes = [];
+  t.prime = (kind, path, urgent) => {
+    const p = { kind: kind, path: path, urgent: !!urgent, cancelled: false };
+    t.primes.push(p);
+    return { cancel() { p.cancelled = true; } };
+  };
   t.tone = () => ({ cancel() {} });
   t.toneOf = () => undefined;
   t.pairs = () => t.calls.map((c) => c.p.replace(/^\/p|\.jpg$/g, '') + ':' + c.f.replace(/^\/|\.jpg$/g, ''));
@@ -1140,7 +1165,7 @@ test('E3: дорожка вердиктов — соседи окна по од�
   answerLooks(env);
   env.advance(DELAY - 250);
   answerLooks(env);
-  assert.deepEqual(th.pairs(), ['103:a103'], 'первым сравнивает сам герой — свою карточку');
+  assert.deepEqual(th.pairs(), ['103:a103'], 'первой — пара карточки под фокусом (дорожка кадра, показ встаёт на неё — этап 2а)');
   wait(env, COLOR_GAP + LOOK_RETRY * 3);
   assert.deepEqual(th.pairs(), ['103:a103'], 'пока герой выбирает кадр, дорожка своих пар не заводит');
   th.answer(th.calls[0], false);
@@ -1425,4 +1450,128 @@ test('без ожидания, п.2: при зажатой стрелке и в 
   off.env.advance(250);
   drain(off.env);
   assert.equal(off.env.images.filter((i) => /\/w(1280|300)\/b/.test(i.src)).length, 0, 'в «Выкл» ушли кадры');
+});
+
+/* ====================================================================== */
+/* Раунд «без лагов», этап 2а, п.1: кадр карточки под фокусом решается до  */
+/* показа — сравнения с постером заводит дорожка кадра                     */
+/* ====================================================================== */
+
+const anyW1280 = (env) => env.images.filter((i) => /\/w1280\//.test(i.src));
+const img1280 = (env, name) => env.images.filter((i) => i.src === 'https://img/t/p/w1280/' + name + '.jpg');
+
+test('этап 2а, п.1: через IDLE покоя — детали, срочные пары по одной, байты w1280 выбранного кадра до показа; показ берёт готовое без второго сравнения', () => {
+  const th = fakeLook();
+  const acc = fakeAccent();
+  const { env, main } = mounted({ thumbs: th, accent: acc });
+  focus(main, main.rows[0][2]);
+  env.advance(249);
+  assert.equal(th.calls.length, 0, 'раньше 250 мс покоя');
+  env.advance(1);
+  const lead = pending(env).find((r) => idOf(r.url) === 103);
+  assert.ok(lead, 'предусловие: детали карточки под фокусом заказаны');
+  answer(lead, lookDetails(103));
+  assert.deepEqual(th.pairs(), ['103:a103'], 'пару карточки под фокусом не завела дорожка');
+  assert.equal(th.calls[0].urgent, true, 'пара карточки под фокусом — срочная (впереди задач простоя)');
+  assert.equal(anyW1280(env).length, 0, 'кадр грузится до решения');
+  th.answer(th.calls[0], true);
+  assert.deepEqual(th.pairs(), ['103:a103', '103:b103'], 'похож — следующий кандидат той же карточки');
+  assert.equal(anyW1280(env).length, 0, 'кадр грузится до решения');
+  th.answer(th.calls[1], false);
+  const early = img1280(env, 'b103');
+  assert.equal(early.length, 1, 'байты выбранного кадра не заказаны');
+  assert.equal(early[0].fetchPriority, 'auto');
+  assert.equal(w300(env, 103).length, 1, 'подложка выбранного кадра не заказана');
+  assert.equal(img1280(env, 'a103').length, 0, 'похожий кадр грузится');
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls.slice(0, 1), [103], 'кадр решён — цвет его низа ждёт показа');
+  assert.equal(acc.frames[0], '/b103.jpg');
+  env.advance(DELAY - 250 - COLOR_GAP);
+  assert.equal(th.calls.length, 2, 'показ спросил пары второй раз');
+  const shown = img1280(env, 'b103').filter((i) => i.fetchPriority === 'high');
+  assert.equal(shown.length, 1, 'показ грузит не тот кадр, что решила дорожка');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.1: пара ещё в пути — показ встаёт на неё, ответ решает и дорожку, и показ одним кадром; перевод фокуса снимает сравнение', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  env.advance(DELAY - 250);
+  assert.equal(th.calls.length, 1, 'показ завёл второе сравнение той же пары');
+  assert.equal(th.calls[0].subs.filter((s) => s.live).length, 2, 'показ не встал на пару в пути');
+  th.answer(th.calls[0], false);
+  assert.equal(img1280(env, 'a103').filter((i) => i.fetchPriority !== 'high').length, 1, 'дорожка не взяла кадр');
+  assert.equal(img1280(env, 'a103').filter((i) => i.fetchPriority === 'high').length, 1, 'показ не взял тот же кадр');
+  assert.equal(img1280(env, 'b103').length, 0);
+
+  const th2 = fakeLook();
+  const b = mounted({ thumbs: th2 });
+  focus(b.main, b.main.rows[0][2]);
+  b.env.advance(250);
+  answer(pending(b.env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.equal(th2.calls.length, 1, 'предусловие: пара в пути');
+  focus(b.main, b.main.rows[0][3]);
+  assert.equal(th2.calls[0].cancelled, true, 'перевод фокуса не снял сравнение карточки, с которой ушли');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.1: в серии нажатий — ни одного сравнения и ни одной загрузки; в пути не больше одного решения', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  for (let i = 0; i < 6; i++) {
+    focus(main, main.rows[0][i]);
+    env.advance(150);
+    answerLooks(env);
+  }
+  assert.equal(th.calls.length, 0, 'сравнение в серии нажатий');
+  assert.equal(anyW1280(env).length, 0, 'кадр в серии нажатий');
+  env.advance(100);
+  answerLooks(env);
+  wait(env, 400);
+  answerLooks(env);
+  assert.deepEqual(th.pairs(), ['106:a106'], 'после покоя — одна пара карточки под фокусом, и только она');
+  assert.equal(th.calls[0].subs.length, 1, 'ответы деталей соседей завели второе ожидание той же пары');
+  focus(main, main.rows[0][6]);
+  assert.equal(th.calls[0].cancelled, true, 'перевод фокуса снял не всё');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.1: ответ не лёг в память (миниатюра не доехала) — дорожка ту же карточку не спрашивает, кадр выбирает показ', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  const c = th.calls[0];
+  c.done = true;
+  c.subs.forEach((s) => { if (s.live) { s.live = false; s.cb(null); } });
+  env.advance(50);
+  assert.equal(th.calls.length, 1, 'дорожка повторила пару без знания — ещё одна загрузка');
+  assert.equal(anyW1280(env).length, 0, 'кадр выбран без ответа');
+  env.advance(DELAY - 300);
+  assert.equal(th.calls.length, 2, 'показ не спросил сам');
+  th.answer(th.calls[1], false);
+  assert.equal(img1280(env, 'a103').filter((i) => i.fetchPriority === 'high').length, 1, 'кадр показа не выбран');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2а, п.1: миниатюры заранее — постер вместе с запросом деталей, все кандидаты по ответу деталей, срочно; известная пара не трогается; перевод фокуса снимает', () => {
+  const th = fakeLook();
+  th.verdicts['/p103.jpg|/b103.jpg'] = false;
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(249);
+  assert.deepEqual(th.primes, [], 'миниатюры до покоя фокуса');
+  env.advance(1);
+  assert.deepEqual(th.primes.map((p) => p.kind + ':' + p.path + ':' + p.urgent), ['poster:/p103.jpg:true'], 'постер — вместе с запросом деталей, срочно');
+  answer(pending(env).find((r) => idOf(r.url) === 103), lookDetails(103));
+  assert.deepEqual(th.primes.slice(1).map((p) => p.kind + ':' + p.path + ':' + p.urgent), ['frame:/a103.jpg:true'],
+    'кандидаты — по ответу деталей, срочно; пара с известным ответом (b103) не грузится');
+  assert.deepEqual(th.pairs(), ['103:a103'], 'сравнение первой пары — сразу');
+  focus(main, main.rows[0][3]);
+  assert.ok(th.primes.every((p) => p.cancelled), 'перевод фокуса не снял миниатюры');
+  assert.deepEqual(warnLog, []);
 });

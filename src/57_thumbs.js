@@ -606,9 +606,15 @@
       }
     }
 
-    function start(path, fl, url) {
+    function start(path, fl, url, urgent) {
       var img = new Image();
       fl.img = img;
+      /* Этап 2а: миниатюра срочного сравнения (кадр карточки под фокусом —
+         показ или дорожка кадра) — высокий приоритет загрузки: на стенде
+         (сеть +200 мс) миниатюра карточки под фокусом в 3–5 КБ ехала до
+         полусекунды за логотипами и постерами окна. Свойство — Chrome 101+,
+         старее — просто поле. */
+      if (urgent) img.fetchPriority = 'high';
       img.onload = function () { land(path, fl, img); };
       img.onerror = function () { land(path, fl, null); };
       fl.timer = setTimeout(function () {
@@ -625,7 +631,7 @@
 
     /* cb(img | null) — ровно один раз, если не отменено. Возвращает
        {cancel}: отказ последнего ждущего снимает загрузку и в сети. */
-    function fetchImage(path, cb) {
+    function fetchImage(path, cb, urgent) {
       var fl = flights[path];
       if (!fl) {
         var url = urlOf(path);
@@ -635,7 +641,7 @@
         }
         fl = { img: null, subs: [], timer: null };
         flights[path] = fl;
-        start(path, fl, url);
+        start(path, fl, url, urgent);
       }
       fl.subs.push(cb);
       return {
@@ -896,7 +902,7 @@
           cb(now);
           return false;
         }, urgent);
-      });
+      }, urgent);
       return {
         cancel: function () {
           if (!live) return;
@@ -910,8 +916,22 @@
        если не отменено; известный ответ — синхронно. Пара — одна задача:
        обе миниатюры едут вместе (постер обычно уже в памяти от прошлой
        пары этого показа), разбор каждой — своей задачей простоя, и
-       сравнение — тоже своей, шагами (раунд C). */
+       сравнение — тоже своей, шагами (раунд C).
+       Раунд «без лагов», этап 2а: та же пара в пути — второй вопрос
+       встаёт на неё, а не заводит второе сравнение. Кадр карточки под
+       фокусом решает заранее дорожка кадра (src/58_prefetch.js, через 250
+       мс покоя фокуса), и показ героя (chooseFrame, src/48_hero.js) через
+       DELAY спрашивает ту же пару, пока её ответ ещё едет: без склейки
+       это второй разбор той же пары (24 мс при CPU ×10) и два ответа в
+       памяти вразнобой. Ответ один на всех ждущих; отмена снимает только
+       своего ждущего, последний — и само сравнение (миниатюры в сети
+       тоже). Срочный вопрос на обычное сравнение в пути не встаёт: у того
+       задачи в очереди простоя, а срочному нужна очередь setTimeout (idle
+       ниже) — он заводит своё. */
+    var pairFlights = {};
+
     function compare(poster, frame, cb, urgent) {
+      var key = poster + '|' + frame;
       var known = verdict(poster, frame);
       if (known !== undefined || blocked()) {
         /* Ревью раунда героя (d97cffc), п.1: у заблокированного модуля
@@ -922,11 +942,64 @@
            кадр w1280 не грузился до перезапуска Lampa. */
         if (known === undefined) {
           known = null;
-          remember(verdicts, poster + '|' + frame, known);
+          remember(verdicts, key, known);
         }
         cb(known);
         return { cancel: function () { } };
       }
+      var sub = { cb: cb };
+      var fl = pairFlights[key];
+      if (fl && (fl.urgent || !urgent)) {
+        fl.subs.push(sub);
+      } else {
+        fl = { subs: [sub], urgent: !!urgent, handle: null, over: false };
+        pairFlights[key] = fl;
+        var own = fl;
+        var handle = judgePair(poster, frame, urgent, function (value) {
+          own.over = true;
+          if (pairFlights[key] === own) delete pairFlights[key];
+          var subs = own.subs;
+          own.subs = [];
+          for (var i = 0; i < subs.length; i++) {
+            var fn = subs[i].cb;
+            subs[i].cb = null;
+            if (!fn) continue;
+            try { fn(value); } catch (e) { warn('thumbs: callback failed', e); }
+          }
+        });
+        if (!fl.over) fl.handle = handle;
+      }
+      var pair = fl;
+      return {
+        cancel: function () {
+          if (!sub.cb) return;
+          sub.cb = null;
+          var at = pair.subs.indexOf(sub);
+          if (at !== -1) pair.subs.splice(at, 1);
+          if (pair.subs.length || pair.over) return;
+          pair.over = true;
+          if (pairFlights[key] === pair) delete pairFlights[key];
+          if (pair.handle) pair.handle.cancel();
+        }
+      };
+    }
+
+    /* Этап 2а: признаки миниатюры заранее, без вопроса о паре. Дорожка
+       кадра (src/58_prefetch.js) решает кадр карточки под фокусом, и на
+       стенде (сеть +200 мс, CPU ×10) цепочка «детали → миниатюры пары →
+       разбор → вторая пара, если первая похожа, → её миниатюра» — это
+       четыре-пять обходов сети подряд. Постер карточки известен сразу (он
+       в данных ряда) — его миниатюра едет вместе с деталями; кандидаты —
+       все сразу, как пришли детали: следующая пара ждёт только разбора.
+       kind — 'poster' | 'frame'. Возвращает {cancel}. */
+    function prime(kind, path, urgent) {
+      if (!path || (kind !== 'poster' && kind !== 'frame') || blocked()) return { cancel: function () { } };
+      return need(kind, path, function () { }, urgent);
+    }
+
+    /* Само сравнение пары (разбор ниже): cb(true | false | null) — один
+       раз, если не отменено. */
+    function judgePair(poster, frame, urgent, cb) {
       var live = true;
       var pf;
       var ff;
@@ -1029,6 +1102,7 @@
       solidOf: solidOf,
       /* Рантайм. */
       compare: compare,
+      prime: prime,
       verdict: verdict,
       scoreOf: scoreOf,
       tone: tone,

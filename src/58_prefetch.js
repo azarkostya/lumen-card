@@ -137,7 +137,8 @@
        в простое; при зажатой стрелке — ничего (окно планируется после
        IDLE покоя, смена фокуса снимает и очередь, и сравнение в пути —
        canvas во время листания не работает). Карточку под фокусом дорожка
-       не считает — её сравнивает сам герой, — и пока он выбирает её кадр,
+       не считает — её пары срочные, их заводит дорожка кадра (этап 2а,
+       askLead), и с ними склеивается показ героя, — и пока он выбирает её кадр,
        своих пар не заводит: очередь простоя у LC.thumbs одна, и пара
        соседа, начатая раньше, задержала бы сравнение героя. Пары — те же,
        что спросил бы герой: кандидаты LC.hero.frameCandidates по деталям
@@ -638,12 +639,13 @@
        Порядок — по одному, не параллельно:
          1) карточка под фокусом — первой, как только её кадр решён
             (frameOf: детали и ответы сравнения с постером в памяти; зовут
-            снова ответ деталей и ответ сравнения, как у дорожки цвета), с
-            подложкой w300; показ через DELAY/BURST_DELAY склеивается с этой
-            загрузкой (тот же адрес — кэш Blink в памяти). К FRAME_AFTER
-            кадр решил сам показ — дорожка берёт тот же адрес (склейка, не
-            второй запрос) и ждёт его байтов; не решён и решать некому —
-            дальше, к следующей;
+            снова ответ деталей и ответ сравнения, как у дорожки цвета;
+            этап 2а — сравнения для неё заводит сама дорожка, askLead
+            ниже), с подложкой w300; показ через DELAY/BURST_DELAY
+            склеивается с этой загрузкой (тот же адрес — кэш Blink в
+            памяти). Кадр решил сам показ — дорожка берёт тот же адрес
+            (склейка, не второй запрос); не решён и решать некому — дальше,
+            к следующей;
          2) следующая по ходу листания в ряду — ставка, низкий
             приоритет, без подложки, и только когда:
               - последний шаг был по ряду (rowStep): после шага вниз
@@ -664,6 +666,31 @@
        (шаг 1.2 с: 442/620 мс p50/p95 против 456/554 и 452/1046), серый фон
        реже или так же (остановок с серым 19 из 94 против 20 и 28 из 78),
        в памяти 2 кадра + 2 подложки, стартов в серии 0 у всех. */
+    /* Раунд «без лагов», этап 2а, п.1 (приёмка интегратора: после серии
+       нажатий кадр встаёт через 1.2–1.4 с, серый фон в 7 из 10 показов).
+       Кадр карточки под фокусом (п.1 выше) решался только показом: детали
+       приходили к дорожке через IDLE + сеть, а ответы сравнения кандидатов
+       с постером (LC.thumbs) заводил сам показ героя — через BURST_DELAY
+       (700 мс) и после этого ещё миниатюры w92 и разбор. Стенд (ТВ-профиль,
+       CPU ×10, сеть +200 мс), серии 3 × 150 мс: детали карточки — к ~530
+       мс от последнего нажатия, сравнение показа — 760…1080, байты w1280 —
+       1090…1370, кадр — 1400.
+       Теперь выбор делает дорожка, как только у неё есть детали: пара за
+       парой — те, что спросил бы показ (lookPair: кандидаты
+       LC.hero.frameCandidates, правило LC.hero.pickFrame, дальше первого
+       чистого не идём), в СРОЧНОЙ очереди LC.thumbs (куски не дольше 30 мс,
+       между ними ввод и кадр), и по решённому — байты w1280 с подложкой.
+       Показ героя берёт готовое: те же ответы в памяти LC.thumbs по той же
+       паре «постер | кадр» решают его выбор синхронно тем же правилом, а
+       пара, ещё едущая, склеивается с вопросом показа (compare в
+       src/57_thumbs.js) — выбор один, разойтись нечему. Выбрал показ раньше
+       (потолок LOOK_WAIT) — frameFor отвечает его выбором.
+       В пути не больше одного такого сравнения (leadLook); перевод фокуса
+       снимает его (around → stopFrames) — в серии нажатий, как и прежде,
+       ни одного старта: план строится только после IDLE покоя. Ответ, не
+       легший в память (миниатюра не доехала), дорожка второй раз не
+       спрашивает (given) — выбирает показ, как до правки. */
+    var leadLook = null;
     var FRAME_AFTER = 900;
     var FRAME_BUSY_MAX = 8000;
     var frames = [];
@@ -688,6 +715,83 @@
         clearTimeout(frameTimer);
         frameTimer = null;
       }
+      if (leadLook) {
+        var job = leadLook;
+        leadLook = null;
+        job.over = true;
+        try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: lead look cancel failed', e); }
+      }
+      var primes = leadPrimes;
+      leadPrimes = [];
+      for (var i = 0; i < primes.length; i++) {
+        try { primes[i].cancel(); } catch (e2) { warn('prefetch: lead prime cancel failed', e2); }
+      }
+    }
+
+    /* Этап 2а, п.1: миниатюры w92 для решения карточки под фокусом —
+       заранее (LC.thumbs.prime). Первый прогон на стенде (серии 3 × 150
+       мс): пара уходила по ответу деталей (~560 мс от последнего нажатия
+       вместо ~760 у показа), но похожий первый кандидат стоил ещё одного
+       обхода сети за миниатюрой второго, а миниатюра постера — своего
+       обхода внутри той же пары: выбор к ~1040 мс, кадр к ~1430, как до
+       правки. Постер известен сразу (данные ряда) — его миниатюра едет
+       вместе с запросом деталей; кандидаты — все, как только есть детали.
+       Разбор — срочный (разбор кадра — один шаг, единицы миллисекунд при
+       CPU ×10): в простое, которого под листанием почти нет, миниатюра
+       второго кандидата ждала разбора, и пара с ней шла 240 мс вместо ~50.
+       Ответ пары уже в памяти — миниатюру кандидата не трогаем. */
+    var leadPrimes = [];
+
+    function primeLead(job) {
+      if (!LC.thumbs || typeof LC.thumbs.prime !== 'function' || !lookAllowed()) return;
+      var card = job.card;
+      var req = requestOf(card);
+      var json = req ? recall(req.key) : null;
+      var poster = card.poster_path || (json && json.poster_path) || '';
+      if (!poster) return;
+      try {
+        if (!job.posterPrimed) {
+          job.posterPrimed = true;
+          leadPrimes.push(LC.thumbs.prime('poster', poster, true));
+        }
+        if (!json || job.framesPrimed) return;
+        job.framesPrimed = true;
+        var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+        for (var i = 0; i < cands.paths.length; i++) {
+          if (LC.thumbs.verdict(poster, cands.paths[i]) === undefined) leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], true));
+        }
+      } catch (e) {
+        warn('prefetch: lead prime failed', e);
+      }
+    }
+
+    /* Этап 2а, п.1: вопрос о паре карточки под фокусом — срочный. true —
+       ответ пришёл синхронно (он в памяти или модуль заблокирован), false
+       — сравнение в пути, его ответ позовёт дорожку снова. */
+    function askLead(job, pair) {
+      var entry = { handle: null, over: false };
+      leadLook = entry;
+      var sync = true;
+      try {
+        entry.handle = LC.thumbs.compare(pair.poster, pair.frame, function () {
+          if (entry.over) return;
+          entry.over = true;
+          if (leadLook === entry) leadLook = null;
+          if (LC.thumbs.verdict(pair.poster, pair.frame) === undefined) job.given = true;
+          if (!sync) {
+            pumpFrames();
+            /* Кадр решён — и цвет его низа (дорожка цвета ждёт frameOf). */
+            pumpColors();
+          }
+        }, true);
+      } catch (e) {
+        warn('prefetch: lead look failed', e);
+        entry.over = true;
+        if (leadLook === entry) leadLook = null;
+        job.given = true;
+      }
+      sync = false;
+      return entry.over;
     }
 
     function framesLater(ms) {
@@ -716,11 +820,23 @@
         if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
       }
       var path = frameOf(job.card);
+      /* Этап 2а, п.1: карточку под фокусом решает сама дорожка — пара за
+         парой, пока выбор не решён (кандидатов не больше трёх). */
+      if (path === undefined && job.lead && !job.given) primeLead(job);
+      while (path === undefined && job.lead && !job.given) {
+        if (leadLook) return;
+        var pair = lookAllowed() ? lookPair(job.card) : null;
+        if (!pair) break;
+        if (!askLead(job, pair)) return;
+        path = frameOf(job.card);
+      }
       if (path === undefined) {
         /* Не решён. Соседа решат ответы деталей и сравнения — они зовут
-           дорожку сами. Карточку под фокусом до FRAME_AFTER — тоже (таймер
-           лишь страхует), после — её решает сам показ: пока герой выбирает
-           кадр, ждём, решать больше некому — дальше, к соседу. */
+           дорожку сами. Карточку под фокусом — ответ её деталей (таймер
+           FRAME_AFTER лишь страхует); деталей нет и к FRAME_AFTER или
+           ответ сравнения не лёг в память — её решает сам показ: пока
+           герой выбирает кадр, ждём, решать больше некому — дальше, к
+           соседу. */
         if (!job.lead) return;
         if (wait > 0) { framesLater(wait); return; }
         if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
@@ -863,7 +979,7 @@
              через DELAY, и её цвет нужен раньше соседских. */
           planColors([el.card_data].concat(near));
           /* Вердикты «кадр ≈ постер» — только соседям: карточку под
-             фокусом сравнивает сам герой. */
+             фокусом сравнивает дорожка кадра, срочно (askLead). */
           planLooks(near);
         } catch (e) {
           warn('prefetch: window failed', e);

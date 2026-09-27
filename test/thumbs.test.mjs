@@ -552,6 +552,108 @@ test('п.C2: отмена — колбэка нет, недоехавшие ми
   assert.equal(e.T.stats().fly, 0);
 });
 
+/* Раунд «без лагов», этап 2а: кадр карточки под фокусом решает заранее
+   дорожка кадра (src/58_prefetch.js), а показ героя через DELAY спрашивает
+   ту же пару, пока её ответ едет. Второй вопрос встаёт на сравнение в пути:
+   один разбор, один ответ обоим. */
+function runSoon(e, done, guard) {
+  let n = 0;
+  for (let g = 0; g < (guard || 40) && !done(); g++) {
+    const t = e.timers.find((x) => !x.done && x.ms === 0);
+    if (!t) break;
+    t.done = true;
+    t.fn();
+    n++;
+  }
+  return n;
+}
+
+test('этап 2а: та же пара в пути — второй вопрос встаёт на неё: одно сравнение, ответ обоим; отмена одного не снимает другого', () => {
+  const one = env();
+  let solo;
+  one.T.compare('/p.jpg', '/f.jpg', (v) => { solo = v; }, true);
+  one.arrive(one.img('/p.jpg'), scene(1), 92, 138);
+  one.arrive(one.img('/f.jpg'), scene(1), 92, 52);
+  const soloTasks = runSoon(one, () => solo !== undefined);
+  assert.equal(typeof solo, 'boolean', 'предусловие: одиночное срочное сравнение отвечает');
+
+  const e = env();
+  const got = {};
+  e.T.compare('/p.jpg', '/f.jpg', (v) => { got.lane = v; }, true);
+  e.T.compare('/p.jpg', '/f.jpg', (v) => { got.hero = v; }, true);
+  assert.equal(e.images.length, 2, 'вторая пара грузит миниатюры заново');
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/f.jpg'), scene(1), 92, 52);
+  const tasks = runSoon(e, () => got.lane !== undefined && got.hero !== undefined);
+  assert.equal(got.lane, solo);
+  assert.equal(got.hero, solo, 'ответ второму вопросу — тот же');
+  assert.equal(tasks, soloTasks, 'второй вопрос завёл свои задачи разбора и сравнения: ' + tasks + ' против ' + soloTasks);
+
+  const c = env();
+  const late = [];
+  const first = c.T.compare('/p.jpg', '/g.jpg', (v) => late.push(['lane', v]), true);
+  c.T.compare('/p.jpg', '/g.jpg', (v) => late.push(['hero', v]), true);
+  first.cancel();
+  assert.ok(!c.images.some((i) => i.removed), 'отмена одного ждущего сняла миниатюры второго');
+  c.arrive(c.img('/p.jpg'), scene(1), 92, 138);
+  c.arrive(c.img('/g.jpg'), scene(2), 92, 52);
+  runSoon(c, () => late.length > 0);
+  assert.deepEqual(late.map((x) => x[0]), ['hero'], 'отменённый ждущий получил ответ или второй не получил');
+});
+
+test('этап 2а: последний отказавшийся снимает сравнение и миниатюры в сети; срочный вопрос на обычное сравнение не встаёт', () => {
+  const e = env();
+  const got = [];
+  const a = e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v), true);
+  const b = e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v), true);
+  a.cancel();
+  b.cancel();
+  assert.ok(e.images.length === 2 && e.images.every((i) => i.removed), 'миниатюры остались в сети');
+  assert.equal(e.T.stats().fly, 0);
+  const again = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => again.push(v), true);
+  assert.equal(e.images.length, 4, 'снятая пара осталась в пути — новый вопрос встал на мёртвое сравнение');
+
+  const u = env();
+  const out = {};
+  u.T.compare('/p.jpg', '/f.jpg', (v) => { out.slow = v; });
+  u.T.compare('/p.jpg', '/f.jpg', (v) => { out.urgent = v; }, true);
+  u.arrive(u.img('/p.jpg'), scene(1), 92, 138);
+  u.arrive(u.img('/f.jpg'), scene(1), 92, 52);
+  runSoon(u, () => out.urgent !== undefined);
+  assert.equal(typeof out.urgent, 'boolean', 'срочный встал на обычное сравнение и ждёт простоя');
+  assert.equal(out.slow, undefined, 'обычное не ждёт простоя');
+  u.idleAll();
+  assert.equal(typeof out.slow, 'boolean');
+});
+
+test('этап 2а: prime — миниатюра и признаки заранее (срочно — по setTimeout, иначе в простое); вопрос о паре потом без загрузок и разбора', () => {
+  const e = env();
+  e.T.prime('poster', '/p.jpg', true);
+  e.T.prime('frame', '/f.jpg', false);
+  assert.equal(e.images.length, 2, 'миниатюры заранее не заказаны');
+  assert.equal(e.img('/p.jpg').corsAtSrc, 'anonymous');
+  assert.equal(e.img('/p.jpg').fetchPriority, 'high', 'срочная миниатюра — не высокий приоритет загрузки');
+  assert.equal(e.img('/f.jpg').fetchPriority, undefined, 'обычная миниатюра обгоняет кадр показа');
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/f.jpg'), scene(1), 92, 52);
+  runSoon(e, () => false);
+  const posterDraws = e.canvas.draws;
+  assert.equal(posterDraws, 13, 'срочный постер не разобран без простоя: ' + posterDraws);
+  e.idleAll();
+  assert.equal(e.canvas.draws, 14, 'кадр в простое не разобран');
+  let got;
+  e.T.compare('/p.jpg', '/f.jpg', (v) => { got = v; }, true);
+  assert.equal(e.images.length, 2, 'признаки есть, а миниатюры грузятся снова');
+  runSoon(e, () => got !== undefined);
+  assert.equal(typeof got, 'boolean');
+  assert.equal(e.canvas.draws, 14, 'пара разбирала растры заново');
+  const off = env();
+  off.T.prime('logo', '/l.png', true);
+  off.T.prime('frame', '', true);
+  assert.equal(off.images.length, 0, 'prime — только постер и кадр');
+});
+
 test('п.D: tone — чёрный логотип тёмный, белый светлый; ответ в памяти; одна загрузка на путь', () => {
   const e = env();
   const got = [];

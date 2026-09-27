@@ -6563,6 +6563,29 @@ test('п.C2: сравнение не успело за 300 мс — кадр к�
   assert.equal(thumbs.calls.length, 1, 'после выбора сравнение пошло дальше');
 });
 
+/* Раунд «без лагов», этап 2а: кадр карточки под фокусом заранее решает
+   дорожка кадра предзагрузки по frameFor. Показ выбрал по потолку — frameFor
+   отвечает его выбором, а не тем, что решили бы поздние ответы: байты
+   грузятся того кадра, что на экране. */
+test('этап 2а: frameFor показанной карточки — выбор показа (потолок), поздние ответы его не меняют', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  const details = LOOK_DETAILS(11);
+  detailsOf(env, 11).ok(details);
+  const card = main.card1.card_data;
+  assert.equal(env.hero.frameFor(card, details), undefined, 'до выбора показа и без ответов — не решён');
+  env.advance(300);
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'предусловие: потолок выбрал первый кандидат');
+  thumbs.answer(0, true);
+  assert.equal(env.hero.frameFor(card, details), '/c1.jpg', 'поздний ответ «/c1 похож» — а на экране /c1.jpg, его и грузить');
+  assert.equal(env.hero.frameFor(Object.assign({}, card), details), '/c1.jpg', 'та же карточка другим объектом ряда — тот же ответ');
+  assert.equal(env.hero.frameFor({ id: 11, name: 'Сериал 11', poster_path: '/p1.jpg' }, details), undefined, 'сериал с тем же id — не показанный фильм: своё правило');
+});
+
 /* Раунд «Листание» (и ревью d97cffc, п.3): детали показанной карточки
    доехали, когда фокус уже на другой, — сравнения не заводятся вовсе
    (canvas во время листания не работает); кадр выбрал бы потолок, но

@@ -17930,8 +17930,16 @@ return !(typeof s === 'number' && s < 1);
 
 
 
+
+
+
+
+
 function frameFor(card, details) {
 if (!card || !details) return undefined;
+var shown = state && !state.parked ? state.shownCard : null;
+if (shown && typeof state.framePath === 'string' && (shown === card ||
+(String(shown.id) === String(card.id) && mediaOf(shown) === mediaOf(card)))) return state.framePath;
 var main = details.backdrop_path || card.backdrop_path || '';
 var fallback = heroBackdrop(details.images, main);
 var poster = card.poster_path || details.poster_path || '';
@@ -32242,9 +32250,15 @@ try { subs[i](img); } catch (e) { warn('thumbs: callback failed', e); }
 }
 }
 
-function start(path, fl, url) {
+function start(path, fl, url, urgent) {
 var img = new Image();
 fl.img = img;
+
+
+
+
+
+if (urgent) img.fetchPriority = 'high';
 img.onload = function () { land(path, fl, img); };
 img.onerror = function () { land(path, fl, null); };
 fl.timer = setTimeout(function () {
@@ -32261,7 +32275,7 @@ img.src = url;
 
 
 
-function fetchImage(path, cb) {
+function fetchImage(path, cb, urgent) {
 var fl = flights[path];
 if (!fl) {
 var url = urlOf(path);
@@ -32271,7 +32285,7 @@ return { cancel: function () { } };
 }
 fl = { img: null, subs: [], timer: null };
 flights[path] = fl;
-start(path, fl, url);
+start(path, fl, url, urgent);
 }
 fl.subs.push(cb);
 return {
@@ -32532,7 +32546,7 @@ if (now !== null) featPut(key, now);
 cb(now);
 return false;
 }, urgent);
-});
+}, urgent);
 return {
 cancel: function () {
 if (!live) return;
@@ -32547,7 +32561,21 @@ load.cancel();
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+var pairFlights = {};
+
 function compare(poster, frame, cb, urgent) {
+var key = poster + '|' + frame;
 var known = verdict(poster, frame);
 if (known !== undefined || blocked()) {
 
@@ -32558,11 +32586,64 @@ if (known !== undefined || blocked()) {
 
 if (known === undefined) {
 known = null;
-remember(verdicts, poster + '|' + frame, known);
+remember(verdicts, key, known);
 }
 cb(known);
 return { cancel: function () { } };
 }
+var sub = { cb: cb };
+var fl = pairFlights[key];
+if (fl && (fl.urgent || !urgent)) {
+fl.subs.push(sub);
+} else {
+fl = { subs: [sub], urgent: !!urgent, handle: null, over: false };
+pairFlights[key] = fl;
+var own = fl;
+var handle = judgePair(poster, frame, urgent, function (value) {
+own.over = true;
+if (pairFlights[key] === own) delete pairFlights[key];
+var subs = own.subs;
+own.subs = [];
+for (var i = 0; i < subs.length; i++) {
+var fn = subs[i].cb;
+subs[i].cb = null;
+if (!fn) continue;
+try { fn(value); } catch (e) { warn('thumbs: callback failed', e); }
+}
+});
+if (!fl.over) fl.handle = handle;
+}
+var pair = fl;
+return {
+cancel: function () {
+if (!sub.cb) return;
+sub.cb = null;
+var at = pair.subs.indexOf(sub);
+if (at !== -1) pair.subs.splice(at, 1);
+if (pair.subs.length || pair.over) return;
+pair.over = true;
+if (pairFlights[key] === pair) delete pairFlights[key];
+if (pair.handle) pair.handle.cancel();
+}
+};
+}
+
+
+
+
+
+
+
+
+
+function prime(kind, path, urgent) {
+if (!path || (kind !== 'poster' && kind !== 'frame') || blocked()) return { cancel: function () { } };
+return need(kind, path, function () { }, urgent);
+}
+
+
+
+function judgePair(poster, frame, urgent, cb) {
 var live = true;
 var pf;
 var ff;
@@ -32665,6 +32746,7 @@ darkOf: darkOf,
 solidOf: solidOf,
 
 compare: compare,
+prime: prime,
 verdict: verdict,
 scoreOf: scoreOf,
 tone: tone,
@@ -33078,6 +33160,7 @@ var colorWait = null;
 var COLOR_IDLE_MAX = 500;
 
 var COLOR_GAP = 50;
+
 
 
 
@@ -33616,6 +33699,32 @@ pumpFrames();
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var leadLook = null;
 var FRAME_AFTER = 900;
 var FRAME_BUSY_MAX = 8000;
 var frames = [];
@@ -33640,6 +33749,83 @@ if (frameTimer) {
 clearTimeout(frameTimer);
 frameTimer = null;
 }
+if (leadLook) {
+var job = leadLook;
+leadLook = null;
+job.over = true;
+try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: lead look cancel failed', e); }
+}
+var primes = leadPrimes;
+leadPrimes = [];
+for (var i = 0; i < primes.length; i++) {
+try { primes[i].cancel(); } catch (e2) { warn('prefetch: lead prime cancel failed', e2); }
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+var leadPrimes = [];
+
+function primeLead(job) {
+if (!LC.thumbs || typeof LC.thumbs.prime !== 'function' || !lookAllowed()) return;
+var card = job.card;
+var req = requestOf(card);
+var json = req ? recall(req.key) : null;
+var poster = card.poster_path || (json && json.poster_path) || '';
+if (!poster) return;
+try {
+if (!job.posterPrimed) {
+job.posterPrimed = true;
+leadPrimes.push(LC.thumbs.prime('poster', poster, true));
+}
+if (!json || job.framesPrimed) return;
+job.framesPrimed = true;
+var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+for (var i = 0; i < cands.paths.length; i++) {
+if (LC.thumbs.verdict(poster, cands.paths[i]) === undefined) leadPrimes.push(LC.thumbs.prime('frame', cands.paths[i], true));
+}
+} catch (e) {
+warn('prefetch: lead prime failed', e);
+}
+}
+
+
+
+
+function askLead(job, pair) {
+var entry = { handle: null, over: false };
+leadLook = entry;
+var sync = true;
+try {
+entry.handle = LC.thumbs.compare(pair.poster, pair.frame, function () {
+if (entry.over) return;
+entry.over = true;
+if (leadLook === entry) leadLook = null;
+if (LC.thumbs.verdict(pair.poster, pair.frame) === undefined) job.given = true;
+if (!sync) {
+pumpFrames();
+
+pumpColors();
+}
+}, true);
+} catch (e) {
+warn('prefetch: lead look failed', e);
+entry.over = true;
+if (leadLook === entry) leadLook = null;
+job.given = true;
+}
+sync = false;
+return entry.over;
 }
 
 function framesLater(ms) {
@@ -33668,7 +33854,19 @@ if (frameBusy && Date.now() - frameBusyAt < FRAME_BUSY_MAX) return;
 if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
 }
 var path = frameOf(job.card);
+
+
+if (path === undefined && job.lead && !job.given) primeLead(job);
+while (path === undefined && job.lead && !job.given) {
+if (leadLook) return;
+var pair = lookAllowed() ? lookPair(job.card) : null;
+if (!pair) break;
+if (!askLead(job, pair)) return;
+path = frameOf(job.card);
+}
 if (path === undefined) {
+
+
 
 
 

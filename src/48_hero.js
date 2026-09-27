@@ -607,9 +607,17 @@
        LC.thumbs, наименее похожий, иначе выбор heroBackdrop): путь, '' —
        кадра у фильма нет, undefined — ещё не решён (ответа сравнения нет).
        Предзагрузке соседей (src/58_prefetch.js): цвет фильма — низ ЕГО
-       кадра, и считать заранее можно только решённый кадр. */
+       кадра, и считать заранее можно только решённый кадр.
+       Раунд «без лагов», этап 2а: кадр карточки под фокусом заранее решает
+       дорожка кадра предзагрузки тем же правилом. Показ этой карточки уже
+       выбрал кадр — ответ его выбор (state.framePath): потолок LOOK_WAIT
+       решает по неполным ответам, и полный выбор мог бы разойтись с тем,
+       что стоит на экране, — байты грузились бы не того кадра. */
     function frameFor(card, details) {
       if (!card || !details) return undefined;
+      var shown = state && !state.parked ? state.shownCard : null;
+      if (shown && typeof state.framePath === 'string' && (shown === card ||
+        (String(shown.id) === String(card.id) && mediaOf(shown) === mediaOf(card)))) return state.framePath;
       var main = details.backdrop_path || card.backdrop_path || '';
       var fallback = heroBackdrop(details.images, main);
       var poster = card.poster_path || details.poster_path || '';
