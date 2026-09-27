@@ -732,17 +732,187 @@
         var pass = function (rows) {
           return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN, fit) : rows, fit);
         };
+        var part = null;
+        var built = false;
         var next = _mainOriginal(params, function (data) {
           oncomplite(pass(data));
+          built = true;
+          if (part) part.arm();
         }, onerror);
         if (typeof next !== 'function') return next;
-        return function (resolve, reject) {
+        /* Первая часть могла прийти синхронно (все ряды из кэша Lampa) —
+           тогда part ещё не было, и заготовку следующей ставим здесь. */
+        part = partAhead(next, pass, _homeGen);
+        _ahead = part;
+        if (built) part.arm();
+        return part.take;
+      };
+      try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _mainOriginal = null; }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Раунд «без лагов» 2026-09-27 (этап 2б): следующая часть рядов       */
+    /* главной — заранее, из памяти.                                       */
+    /*                                                                     */
+    /* Lampa просит следующую часть (до 6 рядов, partNext) только у конца  */
+    /* ленты: Scroll главной с end_ratio 2 зовёт onEnd, когда ниже окна    */
+    /* осталось меньше экрана (Scroll.isEnd, app.min.js:32190; Next$1.     */
+    /* onLoadNext, :35381), и ряды из неё добавляет по одному на конец     */
+    /* прокрутки (onPushLoaded, limit_view 1 на ТВ, :35185). Стенд (+400   */
+    /* мс к ответу, CPU×10): первый ряд новой части появлялся в DOM за     */
+    /* шаг до показа, постеры его карточек въезжали пустыми — 55 % при     */
+    /* въезде, ожидание p50 0.9 с, максимум 1.3 с (полоса images).         */
+    /*                                                                     */
+    /* Что делаем: после построения части (и после каждой отданной) в      */
+    /* простое сами зовём ту же функцию next, которую Api.main вернул      */
+    /* компоненту, и держим готовую часть в памяти. Когда Lampa попросит,  */
+    /* отдаём её следующей задачей — как быстрый ответ сети: onLoadNext    */
+    /* разложит её в очередь loaded, конец прокрутки добавит ряд, а        */
+    /* src/58_posters.js видит её заранее (ahead()) и грузит постеры.       */
+    /*                                                                     */
+    /* Порядок и дубли. partNext помечает части исполненными только по     */
+    /* завершении (app.min.js:34971-34977): два одновременных вызова next  */
+    /* взяли бы ОДНИ И ТЕ ЖЕ ряды. Поэтому в пути всегда не больше одного  */
+    /* вызова: Lampa, попросившая во время заготовки, ждёт её же. Окно     */
+    /* дедупликации (pass) проходит части строго по порядку — так же, как  */
+    /* без заготовки. Отказ next (частей больше нет) запоминается: дальше  */
+    /* вызовы идут насквозь, как было. Уход с главной (bumpGen) и          */
+    /* выключенный плагин — заготовок нет.                                  */
+    /* ------------------------------------------------------------------ */
+
+    /* Пауза после построения части до заготовки следующей: первый экран   */
+    /* (постеры, кадр героя) уходит в сеть раньше. Коротко — на стенде     */
+    /* Lampa просит вторую часть уже на первом конце прокрутки.            */
+    var AHEAD_MS = 400;
+    /* Потолок ожидания простоя браузера (requestIdleCallback). */
+    var AHEAD_IDLE_MAX = 1000;
+
+    /* Заготовка текущей главной (последний вызов Api.main). */
+    var _ahead = null;
+
+    function aheadSet(fn, ms) {
+      var hook = api._timers;
+      if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+      return setTimeout(fn, ms);
+    }
+
+    function aheadIdle(fn) {
+      var hook = api._timers;
+      if (hook && typeof hook.set === 'function') return hook.set(fn, 0);
+      try {
+        if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+          return window.requestIdleCallback(fn, { timeout: AHEAD_IDLE_MAX });
+        }
+      } catch (e) {}
+      return fn();
+    }
+
+    function partAhead(next, pass, gen) {
+      /* idle — ничего не заготовлено; loading — next в пути; ready — часть
+         в памяти; done — next отказал, дальше насквозь. */
+      var st = 'idle';
+      var rows = null;
+      var waiter = null;
+      var timer = null;
+
+      function alive() {
+        return _dedupeActive && gen === _homeGen;
+      }
+
+      function finish(ok, out) {
+        var w = waiter;
+        waiter = null;
+        if (ok) {
+          if (w) {
+            st = 'idle';
+            w.resolve(out);
+            arm();
+          } else {
+            rows = out;
+            st = 'ready';
+          }
+        } else {
+          st = 'done';
+          if (w) w.reject();
+        }
+      }
+
+      function start() {
+        st = 'loading';
+        var got = false;
+        try {
+          next(function (more) {
+            if (got) return;
+            got = true;
+            finish(true, pass(more));
+          }, function () {
+            if (got) return;
+            got = true;
+            finish(false);
+          });
+        } catch (e) {
+          if (!got) {
+            got = true;
+            finish(false);
+          }
+        }
+      }
+
+      function arm() {
+        if (st !== 'idle' || timer || !alive()) return;
+        timer = aheadSet(function () {
+          aheadIdle(function () {
+            timer = null;
+            if (st === 'idle' && alive()) start();
+          });
+        }, AHEAD_MS);
+      }
+
+      function take(resolve, reject) {
+        if (st === 'ready') {
+          var out = rows;
+          rows = null;
+          st = 'idle';
+          aheadSet(function () {
+            resolve(out);
+            arm();
+          }, 0);
+          return;
+        }
+        if (st === 'loading') {
+          /* Lampa ждёт одну часть за раз (next_wait); вторая просьба до
+             ответа — отказ, а не та же часть дважды. */
+          if (waiter) {
+            reject();
+            return;
+          }
+          waiter = { resolve: resolve, reject: reject };
+          return;
+        }
+        if (st === 'done' || !alive()) {
           return next(function (more) {
             resolve(pass(more));
           }, reject);
-        };
-      };
-      try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _mainOriginal = null; }
+        }
+        waiter = { resolve: resolve, reject: reject };
+        start();
+      }
+
+      function peek() {
+        return st === 'ready' && rows ? rows.slice() : [];
+      }
+
+      return { arm: arm, take: take, peek: peek, state: function () { return st; } };
+    }
+
+    /* Ряды заготовленной части (ещё не отданной Lampa) — для предзагрузки
+       постеров. Пусто, если заготовки нет или главная уже не та. */
+    function ahead() {
+      try {
+        return _ahead && _dedupeActive ? _ahead.peek() : [];
+      } catch (e) {
+        return [];
+      }
     }
 
     /* Возвращает штатный Api.main. Если поверх нашей обёртки встал кто-то
@@ -1350,7 +1520,7 @@
       };
     }
 
-    return {
+    var api = {
       rowName: rowName,
       filterWatched: filterWatched,
       homeRows: homeRows,
@@ -1375,8 +1545,14 @@
       adventPool: adventPool,
       /* Волна 4: описания рядов — их регистрирует план главной. */
       describe: describe,
-      adventRow: adventRow
+      adventRow: adventRow,
+      /* Этап 2б: заготовленная часть рядов (для src/58_posters.js). */
+      ahead: ahead,
+      AHEAD_MS: AHEAD_MS,
+      /* Хук тестов: пара таймеров заготовки. */
+      _timers: null
     };
+    return api;
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.rows;

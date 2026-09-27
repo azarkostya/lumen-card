@@ -23,7 +23,8 @@
   /* items[i].data.results, items[i].items, items[i].view, active, loaded) */
   /* и грузит постеры: ряд под фокусом — от первой несозданной карточки до */
   /* AHEAD экранов вперёд от фокуса (когда в ряду уже шагали вправо);     */
-  /* ряды, ждущие в очереди Lampa, — по ROWS (сейчас 0, разбор у ROWS).    */
+  /* ряды ниже, ждущие в очереди Lampa и в заготовке LC.rows.ahead, — до   */
+  /* ROWS рядов от фокуса, только после QUIET покоя (разбор у ROWS).       */
   /* Адрес — тем же Lampa.Api.img(poster_path), что у карточки (Card,     */
   /* :20877), то есть тот же ключ кэша и та же настройка poster_size.      */
   /*                                                                       */
@@ -47,18 +48,29 @@
     var KEEP = 96;
     /* Экранов ряда под фокусом вперёд от фокуса. */
     var AHEAD = 2;
-    /* Рядов ниже фокуса, чьи постеры берём из очереди Lampa. НОЛЬ — и это
-       замер, а не осторожность. Стенд, листание вниз (+200 мс к ответу
-       прокси): с ROWS = 2 пустых при въезде 14 из 116 и 15 из 44 (при
-       зажатой стрелке, до 539 мс) против 0 из 108 и 5 из 36 без неё; при
-       +400 мс — 43 из 76 против 44 из 80, то есть пользы нет. Причина —
-       данные рядов: следующая часть (6 рядов) приходит только у конца
-       ленты (Api.main, end_ratio 2), в очередь loaded — одним куском, и
-       первый ряд из неё Lampa добавляет на ближайшем конце прокрутки, за
-       один шаг до показа: предзагрузке нечего взять заранее, а её запросы
-       на следующих рядах делят канал с видимыми постерами Lampa. Включать,
-       когда данные рядов начнут приходить заранее (полоса rows). */
-    var ROWS = 0;
+    /* Рядов ниже фокуса, чьи постеры берём из очереди Lampa (loaded) и из
+       заготовленной части рядов (LC.rows.ahead, src/44_rows.js).
+       Раньше здесь был НОЛЬ — по замеру: с ROWS = 2 пустых при въезде
+       14 из 116 и 15 из 44 (+200 мс к ответу прокси, при зажатой стрелке
+       до 539 мс) против 0 из 108 и 5 из 36 без неё; при +400 мс — 43 из
+       76 против 44 из 80. Причина была в данных: следующая часть (до 6
+       рядов) приходила только у конца ленты (Api.main, end_ratio 2), и
+       первый ряд из неё Lampa добавляла за шаг до показа — брать заранее
+       было нечего, а запросы на каждом шаге делили канал с видимыми
+       постерами. Этап 2б: часть заготавливается сразу после построения
+       предыдущей (partAhead), а ряды ниже планируются только после QUIET
+       покоя фокуса — при зажатой стрелке ни одного лишнего запроса (урок
+       «хвост ряда при каждом шаге вниз»: задержка шага 184 → 248 мс).
+       Замер этапа 2б (стенд, CPU×10, +400 мс / 10 Мбит, 8 × «вниз» по
+       700 мс, пустых постеров при въезде, по прогону): база 58/63/57 % и
+       20/25/27 % (две серии в разной загрузке машины); с заготовкой части
+       и ROWS = 0 — 8/0/0 %; ROWS = 2 — 25/48/0 % и 0/0/0 %; ROWS = 3 —
+       0/0/0 %. Главное даёт заготовка данных, ряды ниже добирают остаток;
+       третий ряд ничего не добавил. */
+    var ROWS = 2;
+    /* Покой фокуса перед постерами рядов ниже: меньше шага пульта с
+       остановками (700 мс на стенде), больше шага зажатой стрелки. */
+    var QUIET = 300;
     /* Пачка Lampa по умолчанию (Base$1, :35239), если у ряда её нет. */
     var VIEW = 7;
 
@@ -161,21 +173,31 @@
         });
       }
       var pending = [];
+      function queued(row) {
+        pending.push({
+          results: row && row.results && row.results.length ? row.results : null,
+          view: viewOf(row && row.params, VIEW),
+          style: styleOf(row && row.params)
+        });
+      }
       var loaded = comp.loaded;
       if (loaded && typeof loaded.length === 'number') {
         for (var k = 0; k < loaded.length; k++) {
           var part = loaded[k];
           if (!part || typeof part.length !== 'number') continue;
-          for (var j = 0; j < part.length; j++) {
-            var row = part[j];
-            pending.push({
-              results: row && row.results && row.results.length ? row.results : null,
-              view: viewOf(row && row.params, VIEW),
-              style: styleOf(row && row.params)
-            });
-          }
+          for (var j = 0; j < part.length; j++) queued(part[j]);
         }
       }
+      /* За очередью Lampa — заготовленная часть, которую она ещё не
+         просила (src/44_rows.js, partAhead): по порядку экрана она идёт
+         сразу за loaded. */
+      var ahead = [];
+      try {
+        if (LC.rows && typeof LC.rows.ahead === 'function') ahead = LC.rows.ahead() || [];
+      } catch (eAhead) {
+        ahead = [];
+      }
+      for (var h = 0; h < ahead.length; h++) queued(ahead[h]);
       var at = typeof comp.active === 'number' ? comp.active : 0;
       if (at < 0) at = 0;
       if (at > lines.length - 1) at = lines.length - 1;
@@ -233,18 +255,26 @@
        обработки нажатия: на горячем пути фокуса только таймер (как у
        LC.prefetch), и серия нажатий в одной задаче даёт один план. */
     var planTimer = null;
+    /* Ряды ниже — отдельным таймером покоя: каждый перевод фокуса его
+       переставляет, так что при зажатой стрелке он не срабатывает. */
+    var quietTimer = null;
     function around() {
+      if (quietTimer) clearTimeout(quietTimer);
+      quietTimer = setTimeout(function () {
+        quietTimer = null;
+        plan(ROWS);
+      }, QUIET);
       if (planTimer) return;
       planTimer = setTimeout(function () {
         planTimer = null;
-        plan();
+        plan(0);
       }, 0);
     }
 
-    function plan() {
+    function plan(rows) {
       var snap = snapshot();
       if (!snap) return;
-      var paths = planPaths(snap.lines, snap.at, snap.pending, AHEAD, ROWS);
+      var paths = planPaths(snap.lines, snap.at, snap.pending, AHEAD, rows);
       var list = [];
       for (var i = 0; i < paths.length; i++) {
         var url = urlOf(paths[i]);
@@ -263,6 +293,10 @@
         clearTimeout(planTimer);
         planTimer = null;
       }
+      if (quietTimer) {
+        clearTimeout(quietTimer);
+        quietTimer = null;
+      }
     }
 
     function stats() {
@@ -270,6 +304,8 @@
     }
 
     return {
+      ROWS: ROWS,
+      QUIET: QUIET,
       planPaths: planPaths,
       around: around,
       stop: stop,

@@ -1296,6 +1296,101 @@ test('uninstallDedupe: осиротевшая под чужой обёрткой
   assert.deepEqual(idsOf(got[1]), [1, 2, 3, 4]);
 });
 
+/* ---------------------------------------------------------------- */
+/* Этап 2б: следующая часть рядов — заранее (partAhead).              */
+/* ---------------------------------------------------------------- */
+
+/* Главная с управляемым next: вызовы next копятся в calls, ответить —
+   calls[i].ok(rows) / calls[i].no(). Таймеры заготовки — ручные. */
+function setupAhead(first) {
+  var s = setupDedupeRuntime({ batches: [] });
+  var calls = [];
+  s.Lampa.Api.main = function (params, oncomplite) {
+    oncomplite(first);
+    return function (resolve, reject) {
+      calls.push({ ok: resolve, no: reject });
+    };
+  };
+  var timers = [];
+  s.R._timers = { set: function (fn, ms) { timers.push({ fn: fn, ms: ms }); return timers.length; } };
+  s.R.installDedupe();
+  function run() {
+    var n = 0;
+    while (timers.length) { var t = timers.shift(); t.fn(); n++; }
+    return n;
+  }
+  return { s: s, calls: calls, timers: timers, run: run };
+}
+
+test('partAhead: следующая часть берётся после построения первой, в простое; Lampa получает её из памяти следующей задачей, с окном дедупликации', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4, 5])]);
+  var got = [];
+  var next = w.s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  assert.equal(w.calls.length, 0, 'сразу после построения — ничего');
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].ms, w.s.R.AHEAD_MS);
+  w.run();
+  assert.equal(w.calls.length, 1, 'заготовка — один вызов next');
+  w.calls[0].ok([mkRow('B', [1, 2, 6, 7, 8, 9])]);
+  assert.deepEqual(w.s.R.ahead().map(idsOf), [[6, 7, 8, 9]], 'заготовка видна предзагрузке постеров, уже без дублей');
+  var lampa = [];
+  next(function (d) { lampa.push(d); }, function () { lampa.push('reject'); });
+  assert.equal(lampa.length, 0, 'не внутри обработчика конца прокрутки');
+  assert.equal(w.calls.length, 1, 'второго запроса нет');
+  w.run();
+  assert.equal(lampa.length, 1);
+  assert.deepEqual(idsOf(lampa[0][0]), [6, 7, 8, 9]);
+  assert.deepEqual(w.s.R.ahead(), [], 'отданная часть из заготовки ушла');
+  /* после выдачи — заготовка следующей */
+  w.run();
+  assert.equal(w.calls.length, 2);
+});
+
+test('partAhead: Lampa попросила, пока заготовка в пути, — ждёт её же, второго next нет; вторая просьба до ответа — отказ', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  var next = w.s.Lampa.Api.main({}, function () {}, function () {});
+  w.run();
+  assert.equal(w.calls.length, 1);
+  var lampa = [];
+  next(function (d) { lampa.push(d); }, function () { lampa.push('reject'); });
+  next(function (d) { lampa.push(d); }, function () { lampa.push('reject2'); });
+  assert.deepEqual(lampa, ['reject2'], 'одна часть не отдаётся дважды');
+  assert.equal(w.calls.length, 1);
+  w.calls[0].ok([mkRow('B', [3, 5, 6, 7, 8])]);
+  assert.equal(lampa.length, 2);
+  assert.deepEqual(idsOf(lampa[1][0]), [5, 6, 7, 8]);
+});
+
+test('partAhead: Lampa попросила раньше заготовки — один вызов next, как без неё; отказ next — дальше насквозь', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  var next = w.s.Lampa.Api.main({}, function () {}, function () {});
+  var lampa = [];
+  next(function (d) { lampa.push(d); }, function () { lampa.push('reject'); });
+  assert.equal(w.calls.length, 1);
+  w.calls[0].no();
+  assert.deepEqual(lampa, ['reject']);
+  w.run();
+  assert.equal(w.calls.length, 1, 'после отказа заготовок нет');
+  next(function (d) { lampa.push(d); }, function () { lampa.push('reject2'); });
+  assert.equal(w.calls.length, 2, 'просьба Lampa идёт насквозь');
+  w.calls[1].ok([mkRow('C', [1, 9, 10, 11, 12])]);
+  assert.deepEqual(idsOf(lampa[1][0]), [9, 10, 11, 12], 'окно дедупликации живо и насквозь');
+});
+
+test('partAhead: ушли с главной (bumpGen) или выключили плагин — заготовок нет', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  w.s.Lampa.Api.main({}, function () {}, function () {});
+  w.s.R.bumpGen();
+  w.run();
+  assert.equal(w.calls.length, 0, 'мёртвое поколение главной');
+  var w2 = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  w2.s.Lampa.Api.main({}, function () {}, function () {});
+  w2.s.R.uninstallDedupe();
+  w2.run();
+  assert.equal(w2.calls.length, 0, 'выключенный плагин');
+  assert.deepEqual(w2.s.R.ahead(), []);
+});
+
 test('installDedupe: повторная активация под чужой обёрткой не заводит второго окна', function () {
   var s = setupDedupeRuntime({
     batches: [[mkRow('A', [1, 2, 3, 4]), mkRow('B', [1, 2, 3, 4, 5, 6, 7, 8])]]

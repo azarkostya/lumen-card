@@ -171,3 +171,63 @@ test('stop и новый план: освободившийся слот ста�
   for (let k = 0; k < 3; k++) for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
   assert.equal(P.stats().fly, 0);
 });
+
+/* Этап 2б: ряды ниже фокуса — из очереди Lampa (loaded) и из заготовленной
+   части (LC.rows.ahead, src/44_rows.js), только после QUIET покоя фокуса:
+   при зажатой стрелке (переводы чаще QUIET) — ни одного запроса рядов ниже. */
+import { loadCtx } from './_load.mjs';
+
+test('ряды ниже: только после покоя QUIET, из loaded и из заготовки LC.rows.ahead; не дальше ROWS рядов', async () => {
+  let aheadRows = [{ results: res('d', 20), params: {} }, { results: res('e', 20), params: {} }];
+  const Q = loadCtx('58_posters.js', { rows: { ahead: () => aheadRows } }).api;
+  assert.equal(Q.ROWS, 2);
+  const comp = {
+    active: 0,
+    items: [{ data: { results: res('a', 8), params: {} }, items: new Array(8), active: 0, view: 8 }],
+    loaded: [[{ results: res('c', 20), params: {} }]]
+  };
+  const images = fakeWorld(comp);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* Серия переводов чаще QUIET: хвоста у ряда нет (active 0), ряды ниже ждут. */
+  for (let i = 0; i < 4; i++) {
+    Q.around();
+    await wait(Q.QUIET / 3);
+  }
+  assert.equal(images.length, 0, 'при серии нажатий рядов ниже не грузим');
+  await wait(Q.QUIET + 60);
+  assert.equal(images.length, 4, 'после покоя — сразу SLOTS запросов');
+  for (let k = 0; k < 10; k++) for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+  const got = images.map((im) => im.src.replace('https://imagetmdb.com/t/p/w300/', '').replace('.jpg?email=', ''));
+  /* ряд из loaded (c) — первые view + 1 (view Lampa по умолчанию 7), за ним первый ряд заготовки (d); второй ряд заготовки (e) — уже третий ниже фокуса */
+  assert.deepEqual(got, res('c', 8).concat(res('d', 8)).map((r) => r.poster_path.slice(1, -4)));
+  Q.stop();
+  aheadRows = [];
+});
+
+test('ряды ниже: заготовка бросает или отдаёт не массив — ряды из loaded грузятся как прежде', async () => {
+  const Q = loadCtx('58_posters.js', { rows: { ahead: () => { throw new Error('x'); } } }).api;
+  const comp = {
+    active: 0,
+    items: [{ data: { results: res('a', 8), params: {} }, items: new Array(8), active: 0, view: 8 }],
+    loaded: [[{ results: res('g', 3), params: {} }]]
+  };
+  const images = fakeWorld(comp);
+  Q.around();
+  await new Promise((r) => setTimeout(r, Q.QUIET + 60));
+  for (let k = 0; k < 3; k++) for (let i = 0; i < images.length; i++) if (images[i].onload) images[i].onload();
+  assert.equal(images.length, 3);
+  Q.stop();
+});
+
+test('stop снимает и отложенный план рядов ниже', async () => {
+  const Q = loadCtx('58_posters.js', { rows: { ahead: () => [] } }).api;
+  const images = fakeWorld({
+    active: 0,
+    items: [{ data: { results: res('a', 8), params: {} }, items: new Array(8), active: 0, view: 8 }],
+    loaded: [[{ results: res('h', 5), params: {} }]]
+  });
+  Q.around();
+  Q.stop();
+  await new Promise((r) => setTimeout(r, Q.QUIET + 60));
+  assert.equal(images.length, 0);
+});
