@@ -208,7 +208,7 @@ lumen-card/
 ├── dist/lumen_card.js    ← собранный плагин (результат scripts/build.mjs, коммитится)
 ├── scripts/              ← build.mjs (сборка), es5check.mjs (ES5-линт на acorn), chunks.mjs (инжект-чанки)
 │   └── lib/acorn.mjs     ← вендоренный парсер acorn 8.14.0 (MIT), используется только es5check.mjs
-├── test/                 ← node --test: юнит-тесты модулей (2963 теста на 1.0.0)
+├── test/                 ← node --test: юнит-тесты модулей (2964 теста на 1.0.0)
 ├── manifest.json         ← каталог подборок, тем и кадров заставки (генерируется сборкой)
 ├── lumen.js              ← короткий загрузчик для установки плагина по одной ссылке
 ├── harness/index.html    ← локальный тест-стенд с эмуляцией Lampa API
@@ -993,7 +993,7 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 # запрещённые ES2015+ API; ни одной находки быть не должно)
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/es5check.mjs dist/lumen_card.js
 
-# юнит-тесты (2963 на 1.0.0, 55 файлов) без браузера; 22 файла тестов сверяются с исходником Lampa
+# юнит-тесты (2964 на 1.0.0, 55 файлов) без браузера; 22 файла тестов сверяются с исходником Lampa
 # в vendor/lampa/ (app.min.js, css/app.css, lang/uk.js, vender/navigator/navigator.js) —
 # каталог в .gitignore, без него они падают с ENOENT
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test "test/*.test.mjs"
@@ -1054,5 +1054,5 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 своими корнями и не задевают разметку Lampa.
 
 Модули с чистой логикой проверяются тестами напрямую через `test/_load.mjs`; модули с рантаймом —
-на фейковых `$`/`Lampa`/таймерах (`test/_fakedom.mjs`). Итог — 2963 теста (1.0.0, 2026-09-27), которые
+на фейковых `$`/`Lampa`/таймерах (`test/_fakedom.mjs`). Итог — 2964 теста (1.0.0, 2026-09-27), которые
 гоняются одной командой и обязаны быть зелёными перед каждым коммитом.
