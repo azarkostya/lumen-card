@@ -36337,6 +36337,22 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 LC.rowmem = (function () {
 
 
@@ -36358,6 +36374,12 @@ var REST_MS = 3000;
 var MARK = 'lumen-rowmem-lv';
 
 var state = null;
+
+
+var parked = [];
+
+
+var touched = false;
 
 function setT(fn, ms) {
 var hook = api._timers;
@@ -36392,18 +36414,30 @@ try { window.cancelIdleCallback(h.id); } catch (e) { }
 
 function on() {
 try {
+if (touched) return false;
 if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
+
+
+
+if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.screen === 'function' && Lampa.Platform.screen('tv') === false) return false;
 return LC.pref ? LC.pref('lumen_rowmem', true) !== false : true;
 } catch (e) {
 return false;
 }
 }
 
+
+
+
+
+
+
+
 function bytesOn() {
 try {
-return LC.pref ? LC.pref('lumen_rowmem_bytes', true) !== false : true;
+return LC.pref ? LC.pref('lumen_rowmem_bytes', false) === true : false;
 } catch (e) {
-return true;
+return false;
 }
 }
 
@@ -36420,6 +36454,8 @@ if (state && state.root && typeof act.activity.render === 'function') {
 var r = act.activity.render();
 if (r && r[0] && state.root[0] && r[0] !== state.root[0]) return null;
 }
+
+if (state) state.comp = c;
 return c;
 } catch (e) {
 return null;
@@ -36472,7 +36508,10 @@ function sleepLine(line) {
 var sc = tape(line);
 if (!sc || line.lumen_rowmem_sleep) return false;
 var body = sc.parentNode;
-var h = body.offsetHeight;
+
+
+
+var h = body.getBoundingClientRect().height;
 
 if (!h) return false;
 body.style.height = h + 'px';
@@ -36614,7 +36653,7 @@ function tick() {
 if (!state) return false;
 
 
-if (!on()) { wakeAll(); arm(REST_MS); return false; }
+if (!on()) { wakeAll(); if (!touched) arm(REST_MS); return false; }
 if ((typeof document !== 'undefined' && document.hidden) || !onRows()) { arm(REST_MS); return false; }
 var c = component();
 if (!c) { arm(REST_MS); return false; }
@@ -36662,10 +36701,9 @@ warn('rowmem: recheck failed', e2);
 }
 
 
-function wakeAll() {
+function wakeAllOf(c) {
 try {
-var c = component();
-if (!c) return;
+if (!c || !Array.isArray(c.items)) return;
 for (var i = 0; i < c.items.length; i++) {
 var line = c.items[i];
 if (!line) continue;
@@ -36678,10 +36716,30 @@ warn('rowmem: wake all failed', e);
 }
 }
 
+
+function wakeAll() {
+wakeAllOf(component());
+}
+
 function onResize() {
 if (!state) return;
 wakeAll();
 arm(QUIET_MS);
+}
+
+
+function wakeKnown() {
+if (state) wakeAllOf(state.comp || component());
+for (var i = 0; i < parked.length; i++) wakeAllOf(parked[i].comp);
+}
+
+
+
+function onTouch() {
+if (touched) return;
+touched = true;
+stopWork();
+wakeKnown();
 }
 
 function mount(root) {
@@ -36689,10 +36747,14 @@ try {
 if (!root || !root.length || !root[0]) return;
 if (state && state.root && state.root[0] === root[0]) { onFocus(); return; }
 unmount();
-state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize,
+
+forget(root);
+state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize, touch: onTouch,
 stats: { slept: 0, woke: 0, cards: 0, dropped: 0, back: 0 } };
 if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
+try { root[0].addEventListener('touchstart', state.touch, { capture: true, passive: true }); } catch (eT) { state.touch = null; }
 try { window.addEventListener('resize', state.resize); } catch (eR) { state.resize = null; }
+state.comp = component();
 arm(QUIET_MS);
 } catch (e) {
 warn('rowmem: mount failed', e);
@@ -36707,22 +36769,39 @@ if (s.recheck) clearT(s.recheck);
 state = null;
 try { if (s.handler) LC.focus.release(s.root[0], s.handler); } catch (e) { warn('rowmem: unmount failed', e); }
 try { if (s.resize) window.removeEventListener('resize', s.resize); } catch (e2) { warn('rowmem: unmount failed', e2); }
+try { if (s.touch) s.root[0].removeEventListener('touchstart', s.touch, true); } catch (e3) { warn('rowmem: unmount failed', e3); }
 }
 
-function owns(render) {
-if (!state || !render || !render.length) return false;
+
+function inside(root, render) {
 try {
-var node = state.root[0];
-var box = render[0];
+var node = root && root[0];
+var box = render && render.length ? render[0] : null;
 return !!(box && node && (box === node || (typeof box.contains === 'function' && box.contains(node))));
 } catch (e) {
 return false;
 }
 }
 
+function owns(render) {
+return !!state && inside(state.root, render);
+}
+
+
+
+function forget(render) {
+var keep = [];
+for (var i = 0; i < parked.length; i++) {
+if (!inside(parked[i].root, render)) keep.push(parked[i]);
+}
+parked = keep;
+}
+
 function detach(render) {
 if (!state) return;
 if (owns(render)) return;
+
+if (state.comp) parked.push({ root: state.root, comp: state.comp });
 unmount();
 }
 
@@ -36738,17 +36817,20 @@ warn('rowmem: mount current failed', e);
 }
 
 
+
 function uninstall() {
-if (state) wakeAll();
+wakeKnown();
+parked = [];
 unmount();
 }
 
 var api = {
 NEAR: NEAR, FAR: FAR, BYTES_FAR: BYTES_FAR, BYTES_NEAR: BYTES_NEAR, QUIET_MS: QUIET_MS, MARK: MARK,
 decide: decide, plan: plan,
-mount: mount, unmount: unmount, uninstall: uninstall, detach: detach, owns: owns, mountCurrent: mountCurrent,
+mount: mount, unmount: unmount, uninstall: uninstall, detach: detach, owns: owns, forget: forget, mountCurrent: mountCurrent,
 wakeAll: wakeAll, tick: tick, onFocus: onFocus,
 active: function () { return !!state; },
+parked: function () { return parked.length; },
 stats: function () { return state ? { slept: state.stats.slept, woke: state.stats.woke, cards: state.stats.cards, dropped: state.stats.dropped, back: state.stats.back } : null; },
 _timers: null,
 _idle: null
@@ -50163,8 +50245,11 @@ if (LC.prefill && LC.prefill.active() && LC.prefill.owns(deadRender)) LC.prefill
 } catch (ePrefillKill) {
 warn('prefill destroy failed', ePrefillKill);
 }
+
+
 try {
 if (LC.rowmem && LC.rowmem.active() && LC.rowmem.owns(deadRender)) LC.rowmem.unmount();
+if (LC.rowmem && typeof LC.rowmem.forget === 'function') LC.rowmem.forget(deadRender);
 } catch (eRowmemKill) {
 warn('rowmem destroy failed', eRowmemKill);
 }
