@@ -73,7 +73,7 @@
     function A(list) { return join(list, function (s) { return 'body.' + BODY_ON + ' .' + MARK + ' ' + s; }); }
     function AM(mode, list) { return join(list, function (s) { return 'body.' + BODY_ON + '.lumen-motion-' + mode + ' .' + MARK + ' ' + s; }); }
 
-    /* 2026-09-27 (полоса «фокус на всех экранах», жалоба с ТВ «нихуя не
+    /* 2026-09-27 (полоса «фокус на всех экранах», жалоба с ТВ «совсем не
        понятно что выбираем»): фокус строк пути (раздача, «Продолжить»,
        файл, серия) и постера слева — то же кольцо, что у картинок плагина
        (LC.focusRingCss, src/30_css.js): рамка .27em цветом текста темы
