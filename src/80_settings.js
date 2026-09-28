@@ -553,6 +553,15 @@
     /* Жалоба 2026-09-27: состояние ряда отзывов вместо тишины
        (src/60_reviews.js, STATES). Короткая строка встаёт в шапку ряда после
        «Кинопоиск ·», пояснение (_note) — под шапкой, только у сбоев. */
+    /* 2026-09-28: ключа нет вовсе — строка состояния есть всегда, и после
+       «Скрыть» на большой подсказке (src/60_reviews.js, paintNoKey). Путь до
+       пункта — lumen_card_reviews_nokey_path строкой ниже пояснения. */
+    lumen_reviews_st_nokey: { ru: 'ключ API не задан', en: 'API key not set', uk: 'ключ API не задано' },
+    lumen_reviews_st_nokey_note: {
+      ru: 'Отзывы Кинопоиска появятся, когда вы впишете ключ:',
+      en: 'Kinopoisk reviews will appear once you enter the key:',
+      uk: 'Відгуки Кінопошуку з’являться, коли ви впишете ключ:'
+    },
     lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
     lumen_reviews_st_key_note: {
       ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
@@ -561,9 +570,9 @@
     },
     lumen_reviews_st_quota: { ru: 'лимит ключа исчерпан', en: 'key limit reached', uk: 'ліміт ключа вичерпано' },
     lumen_reviews_st_quota_note: {
-      ru: 'Бесплатный ключ kinopoiskapiunofficial.tech даёт 500 запросов в сутки, и на сегодня они закончились. Отзывы вернутся сами, когда лимит обнулится.',
-      en: 'A free kinopoiskapiunofficial.tech key allows 500 requests a day, and today\'s are used up. Reviews will come back on their own once the limit resets.',
-      uk: 'Безкоштовний ключ kinopoiskapiunofficial.tech дає 500 запитів на добу, і на сьогодні вони закінчились. Відгуки повернуться самі, коли ліміт обнулиться.'
+      ru: 'Лимит запросов ключа исчерпан. Отзывы вернутся, когда лимит обновится (у бесплатного ключа — 500 запросов в сутки).',
+      en: 'The key has run out of requests. Reviews will come back once the limit renews (a free key gets 500 requests a day).',
+      uk: 'Ліміт запитів ключа вичерпано. Відгуки повернуться, коли ліміт оновиться (у безкоштовного ключа — 500 запитів на добу).'
     },
     lumen_reviews_st_busy: { ru: 'слишком много запросов', en: 'too many requests', uk: 'забагато запитів' },
     lumen_reviews_st_busy_note: {

@@ -867,8 +867,10 @@
     /* Экран 13, панель 2: ключа нет — вместо пустоты показываем, где его
        взять (поправка контроллера). Task 20: единственный фокусируемый узел
        внутри — кнопка «Скрыть»: подсказка висела на каждой карточке, пока
-       ключа нет, и убрать её было нечем. Кнопка гасит подсказку насовсем,
-       вернуть — переключателем «Подсказка про ключ» в настройках. */
+       ключа нет, и убрать её было нечем. Кнопка гасит подсказку насовсем.
+       1.0.1: переключателя «Подсказка про ключ» в настройках больше нет, а
+       строка состояния «ключ API не задан» в шапке ряда остаётся и после
+       «Скрыть» (paintNoKey ниже). */
     function hintHtml() {
       return '<div class="lumen-reviews__hint">' +
         '<div class="lumen-reviews__hint-ico"></div>' +
@@ -893,7 +895,12 @@
        строка шапки, чтобы фильм без отзывов не получал лишнего блока.
        Узлов .selector здесь нет: читать нечего по OK, и навигация ряда
        описания остаётся прежней. Строки — src/80_settings.js. */
+    /* 2026-09-28: 'nokey' — ключа нет вовсе. Пользователь когда-то скрыл
+       большую подсказку кнопкой «Скрыть», ключ в настройках так и не
+       вписал, и ряд отзывов молчал: что их нет из-за ключа, было не понять.
+       Строка состояния с путём до ключа теперь есть ВСЕГДА (paintNoKey). */
     var STATES = {
+      nokey: { err: true, path: true },
       key: { err: true, path: true },
       quota: { err: true },
       busy: { err: true },
@@ -912,7 +919,9 @@
       return '';
     }
 
-    function statusHtml(kind) {
+    /* bare — только строка шапки, без пояснения: при ключе, которого нет,
+       пояснение с путём даёт большая подсказка под ней (paintNoKey). */
+    function statusHtml(kind, bare) {
       var def = STATES[kind] || STATES.net;
       var html = '<div class="lumen-reviews__head">' +
         '<span class="lumen-reviews__ico"></span>' +
@@ -920,7 +929,7 @@
         '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
         '<span class="lumen-reviews__total lumen-reviews__state">· ' + esc(lang('lumen_reviews_st_' + kind)) + '</span>' +
         '</div>';
-      if (def.err) {
+      if (def.err && !bare) {
         html += '<div class="lumen-reviews__note">' +
           '<div class="lumen-reviews__note-text">' + esc(lang('lumen_reviews_st_' + kind + '_note')) + '</div>' +
           (def.path ? '<div class="lumen-reviews__note-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' : '') +
@@ -929,11 +938,21 @@
       return html;
     }
 
-    function paintStatus(holder, kind) {
+    function paintStatus(holder, kind, bare) {
       var def = STATES[kind] || STATES.net;
       var block = $('<div class="lumen-reviews lumen-reviews--status ' + (def.err ? 'lumen-reviews--err' : 'lumen-reviews--quiet') + '" data-lumen-state="' + kind + '"></div>');
-      block.html(statusHtml(kind));
+      block.html(statusHtml(kind, bare));
       holder.append(block);
+    }
+
+    /* Ключа нет: строка состояния в шапке ряда — всегда; под ней либо
+       большая подсказка с кнопкой «Скрыть» (пока её не скрыли), либо
+       короткое пояснение с путём до ключа. Скрытие подсказки строку
+       состояния не прячет. */
+    function paintNoKey(holder) {
+      var hint = hintEnabled();
+      paintStatus(holder, 'nokey', hint);
+      if (hint) paintHint(holder);
     }
 
     /* ------------------------------------------------------------------ */
@@ -1370,7 +1389,7 @@
         row.removeClass('lumen-descr-row--reviews');
 
         if (!on) return;
-        if (!key) { paintHint(holder); state.painted = true; return; }
+        if (!key) { paintNoKey(holder); state.painted = true; return; }
         /* Жалоба 2026-09-27: без IMDb id искать на Кинопоиске не по чему —
            говорим об этом строкой шапки, а не пустотой. */
         if (!imdb) { paintStatus(holder, 'noid'); state.painted = true; return; }
@@ -1385,7 +1404,7 @@
             if (current.gen !== gen) return;
             clearBlock(holder);
             if (!res) return;
-            if (res.nokey) { paintHint(holder); current.painted = true; return; }
+            if (res.nokey) { paintNoKey(holder); current.painted = true; return; }
             /* Жалоба 2026-09-27: сбой, «не найдено» и «отзывов нет» —
                строкой состояния, а не пустым местом. */
             var kind = stateKind(res);
