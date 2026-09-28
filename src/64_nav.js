@@ -294,12 +294,19 @@
     /* Окружение                                                           */
     /* ------------------------------------------------------------------ */
 
+    /* 1.0.1: в разделе — один пункт «Ускорители пульта»
+       (lumen_remote_boost); прежние ключи дочитываются, пока человек не
+       тронет новый пункт (LC.prefs.MERGED, src/81_prefs.js). */
+    function boostOn() {
+      try { return LC.pref('lumen_remote_boost', true) !== false; } catch (e) { return false; }
+    }
+
     function minimapOn() {
-      try { return LC.pref('lumen_minimap', true) !== false; } catch (e) { return false; }
+      try { return boostOn() && LC.pref('lumen_minimap', true) !== false; } catch (e) { return false; }
     }
 
     function fastOn() {
-      try { return LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
+      try { return boostOn() && LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
     }
 
     /* Режим анимаций (LC.motionMode, src/81_prefs.js): 'full' | 'lite' | 'off'.

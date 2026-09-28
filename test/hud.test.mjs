@@ -746,9 +746,20 @@ test('hud: без LC.accent строка всё равно собирается'
 test('hud: format — поле pf «в пути/в очереди/попадания» стоит перед tr, «pf n/a» без данных', () => {
   const { api } = fresh();
   const line = api.format(Object.assign({}, BASE, { pf: { fly: 2, queue: 5, hits: 17 }, tr: 'play' }));
-  assert.ok(line.indexOf(' · hw 4c/2gb · pf 2/5/17 · tr play · ') !== -1, line);
+  assert.ok(line.indexOf(' · hw 4c/2gb · pf 2/5/17 · font n/a · tr play · ') !== -1, line);
   const none = api.format(BASE);
-  assert.ok(none.indexOf(' · pf n/a · tr n/a · ') !== -1, none);
+  assert.ok(none.indexOf(' · pf n/a · font n/a · tr n/a · ') !== -1, none);
+});
+
+/* 1.0.1: «font ok|load|fail|off» — загрузился ли шрифт с Google Fonts
+   (LC.fontsState, src/30_css.js). Без интернета «Шрифт» молча ничего не
+   менял, и на телевизоре отличить это было нечем. Стоит между pf и tr. */
+test('1.0.1: hud — поле font из LC.fontsState, между pf и tr', () => {
+  const { api } = fresh();
+  for (const st of ['ok', 'load', 'fail', 'off']) {
+    const line = api.format(Object.assign({}, BASE, { pf: { fly: 0, queue: 0, hits: 0 }, font: st, tr: 'none' }));
+    assert.ok(line.indexOf(' · pf 0/0/0 · font ' + st + ' · tr none · ') !== -1, line);
+  }
 });
 
 test('hud: состояние предзагрузки берётся у LC.prefetch.stats() и доезжает до узла', () => {

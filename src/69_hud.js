@@ -11,8 +11,8 @@
   /* ставят их модули) — раздельно на видимом экране и в скрытых под ним    */
   /* активностях истории. Назначение — калибровка порогов автодетекта       */
   /* (SLOW_MS/FAST_MS в LC.perf) на реальном железе пользователя, а не       */
-  /* постоянная индикация: пункт «Отладка: показать FPS» стоит сразу под     */
-  /* режимом анимаций (81_prefs.js) и выключен по умолчанию.                 */
+  /* постоянная индикация: пункт «Показать FPS» стоит в группе «Для         */
+  /* разработчика» (81_prefs.js) и выключен по умолчанию.                    */
   /*                                                                       */
   /* Выключенная настройка не создаёт НИЧЕГО: ни узла в DOM, ни кадрового    */
   /* цикла requestAnimationFrame, ни PerformanceObserver — start() зовётся   */
@@ -180,14 +180,17 @@
        Волна «Логотипы сразу»: «pf 2/5/17» — предзагрузка соседей героя
        (LC.prefetch.stats, src/58_prefetch.js): запросов в пути, задач в
        очереди, деталей героя из памяти. Стоит перед tr: тот короткий, а
-       подкраска уезжает в перенос последней. */
+       подкраска уезжает в перенос последней.
+       1.0.1: «font ok|load|fail|off» — загрузился ли шрифт с Google Fonts
+       (LC.fontsState, src/30_css.js). Без интернета «Шрифт» молча ничего не
+       менял, и отличить это на телевизоре было нечем. Стоит перед tr. */
     function format(d) {
       return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
         ' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
         ' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
         ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
         ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-        ' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+        ' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · font ' + (d.font || 'n/a') + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
     }
 
     function pfText(p) {
@@ -199,6 +202,14 @@
     function prefetchStats() {
       try {
         if (LC.prefetch && typeof LC.prefetch.stats === 'function') return LC.prefetch.stats();
+      } catch (e) { }
+      return null;
+    }
+
+    /* Модуля стилей может не быть (в тестах 69_hud.js грузится один). */
+    function fontStatus() {
+      try {
+        if (typeof LC.fontsState === 'function') return LC.fontsState();
       } catch (e) { }
       return null;
     }
@@ -811,7 +822,7 @@
           cr: chrome(), mode: mode,
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
           loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
-          raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), tr: trailerStatus(), tint: accentStatus()
+          raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), font: fontStatus(), tr: trailerStatus(), tint: accentStatus()
         }) + '\n' + heroText(state.probe.summary());
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в

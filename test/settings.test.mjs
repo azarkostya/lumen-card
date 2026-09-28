@@ -160,12 +160,16 @@ test('Minor 4: повторный LC.addSettings не регистрирует �
   assert.equal(params.length, first, 'пункты раздела не продублированы');
 });
 
-test('addSettings: порядок и типы параметров — как в таблице LC.prefs.LIST (экран 09)', () => {
+test('addSettings: порядок и типы параметров — как в таблице LC.prefs.LIST', () => {
   const { LC, params } = setup();
   LC.addSettings();
   assert.deepEqual(params.map((p) => p.param.name), LC.prefs.LIST.map((e) => e.name));
   assert.deepEqual(params.map((p) => p.param.type), LC.prefs.LIST.map((e) => e.type));
-  for (const p of params) assert.equal(p.component, 'lumen_card');
+  /* 1.0.1: второй экран — свой компонент Lampa, lumen_card_more. */
+  for (let i = 0; i < params.length; i++) {
+    const want = LC.prefs.LIST[i].section === 'more' ? 'lumen_card_more' : 'lumen_card';
+    assert.equal(params[i].component, want, params[i].param.name);
+  }
 });
 
 test('addSettings: подписи и описания по-русски, значения select переведены', () => {
@@ -189,10 +193,14 @@ test('addSettings: подписи и описания по-русски, зна�
   assert.deepEqual(paramOf(params, 'lumen_scale').param.values,
     { small: 'Мельче', normal: 'Обычный', large: 'Крупнее', huge: 'Ещё крупнее' });
   /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок. */
-  assert.equal(paramOf(params, 'lumen_tile_size').field.name, 'Размер плиток в рядах');
+  assert.equal(paramOf(params, 'lumen_tile_size').field.name, 'Размер плиток');
   assert.deepEqual(paramOf(params, 'lumen_tile_size').param.values,
     { small: 'Мельче', normal: 'Обычные', large: 'Крупнее' });
-  assert.equal(paramOf(params, 'lumen_solid').field.name, 'Плотные подложки');
+  assert.equal(paramOf(params, 'lumen_solid').field.name, 'Без прозрачности');
+  /* 1.0.1: «Стиль» и «Праздничные эффекты» — select, подписи значений. */
+  assert.deepEqual(paramOf(params, 'lumen_style').param.values, { lumen: 'Lumen', appletv: 'Apple TV', custom: 'Свой' });
+  assert.deepEqual(paramOf(params, 'lumen_fx').param.values, { seasonal: 'Новый год и Хэллоуин', off: 'Выкл' });
+  assert.equal(paramOf(params, 'lumen_more').field.name, 'Дополнительно…');
   assert.deepEqual(paramOf(params, 'lumen_motion').param.values,
     { auto: 'Авто', full: 'Полные', lite: 'Лёгкие', off: 'Выкл' });
   assert.deepEqual(paramOf(params, 'lumen_slide_interval').param.values,
@@ -204,7 +212,7 @@ test('addSettings: подписи и описания по-русски, зна�
   /* Правка 2026-09-16 (п.6): имена гарнитур — собственные, во всех трёх
      языках пишутся одинаково, но идут через LC.STRINGS, как все строки. */
   assert.deepEqual(paramOf(params, 'lumen_font').param.values,
-    { golos: 'Golos Text', onest: 'Onest', manrope: 'Manrope', inter: 'Inter', plex: 'IBM Plex Sans' });
+    { system: 'Как в Lampa', golos: 'Golos Text', onest: 'Onest', manrope: 'Manrope', inter: 'Inter', plex: 'IBM Plex Sans' });
 });
 
 /* Живая находка финала фазы 3: у пустого текстового поля Lampa показывает
@@ -265,7 +273,6 @@ test('каждая настройка применяется ровно один
   const expected = {
     lumen_enabled: ['enabled'],
     lumen_card_accent: ['css'],
-    lumen_card_fonts: ['fonts', 'css'],
     /* Проверка на ТВ 2026-09-24: смену кадров карточки гасит режим «Выкл»,
        а не тумблер тяжёлых эффектов, — ротацию переставляет смена режима. */
     lumen_motion: ['motion', 'slideshow'],
@@ -279,12 +286,6 @@ test('каждая настройка применяется ровно один
     lumen_font: ['fonts', 'css'],
     lumen_reviews: ['reviews'],
     lumen_kp_key: ['reviews'],
-    /* Task 28 (фаза 3): режим показа отзывов — перерисовка ряда открытой
-       карточки, та же точка, что у ключа API. */
-    lumen_reviews_mode: ['reviews'],
-    /* Task 28 (фаза 3): автотрейлер в кадре главной — снятие играющего
-       ролика у самого героя. */
-    lumen_hero_trailer: ['herotrailer'],
     /* Правка 2026-09-23: что показывает кадр главной — снятие ролика или
        смены кадров у самого героя. */
     lumen_hero_media: ['heromedia'],
@@ -292,15 +293,11 @@ test('каждая настройка применяется ровно один
        героя: выключение возвращает текстовый заголовок сразу. */
     lumen_hero_logo: ['herologo'],
     lumen_card_logo: ['cardlogo'],
-    /* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по
-       порядку» — перерисовка открытой карточки, CSS не пересобирается. */
-    lumen_franchise_button: ['franchise'],
-    lumen_franchise_row: ['franchise'],
+    /* 1.0.1: «Франшизы» — кнопка и ряд одним пунктом, перерисовка
+       открытой карточки, CSS не пересобирается. */
+    lumen_franchise: ['franchise'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
-    /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс
-       сетки подборки (applyKpHintPref). */
-    lumen_kp_hint: ['reviews', 'kphint'],
     /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка каталога. */
     lumen_manifest_url: ['rows'],
     /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной — один путь. */
@@ -327,10 +324,9 @@ test('каждая настройка применяется ровно один
     /* Task 26 (фаза 3): пункты в меню карточки — две подписки, ставятся и
        снимаются на лету; экран перерисовывать не нужно. */
     lumen_context_menu: ['cardmenu'],
-    /* Task 27 (фаза 3): мини-карта и быстрое листание — одни и те же две
-       подписки на клавиатуру Lampa, поэтому точка применения общая. */
-    lumen_minimap: ['nav'],
-    lumen_fastscroll: ['nav'],
+    /* 1.0.1: «Ускорители пульта» — мини-карта и быстрое листание, одни и
+       те же две подписки на клавиатуру Lampa. */
+    lumen_remote_boost: ['nav'],
     /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами —
        пересборка CSS и жизнь узла героя одной точкой. */
     lumen_hero_size: ['herosize'],
@@ -365,9 +361,6 @@ test('каждая настройка применяется ровно один
     lumen_ambient: ['ambient'],
     lumen_ambient_source: ['ambient'],
     lumen_ambient_delay: ['ambient'],
-    /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку —
-       ветка у настройки своя, применять на живом экране нечего. */
-    lumen_roulette_unseen: [],
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
        снять его. */
     lumen_debug_hud: ['hud'],
@@ -376,17 +369,20 @@ test('каждая настройка применяется ровно один
        карточки от тумблера с 2026-09-24 не зависит (он даёт ей только
        плавный переход — CSS по тому же классу). */
     lumen_fx_heavy: ['motion'],
-    /* Task 62b (фаза 5): кнопки готового стиля. Своего значения у них нет, и
-       «применить» им нечего: нажатие пишет ЧУЖИЕ настройки, каждая из
-       которых применяется своей веткой выше. Ветка в applyPrefChange им всё
-       равно нужна — иначе имя ушло бы дальше как чужое и общий фильтр по
-       префиксу пересобрал бы CSS на пустом месте. Проверяются они своими
-       тестами ниже (нажатие, а не запись значения), поэтому здесь null. */
-    lumen_preset_appletv: null,
-    lumen_preset_lumen: null,
-    /* Волна производительности: кнопка самотеста своего значения не хранит,
-       её проверяет нажатие (тест ниже). */
-    lumen_debug_bench: null
+    /* 1.0.1: «Стиль» — запись дефолта ('lumen') на чистом профиле: набор
+       уже такой, писать и применять нечего (выбор другого стиля — тесты
+       ниже). */
+    lumen_style: [],
+    /* 1.0.1: выключатели «Для разработчика» читаются модулями на каждом
+       шаге (lumen_netmem — со следующего запуска): применять нечего. */
+    lumen_rowmem: [],
+    lumen_rowmem_bytes: [],
+    lumen_netmem: [],
+    lumen_prefill: [],
+    /* Кнопки своего значения не хранят, их проверяет нажатие (тесты
+       ниже), поэтому здесь null. */
+    lumen_debug_bench: null,
+    lumen_more: null
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();
@@ -592,6 +588,12 @@ test('волна perf: кнопка «Отладка: тест производ�
   assert.deepEqual(env.log, [], 'кнопка применила настройки');
 });
 
+/* 1.0.1: «Стиль» — select. Lampa пишет выбранное значение Storage.set (листенер
+   'change', потом onChange параметра) — ровно так и выбираем. */
+function choose(env, style) {
+  env.Storage.set('lumen_style', style);
+}
+
 function press(env, name) {
   const param = paramOf(env.params, name);
   assert.ok(param, 'пункт не зарегистрирован: ' + name);
@@ -621,7 +623,7 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
   const env = setup();
   env.LC.addSettings();
   env.LC.followStorage();
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
 
   assert.equal(env.storage.lumen_theme, 'black');
   assert.equal(env.storage.lumen_card_accent, 'graphite');
@@ -644,7 +646,7 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
   const off = setup({ storage: { lumen_accent_auto: 'false' } });
   off.LC.addSettings();
   off.LC.followStorage();
-  press(off, 'lumen_preset_appletv');
+  choose(off, 'appletv');
   assert.equal(off.storage.lumen_accent_auto, 'true');
 
   /* Ревью Task 62 (пункт 5): применение ОДНО на весь набор, а не по ветке
@@ -655,6 +657,7 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
      постера» и размер кадра в стиле Apple TV те же, что по умолчанию, — на
      чистом профиле они не пишутся вовсе. */
   assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges,lumen_flat,lumen_hide_meta']);
+  assert.equal(env.storage.lumen_style, 'appletv', '«Стиль» показывает выбранное');
 });
 
 /* Найдено живой проверкой фикс-раунда: при «Только фон» состав таблицы
@@ -684,8 +687,9 @@ test('Task 62b: записи пресета не поднимают событи
   env.LC.followStorage();
   const seen = [];
   env.subscribers.push((e) => seen.push(e.name));
-  press(env, 'lumen_preset_appletv');
-  assert.deepEqual(seen, [], 'записи пресета обязаны идти с nolisten');
+  choose(env, 'appletv');
+  assert.deepEqual(seen, ['lumen_style'], 'событие — только от самого выбора; записи набора обязаны идти с nolisten');
+  seen.length = 0;
   /* Обычная правка пункта событие по-прежнему поднимает. */
   env.Storage.set('lumen_theme', 'warm');
   assert.deepEqual(seen, ['lumen_theme']);
@@ -702,7 +706,7 @@ test('Task 62b: пресет не трогает ни ключ Кинопоис�
   });
   env.LC.addSettings();
   env.LC.followStorage();
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
 
   assert.equal(env.storage.lumen_kp_key, 'СЕКРЕТ');
   assert.equal(env.storage.lumen_scale, 'large');
@@ -723,33 +727,33 @@ test('Task 62b: «Вернуть стиль Lumen» возвращает наб�
   env.LC.followStorage();
   const before = snapshot(env);
 
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
   assert.notDeepEqual(snapshot(env), before, 'пресет обязан что-то изменить');
 
-  press(env, 'lumen_preset_lumen');
+  choose(env, 'lumen');
   assert.deepEqual(snapshot(env), before, 'возврат обязан совпасть с исходным набором поэлементно');
 });
 
-test('Task 62b: повторное нажатие ничего не пишет и не применяет', () => {
+test('Task 62b: повторный выбор ничего не пишет и не применяет', () => {
   const env = setup();
   env.LC.addSettings();
   env.LC.followStorage();
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
   const after = snapshot(env);
 
   env.log.length = 0;
   env.notys.length = 0;
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
   assert.deepEqual(snapshot(env), after, 'значения не изменились');
-  assert.deepEqual(env.log, [], 'второе нажатие не обязано ничего применять заново');
-  assert.equal(env.notys.length, 1, 'но подтверждение показать надо — иначе кнопка выглядит сломанной');
+  assert.deepEqual(env.log, [], 'второй выбор не обязан ничего применять заново');
+  assert.equal(env.notys.length, 1, 'но подтверждение показать надо — иначе выбор выглядит сломанным');
 });
 
 test('Task 62b: подтверждение перечисляет изменённые пункты их же названиями из раздела', () => {
   const env = setup();
   env.LC.addSettings();
   env.LC.followStorage();
-  press(env, 'lumen_preset_appletv');
+  choose(env, 'appletv');
 
   assert.equal(env.notys.length, 1, 'ровно одно уведомление на нажатие');
   const text = env.notys[0];
@@ -761,17 +765,154 @@ test('Task 62b: подтверждение перечисляет изменён
   assert.equal(text.indexOf('Kinopoisk'), -1, text);
 });
 
-test('Task 62b: без Lampa.Storage.set нажатие ничего не ломает', () => {
-  const env = setup();
+test('Task 62b: без Lampa.Storage.set выбор стиля ничего не ломает', () => {
+  const env = setup({ storage: { lumen_style: 'appletv' } });
   env.LC.addSettings();
   const set = globalThis.Lampa.Storage.set;
   delete globalThis.Lampa.Storage.set;
   try {
-    press(env, 'lumen_preset_appletv');
+    paramOf(env.params, 'lumen_style').onChange('appletv');
     assert.equal(typeof env.storage.lumen_theme, 'undefined');
   } finally {
     globalThis.Lampa.Storage.set = set;
   }
+});
+
+/* ====================================================================== */
+/* 1.0.1: «Стиль» не врёт, слитые пункты, второй экран, превью шрифта.    */
+/* ====================================================================== */
+
+test('1.0.1: ручная правка пункта набора делает «Стиль» «Своим», возврат значения — снова стилем', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  assert.equal(typeof env.storage.lumen_style, 'undefined', 'чистый профиль: писать нечего, стоит дефолт Lumen');
+  env.Storage.set('lumen_theme', 'black');
+  assert.equal(env.storage.lumen_style, 'custom');
+  env.Storage.set('lumen_theme', 'warm');
+  assert.equal(env.storage.lumen_style, 'lumen');
+  choose(env, 'appletv');
+  env.Storage.set('lumen_font', 'plex');
+  assert.equal(env.storage.lumen_style, 'custom', 'Apple TV со своим шрифтом — уже не Apple TV');
+  /* Правка чужого набору пункта стиль не трогает. */
+  env.Storage.set('lumen_font', 'inter');
+  env.Storage.set('lumen_scale', 'large');
+  assert.equal(env.storage.lumen_style, 'appletv');
+});
+
+test('1.0.1: выбор «Свой» ничего не пишет — «Стиль» возвращается к тому, что стоит', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  env.log.length = 0;
+  choose(env, 'custom');
+  assert.equal(env.storage.lumen_style, 'lumen');
+  assert.deepEqual(env.log, [], 'набор не применялся');
+  assert.equal(env.notys.length, 0);
+});
+
+test('1.0.1: при старте «Стиль» сверяется с набором — после миграции шрифта он «Свой»', () => {
+  const env = setup({ storage: { lumen_font: 'system' } });
+  env.LC.addSettings();
+  assert.equal(env.storage.lumen_style, 'custom');
+  const apple = setup({ storage: { lumen_theme: 'black', lumen_card_accent: 'graphite', lumen_font: 'inter', lumen_badges: 'caption',
+    lumen_accent_scope: 'veil', lumen_flat: 'true', lumen_hide_meta: 'true' } });
+  apple.LC.addSettings();
+  assert.equal(apple.storage.lumen_style, 'appletv', 'набор Apple TV, выставленный кнопками прежних версий, узнаётся');
+});
+
+/* Слитые пункты: пока новый не тронут, старый ключ дочитывается местом
+   чтения; тронули новый — старые перестают решать. */
+test('1.0.1: правка нового пункта отпускает старые ключи — пишет им строку true без события', () => {
+  const env = setup({ storage: { lumen_franchise_button: 'false', lumen_minimap: false, lumen_card_fonts: 'false', lumen_font: 'system' } });
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const seen = [];
+  env.subscribers.push((e) => seen.push(e.name));
+  env.Storage.set('lumen_franchise', 'true');
+  env.Storage.set('lumen_remote_boost', 'true');
+  env.Storage.set('lumen_font', 'inter');
+  assert.equal(env.storage.lumen_franchise_button, 'true');
+  assert.equal(env.storage.lumen_minimap, 'true');
+  assert.equal(env.storage.lumen_card_fonts, 'true');
+  assert.deepEqual(seen, ['lumen_franchise', 'lumen_remote_boost', 'lumen_font'], 'старые ключи пишутся с nolisten');
+  /* Невыключенные старые ключи не трогаются вовсе. */
+  assert.equal(typeof env.storage.lumen_franchise_row, 'undefined');
+  /* Стиль с шрифтом тоже отпускает «Фирменные шрифты». */
+  const preset = setup({ storage: { lumen_card_fonts: 'false', lumen_font: 'system' } });
+  preset.LC.addSettings();
+  preset.LC.followStorage();
+  choose(preset, 'lumen');
+  assert.equal(preset.storage.lumen_font, 'golos');
+  assert.equal(preset.storage.lumen_card_fonts, 'true');
+});
+
+test('1.0.1: «Дополнительно…» открывает второй экран, «Назад» — снова «Lumen Card» с фокусом на кнопке', () => {
+  const env = setup();
+  const created = [];
+  const templates = [];
+  globalThis.Lampa.Settings = { create: (name, params) => created.push([name, params]) };
+  globalThis.Lampa.Template = { add: (name, html) => templates.push([name, html]) };
+  env.LC.addSettings();
+  assert.deepEqual(templates, [['settings_lumen_card_more', '<div></div>']], 'шаблон экрана без папки в списке настроек');
+  assert.equal(env.components.length, 1, 'второй экран не заводит своей папки');
+  press(env, 'lumen_more');
+  assert.equal(created.length, 1);
+  assert.equal(created[0][0], 'lumen_card_more');
+  assert.equal(typeof created[0][1].onBack, 'function');
+  created[0][1].onBack();
+  assert.equal(created[1][0], 'lumen_card');
+  /* last_index — номер «Дополнительно…» среди строк экрана (заголовки групп
+     строками не считаются): 18-я строка, индекс 17. */
+  assert.deepEqual(created[1][1], { last_index: 17 });
+  const main = env.LC.prefs.LIST.filter((e) => e.section !== 'more' && e.type !== 'title');
+  assert.equal(main[17].name, 'lumen_more');
+});
+
+/* Стенд 960×540@2: Lampa ставит фокус по last_index, но ленту к строке не
+   прокручивает — строка под фокусом оставалась ниже кромки экрана. «Назад»
+   повторяет фокус той же строки штатным Controller.collectionFocus, и
+   лента к ней едет. */
+test('1.0.1: «Назад» из второго экрана прокручивает ленту к «Дополнительно…»', () => {
+  const env = setup();
+  const created = [];
+  const focused = [];
+  const row = { length: 1, 0: 'узел строки', hasClass: (c) => c === 'focus', parent: () => 'лента экрана' };
+  globalThis.Lampa.Settings = { create: (name, params) => created.push([name, params]) };
+  globalThis.Lampa.Controller = { collectionFocus: (el, html) => focused.push([el, html]) };
+  globalThis.$ = (sel) => (sel === '.settings-param[data-name="lumen_more"]' ? row : { length: 0 });
+  try {
+    env.LC.addSettings();
+    press(env, 'lumen_more');
+    created[0][1].onBack();
+    assert.deepEqual(focused, [['узел строки', 'лента экрана']]);
+  } finally {
+    delete globalThis.$;
+  }
+});
+
+test('1.0.1: без Lampa.Settings «Дополнительно…» ничего не ломает', () => {
+  const env = setup();
+  env.LC.addSettings();
+  press(env, 'lumen_more');
+  assert.equal(env.components.length, 1);
+});
+
+test('1.0.1: строка «Шрифт» набрана выбранной гарнитурой — превью через onRender', () => {
+  const env = setup();
+  env.LC.fontStack = () => '"Inter",sans-serif';
+  env.LC.addSettings();
+  const param = paramOf(env.params, 'lumen_font');
+  assert.equal(typeof param.onRender, 'function');
+  const css = {};
+  param.onRender({ css: (k, v) => { css[k] = v; } });
+  assert.deepEqual(css, { 'font-family': '"Inter",sans-serif' });
+  /* «Как в Lampa» — пустой стек: строка наследует шрифт Lampa. */
+  env.LC.fontStack = () => '';
+  param.onRender({ css: (k, v) => { css[k] = v; } });
+  assert.equal(css['font-family'], '');
+  /* У остальных пунктов превью нет. */
+  assert.equal(typeof paramOf(env.params, 'lumen_theme').onRender, 'undefined');
 });
 
 /* ====================================================================== */
@@ -783,27 +924,24 @@ test('Task 62b: без Lampa.Storage.set нажатие ничего не лом
 /* перемену наравне с карточкой и путём TorrServer.                        */
 /* ====================================================================== */
 
-test('A5: описание плоского вида говорит про сетку и хаб честно — во всех трёх языках', () => {
+test('A5: описание плоского вида не обещает перемен в сетке и хабе — во всех трёх языках', () => {
   const env = setup();
   const descr = env.LC.STRINGS.lumen_flat_descr;
-  const honest = {
-    ru: ['снимается только подложка под плиткой', 'пока не пришёл постер или кадр'],
-    en: ['only the plate under a tile is removed', 'until the poster or still arrives'],
-    uk: ['знімається лише підкладка під плиткою', 'доки не прийшов постер або кадр']
+  /* 1.0.1: описание короткое и называет только экраны, где перемена
+     видна. В сетке подборки и в хабе плоский вид снимает лишь подложки под
+     картинкой (сторож набора правил — test/css.test.mjs), обещать там
+     нечего. */
+  const named = {
+    ru: ['карточка', 'отзывы', 'серии', 'торрентов'],
+    en: ['card', 'reviews', 'episodes', 'torrent'],
+    uk: ['картка', 'відгуки', 'серії', 'торентів']
   };
-  /* Прежние формулировки обещали больше факта и вернуться не должны. */
-  const overpromise = {
-    ru: 'подложки под плитками снимаются',
-    en: 'the plates under tiles are removed',
-    uk: 'підкладки під плитками знімаються'
-  };
+  const overpromise = { ru: /сетк|хаб/i, en: /grid|hub/i, uk: /сітк|хаб/i };
   for (const lang of ['ru', 'en', 'uk']) {
     const text = descr[lang];
     assert.ok(text, lang + ': перевода нет вовсе');
-    for (const part of honest[lang]) {
-      assert.ok(text.indexOf(part) !== -1, lang + ': в описании нет «' + part + '»: ' + text);
-    }
-    assert.equal(text.indexOf(overpromise[lang]), -1, lang + ': вернулось обещание больше факта: ' + text);
+    for (const part of named[lang]) assert.ok(text.indexOf(part) !== -1, lang + ': нет «' + part + '»: ' + text);
+    assert.equal(overpromise[lang].test(text), false, lang + ': описание обещает перемену в сетке или хабе: ' + text);
   }
 });
 
@@ -818,14 +956,17 @@ test('A5: описание плоского вида говорит про се�
 /* языке ru/uk/be, :38848).                                                */
 /* ====================================================================== */
 
-test('A6: описание настройки честно называет блоки чужими и источник — аккаунтом CUB', () => {
+test('A6: описание настройки честно называет блоки чужими и когда оно действует', () => {
   const env = setup();
   const descr = env.LC.STRINGS.lumen_hide_meta_descr;
   const name = env.LC.STRINGS.lumen_hide_meta_name;
+  /* 1.0.1: описание короткое, но главное в нём осталось: блоки — САМОЙ
+     Lampa (иначе выключатель читается как «выключить нашу функцию») и
+     действует пункт со следующего открытия карточки. */
   const must = {
-    ru: ['самой Lampa', 'аккаунта CUB', 'только для фильмов', 'ru/uk/be', 'при следующем открытии карточки'],
-    en: ['Lampa own blocks', 'CUB account', 'only for movies', 'ru/uk/be', 'the next time you open a card'],
-    uk: ['самої Lampa', 'акаунта CUB', 'лише для фільмів', 'ru/uk/be', 'при наступному відкритті картки']
+    ru: ['самой Lampa', 'со следующего открытия карточки'],
+    en: ['Lampa own blocks', 'the next time you open a card'],
+    uk: ['самої Lampa', 'з наступного відкриття картки']
   };
   for (const lang of ['ru', 'en', 'uk']) {
     assert.ok(name[lang], lang + ': названия нет');
@@ -845,7 +986,8 @@ test('A6: настройка зарегистрирована переключа
   assert.equal(param.param.type, 'trigger');
   /* Чужие данные молча не прячем — по умолчанию выключено. */
   assert.equal(param.param['default'], false);
-  assert.equal(param.component, 'lumen_card');
+  /* 1.0.1: пункт — во втором экране, «Дополнительно…». */
+  assert.equal(param.component, 'lumen_card_more');
 });
 
 /* Долг Minor фикс-раунда фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:251)
@@ -915,13 +1057,13 @@ test('S1: заголовки подборок и групп каталога п�
   assert.equal(box.items.filter((i) => i.separator)[0].title, 'Темы&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
 });
 
-/* Сверка 2026-09-26: в окне «Какие ряды показывать» сезонные подборки
+/* Сверка 2026-09-26: в окне «Какие подборки показывать» сезонные подборки
    (поле season в каталоге — «Хэллоуин», «Рождественские комедии»…) видны
    только в свой месяц на главной, и без метки было непонятно, почему
    отмеченная подборка пропадает. Метка «Сезонная» — строкой под названием
    (subtitle штатного Lampa.Select), на языке интерфейса; у остальных
    подборок её нет. */
-test('сверка: сезонные подборки в «Какие ряды показывать» подписаны «Сезонная»', () => {
+test('сверка: сезонные подборки в «Какие подборки показывать» подписаны «Сезонная»', () => {
   const env = setupHomeRows();
   env.LC.manifest = {
     get: () => ({
@@ -967,7 +1109,7 @@ test('сверка: метка «Сезонная» экранируется, к
    праздничные сцены, видны и в «Лёгких», без перечня тем фильмов (автотемы
    выключены); «Тяжёлые эффекты» — что праздничные частицы от них не
    зависят. */
-test('holB: строки адвента на трёх языках; описания «Атмосфер» и «Тяжёлых эффектов» — Новый год и Хэллоуин, и в «Лёгких»', () => {
+test('holB: строки адвента на трёх языках; «Праздничные эффекты» — Новый год и Хэллоуин с датами', () => {
   const env = setup();
   const S = env.LC.STRINGS;
   for (const key of ['lumen_advent_left', 'lumen_advent_eve', 'lumen_advent_final', 'lumen_advent_date', 'lumen_advent_locked']) {
@@ -978,46 +1120,34 @@ test('holB: строки адвента на трёх языках; описан
     assert.ok(S.lumen_advent_locked[lang].indexOf('{d}') !== -1, 'уведомление закрытого — с днём: ' + lang);
   }
   assert.equal(S.lumen_advent_date.ru, '{d} декабря');
-  const fx = S.lumen_fx_descr.ru;
-  assert.ok(/Новый год/.test(fx) && /Хэллоуин/.test(fx) && /лёгких анимациях/.test(fx), fx);
-  for (const gone of ['звёзды у фантастики', 'дождь у нуара', 'Не запускается при лёгких']) {
-    assert.equal(fx.indexOf(gone), -1, 'описание обещает выключенное: ' + gone);
+  /* 1.0.1: пункт назван «Праздничные эффекты», значения «Новый год и
+     Хэллоуин» / «Выкл». Описание — два праздника и их окна (forMovie,
+     src/53_themes.js), без перечня тем фильмов (автотемы выключены). */
+  const fx = S.lumen_fx_descr;
+  assert.ok(/Новый год/.test(fx.ru) && /Хэллоуин/.test(fx.ru) && /1 декабря — 7 января/.test(fx.ru), fx.ru);
+  assert.ok(/New Year/.test(fx.en) && /Halloween/.test(fx.en) && /1 December – 7 January/.test(fx.en), fx.en);
+  assert.ok(/Новий рік/.test(fx.uk) && /Гелловін/.test(fx.uk) && /1 грудня — 7 січня/.test(fx.uk), fx.uk);
+  for (const gone of ['звёзды у фантастики', 'дождь у нуара', 'Не запускается при лёгких', 'в декабре и январе']) {
+    assert.equal(fx.ru.indexOf(gone), -1, 'описание обещает выключенное: ' + gone);
   }
-  /* Финальная проверка, B8: «Только сезонные» — окна праздников, а не
-     «декабрь и январь» / «октябрь» (src/53_themes.js, forMovie). */
-  assert.equal(fx.indexOf('в декабре и январе'), -1, fx);
-  assert.equal(S.lumen_fx_descr.en.indexOf('December and January'), -1);
-  assert.equal(S.lumen_fx_descr.uk.indexOf('у грудні й січні'), -1);
-  assert.ok(/те же дни праздника|эти же дни праздника/.test(fx) && /same holiday dates/.test(S.lumen_fx_descr.en) && /ці ж дні свята/.test(S.lumen_fx_descr.uk));
-  assert.ok(/Hallow/.test(S.lumen_fx_descr.en) && /Гелловін/.test(S.lumen_fx_descr.uk));
-  assert.ok(/не зависят/.test(S.lumen_fx_heavy_descr.ru), S.lumen_fx_heavy_descr.ru);
-  assert.equal(S.lumen_fx_heavy_descr.ru.indexOf('Частицы'), -1, 'тяжёлые эффекты больше не про частицы');
+  /* «Плавная смена кадров и наезд» — не про частицы. */
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.equal(/частиц|particle|частинк/i.test(S.lumen_fx_heavy_descr[lang]), false, lang + ': ' + S.lumen_fx_heavy_descr[lang]);
+  }
 });
 
-/* Финальная проверка, B9: описание «Профилей настроения» называет чипы так,
-   как их пишет сам чип, — названиями каталога (manifest.moods: title для
-   ru, i18n для en/uk; src/49_moods.js moodTitle). Прежде там стояли
-   «Вечер пятницы» и «Есть 90 минут», а на экране — «Пятничный вечер» и
-   «90 минут». «Метки на постерах» не обещают рейтинг рядом с меткой в
-   подписи: в ряду главной он выброшен (src/62_badges.js, правило A2). */
-test('B9: описание «Профилей настроения» — названия чипов из каталога; «Метки» — без рейтинга рядом с меткой на главной', () => {
+/* Финальная проверка, B9: «Метки на постерах» не обещают рейтинг рядом с
+   меткой в подписи — в ряду главной он выброшен (src/62_badges.js, правило
+   A2). 1.0.1: названия чипов в описании «Чипов настроения» больше не
+   перечисляются — описание называет только условие («Кадр над рядами»
+   выключен, тест «волна 3» выше). */
+test('B9: «Метки на постерах» — без рейтинга рядом с меткой', () => {
   const env = setup();
   const S = env.LC.STRINGS;
-  const M = {};
-  loadInto(M, '10_util.js');
-  loadInto(M, '42_manifest.js');
-  const moods = M.manifest.DEFAULT.moods;
-  assert.ok(moods.length >= 4);
-  const quote = { ru: ['«', '»'], uk: ['«', '»'], en: ['"', '"'] };
-  for (const lang of ['ru', 'en', 'uk']) {
-    for (const mood of moods) {
-      const name = lang === 'ru' ? mood.title : mood.i18n[lang];
-      const want = quote[lang][0] + name + quote[lang][1];
-      assert.ok(S.lumen_moods_descr[lang].indexOf(want) !== -1, lang + ': нет ' + want + ' в «' + S.lumen_moods_descr[lang] + '»');
-    }
-  }
   assert.equal(S.lumen_badges_descr.ru.indexOf('рядом с годом и рейтингом'), -1);
   assert.equal(S.lumen_badges_descr.en.indexOf('next to the year and the rating'), -1);
   assert.equal(S.lumen_badges_descr.uk.indexOf('поряд із роком і рейтингом'), -1);
-  assert.ok(/сетке подборки/.test(S.lumen_badges_descr.ru) && /collection grid/.test(S.lumen_badges_descr.en) && /сітці підбірки/.test(S.lumen_badges_descr.uk));
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.equal(/рейтинг|rating/i.test(S.lumen_badges_descr[lang]), false, lang + ': ' + S.lumen_badges_descr[lang]);
+  }
 });

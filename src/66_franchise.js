@@ -500,8 +500,11 @@
     /* Сверка 2026-09-26: ряд «Смотреть по порядку» выключается в настройках
        (группа карточки, по умолчанию включён). Выключенный — ни блока, ни
        запроса коллекции; кнопка «Франшиза» — своим выключателем. */
+    /* 1.0.1: пункт «Франшизы» (lumen_franchise) — один на кнопку и ряд;
+       прежний ключ ряда дочитывается, пока человек не тронет новый пункт
+       (LC.prefs.MERGED, src/81_prefs.js). */
     function rowEnabled() {
-      try { return LC.pref ? !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
+      try { return LC.pref ? !!LC.pref('lumen_franchise', true) && !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
     }
 
     /* row — узел ряда описания (items_line), тот же, что получают

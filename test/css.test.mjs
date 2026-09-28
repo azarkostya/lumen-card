@@ -2553,6 +2553,148 @@ test('настройка «Шрифт»: гарнитура стоит на ко
   for (const root of FONT_ROOTS) assert.equal(rootFont(off, root), 'inherit', root + ': при выключенных шрифтах — inherit');
 });
 
+/* 1.0.1: выключатель «Фирменные шрифты» слит в «Шрифт» — значение 'system'
+   («Как в Lampa»). Им шрифты плагина выключаются так же, как прежним
+   выключателем: стек 'inherit' у наших узлов и у корней экранов, <link>
+   на Google Fonts не ставится. Прежний ключ, сохранённый выключенным,
+   дочитывается (до миграции или правки нового пункта). */
+test('1.0.1: «Шрифт: Как в Lampa» выключает шрифты плагина, как прежний выключатель', () => {
+  const sys = withStorage({ lumen_font: 'system' }, (LC) => ({ t: LC.tokens(), css: LC.buildCss(), stack: LC.fontStack(), st: LC.fontsState() }));
+  assert.equal(sys.t.fontBody, 'inherit');
+  for (const root of FONT_ROOTS) assert.equal(rootFont(sys.css, root), 'inherit', root);
+  assert.equal(sys.stack, '', 'превью строки «Шрифт» — шрифт Lampa');
+  assert.equal(sys.st, 'off');
+  /* Старый ключ выключен, новый пункт ещё не трогали — шрифтов тоже нет. */
+  assert.equal(withStorage({ lumen_font: 'inter', lumen_card_fonts: 'false' }, (LC) => LC.fontStack()), '');
+  /* Выбранная гарнитура — превью тем же стеком, что у экранов плагина. */
+  const inter = withStorage({ lumen_font: 'inter' }, (LC) => ({ stack: LC.fontStack(), body: LC.tokens().fontBody }));
+  assert.equal(inter.stack, inter.body);
+  assert.ok(inter.stack.indexOf('"Inter"') === 0, inter.stack);
+});
+
+/* Минимальный document для LC.injectFonts: <link> в head, document.fonts. */
+function fontDoc(fontsAnswer) {
+  const nodes = {};
+  const head = {
+    children: [],
+    appendChild(el) { this.children.push(el); el.parentNode = this; if (el.id) nodes[el.id] = el; },
+    removeChild(el) { this.children = this.children.filter((x) => x !== el); el.parentNode = null; delete nodes[el.id]; }
+  };
+  const asked = [];
+  return {
+    asked,
+    head,
+    getElementById: (id) => nodes[id] || null,
+    getElementsByTagName: () => [head],
+    createElement: () => ({
+      attrs: {},
+      setAttribute(k, v) { this.attrs[k] = v; if (k === 'href') this.href = v; },
+      getAttribute(k) { return k === 'href' ? this.href : this.attrs[k]; }
+    }),
+    fonts: fontsAnswer === undefined ? undefined : {
+      load: (spec) => { asked.push(spec); return fontsAnswer(spec); }
+    }
+  };
+}
+
+async function withFontDoc(storage, doc, fn) {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def), field: (name) => storage[name] } };
+  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
+  globalThis.Lampa = Lampa;
+  globalThis.document = doc;
+  try {
+    for (const f of ['10_util.js', '20_icons.js', '80_settings.js', '81_prefs.js', '30_css.js']) loadInto(LC, module, f);
+    return await fn(LC);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+    delete globalThis.document;
+  }
+}
+
+/* 1.0.1: загрузился ли шрифт — LC.fontsFailed и LC.fontsState для HUD. Без
+   интернета «Шрифт» молча не менял вида, и отличить это было нечем. */
+test('1.0.1: шрифт не загрузился — <link> с ошибкой или document.fonts без начертания', async () => {
+  /* Ошибка самого <link> (нет сети, домен закрыт). */
+  const d1 = fontDoc(() => Promise.resolve([]));
+  await withFontDoc({ lumen_font: 'inter' }, d1, (LC) => {
+    LC.injectFonts();
+    const link = d1.head.children[0];
+    assert.ok(link && link.href.indexOf('family=Inter:') !== -1, 'link поставлен');
+    assert.equal(LC.fontsState(), 'load', 'пока грузится — load');
+    link.onerror();
+    assert.equal(LC.fontsFailed, true);
+    assert.equal(LC.fontsState(), 'fail');
+  });
+  /* Таблица пришла, а начертания нет (файлы шрифта не скачались). */
+  const d2 = fontDoc(() => Promise.resolve([]));
+  await withFontDoc({ lumen_font: 'plex' }, d2, async (LC) => {
+    LC.injectFonts();
+    d2.head.children[0].onload();
+    await Promise.resolve(); await Promise.resolve();
+    assert.deepEqual(d2.asked, ['400 1em "IBM Plex Sans"']);
+    assert.equal(LC.fontsState(), 'fail');
+  });
+  /* Отказ document.fonts.load — тоже не загрузился. */
+  const d3 = fontDoc(() => Promise.reject(new Error('NetworkError')));
+  await withFontDoc({ lumen_font: 'golos' }, d3, async (LC) => {
+    LC.injectFonts();
+    d3.head.children[0].onload();
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(LC.fontsState(), 'fail');
+  });
+});
+
+test('1.0.1: шрифт загрузился — ok; смена гарнитуры — снова load; «Как в Lampa» — off и <link> снят', async () => {
+  const d = fontDoc(() => Promise.resolve([{ family: 'Onest' }]));
+  const storage = { lumen_font: 'onest' };
+  await withFontDoc(storage, d, async (LC) => {
+    LC.injectFonts();
+    const link = d.head.children[0];
+    link.onload();
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(LC.fontsState(), 'ok');
+
+    storage.lumen_font = 'manrope';
+    LC.injectFonts();
+    assert.equal(d.head.children.length, 1, 'тот же <link>, новый адрес');
+    assert.ok(link.href.indexOf('family=Manrope:') !== -1);
+    assert.equal(LC.fontsState(), 'load', 'новый адрес — новая загрузка');
+
+    storage.lumen_font = 'system';
+    LC.injectFonts();
+    assert.equal(d.head.children.length, 0, '«Как в Lampa» — <link> снят');
+    assert.equal(LC.fontsFailed, null);
+    assert.equal(LC.fontsState(), 'off');
+  });
+  /* Нет document.fonts (старый WebView) — считать нечем, пришла таблица — ok. */
+  const old = fontDoc(undefined);
+  await withFontDoc({ lumen_font: 'inter' }, old, (LC) => {
+    LC.injectFonts();
+    old.head.children[0].onload();
+    assert.equal(LC.fontsState(), 'ok');
+  });
+});
+
+/* Ответ document.fonts про прежнюю гарнитуру пришёл после смены — он
+   устарел и состояние новой не трогает. */
+test('1.0.1: устаревший ответ document.fonts состояние новой гарнитуры не меняет', async () => {
+  let resolve;
+  const d = fontDoc(() => new Promise((r) => { resolve = r; }));
+  const storage = { lumen_font: 'inter' };
+  await withFontDoc(storage, d, async (LC) => {
+    LC.injectFonts();
+    d.head.children[0].onload();
+    storage.lumen_font = 'plex';
+    LC.injectFonts();
+    resolve([]);
+    await Promise.resolve(); await Promise.resolve();
+    assert.equal(LC.fontsState(), 'load', 'ответ про Inter не пометил Plex незагрузившимся');
+  });
+});
+
 /* Task 43: моноширинного не осталось нигде — ни на метках, ни на цифрах.
    Колонок, которые надо выравнивать по разряду, в плагине нет: таймкод и
    проценты стоят в строке текста, а не друг под другом. */

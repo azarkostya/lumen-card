@@ -2748,10 +2748,12 @@
     /* трейлера (src/55_trailer.js addStop).                                 */
     /* ------------------------------------------------------------------ */
 
-    /* Сверка 2026-09-26: кнопка «Франшиза» выключается в настройках (группа
-       карточки, по умолчанию включена). */
+    /* Сверка 2026-09-26: кнопка «Франшиза» выключается в настройках (по
+       умолчанию включена). 1.0.1: пункт «Франшизы» (lumen_franchise) — один
+       на кнопку и ряд; прежний ключ кнопки дочитывается, пока человек не
+       тронет новый пункт (LC.prefs.MERGED, src/81_prefs.js). */
     function buttonEnabled() {
-      try { return LC.pref ? !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
+      try { return LC.pref ? !!LC.pref('lumen_franchise', true) && !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
     }
 
     function franchise(root, movie) {

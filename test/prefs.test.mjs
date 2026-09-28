@@ -112,27 +112,16 @@ test('boolOf: пусто/мусор -> значение по умолчанию'
 });
 
 /* ====================================================================== */
-/* Таблица пунктов — экран 09 дизайна.                                    */
+/* Таблица пунктов — версия 1.0.1.                                        */
 /*                                                                        */
-/* Порядок экрана 09: Включить · Акцент · Анимации · Слайдшоу кадров ·     */
-/* Интервал смены кадра · Трейлер в фоне · Актёры в карточке · Отзывы      */
-/* Кинопоиска · Ключ Kinopoisk API. Настройки, которых на экране нет       */
-/* (шрифты, «Продолжить», меню, экраны TorrServer), вставлены в свои       */
-/* группы, не нарушая относительного порядка экранных пунктов.            */
+/* Автор 2026-09-27: «в настройках куча мусора; хочу шарить плагин другим */
+/* людям — привести к нормальному виду». Было 53 пункта в одиннадцати     */
+/* группах одного списка, стало два экрана: главный раздел (18 строк) и   */
+/* «Дополнительно…» — раскладку согласовал автор («Да, так»).             */
 /* ====================================================================== */
 
 const LIST = prefs.LIST;
 const names = LIST.filter((e) => e.type !== 'title').map((e) => e.name);
-
-test('LIST: порядок пунктов экрана 09 сохранён', () => {
-  /* Правка 2026-09-16 (п.1): пункт «Показывать актёров» убран вместе с боковой
-     колонкой — кружки инициалов дублировали ряд актёров, который Lampa рисует
-     ниже. Остальной порядок экрана 09 не тронут. */
-  const screen09 = ['lumen_enabled', 'lumen_card_accent', 'lumen_motion', 'lumen_slideshow',
-    'lumen_slide_interval', 'lumen_trailer', 'lumen_reviews', 'lumen_kp_key'];
-  const seen = names.filter((n) => screen09.indexOf(n) !== -1);
-  assert.deepEqual(seen, screen09);
-});
 
 test('LIST: «Включить Lumen Card» — первый пункт раздела, без заголовка группы над ним', () => {
   assert.equal(LIST[0].name, 'lumen_enabled');
@@ -141,88 +130,52 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
   assert.ok(LIST[0].descr, 'у выключателя обязана быть подсказка (карточка перерисуется при следующем открытии)');
 });
 
-test('LIST: полный набор ключей — существующие имена не переименованы', () => {
+/* Полный набор ключей: имена не переименованы (профили пользователей живут
+   с ними), слитые пункты получили новые ключи, а четыре бывших
+   «консольных» выключателя теперь в разделе. */
+test('LIST: полный набор ключей 1.0.1 — старые имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
-    'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
-    /* Правка 2026-09-23: логотип названия в шапке карточки */
-    'lumen_card_logo',
-    'lumen_font', /* Правка 2026-09-16 (п.6): выбор гарнитуры */
-    'lumen_enabled', 'lumen_kp_key',
-    'lumen_manifest_url', /* Task 14 (фаза 2): адрес каталога подборок */
-    'lumen_menus', 'lumen_motion', 'lumen_reviews',
-    'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer',
-    /* Task 15 (фаза 2): ряды подборок на главной */
-    'lumen_hide_watched', 'lumen_rows_limit',
-    /* Task 57 (фаза 5): фильм не повторяется в рядах ниже */
-    'lumen_rows_dedupe',
-    /* Постеры: откуда берётся обложка карточки */
-    'lumen_posters',
-    /* Task 16 (фаза 2): персональные ряды */
-    'lumen_personal_rows',
-    /* Волна 4 (ТВ 2026-09-24): начало главной — ротация или история сверху */
-    'lumen_home_start',
-    /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
-    'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
-    /* A6 (волна A): скрывать чужие блоки анализа на карточке фильма */
-    'lumen_hide_meta',
-    /* Фаза 3: тема, плотность подложек, масштаб интерфейса */
-    /* Task 73 (фаза 6): плоский вид — между плотными подложками и масштабом */
-    'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_scale',
-    /* Task 25 (фаза 3): метки на постерах рядов */
-    'lumen_badges',
-    /* Task 26 (фаза 3): пункты плагина в меню карточки по удержанию OK */
-    'lumen_context_menu',
-    /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами */
-    'lumen_hero_size',
-    /* Task 24 (фаза 3): акцент от постера открытого фильма */
-    'lumen_accent_auto',
-    /* Task 62a (фаза 5): область подкраски от постера */
-    'lumen_accent_scope',
-    /* Task 31 (фаза 4): HUD отладки на экране ТВ */
-    'lumen_debug_hud',
-    /* Волна производительности: самотест «Отладка: тест производительности» */
-    'lumen_debug_bench',
-    /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
-    'lumen_minimap', 'lumen_fastscroll',
-    /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
-    'lumen_reviews_mode', 'lumen_hero_trailer',
-    /* Правка 2026-09-23: что показывает кадр главной — кадр и трейлер или
-       несколько кадров */
-    'lumen_hero_media',
-    /* Task 71 (фаза 6): логотип названия в кадре главной */
-    'lumen_hero_logo',
-    /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок */
-    'lumen_tile_size',
-    /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
-    'lumen_fx',
-    /* Task 40 (фаза 4): тумблер тяжёлых эффектов */
-    'lumen_fx_heavy',
-    /* Task 22 (фаза 3): заставка из кадров после покоя пульта */
-    'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay',
-    /* Task 23 (фаза 3): фильтр, с которым открывается рулетка */
-    'lumen_roulette_unseen',
-    /* Task 62b (фаза 5): две кнопки готового стиля */
-    'lumen_preset_appletv', 'lumen_preset_lumen',
-    /* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по порядку» */
-    'lumen_franchise_button', 'lumen_franchise_row'
+    'lumen_enabled',
+    /* Внешний вид */
+    'lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale',
+    /* Главная */
+    'lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows',
+    /* Карточка фильма */
+    'lumen_reviews', 'lumen_kp_key', 'lumen_franchise',
+    /* Движение */
+    'lumen_motion', 'lumen_fx', 'lumen_ambient',
+    'lumen_more',
+    /* Дополнительно: оформление */
+    'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo', 'lumen_hero_logo',
+    'lumen_badges', 'lumen_posters',
+    /* карточка и главная */
+    'lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
+    'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start', 'lumen_rows_dedupe',
+    'lumen_hide_watched',
+    /* пульт и окна */
+    'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
+    'lumen_ambient_delay',
+    /* для разработчика */
+    'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem', 'lumen_rowmem_bytes',
+    'lumen_netmem', 'lumen_prefill'
   ].sort());
 });
 
-/* Фаза 3: тема, плотность и масштаб — в группе «Оформление», сразу за
-   акцентом: это всё про вид, и на пульте их ищут рядом. */
-test('фаза 3: тема, плотность подложек и масштаб — сразу за акцентом, до шрифтов', () => {
-  const at = names.indexOf('lumen_card_accent');
-  assert.ok(at > 0, 'пункта акцента нет в списке');
-  /* Task 24 (фаза 3): «Акцент от постера» вклинивается сразу за выбором
-     акцента — это тот же выбор, только его делает фильм. */
-  assert.equal(names[at + 1], 'lumen_accent_auto');
-  /* Task 62a (фаза 5): область подкраски — сразу за самой подкраской: пункт
-     отвечает на второй вопрос про неё же («докуда доходит цвет постера»). */
-  assert.equal(names[at + 2], 'lumen_accent_scope');
-  /* Task 73 (фаза 6): «Плоский вид» встал сразу за «Плотными подложками» —
-     оба пункта про то, на чём лежит содержимое. */
-  assert.deepEqual(names.slice(at + 3, at + 7), ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_scale']);
-  assert.equal(names[at + 7], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
+/* Убраны из раздела, но НЕ из плагина: ключи читаются как раньше. Слитые
+   ключи тоже — их дочитывают места чтения (LC.prefs.MERGED). */
+test('1.0.1: убранные и слитые ключи в разделе больше не стоят', () => {
+  for (const gone of ['lumen_reviews_mode', 'lumen_kp_hint', 'lumen_roulette_unseen', 'lumen_card_fonts',
+    'lumen_hero_trailer', 'lumen_franchise_button', 'lumen_franchise_row', 'lumen_minimap', 'lumen_fastscroll',
+    'lumen_preset_appletv', 'lumen_preset_lumen']) {
+    assert.equal(prefs.find(gone), null, 'пункт вернулся в раздел: ' + gone);
+  }
+  assert.deepEqual(prefs.MERGED, {
+    lumen_font: ['lumen_card_fonts'],
+    lumen_hero_media: ['lumen_hero_trailer'],
+    lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
+    lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll']
+  });
+  for (const key of Object.keys(prefs.MERGED)) assert.ok(prefs.find(key), 'нового пункта нет в разделе: ' + key);
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
@@ -230,14 +183,14 @@ test('фаза 3: значения по умолчанию сохраняют п
   assert.deepEqual(['trigger', false], [prefs.find('lumen_solid').type, prefs.find('lumen_solid')['default']]);
   assert.deepEqual(['select', 'normal'], [prefs.find('lumen_scale').type, prefs.find('lumen_scale')['default']]);
   assert.ok(prefs.find('lumen_theme').descr, 'у темы обязана быть подсказка про OLED');
-  assert.ok(prefs.find('lumen_solid').descr, 'у плотных подложек обязана быть подсказка, когда включать');
+  assert.ok(prefs.find('lumen_solid').descr, 'у «Без прозрачности» обязана быть подсказка, когда включать');
   assert.ok(prefs.find('lumen_scale').descr);
 });
 
 /* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» → «Да,
    сделай»): отдельная настройка размера плиток рядов главной и сеток
    подборок — три ступени, по умолчанию «Обычные» (прежний вид). */
-test('правка 2026-09-26: «Размер плиток в рядах» — три ступени, по умолчанию «Обычные», в группе «Главная»', () => {
+test('правка 2026-09-26: «Размер плиток» — три ступени, по умолчанию «Обычные», в группе «Главная»', () => {
   const e = prefs.find('lumen_tile_size');
   assert.ok(e, 'пункта нет в разделе');
   assert.equal(e.type, 'select');
@@ -253,92 +206,32 @@ test('фаза 3: масштаб — четыре ступени от «мель
   assert.equal(prefs.find('lumen_scale').vprefix, 'lumen_scale_');
 });
 
-/* Task 30 (финал фазы 3; Task 31 фазы 4, Task 57 и Task 62 фазы 5 добавили
-   ещё): пунктов сейчас 43, и раскладка по группам — единственное, что
-   делает их обозримыми с дивана. Группа отвечает на вопрос «про что это»:
-   готовый стиль · вид · движение · фон карточки · блоки карточки · главная ·
-   ряды подборок · пульт · рулетка · заставка · путь до плеера.
-
-   Тест закрепляет и состав групп, и их порядок: перестановка пункта из
-   группы в группу — решение, а не побочный эффект правки соседней строки. */
-const GROUPS = [
-  /* Task 62b (фаза 5): готовый стиль — своей группой и ПЕРВОЙ из них.
-     Две кнопки не поместились бы в «Оформление» (там уже восемь пунктов при
-     пределе девять), а стоять им нужно выше тонких настроек: человек сперва
-     выбирает стиль целиком и только потом правит в нём отдельные пункты. */
-  ['lumen_group_preset', ['lumen_preset_appletv', 'lumen_preset_lumen']],
-  ['lumen_group_look', [
-    /* Task 24: «Акцент от постера» — сразу за выбором акцента: тот же
-       выбор, только его делает фильм. */
-    'lumen_card_accent', 'lumen_accent_auto',
-    /* Task 62a (фаза 5): область подкраски от постера. */
-    'lumen_accent_scope',
-    'lumen_theme', 'lumen_solid',
-    /* Task 73 (фаза 6): плоский вид — восьмой пункт «Оформления» и восьмой
-       ключ готового стиля. */
-    'lumen_flat', 'lumen_scale',
-    'lumen_card_fonts', 'lumen_font'
-  ]],
-  /* Task 30: движение вынесено из «Оформления» в свою группу. Атмосферы
-     живут только при полных анимациях, и рядом с режимом анимаций это видно
-     сразу (переход «постер → кадр» удалён в волне 2, ТВ 2026-09-24). Task 31 (фаза 4) добавил HUD отладки — этой зависимости
-     он не подчиняется (работает при любом режиме анимаций), но место рядом с
-     режимом анимаций логично и для него: сам HUD и калибрует его пороги. */
-  /* Волна производительности: «Отладка: тест производительности» — сразу
-     под HUD отладки: оба пункта про замер, и таблица теста читается рядом
-     со строкой HUD. */
-  ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_fx']],
-  ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
-  /* A6 (волна A): «Скрывать блоки анализа Lampa» — последним в группе.
-     Группа про то, что показано на карточке, и этот пункт единственный
-     говорит про ЧУЖИЕ блоки; свои читаются раньше. */
-  /* Правка 2026-09-23: логотип названия — первым: заголовок и есть верхний
-     блок карточки. */
-  /* Сверка 2026-09-26: кнопка «Франшиза» — за прогрессом (верх карточки,
-     ряд кнопок), ряд «Смотреть по порядку» — за отзывами (ряд описания). */
-  ['lumen_group_blocks', [
-    'lumen_card_logo', 'lumen_card_progress', 'lumen_franchise_button', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
-    'lumen_franchise_row', 'lumen_hide_meta'
-  ]],
-  ['lumen_group_home', [
-    /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
-       от него зависит, сколько экрана достанется всему остальному. */
-    /* Task 71 (фаза 6): логотип названия — третьим: размер кадра,
-       автотрейлер и логотип про одну и ту же часть экрана. */
-    /* Правка 2026-09-23: «Что показывает кадр главной» — сразу за размером:
-       про ту же часть экрана и общий вопрос, чем выключатель трейлера. */
-    /* Правка 2026-09-26: «Размер плиток в рядах» — сразу за пунктами кадра:
-       про ту же раскладку главной (сколько места достаётся плиткам под
-       кадром). */
-    'lumen_hero_size', 'lumen_hero_media', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_tile_size', 'lumen_moods', 'lumen_personal_rows',
-    /* Волна 4: «Начало главной» — сразу за личными рядами, о которых и речь. */
-    'lumen_home_start'
-  ]],
-  /* Task 57 (фаза 5): ряды подборок отделены от «Главной» — с настройкой
-     дедупликации прежняя группа выросла бы до десяти строк. */
-  ['lumen_group_rows', [
-    'lumen_home_rows', 'lumen_rows_limit', 'lumen_rows_dedupe',
-    /* Постеры: источник обложки — перед метками: метка рисуется ПОВЕРХ
-       постера, значит сперва «какая обложка», потом «что на ней подписать». */
-    'lumen_posters', 'lumen_badges', 'lumen_hide_watched',
-    /* Каталог — последним: настройка «на один раз», и она про источник всех
-       подборок разом. */
-    'lumen_manifest_url'
-  ]],
-  /* Task 30: всё, что меняет поведение ПУЛЬТА, — одной группой. Раньше эти
-     три пункта стояли в «Главной», хотя работают и в сетках подборок. */
-  ['lumen_group_nav', ['lumen_context_menu', 'lumen_minimap', 'lumen_fastscroll']],
-  /* Task 30: у рулетки в разделе один пункт, но без заголовка неясно, к
-     какому экрану он относится, — сама рулетка открывается из левого меню. */
-  ['lumen_group_roulette', ['lumen_roulette_unseen']],
-  ['lumen_group_ambient', ['lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
-  ['lumen_group_path', ['lumen_menus', 'lumen_torrents']]
+/* 1.0.1: два экрана. Тест закрепляет и состав групп, и их порядок, и то,
+   на каком экране стоит пункт: перестановка — решение, а не побочный
+   эффект правки соседней строки. */
+const MAIN_GROUPS = [
+  ['lumen_group_look', ['lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale']],
+  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows']],
+  ['lumen_group_card', ['lumen_reviews', 'lumen_kp_key', 'lumen_franchise']],
+  ['lumen_group_motion', ['lumen_motion', 'lumen_fx', 'lumen_ambient', 'lumen_more']]
+];
+const MORE_GROUPS = [
+  ['lumen_group_style', ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo',
+    'lumen_hero_logo', 'lumen_badges', 'lumen_posters']],
+  ['lumen_group_screens', ['lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
+    'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start',
+    'lumen_rows_dedupe', 'lumen_hide_watched']],
+  ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
+    'lumen_ambient_source', 'lumen_ambient_delay']],
+  /* «Для разработчика» — в самом низу второго экрана. */
+  ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem',
+    'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
 ];
 
-test('Task 30: раздел разложен по группам — состав и порядок', () => {
+function groupsOf(entries) {
   const groups = [];
   let current = null;
-  for (const e of LIST.slice(1)) {
+  for (const e of entries) {
     if (e.type === 'title') {
       current = [e.name, []];
       groups.push(current);
@@ -347,17 +240,34 @@ test('Task 30: раздел разложен по группам — соста�
     assert.ok(current, 'пункт вне группы: ' + e.name);
     current[1].push(e.name);
   }
-  assert.deepEqual(groups, GROUPS);
+  return groups;
+}
+
+test('1.0.1: главный раздел — выключатель, четыре группы и «Дополнительно…» последней строкой', () => {
+  const main = LIST.filter((e) => e.section !== 'more');
+  assert.deepEqual(groupsOf(main.slice(1)), MAIN_GROUPS);
+  const rows = main.filter((e) => e.type !== 'title');
+  /* 18 строк — столько согласовал автор: всё, что меняют чаще. */
+  assert.equal(rows.length, 18, 'строк в главном разделе: ' + rows.length);
+  assert.equal(rows[rows.length - 1].name, 'lumen_more');
+  assert.equal(prefs.find('lumen_more').type, 'button');
+  for (const e of main) assert.equal(e.section, undefined, 'у пункта главного раздела нет section: ' + e.name);
 });
 
-test('Task 30: у каждой группы есть пункты, и ни одна не длиннее девяти строк', () => {
-  for (const [title, items] of GROUPS) {
-    assert.ok(items.length >= 1, 'пустая группа: ' + title);
-    /* Девять — столько строк раздела помещается на экране ТВ без прокрутки
-       (та же величина, что у мини-карты рядов, src/64_nav.js). Группа
-       длиннее превращается в сплошной список, ради которого группы и
-       заводились. */
-    assert.ok(items.length <= 9, 'группа слишком длинная: ' + title + ' (' + items.length + ')');
+test('1.0.1: второй экран — четыре группы, «Для разработчика» в самом низу', () => {
+  const more = LIST.filter((e) => e.section === 'more');
+  assert.deepEqual(groupsOf(more), MORE_GROUPS);
+  /* Главный раздел — строго впереди: экраны не перемешаны. */
+  const first = LIST.findIndex((e) => e.section === 'more');
+  assert.ok(LIST.slice(first).every((e) => e.section === 'more'), 'пункт главного раздела оказался среди второго экрана');
+  assert.equal(more[more.length - 1].name, 'lumen_prefill');
+  const dev = more.findIndex((e) => e.name === 'lumen_group_dev');
+  assert.ok(more.slice(dev + 1).every((e) => e.type !== 'title'), 'после «Для разработчика» есть ещё группа');
+});
+
+test('1.0.1: в главном разделе группы короткие — не длиннее пяти строк', () => {
+  for (const [title, items] of MAIN_GROUPS) {
+    assert.ok(items.length >= 1 && items.length <= 5, 'группа ' + title + ': ' + items.length);
   }
 });
 
@@ -366,48 +276,74 @@ test('Task 30: у каждого пункта раздела есть и наз�
     assert.ok(e.label, 'нет подписи: ' + e.name);
     if (e.type === 'title') continue;
     /* Человек смотрит на раздел с дивана и с пультом: название говорит,
-       что это, описание — что случится и когда. */
+       что это, описание — что случится. */
     assert.ok(e.descr, 'нет описания: ' + e.name);
   }
 });
 
-test('Task 20: подсказка про ключ — переключатель сразу за полем ключа', () => {
-  const names = LIST.map((e) => e.name);
-  assert.equal(names[names.indexOf('lumen_kp_key') + 1], 'lumen_kp_hint');
-  const entry = prefs.find('lumen_kp_hint');
-  assert.equal(entry.type, 'trigger');
-  assert.equal(entry['default'], true, 'по умолчанию подсказка показывается');
-  assert.ok(entry.descr, 'у переключателя обязана быть подсказка — как вернуть скрытое');
+/* 1.0.1: бывшие «консольные» выключатели — в «Для разработчика», с
+   ПРЕЖНИМИ значениями по умолчанию: читают их те же места (58_rowmem,
+   58_netmem, 58_prefill), и у того, кто ничего не трогал, не меняется
+   ничего. Сверку дефолтов с местами чтения держит Task 60 ниже. */
+test('1.0.1: выключатели для разработчика — переключатели с прежними значениями по умолчанию', () => {
+  const want = { lumen_rowmem: true, lumen_rowmem_bytes: false, lumen_netmem: true, lumen_prefill: true };
+  for (const key of Object.keys(want)) {
+    const e = prefs.find(key);
+    assert.equal(e.type, 'trigger', key);
+    assert.equal(e['default'], want[key], key);
+    assert.equal(e.section, 'more', key);
+  }
 });
 
-test('Task 20: «Какие ряды показывать» — кнопка-параметр без значения', () => {
+test('1.0.1: «Стиль» — select из трёх значений, «Свой» ставит сам плагин', () => {
+  const e = prefs.find('lumen_style');
+  assert.equal(e.type, 'select');
+  assert.deepEqual(e.values, ['lumen', 'appletv', 'custom']);
+  assert.equal(e['default'], 'lumen');
+  assert.equal(e.vprefix, 'lumen_style_');
+});
+
+test('1.0.1: «Франшизы» и «Ускорители пульта» — переключатели, по умолчанию включены', () => {
+  for (const key of ['lumen_franchise', 'lumen_remote_boost']) {
+    const e = prefs.find(key);
+    assert.equal(e.type, 'trigger', key);
+    assert.equal(e['default'], true, key);
+  }
+});
+
+test('1.0.1: «Праздничные эффекты» — два значения, по умолчанию праздники', () => {
+  const e = prefs.find('lumen_fx');
+  assert.equal(e.type, 'select', 'select, а не тумблер: значения — строки, как и прежде');
+  assert.deepEqual(e.values, ['seasonal', 'off']);
+  assert.equal(e['default'], 'seasonal');
+});
+
+test('Task 20: «Какие подборки показывать» — кнопка-параметр без значения', () => {
   const entry = prefs.find('lumen_home_rows');
   assert.equal(entry.type, 'button', 'multi-select в SettingsApi нет — это кнопка на экран выбора');
   assert.equal(typeof entry['default'], 'undefined', 'кнопка ничего не хранит');
   assert.ok(entry.label && entry.descr);
 });
 
-/* Task 35 (фаза 4): «Акцент от постера» включён по умолчанию. На телевизоре
-   это единственная видимая связь подложки рядов с кадром, а выключенной
-   настройку просто не находят; цена смены цвета при этом снижена до одного
-   маленького <style id="lumen-accent"> (src/57_color.js). */
-test('Task 35: акцент от постера включён по умолчанию', () => {
+/* Task 35 (фаза 4): «Цвет фона от кадра» (бывший «Акцент от постера»)
+   включён по умолчанию. На телевизоре это единственная видимая связь
+   подложки рядов с кадром, а выключенной настройку просто не находят. */
+test('Task 35: цвет фона от кадра включён по умолчанию', () => {
   const entry = prefs.find('lumen_accent_auto');
   assert.equal(entry.type, 'trigger');
   assert.equal(entry['default'], true);
 });
 
 /* Task 71 (фаза 6): логотип названия в кадре главной. Включён по умолчанию —
-   это текущий вид, и менять его настройка не должна: она заведена, чтобы
-   название МОЖНО было вернуть в текст, а не чтобы логотип включать. */
-test('Task 71: логотип названия — переключатель, по умолчанию включён', () => {
+   это текущий вид, и менять его настройка не должна. */
+test('Task 71: логотип в кадре — переключатель, по умолчанию включён', () => {
   const entry = prefs.find('lumen_hero_logo');
   assert.equal(entry.type, 'trigger');
   assert.equal(entry['default'], true);
   assert.ok(entry.descr, 'с дивана без описания не понять, что пункт меняет');
-  /* Место: третьим в группе «Главная», сразу за автотрейлером. */
+  /* 1.0.1: рядом с логотипом в карточке — оба про одно и то же. */
   const names = LIST.map((e) => e.name);
-  assert.equal(names[names.indexOf('lumen_hero_trailer') + 1], 'lumen_hero_logo');
+  assert.equal(names[names.indexOf('lumen_card_logo') + 1], 'lumen_hero_logo');
 });
 
 /* Волна 4 (ТВ 2026-09-24): «нет ротации списков в начале, постоянно только
@@ -427,7 +363,7 @@ test('волна 4: «Начало главной» — подборки по о
   assert.match(LC.STRINGS.lumen_home_start_descr.ru, /«Досмотреть» стоит вторым/);
 });
 
-test('Task 20: профили настроения — переключатель, по умолчанию включён', () => {
+test('Task 20: чипы настроения — переключатель, по умолчанию включён', () => {
   const entry = prefs.find('lumen_moods');
   assert.equal(entry.type, 'trigger');
   assert.equal(entry['default'], true);
@@ -438,7 +374,6 @@ test('LIST: типы и значения по умолчанию', () => {
   for (const e of LIST) if (e.type !== 'title') def[e.name] = [e.type, e['default']];
   assert.deepEqual(def.lumen_enabled, ['trigger', true]);
   assert.deepEqual(def.lumen_card_accent, ['select', 'sand']);
-  assert.deepEqual(def.lumen_card_fonts, ['trigger', true]);
   assert.deepEqual(def.lumen_motion, ['select', 'auto']);
   assert.deepEqual(def.lumen_slideshow, ['trigger', true]);
   assert.deepEqual(def.lumen_slide_interval, ['select', '14']);
@@ -449,26 +384,24 @@ test('LIST: типы и значения по умолчанию', () => {
   assert.deepEqual(def.lumen_kp_key, ['input', '']);
   assert.deepEqual(def.lumen_menus, ['select', 'all']);
   assert.deepEqual(def.lumen_torrents, ['trigger', true]);
+  assert.deepEqual(def.lumen_hero_media, ['select', 'trailer']);
   /* Решение пользователя 2026-09-26: 10 рядов подборок по умолчанию. */
   assert.deepEqual(def.lumen_rows_limit, ['select', '10']);
 });
 
-/* Выбор гарнитуры стоит сразу за выключателем «Фирменные шрифты» — при
-   выключенных шрифтах он не действует, и рядом это очевиднее всего. Пять
-   гарнитур, все с Google Fonts (CSP плагина разрешает только его).
-   Task 43: за каждым ключом стоит одна гарнитура, прежде была пара
-   «текстовая + моноширинная»; сами ключи не менялись — они уже записаны в
-   Storage у тех, кто менял шрифт. */
-test('настройка «Шрифт»: select из пяти гарнитур, сразу после lumen_card_fonts', () => {
-  const at = names.indexOf('lumen_font');
-  assert.ok(at > 0, 'пункта lumen_font нет в списке');
-  assert.equal(names[at - 1], 'lumen_card_fonts', 'выбор шрифта должен стоять сразу за выключателем шрифтов');
-
+/* 1.0.1: «Шрифт» — «Как в Lampa» и пять гарнитур с Google Fonts (CSP
+   плагина разрешает только его). «Как в Lampa» — бывший выключатель
+   «Фирменные шрифты», поэтому первым в списке; по умолчанию — Golos, как и
+   было. Ключи гарнитур не менялись: они уже записаны у тех, кто менял
+   шрифт. */
+test('настройка «Шрифт»: «Как в Lampa» и пять гарнитур, по умолчанию Golos', () => {
   const entry = prefs.find('lumen_font');
   assert.equal(entry.type, 'select');
-  assert.deepEqual(entry.values, ['golos', 'onest', 'manrope', 'inter', 'plex']);
-  assert.ok(entry.values.length <= 5, 'не больше пяти вариантов');
+  assert.deepEqual(entry.values, ['system', 'golos', 'onest', 'manrope', 'inter', 'plex']);
+  assert.equal(entry['default'], 'golos');
   assert.equal(entry.vprefix, 'lumen_card_font_');
+  const LC = loadStrings();
+  assert.deepEqual(LC.STRINGS.lumen_card_font_system, { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' });
 });
 
 test('LIST: у select перечислены значения, у каждого пункта есть строка подписи', () => {
@@ -599,50 +532,43 @@ test('Task 56: описание пункта называет штатную з�
 });
 
 /* ====================================================================== */
-/* Task 61 (фаза 5): автотрейлер в кадре главной — обнаружимость.         */
+/* Task 61 (фаза 5), 1.0.1: трейлер в кадре главной.                      */
 /*                                                                        */
-/* Жалоба пользователя (интервью 2026-09-21): «Трейлер в герое через 8 с —  */
-/* заебись, но надо отключаемым в настройках». Настройка есть с Task 28,   */
-/* значит её не нашли. В разделе ДВА пункта со словом «трейлер»:           */
-/* lumen_trailer (фон карточки фильма, группа «Фон карточки») и            */
-/* lumen_hero_trailer (кадр главной, группа «Главная»); первый по списку   */
-/* идёт раньше, и человек, дойдя до него, дальше не ищет.                  */
+/* Жалоба пользователя (интервью 2026-09-21): «Трейлер в герое через 8 с — */
+/* отлично, но надо отключаемым в настройках». В 1.0.1 отдельный           */
+/* выключатель автотрейлера слит в «Что в кадре»: «Только кадры» — без      */
+/* трейлера. Описание обязано назвать ту же задержку, что в коде героя.    */
 /* ====================================================================== */
 
-test('Task 61: два пункта про трейлер названы по-разному и каждый называет своё место', () => {
-  const LC = loadStrings();
-  const hero = LC.STRINGS[prefs.find('lumen_hero_trailer').label];
-  const card = LC.STRINGS[prefs.find('lumen_trailer').label];
-  for (const lang of LANGS) {
-    assert.notEqual(hero[lang], card[lang], 'названия совпадают в ' + lang);
-    /* Ни одно название не должно быть префиксом другого: на экране ТВ
-       «Трейлер в фоне» и «Трейлер в фоне карточки» с трёх метров читаются
-       как один и тот же пункт. */
-    assert.ok(hero[lang].indexOf(card[lang]) === -1 && card[lang].indexOf(hero[lang]) === -1,
-      'одно название содержит другое целиком в ' + lang + ': ' + hero[lang] + ' / ' + card[lang]);
-  }
-  /* Название говорит, что он запускается САМ: это и есть то, что человек
-     хочет выключить, — не «трейлер», а «трейлер без спроса». */
-  assert.ok(/^Автотрейлер/.test(hero.ru), 'ru: ' + hero.ru);
-  assert.ok(/^Auto-trailer/.test(hero.en), 'en: ' + hero.en);
-  assert.ok(/^Автотрейлер/.test(hero.uk), 'uk: ' + hero.uk);
-});
-
-test('Task 61: описание автотрейлера называет ту же задержку, что стоит в коде героя', () => {
+test('Task 61, 1.0.1: «Что в кадре» называет ту же задержку трейлера, что стоит в коде героя', () => {
   const LC = loadStrings();
   const hero = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
   const m = /var TRAILER_DELAY = (\d+);/.exec(hero);
   assert.ok(m, 'в src/48_hero.js не нашлась константа TRAILER_DELAY');
   const seconds = String(parseInt(m[1], 10) / 1000);
 
-  const descr = LC.STRINGS[prefs.find('lumen_hero_trailer').descr];
+  const descr = LC.STRINGS[prefs.find('lumen_hero_media').descr];
   for (const lang of LANGS) {
     /* Число в описании — единственное, по чему человек узнаёт свой случай
        («через 8 секунд сам включается»). Разойдётся с кодом — описание
        станет ложным. */
     assert.ok(new RegExp('(^|[^\\d])' + seconds + '([^\\d]|$)').test(descr[lang]),
       'в описании (' + lang + ') нет задержки ' + seconds + ' с: ' + descr[lang]);
+    /* Как выключить трейлер — сказано тем же описанием, значением пункта. */
+    const frames = LC.STRINGS.lumen_hero_media_frames[lang];
+    assert.ok(descr[lang].indexOf(frames) !== -1, lang + ': описание не называет «' + frames + '»: ' + descr[lang]);
   }
+});
+
+test('Task 61: трейлер карточки и кадр главной названы по-разному', () => {
+  const LC = loadStrings();
+  const card = LC.STRINGS[prefs.find('lumen_trailer').label];
+  const hero = LC.STRINGS[prefs.find('lumen_hero_media').label];
+  for (const lang of LANGS) {
+    assert.notEqual(card[lang], hero[lang], lang);
+    assert.ok(card[lang].indexOf(hero[lang]) === -1 && hero[lang].indexOf(card[lang]) === -1, lang);
+  }
+  assert.equal(card.ru, 'Трейлер в карточке');
 });
 
 /* Ревью Task 62 (М6): строки подтверждения готового стиля показываются
@@ -665,49 +591,88 @@ test('Task 62b: строки уведомления о готовом стиле
     'переводы lumen_preset_same не должны совпадать дословно: ' + LANGS.map((l) => same[l]).join(' / '));
 });
 
-/* Task 73 (фаза 6): описания ОБЕИХ кнопок обязаны называть все пункты,
-   которые кнопка переписывает, — иначе человек узнаёт о правке своей
-   настройки уже после нажатия. Ревью 2026-09-22 (п.4): пунктов девять —
-   к восьми добавился логотип названия, выпавший из набора при сборке
-   Task 73. A6 (волна A): десять — добавились блоки анализа Lampa. Сторож
-   сверяет и число словом, и упоминание поздних пунктов, во всех трёх
-   языках. */
-test('Task 73/A6: описания кнопок стиля называют все десять пунктов, включая плоский вид, логотип и блоки анализа', () => {
+/* 1.0.1: вместо двух длинных описаний кнопок (все десять пунктов набора
+   перечислением) — одно короткое у «Стиля». Что именно поменял выбор,
+   перечисляет уведомление после него (test/settings.test.mjs). Описание
+   обязано сказать, какие стороны вида трогает стиль, и объяснить «Свой» —
+   его ставит сам плагин, человек увидит его без всякого выбора. */
+test('1.0.1: описание «Стиля» говорит, что меняется, и объясняет «Свой»', () => {
   const LC = loadStrings();
-  assert.equal(prefs.PRESET_KEYS.length, 10, 'набор стиля изменился — поправить описания кнопок');
-  const count = { ru: 'десять', en: 'ten', uk: 'десять' };
-  const named = {
-    ru: ['плоский вид', 'логотип названия', 'блоки анализа lampa'],
-    en: ['flat look', 'title logo', 'lampa analysis blocks'],
-    uk: ['плаский вигляд', 'логотип назви', 'блоки аналізу lampa']
+  const pack = LC.STRINGS.lumen_style_descr;
+  const must = {
+    ru: ['тему', 'шрифт', 'метки', '«Свой»'],
+    en: ['theme', 'font', 'badges', '"Custom"'],
+    uk: ['тему', 'шрифт', 'мітки', '«Свій»']
   };
-  for (const key of ['lumen_preset_appletv_descr', 'lumen_preset_lumen_descr']) {
-    const pack = LC.STRINGS[key];
-    for (const lang of LANGS) {
-      const text = ('' + pack[lang]).toLowerCase();
-      assert.ok(text.indexOf(count[lang]) !== -1, key + ' (' + lang + '): нет числа пунктов «' + count[lang] + '»');
-      for (const one of named[lang]) {
-        assert.ok(text.indexOf(one) !== -1, key + ' (' + lang + '): не назван пункт «' + one + '»');
-      }
-      /* «восемь» само оканчивается на «семь», поэтому прежние числа ищутся
-         с границей слова, а не подстрокой. */
-      const stale = {
-        ru: /(^|[^а-яё])(семь|восемь|девять) пунктов/,
-        en: /(^|[^a-z])(seven|eight|nine) items/,
-        uk: /(^|[^а-яїієґ])(сім|вісім|дев’ять) пунктів/
-      };
-      assert.equal(stale[lang].test(text), false, key + ' (' + lang + '): в описании осталось прежнее число пунктов');
-    }
+  for (const lang of LANGS) {
+    for (const part of must[lang]) assert.ok(pack[lang].indexOf(part) !== -1, lang + ': нет «' + part + '»: ' + pack[lang]);
+    assert.equal(LC.STRINGS['lumen_style_custom'][lang], { ru: 'Свой', en: 'Custom', uk: 'Свій' }[lang]);
   }
 });
 
-test('в словаре нет пунктов-сирот: каждая строка lumen_card_group_* принадлежит заголовку из LIST', () => {
+test('в словаре нет пунктов-сирот: заголовки групп — только те, что стоят в LIST', () => {
   const LC = loadStrings();
   const used = {};
   for (const e of LC.prefs.LIST) { if (e.label) used[e.label] = true; }
   for (const key of Object.keys(LC.STRINGS)) {
-    if (key.indexOf('lumen_card_group_') !== 0) continue;
+    if (key.indexOf('lumen_card_group_') !== 0 && key.indexOf('lumen_group_') !== 0) continue;
     assert.ok(used[key], 'заголовок группы не используется в LIST: ' + key);
+  }
+  /* 1.0.1: строки убранных из раздела пунктов ушли вместе с ними. */
+  for (const key of ['lumen_preset_appletv_name', 'lumen_preset_lumen_descr', 'lumen_card_fonts_name',
+    'lumen_hero_trailer_name', 'lumen_kp_hint_name', 'lumen_reviews_mode_name', 'lumen_roulette_unseen_name',
+    'lumen_minimap_name', 'lumen_fastscroll_descr', 'lumen_franchise_button_name', 'lumen_franchise_row_descr',
+    'lumen_fx_all']) {
+    assert.equal(LC.STRINGS[key], undefined, 'строка убранного пункта осталась: ' + key);
+  }
+});
+
+/* 1.0.1: плагин отдают другим людям, и подписи раздела читает не его
+   автор. Внутренние слова — имена задач, модулей, ключей, API браузера —
+   человеку с пультом ничего не говорят. Проверяется ВСЁ видимое: подписи,
+   описания, подписи значений и плейсхолдеры, на трёх языках. */
+test('1.0.1: в видимых строках раздела нет внутренних терминов', () => {
+  const LC = loadStrings();
+  const bad = /\b(Task|HUD|LQIP|rowmem|prefetch|prefill|netmem|Storage|CSS|DOM|Ken Burns)\b|lumen_|LC\./i;
+  const keys = [];
+  for (const e of LC.prefs.LIST) {
+    for (const k of [e.label, e.descr, e.placeholder]) if (k) keys.push(k);
+    if (e.type === 'select') for (const v of e.values) keys.push(e.vprefix ? e.vprefix + v : e.vsuffix);
+  }
+  for (const key of keys) {
+    for (const lang of LANGS) {
+      const text = LC.STRINGS[key][lang];
+      assert.equal(bad.test(text), false, key + ' (' + lang + '): «' + text + '»');
+    }
+  }
+});
+
+/* 1.0.1: «настроек очень много» — описания короткие: одна-две фразы, что
+   будет. Прежние доходили до тысячи знаков. */
+test('1.0.1: описания пунктов короткие — не длиннее 240 знаков', () => {
+  const LC = loadStrings();
+  for (const e of LC.prefs.LIST) {
+    if (!e.descr) continue;
+    for (const lang of LANGS) {
+      const text = LC.STRINGS[e.descr][lang];
+      assert.ok(text.length <= 240, e.name + ' (' + lang + '): ' + text.length + ' знаков');
+    }
+  }
+});
+
+/* Шрифт грузится из интернета, и без него вид молча не меняется — это
+   человек должен знать до того, как решит, что настройка сломана. */
+test('1.0.1: описание «Шрифта» говорит про интернет и про то, что будет без него', () => {
+  const LC = loadStrings();
+  const must = {
+    ru: ['интернет', 'не загрузился', 'не изменится'],
+    en: ['internet', 'fails to load', 'nothing changes'],
+    uk: ['інтернет', 'не завантажився', 'не зміниться']
+  };
+  for (const lang of LANGS) {
+    for (const part of must[lang]) {
+      assert.ok(LC.STRINGS.lumen_card_font_descr[lang].indexOf(part) !== -1, lang + ': нет «' + part + '»');
+    }
   }
 });
 
@@ -915,6 +880,92 @@ test('Task 62a: migratePrefs молчит, когда мигрировать н�
   }
 });
 
+/* ====================================================================== */
+/* 1.0.1: миграции слитых пунктов.                                        */
+/*                                                                        */
+/* Значения — СТРОКИ: Lampa.Storage не хранит JS-false (boolOf выше).     */
+/* Старые булевы Lampa отдаёт из Storage.get уже булевыми (true/false) —  */
+/* оба вида проверяются. Переведённый старый ключ ставится в 'true',      */
+/* поэтому второй запуск ничего не находит.                               */
+/* ====================================================================== */
+
+function migrated(store) {
+  const writes = [];
+  withPrefs({ store: store, writes: writes }, (LC) => { LC.migratePrefs(); LC.migratePrefs(); });
+  return { writes, store };
+}
+
+test('1.0.1: «Фирменные шрифты» выкл → «Шрифт: Как в Lampa», ровно один раз', () => {
+  for (const off of ['false', false]) {
+    const { writes, store } = migrated({ lumen_card_fonts: off, lumen_font: 'inter' });
+    assert.deepEqual(writes, [['lumen_font', 'system'], ['lumen_card_fonts', 'true']], String(off));
+    assert.equal(store.lumen_font, 'system');
+  }
+  /* Включённые шрифты — выбор гарнитуры остаётся. */
+  assert.deepEqual(migrated({ lumen_card_fonts: 'true', lumen_font: 'plex' }).writes, []);
+});
+
+test('1.0.1: автотрейлер в кадре главной выкл → «Что в кадре: Только кадры»', () => {
+  for (const off of ['false', false]) {
+    const { writes } = migrated({ lumen_hero_trailer: off });
+    assert.deepEqual(writes, [['lumen_hero_media', 'frames'], ['lumen_hero_trailer', 'true']], String(off));
+  }
+  assert.deepEqual(migrated({ lumen_hero_trailer: 'true', lumen_hero_media: 'trailer' }).writes, []);
+});
+
+test('1.0.1: «Атмосферы: Все» → «Праздничные эффекты: Новый год и Хэллоуин», «Выкл» остаётся', () => {
+  assert.deepEqual(migrated({ lumen_fx: 'all' }).writes, [['lumen_fx', 'seasonal']]);
+  assert.deepEqual(migrated({ lumen_fx: 'off' }).writes, []);
+  assert.deepEqual(migrated({ lumen_fx: 'seasonal' }).writes, []);
+});
+
+/* Слитые из двух: выключены оба — новый пункт выключен. Выключен один —
+   переводить не во что: новый пункт остаётся включённым, а старый ключ
+   дочитывает место чтения (кнопка «Франшиза» так и остаётся скрытой, пока
+   человек не тронет «Франшизы»). */
+test('1.0.1: «Франшизы» и «Ускорители пульта» — выкл, только если были выключены обе части', () => {
+  const fr = migrated({ lumen_franchise_button: 'false', lumen_franchise_row: false });
+  assert.deepEqual(fr.writes, [['lumen_franchise', 'false'], ['lumen_franchise_button', 'true'], ['lumen_franchise_row', 'true']]);
+  const nav = migrated({ lumen_minimap: 'false', lumen_fastscroll: 'false' });
+  assert.deepEqual(nav.writes, [['lumen_remote_boost', 'false'], ['lumen_minimap', 'true'], ['lumen_fastscroll', 'true']]);
+  for (const store of [{ lumen_franchise_button: 'false' }, { lumen_franchise_row: 'false' },
+    { lumen_minimap: 'false' }, { lumen_fastscroll: 'false', lumen_minimap: 'true' }]) {
+    assert.deepEqual(migrated(store).writes, [], 'частичный выбор не переводится: ' + JSON.stringify(store));
+  }
+});
+
+test('1.0.1: сбой одного шага миграции не отменяет остальные', () => {
+  const writes = [];
+  const warns = [];
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'warn');
+  const prev = globalThis.warn;
+  globalThis.warn = (msg) => warns.push(msg);
+  try {
+    withPrefs({ store: { lumen_badges: 'true', lumen_card_fonts: 'false', lumen_fx: 'all' }, writes: writes }, (LC) => {
+      const set = Lampa.Storage.set;
+      Lampa.Storage.set = (name, value) => { if (name === 'lumen_font') throw new Error('квота'); set(name, value); };
+      LC.migratePrefs();
+    });
+  } finally {
+    if (had) globalThis.warn = prev; else delete globalThis.warn;
+  }
+  assert.deepEqual(writes, [['lumen_badges', 'poster'], ['lumen_fx', 'seasonal']]);
+  assert.equal(warns.length, 1);
+});
+
+/* Частичный выбор дочитывается местами чтения — сверка по исходникам:
+   каждый старый ключ из MERGED по-прежнему читается рядом с новым. */
+test('1.0.1: места чтения дочитывают старые ключи слитых пунктов', () => {
+  const src = (name) => readFileSync(new URL('../src/' + name, import.meta.url), 'utf8');
+  assert.match(src('46_hub.js'), /LC\.pref\('lumen_franchise', true\) && !!LC\.pref\('lumen_franchise_button', true\)/);
+  assert.match(src('66_franchise.js'), /LC\.pref\('lumen_franchise', true\) && !!LC\.pref\('lumen_franchise_row', true\)/);
+  assert.match(src('90_runtime.js'), /!LC\.pref\('lumen_franchise', true\) \|\| !LC\.pref\('lumen_franchise_row', true\)/);
+  assert.match(src('64_nav.js'), /boostOn\(\) && LC\.pref\('lumen_minimap', true\)/);
+  assert.match(src('64_nav.js'), /boostOn\(\) && LC\.pref\('lumen_fastscroll', true\)/);
+  assert.match(src('30_css.js'), /LC\.pref\('lumen_font', FONT_DEFAULT\) !== 'system' && !!LC\.pref\(PLUGIN \+ '_fonts', true\)/);
+  assert.match(src('48_hero.js'), /LC\.pref\('lumen_hero_trailer', true\)/);
+});
+
 /* Пункт читается ровно одной функцией — иначе дефолт вызова и дефолт
    пункта однажды разойдутся (ровно так молчала подкраска с Task 35 по
    Task 60, см. сверку в самом низу файла). */
@@ -959,7 +1010,9 @@ test('Постеры: источник постера — select из трёх �
 test('Постеры: описание называет цену «без надписей», кэш и настройку Lampa, на которой он держится', () => {
   const LC = loadStrings();
   const pack = LC.STRINGS.lumen_posters_descr;
-  const numbers = { ru: ['двадцат', 'сорок', '150'], en: ['twenty', 'forty', '150'], uk: ['двадцят', 'сорок', '150'] };
+  /* 1.0.1: описание короткое — цену называет словами «запрос на каждую
+     карточку» (числа по рядам — в README, раздел настроек). */
+  const numbers = { ru: ['по запросу на карточку'], en: ['once per card'], uk: ['по запиту на картку'] };
   const cache = { ru: 'кэш', en: 'cache', uk: 'кеш' };
   /* Подписи самой Lampa: vendor/lampa/app.min.js:48930 и :51226,
      vendor/lampa/lang/uk.js:1246. */
@@ -1087,12 +1140,17 @@ test('Task 62b: неизвестный стиль — пустой набор, �
   assert.deepEqual(prefs.presetValues(), {});
 });
 
-test('Task 62b: кнопки стиля ничего не хранят', () => {
-  for (const name of ['lumen_preset_appletv', 'lumen_preset_lumen']) {
-    const entry = prefs.find(name);
-    assert.equal(entry.type, 'button');
-    assert.equal(typeof entry['default'], 'undefined');
-    assert.ok(entry.label && entry.descr, name + ': кнопке нужны и название, и описание');
+/* 1.0.1: «Стиль» показывает то, что стоит на самом деле: набор целиком
+   совпал со стилем — его имя, иначе «Свой». */
+test('1.0.1: styleOf — стиль по фактическим значениям, иначе custom', () => {
+  const read = (values) => (key) => values[key];
+  assert.equal(prefs.styleOf(read(prefs.presetValues('lumen'))), 'lumen');
+  assert.equal(prefs.styleOf(read(prefs.presetValues('appletv'))), 'appletv');
+  for (const key of prefs.PRESET_KEYS) {
+    const tweaked = Object.assign({}, prefs.presetValues('appletv'));
+    const entry = prefs.find(key);
+    tweaked[key] = entry.type === 'trigger' ? !tweaked[key] : '__другое__';
+    assert.equal(prefs.styleOf(read(tweaked)), 'custom', 'правка ' + key + ' не сделала стиль «Своим»');
   }
 });
 
@@ -1185,7 +1243,7 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
      старыми. Сейчас они читаются литералом и в сверку попадают сами, но
      стоит завтра записать чтение через переменную или конкатенацию — и они
      выпадут молча, ровно как выпадали ключи с PLUGIN + '…'. */
-  for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
+  for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_card_progress',
     'lumen_badges', 'lumen_accent_scope', 'lumen_hero_logo',
     /* Правка 2026-09-23 (долг фазы 1, п.5): эти три читались через
        Lampa.Storage.field и в сверку не попадали вовсе. */
@@ -1193,7 +1251,11 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
     /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
     'lumen_posters', 'lumen_hero_media', 'lumen_card_logo',
     /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
-    'lumen_home_start']) {
+    'lumen_home_start',
+    /* 1.0.1: слитые пункты и бывшие «консольные» выключатели — теперь в
+       разделе, и их дефолт обязан совпадать с местом чтения. */
+    'lumen_font', 'lumen_franchise', 'lumen_remote_boost', 'lumen_rowmem', 'lumen_rowmem_bytes',
+    'lumen_netmem', 'lumen_prefill', 'lumen_fx']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
   }
@@ -1221,11 +1283,12 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
   assert.match(String(load('81_prefs.js').boolOf), /function/, 'модуль настроек загрузился');
 });
 
-/* Сверка 2026-09-26: описание «Быстрого листания» обещало ускорение втрое,
+/* Сверка 2026-09-26: описание «Быстрого листания» (1.0.1 — «Ускорителей
+   пульта») обещало ускорение втрое,
    а код с Task 33 добавляет один шаг на каждое штатное событие (FAST_EXTRA
    = 1 в src/64_nav.js), то есть ×2. Кратность в описании — от той же
    константы, на всех трёх языках. */
-test('сверка: «Быстрое листание» — кратность в описании та же, что в коде (FAST_EXTRA)', () => {
+test('сверка: «Ускорители пульта» — кратность листания в описании та же, что в коде (FAST_EXTRA)', () => {
   const nav = readFileSync(new URL('../src/64_nav.js', import.meta.url), 'utf8');
   const extra = /var FAST_EXTRA = (\d+);/.exec(nav);
   assert.ok(extra, 'FAST_EXTRA в src/64_nav.js не найдена');
@@ -1237,7 +1300,7 @@ test('сверка: «Быстрое листание» — кратность �
   assert.ok(words, 'кратность ×' + factor + ' тест не знает — допишите слова');
   const LC = loadStrings();
   for (const lang of LANGS) {
-    const text = LC.STRINGS.lumen_fastscroll_descr[lang];
+    const text = LC.STRINGS.lumen_remote_boost_descr[lang];
     assert.match(text, words[lang], lang + ': описание не называет ×' + factor + ': ' + text);
     assert.doesNotMatch(text, /втрое|three times|втричі/, lang + ': в описании осталось «втрое»');
   }
@@ -1252,18 +1315,21 @@ test('сверка: строка «Осталось N мин» на трёх я�
   assert.equal(s.uk, 'Залишилось {n} хв');
 });
 
-test('сверка: выключатели «Франшизы» и «Смотреть по порядку» — переключатели, по умолчанию включены, три языка', () => {
+test('1.0.1: «Франшизы» — один переключатель на кнопку и ряд, три языка', () => {
   const LC = loadStrings();
-  for (const key of ['lumen_franchise_button', 'lumen_franchise_row']) {
-    const entry = prefs.find(key);
-    assert.equal(entry.type, 'trigger', key);
-    assert.equal(entry['default'], true, key);
-    for (const lang of LANGS) {
-      assert.ok(LC.STRINGS[entry.label][lang] && LC.STRINGS[entry.descr][lang], key + ': нет строк ' + lang);
-    }
+  const entry = prefs.find('lumen_franchise');
+  assert.equal(entry.type, 'trigger');
+  assert.equal(entry['default'], true);
+  assert.deepEqual(LC.STRINGS.lumen_franchise_name, { ru: 'Франшизы', en: 'Franchises', uk: 'Франшизи' });
+  /* Описание называет обе части — кнопку и ряд — их экранными именами. */
+  const parts = {
+    ru: [LC.STRINGS.lumen_card_franchise.ru, LC.STRINGS.lumen_fr_title.ru],
+    en: [LC.STRINGS.lumen_card_franchise.en, LC.STRINGS.lumen_fr_title.en],
+    uk: [LC.STRINGS.lumen_card_franchise.uk, LC.STRINGS.lumen_fr_title.uk]
+  };
+  for (const lang of LANGS) {
+    for (const part of parts[lang]) assert.ok(LC.STRINGS.lumen_franchise_descr[lang].indexOf(part) !== -1, lang + ': нет «' + part + '»');
   }
-  assert.equal(LC.STRINGS.lumen_franchise_button_name.ru, 'Кнопка «Франшиза»');
-  assert.equal(LC.STRINGS.lumen_franchise_row_name.ru, 'Ряд «Смотреть по порядку»');
 });
 
 test('решение 2026-09-26: подпись группы «Настроение» в хабе — три языка', () => {

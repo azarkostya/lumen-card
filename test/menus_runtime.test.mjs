@@ -30,7 +30,10 @@ function setup(opts) {
      оригинал (главный выключатель lumen_enabled). */
   const added = [];
   const Lampa = {
-    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => added.push({ name, html }), get: () => '' },
+    /* 1.0.1: шаблон второго экрана настроек (settings_lumen_card_more,
+       LC.addSettings) — не шаблон карточки; журнал added — только про
+       подмену full_start_new. */
+    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => { if (name.indexOf('settings_') !== 0) added.push({ name, html }); }, get: () => '' },
     Listener: { follow: (name, cb) => { if (name === 'full') fulls.push(cb); } },
     Lang: { add: () => { } },
     SettingsApi: { addComponent: () => { }, addParam: (p) => params.push(p) },
@@ -106,7 +109,7 @@ test('fix ревью: настройка из меню Lampa применяет�
   const { LC, log, storageCbs, params } = setup();
   LC.init();
   log.length = 0;
-  for (const name of ['lumen_card_accent', 'lumen_card_fonts', 'lumen_menus', 'lumen_torrents']) {
+  for (const name of ['lumen_card_accent', 'lumen_font', 'lumen_menus', 'lumen_torrents']) {
     storageCbs[0]({ name }); // Lampa Storage.set: сначала listener 'change'
     onChangeOf(params, name)(); // затем onChange параметра
   }
@@ -129,7 +132,6 @@ test('долг ревью (п.2): каждая настройка раздела
   const expected = {
     lumen_enabled: ['applyEnabledPref'],
     lumen_card_accent: ['injectCss'],
-    lumen_card_fonts: ['injectFonts', 'injectCss'],
     /* Проверка на ТВ 2026-09-24: ротацию кадров карточки гасит «Выкл». */
     lumen_motion: ['applyMotionMode', 'applySlideshowPref'],
     /* Task 31 (фаза 4): HUD отладки — LC.hud.sync() (вне POINTS: только
@@ -143,15 +145,11 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_font: ['injectFonts', 'injectCss'],
     lumen_reviews: ['applyReviewsPref'],
     lumen_kp_key: ['applyReviewsPref'],
-    /* Сверка 2026-09-26: кнопка «Франшиза» и ряд «Смотреть по порядку» —
-       перерисовка открытой карточки, CSS не трогается. */
-    lumen_franchise_button: ['applyFranchisePref'],
-    lumen_franchise_row: ['applyFranchisePref'],
+    /* 1.0.1: «Франшизы» — кнопка и ряд одним пунктом: перерисовка
+       открытой карточки, CSS не трогается. */
+    lumen_franchise: ['applyFranchisePref'],
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
-    /* Task 20: подсказка «Ключ API не задан» — тот же перерисовщик ряда
-       отзывов, что у самого ключа, плюс сетка подборки (вне POINTS). */
-    lumen_kp_hint: ['applyReviewsPref'],
     /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка
        каталога (applyRowsPref, вне POINTS). */
     lumen_manifest_url: [],
@@ -211,15 +209,10 @@ test('долг ревью (п.2): каждая настройка раздела
        (правило подложки фокуса либо есть, либо нет), и узел подкраски
        переписывает сама пересборка — LC.injectCss зовёт LC.accent.restyle. */
     lumen_accent_scope: ['injectCss'],
-    /* Task 27 (фаза 3): мини-карта и быстрое листание — applyNavPref (вне
-       POINTS): он только ставит и снимает подписки на клавиатуру Lampa. */
-    lumen_minimap: [],
-    lumen_fastscroll: [],
-    /* Task 28 (фаза 3): режим показа отзывов — тот же перерисовщик ряда, что
-       у ключа API; автотрейлер в кадре главной — LC.hero.applyTrailer (вне
-       POINTS: он только снимает играющий ролик). */
-    lumen_reviews_mode: ['applyReviewsPref'],
-    lumen_hero_trailer: [],
+    /* 1.0.1: «Ускорители пульта» (мини-карта и быстрое листание) —
+       applyNavPref (вне POINTS): он только ставит и снимает подписки на
+       клавиатуру Lampa. */
+    lumen_remote_boost: [],
     /* Правка 2026-09-23: что показывает кадр главной — LC.hero.applyMedia
        (вне POINTS: он снимает ролик или смену кадров у самого героя). */
     lumen_hero_media: [],
@@ -241,25 +234,28 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_ambient: [],
     lumen_ambient_source: [],
     lumen_ambient_delay: [],
-    /* Task 23 (фаза 3): фильтр рулетки читается при входе в неё — на живом
-       экране применять нечего. */
-    lumen_roulette_unseen: [],
     /* Task 40 (фаза 4): тумблер тяжёлых эффектов — класс на body и слой
        частиц через applyMotionMode. Ротация кадров карточки от него с
        2026-09-24 не зависит. */
     lumen_fx_heavy: ['applyMotionMode'],
-    /* Task 62b (фаза 5): кнопки готового стиля. Своего значения у них нет —
-       нажатие пишет ЧУЖИЕ настройки, и каждая применяется своей веткой
-       выше. Здесь проверяется только то, что «запись» самой кнопки ничего
-       не запускает и не уходит в общий фильтр по префиксу; само нажатие в
-       этом окружении безопасно уходит в no-op (Storage.set в моке выше
-       нет), а что именно оно пишет — в test/settings.test.mjs. */
-    lumen_preset_appletv: [],
-    lumen_preset_lumen: [],
+    /* 1.0.1: «Стиль» — select. Выбор пишет ЧУЖИЕ настройки набора
+       (applyPreset) и применяет их одним LC.applyPresetChanges; в этом
+       окружении запись уходит в no-op (Storage.set в моке выше нет), а что
+       именно она пишет — в test/settings.test.mjs. Здесь проверяется, что
+       сама запись «Стиля» не уходит в общий фильтр по префиксу. */
+    lumen_style: [],
     /* Волна производительности: кнопка самотеста — значения нет, запись
        ничего не применяет; нажатие зовёт LC.bench.start (его здесь нет —
-       проверка нажатия в test/settings.test.mjs). */
-    lumen_debug_bench: []
+       проверка нажатия в test/settings.test.mjs). 1.0.1: так же кнопка
+       «Дополнительно…» (Lampa.Settings.create здесь нет — no-op). */
+    lumen_debug_bench: [],
+    lumen_more: [],
+    /* 1.0.1: выключатели «Для разработчика» читаются модулями на каждом
+       шаге — применять нечего. */
+    lumen_rowmem: [],
+    lumen_rowmem_bytes: [],
+    lumen_netmem: [],
+    lumen_prefill: []
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от

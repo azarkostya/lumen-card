@@ -2159,8 +2159,64 @@
      Fonts — это наш ресурс, а не Lampa. LC.applyEnabledPref (90_runtime.js)
      зовёт LC.injectFonts() на выключении, и ветка удаления срабатывает именно
      отсюда: отдельной функции снятия не нужно. */
+  /* 1.0.1: выключатель «Фирменные шрифты» слит в «Шрифт» — значение
+     'system' («Как в Lampa»). Старый ключ дочитывается: сохранённый
+     выключенным, он держит шрифты выключенными, пока человек не выберет
+     шрифт в новом пункте (LC.migratePrefs, releaseMerged в
+     src/80_settings.js). */
   function useFonts() {
-    return LC.enabled() && LC.pref(PLUGIN + '_fonts', true);
+    return LC.enabled() && LC.pref('lumen_font', FONT_DEFAULT) !== 'system' && !!LC.pref(PLUGIN + '_fonts', true);
+  }
+
+  /* 1.0.1: стек выбранной гарнитуры для превью в разделе настроек (строка
+     «Шрифт» набрана им, src/80_settings.js). Пусто — шрифты плагина не
+     действуют, и строка наследует шрифт Lampa. */
+  LC.fontStack = function () {
+    return useFonts() ? bodyStack(fontSet()) : '';
+  };
+
+  /* 1.0.1: загрузился ли шрифт. Гарнитура приходит с Google Fonts, и без
+     интернета (или при заблокированном домене) вид молча оставался
+     прежним — человек думал, что настройка сломана. LC.fontsFailed:
+     null — ещё грузится или не проверялось, true — не загрузился (ошибка
+     <link> или document.fonts не нашёл начертания), false — загрузился.
+     Ставит его LC.injectFonts ниже; показывает HUD (поле «font»). */
+  LC.fontsFailed = null;
+
+  LC.fontsState = function () {
+    try {
+      if (!useFonts()) return 'off';
+    } catch (e) {
+      return 'off';
+    }
+    if (LC.fontsFailed === true) return 'fail';
+    if (LC.fontsFailed === false) return 'ok';
+    return 'load';
+  };
+
+  /* Таблица стилей Google Fonts загрузилась — это ещё не шрифт: файлы
+     начертаний браузер тянет сам и только по надобности. document.fonts.load
+     просит нужное начертание и отвечает списком найденных: пустой список
+     или отказ — шрифта нет. Ответ устарел (гарнитуру успели сменить) —
+     молчим: за новой следит её собственная загрузка. */
+  function checkFontFace() {
+    var family = fontSet().body;
+    try {
+      var fonts = document.fonts;
+      if (!fonts || typeof fonts.load !== 'function') { LC.fontsFailed = false; return; }
+      fonts.load('400 1em "' + family + '"').then(function (list) {
+        if (fontSet().body === family) LC.fontsFailed = !(list && list.length);
+      }, function () {
+        if (fontSet().body === family) LC.fontsFailed = true;
+      });
+    } catch (e) {
+      LC.fontsFailed = false;
+    }
+  }
+
+  function watchFonts(link) {
+    link.onload = function () { checkFontFace(); };
+    link.onerror = function () { LC.fontsFailed = true; };
   }
 
   /* Task 32: токены наружу для CSS экранов пути (src/65_torrents.js) —
@@ -6789,6 +6845,7 @@
       var existing = document.getElementById(FONTS_ID);
       if (!useFonts()) {
         if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+        LC.fontsFailed = null;
         return;
       }
       /* Правка 2026-09-16 (п.6): адрес зависит от настройки «Шрифт», поэтому
@@ -6798,12 +6855,19 @@
          заметное мигание текста. */
       var href = LC.fontsUrl();
       if (existing) {
-        if (existing.getAttribute('href') !== href) existing.setAttribute('href', href);
+        if (existing.getAttribute('href') !== href) {
+          /* Новый адрес — новая загрузка: load/error придут заново. */
+          LC.fontsFailed = null;
+          watchFonts(existing);
+          existing.setAttribute('href', href);
+        }
         return;
       }
       var link = document.createElement('link');
       link.id = FONTS_ID;
       link.rel = 'stylesheet';
+      LC.fontsFailed = null;
+      watchFonts(link);
       link.href = href;
       (document.head || document.getElementsByTagName('head')[0]).appendChild(link);
     } catch (e) {
