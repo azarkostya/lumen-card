@@ -301,15 +301,26 @@
     /* 1.0.2: слитые пункты — новый ключ и старые, которые он заменил.
        Старый ключ, сохранённый выключенным, дочитывается местом чтения
        (lumen_franchise И lumen_franchise_row и т. д.), пока человек не
-       тронет новый пункт: тогда старые ставятся в 'true'
-       (releaseMerged, src/80_settings.js), и новый пункт — единственный,
-       кто решает. Однозначные случаи LC.migratePrefs переводит сразу. */
+       тронет новый пункт: тогда старые получают его значение (mergedOn
+       ниже; releaseMerged, src/80_settings.js), и дальше решает новый
+       пункт. Однозначные случаи LC.migratePrefs переводит сразу. */
     var MERGED = {
       lumen_font: ['lumen_card_fonts'],
       lumen_hero_media: ['lumen_hero_trailer'],
       lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
       lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll']
     };
+
+    /* Ревью 1.0.2: значение старых ключей, которое отвечает значению нового
+       пункта. 1.0.1 читает только старые ключи, поэтому откат на неё
+       обязан видеть тот же выбор: «Шрифт: Как в Lampa» — фирменные шрифты
+       выключены, «Только кадры» — автотрейлер выключен, выключенные
+       «Франшизы» и «Ускорители пульта» — обе части выключены. */
+    function mergedOn(name, value) {
+      if (name === 'lumen_font') return value !== 'system';
+      if (name === 'lumen_hero_media') return value !== 'frames';
+      return boolOf(value, true);
+    }
 
     function find(name) {
       if (!name) return null;
@@ -461,7 +472,7 @@
     return {
       LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
       motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-      PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED,
+      PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED, mergedOn: mergedOn,
       normalize: normalize, override: override, clearOverride: clearOverride,
       overridden: overridden, overrideOf: overrideOf
     };
@@ -559,13 +570,16 @@
        «Атмосферы» = 'all' ................ lumen_fx = 'seasonal';
        кнопка «Франшиза» И ряд выкл ....... lumen_franchise = 'false';
        мини-карта И быстрое листание выкл . lumen_remote_boost = 'false'.
-     Переведённый старый ключ ставится в 'true'. Места чтения его по-прежнему
-     дочитывают (частичный выбор — выключена одна из двух частей —
-     переводить не во что, и он остаётся в силе, пока человек не тронет новый
-     пункт), а повторный запуск по 'true' уже ничего не находит: миграция
-     идемпотентна без отдельной метки версии. Булевы — строками: JS-false
-     Lampa отдаёт из памяти как false, а LC.pref не отличит его от «нет
-     значения» (boolOf выше).
+     Старые ключи миграция НЕ трогает (ревью 1.0.2): 1.0.1 читает только их,
+     и откат на неё обязан оставить выключенное выключенным. Места чтения
+     дочитывают старый ключ рядом с новым (частичный выбор — выключена одна
+     из двух частей — переводить не во что, и он остаётся в силе, пока
+     человек не тронет новый пункт), а тронутый новый пункт пишет своё
+     значение и в старые ключи (releaseMerged, src/80_settings.js). Шаг
+     пишет, только если новый пункт ещё не переведён, поэтому повторный
+     запуск ничего не пишет: миграция идемпотентна без отдельной метки
+     версии. Булевы — строками: JS-false Lampa отдаёт из памяти как false,
+     а LC.pref не отличит его от «нет значения» (boolOf выше).
      Каждый шаг — в своём try: сбой одного не отменяет остальные. */
   LC.migratePrefs = function () {
     if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
@@ -591,29 +605,19 @@
       Lampa.Storage.set('lumen_badges', LC.prefs.badgesMode(badges));
     });
     step(function () {
-      if (!off('lumen_card_fonts')) return;
-      Lampa.Storage.set('lumen_font', 'system');
-      Lampa.Storage.set('lumen_card_fonts', 'true');
+      if (off('lumen_card_fonts') && get('lumen_font') !== 'system') Lampa.Storage.set('lumen_font', 'system');
     });
     step(function () {
-      if (!off('lumen_hero_trailer')) return;
-      Lampa.Storage.set('lumen_hero_media', 'frames');
-      Lampa.Storage.set('lumen_hero_trailer', 'true');
+      if (off('lumen_hero_trailer') && get('lumen_hero_media') !== 'frames') Lampa.Storage.set('lumen_hero_media', 'frames');
     });
     step(function () {
       if (get('lumen_fx') === 'all') Lampa.Storage.set('lumen_fx', 'seasonal');
     });
     step(function () {
-      if (!off('lumen_franchise_button') || !off('lumen_franchise_row')) return;
-      Lampa.Storage.set('lumen_franchise', 'false');
-      Lampa.Storage.set('lumen_franchise_button', 'true');
-      Lampa.Storage.set('lumen_franchise_row', 'true');
+      if (off('lumen_franchise_button') && off('lumen_franchise_row') && !off('lumen_franchise')) Lampa.Storage.set('lumen_franchise', 'false');
     });
     step(function () {
-      if (!off('lumen_minimap') || !off('lumen_fastscroll')) return;
-      Lampa.Storage.set('lumen_remote_boost', 'false');
-      Lampa.Storage.set('lumen_minimap', 'true');
-      Lampa.Storage.set('lumen_fastscroll', 'true');
+      if (off('lumen_minimap') && off('lumen_fastscroll') && !off('lumen_remote_boost')) Lampa.Storage.set('lumen_remote_boost', 'false');
     });
   };
 

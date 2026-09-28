@@ -822,7 +822,7 @@ test('1.0.2: при старте «Стиль» сверяется с набор
 });
 
 /* Слитые пункты: пока новый не тронут, старый ключ дочитывается местом
-   чтения; тронули новый — старые перестают решать. */
+   чтения; тронули новый — старые получают его значение и перестают решать. */
 test('1.0.2: правка нового пункта отпускает старые ключи — пишет им строку true без события', () => {
   const env = setup({ storage: { lumen_franchise_button: 'false', lumen_minimap: false, lumen_card_fonts: 'false', lumen_font: 'system' } });
   env.LC.addSettings();
@@ -845,6 +845,52 @@ test('1.0.2: правка нового пункта отпускает стар�
   choose(preset, 'lumen');
   assert.equal(preset.storage.lumen_font, 'golos');
   assert.equal(preset.storage.lumen_card_fonts, 'true');
+});
+
+/* Ревью 1.0.2: 1.0.1 читает только старые ключи. Прежняя запись 'true'
+   включала там выключенное новым пунктом — теперь старые ключи повторяют
+   значение нового: откат на 1.0.1 видит тот же выбор. */
+test('1.0.2: выключающее значение нового пункта пишет старым ключам строку false без события', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const seen = [];
+  env.subscribers.push((e) => seen.push(e.name));
+  env.Storage.set('lumen_franchise', 'false');
+  env.Storage.set('lumen_remote_boost', 'false');
+  env.Storage.set('lumen_font', 'system');
+  env.Storage.set('lumen_hero_media', 'frames');
+  for (const key of ['lumen_franchise_button', 'lumen_franchise_row', 'lumen_minimap', 'lumen_fastscroll',
+    'lumen_card_fonts', 'lumen_hero_trailer']) {
+    assert.equal(env.storage[key], 'false', key);
+  }
+  assert.deepEqual(seen, ['lumen_franchise', 'lumen_remote_boost', 'lumen_font', 'lumen_hero_media'], 'старые ключи пишутся с nolisten');
+  /* Включили обратно — старые ключи снова 'true'. */
+  env.Storage.set('lumen_franchise', 'true');
+  env.Storage.set('lumen_font', 'onest');
+  env.Storage.set('lumen_hero_media', 'trailer');
+  assert.equal(env.storage.lumen_franchise_button, 'true');
+  assert.equal(env.storage.lumen_franchise_row, 'true');
+  assert.equal(env.storage.lumen_card_fonts, 'true');
+  assert.equal(env.storage.lumen_hero_trailer, 'true');
+  /* Стиль с шрифтом «Как в Lampa» набора не бывает, но запись набора идёт
+     той же дорогой: Apple TV пишет Inter — шрифты включены и для 1.0.1. */
+  const preset = setup({ storage: { lumen_card_fonts: 'false', lumen_font: 'system' } });
+  preset.LC.addSettings();
+  preset.LC.followStorage();
+  choose(preset, 'appletv');
+  assert.equal(preset.storage.lumen_font, 'inter');
+  assert.equal(preset.storage.lumen_card_fonts, 'true');
+});
+
+test('1.0.2: значение нового пункта, совпадающее со старыми ключами, лишних записей не делает', () => {
+  const env = setup({ storage: { lumen_franchise_button: 'false', lumen_franchise_row: 'false' } });
+  env.LC.addSettings();
+  env.LC.followStorage();
+  env.Storage.set('lumen_franchise', 'false');
+  env.Storage.set('lumen_font', 'inter');
+  assert.equal(env.storage.lumen_franchise_button, 'false');
+  assert.equal(typeof env.storage.lumen_card_fonts, 'undefined', 'ключа нет — это «включено», как у 1.0.1');
 });
 
 test('1.0.2: «Дополнительно…» открывает второй экран, «Назад» — снова «Lumen Card» с фокусом на кнопке', () => {

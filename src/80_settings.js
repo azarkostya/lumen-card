@@ -1568,18 +1568,22 @@
   }
 
   /* 1.0.2: слитые пункты (LC.prefs.MERGED). Человек тронул новый пункт —
-     старые ключи, сохранённые выключенными, ставятся в 'true': дальше
-     решает только новый. Пока не тронул — места чтения дочитывают старый,
-     и частичный выбор (выключенная кнопка «Франшиза» при включённом ряде)
-     не теряется молча. */
+     старые ключи получают его значение (LC.prefs.mergedOn): выключил —
+     'false', включил — 'true'. Дальше решает только новый пункт, а откат
+     на 1.0.1, которая читает одни старые ключи, видит тот же выбор (ревью
+     1.0.2: прежняя запись 'true' включала там выключенное). Пока новый
+     пункт не тронут — места чтения дочитывают старый, и частичный выбор
+     (выключенная кнопка «Франшиза» при включённом ряде) не теряется молча.
+     Пишется только расхождение; ключа нет — это «включено», как у 1.0.1. */
   function releaseMerged(name) {
     try {
       if (!Object.prototype.hasOwnProperty.call(LC.prefs.MERGED, name)) return;
       if (!window.Lampa || !Lampa.Storage) return;
       if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+      var on = LC.prefs.mergedOn(name, presetCurrent(name));
       var old = LC.prefs.MERGED[name];
       for (var i = 0; i < old.length; i++) {
-        if (LC.prefs.boolOf(Lampa.Storage.get(old[i], ''), true) === false) Lampa.Storage.set(old[i], 'true', true);
+        if (LC.prefs.boolOf(Lampa.Storage.get(old[i], ''), true) !== on) Lampa.Storage.set(old[i], on ? 'true' : 'false', true);
       }
     } catch (e) {
       warn('merged release failed', e);

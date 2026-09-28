@@ -885,8 +885,9 @@ test('Task 62a: migratePrefs молчит, когда мигрировать н�
 /*                                                                        */
 /* Значения — СТРОКИ: Lampa.Storage не хранит JS-false (boolOf выше).     */
 /* Старые булевы Lampa отдаёт из Storage.get уже булевыми (true/false) —  */
-/* оба вида проверяются. Переведённый старый ключ ставится в 'true',      */
-/* поэтому второй запуск ничего не находит.                               */
+/* оба вида проверяются. Старые ключи миграция не трогает (ревью 1.0.2:   */
+/* 1.0.1 читает только их, откат не должен включать выключенное); второй  */
+/* запуск ничего не пишет — новый пункт уже переведён.                    */
 /* ====================================================================== */
 
 function migrated(store) {
@@ -895,22 +896,27 @@ function migrated(store) {
   return { writes, store };
 }
 
-test('1.0.2: «Фирменные шрифты» выкл → «Шрифт: Как в Lampa», ровно один раз', () => {
+test('1.0.2: «Фирменные шрифты» выкл → «Шрифт: Как в Lampa», ровно один раз, старый ключ не тронут', () => {
   for (const off of ['false', false]) {
     const { writes, store } = migrated({ lumen_card_fonts: off, lumen_font: 'inter' });
-    assert.deepEqual(writes, [['lumen_font', 'system'], ['lumen_card_fonts', 'true']], String(off));
+    assert.deepEqual(writes, [['lumen_font', 'system']], String(off));
     assert.equal(store.lumen_font, 'system');
+    assert.equal(store.lumen_card_fonts, off, 'для отката на 1.0.1 шрифты остаются выключенными');
   }
   /* Включённые шрифты — выбор гарнитуры остаётся. */
   assert.deepEqual(migrated({ lumen_card_fonts: 'true', lumen_font: 'plex' }).writes, []);
+  /* Уже переведённый профиль (следующий запуск) — записей нет. */
+  assert.deepEqual(migrated({ lumen_card_fonts: 'false', lumen_font: 'system' }).writes, []);
 });
 
-test('1.0.2: автотрейлер в кадре главной выкл → «Что в кадре: Только кадры»', () => {
+test('1.0.2: автотрейлер в кадре главной выкл → «Что в кадре: Только кадры», старый ключ не тронут', () => {
   for (const off of ['false', false]) {
-    const { writes } = migrated({ lumen_hero_trailer: off });
-    assert.deepEqual(writes, [['lumen_hero_media', 'frames'], ['lumen_hero_trailer', 'true']], String(off));
+    const { writes, store } = migrated({ lumen_hero_trailer: off });
+    assert.deepEqual(writes, [['lumen_hero_media', 'frames']], String(off));
+    assert.equal(store.lumen_hero_trailer, off);
   }
   assert.deepEqual(migrated({ lumen_hero_trailer: 'true', lumen_hero_media: 'trailer' }).writes, []);
+  assert.deepEqual(migrated({ lumen_hero_trailer: 'false', lumen_hero_media: 'frames' }).writes, []);
 });
 
 test('1.0.2: «Атмосферы: Все» → «Праздничные эффекты: Новый год и Хэллоуин», «Выкл» остаётся', () => {
@@ -925,12 +931,31 @@ test('1.0.2: «Атмосферы: Все» → «Праздничные эфф�
    человек не тронет «Франшизы»). */
 test('1.0.2: «Франшизы» и «Ускорители пульта» — выкл, только если были выключены обе части', () => {
   const fr = migrated({ lumen_franchise_button: 'false', lumen_franchise_row: false });
-  assert.deepEqual(fr.writes, [['lumen_franchise', 'false'], ['lumen_franchise_button', 'true'], ['lumen_franchise_row', 'true']]);
+  assert.deepEqual(fr.writes, [['lumen_franchise', 'false']]);
+  assert.equal(fr.store.lumen_franchise_button, 'false', 'старые ключи не тронуты — откат на 1.0.1 их видит');
+  assert.equal(fr.store.lumen_franchise_row, false);
   const nav = migrated({ lumen_minimap: 'false', lumen_fastscroll: 'false' });
-  assert.deepEqual(nav.writes, [['lumen_remote_boost', 'false'], ['lumen_minimap', 'true'], ['lumen_fastscroll', 'true']]);
+  assert.deepEqual(nav.writes, [['lumen_remote_boost', 'false']]);
+  assert.equal(nav.store.lumen_minimap, 'false');
+  assert.equal(nav.store.lumen_fastscroll, 'false');
   for (const store of [{ lumen_franchise_button: 'false' }, { lumen_franchise_row: 'false' },
-    { lumen_minimap: 'false' }, { lumen_fastscroll: 'false', lumen_minimap: 'true' }]) {
-    assert.deepEqual(migrated(store).writes, [], 'частичный выбор не переводится: ' + JSON.stringify(store));
+    { lumen_minimap: 'false' }, { lumen_fastscroll: 'false', lumen_minimap: 'true' },
+    { lumen_franchise_button: 'false', lumen_franchise_row: 'false', lumen_franchise: 'false' },
+    { lumen_minimap: 'false', lumen_fastscroll: 'false', lumen_remote_boost: false }]) {
+    assert.deepEqual(migrated(store).writes, [], 'частичный выбор или уже переведённый: ' + JSON.stringify(store));
+  }
+});
+
+/* Ревью 1.0.2: какое значение старых ключей отвечает значению нового
+   пункта — его пишет releaseMerged, и его же видит откат на 1.0.1. */
+test('1.0.2: mergedOn — старые ключи выключены ровно при «выключающем» значении нового пункта', () => {
+  assert.equal(prefs.mergedOn('lumen_font', 'system'), false);
+  for (const v of ['golos', 'inter', 'plex', undefined]) assert.equal(prefs.mergedOn('lumen_font', v), true, String(v));
+  assert.equal(prefs.mergedOn('lumen_hero_media', 'frames'), false);
+  assert.equal(prefs.mergedOn('lumen_hero_media', 'trailer'), true);
+  for (const name of ['lumen_franchise', 'lumen_remote_boost']) {
+    for (const v of ['false', false]) assert.equal(prefs.mergedOn(name, v), false, name + ' ' + String(v));
+    for (const v of ['true', true, undefined, '']) assert.equal(prefs.mergedOn(name, v), true, name + ' ' + String(v));
   }
 });
 
