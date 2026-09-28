@@ -6,7 +6,7 @@
 
 **Architecture:** Один итоговый файл (строгий ES5, IIFE) собирается из модулей `src/*.js` простым конкатенатором на Node. Чистая логика (выбор кадров, выбор трейлера, нормализация отзывов, форматирование) живёт в модулях без DOM и тестируется `node --test`. Рантайм-часть подменяет шаблон `full_start_new` через `Lampa.Template.add`, дорисовывает блоки в событии `Lampa.Listener 'full'` (`type == 'complite'`) и подключает CSS одним `<style>`. Проверка — стенд `harness/` плюс инжект в настоящую Lampa 3.3.1 на `https://cf.lampa.mx` через браузерную панель.
 
-**Tech Stack:** ES5 JavaScript + jQuery (есть в Lampa), CSS с custom properties, Node 24 (`C:\Users\azark\AppData\Local\Programs\nodejs\node.exe`) для сборки и тестов, Python 3.12 embeddable (`C:\Users\azark\AppData\Local\Programs\Python\Python312\python.exe`) для `http.server`, YouTube IFrame API, Kinopoisk Unofficial API (ключ пользователя).
+**Tech Stack:** ES5 JavaScript + jQuery (есть в Lampa), CSS с custom properties, Node 24 для сборки и тестов, Python 3.12 для `http.server`, YouTube IFrame API, Kinopoisk Unofficial API (ключ пользователя).
 
 ---
 
@@ -16,11 +16,11 @@
 
 | Артефакт | Где | Статус |
 |---|---|---|
-| Ресёрч API Lampa (шаблон, SCSS, события, данные, навигация, Cardify) | `C:\Users\azark\AppData\Local\Temp\lampa\API_NOTES.md` | готов, читать первым |
-| Ресёрч №2 (кадры/бэкдропы, трейлеры, `Lampa.Reguest`, CORS отзывов, иконки) | `C:\Users\azark\AppData\Local\Temp\lampa\API_NOTES_2.md` | готов, читать вторым (ключевые факты продублированы в 0.2) |
-| Дизайн-канвас (Claude Design) | https://claude.ai/artifact/UB9wLYpMR7TvLbaux6KAmk ; исходники артбордов `C:\Users\azark\AppData\Local\Temp\claude\C--Users-azark------------\09155d57-6cfc-4e6b-b3f6-db5fab93f381\scratchpad\lumen-design\*.dc.html` | готов |
-| HTML-мокап карточки | https://claude.ai/artifact/Ea8RynwbThUA7iuUtCLSDm | готов |
-| Плагин v1 (карточка без слайдшоу/трейлера/отзывов) + стенд `harness/` + README | `C:\Users\azark\Новая папка\lumen-card\lumen_card.js`, `harness/index.html`, `README.md` | пишется фоновым executor'ом. Task 1 = приёмка |
+| Ресёрч API Lampa (шаблон, SCSS, события, данные, навигация, Cardify) | `docs/research/API_NOTES.md` | готов, читать первым |
+| Ресёрч №2 (кадры/бэкдропы, трейлеры, `Lampa.Reguest`, CORS отзывов, иконки) | `docs/research/API_NOTES_2.md` | готов, читать вторым (ключевые факты продублированы в 0.2) |
+| Дизайн-канвас (Claude Design) | вне репозитория; заменён экспортом `design/*.dc.html` (см. 0.7) | готов |
+| HTML-мокап карточки | вне репозитория | готов |
+| Плагин v1 (карточка без слайдшоу/трейлера/отзывов) + стенд `harness/` + README | `lumen_card.js`, `harness/index.html`, `README.md` | пишется фоновым executor'ом. Task 1 = приёмка |
 
 ### 0.2 Факты об API Lampa (проверены на исходниках и на живой cf.lampa.mx 3.3.1)
 
@@ -32,14 +32,14 @@
 - Трейлеры: `e.data.videos.results[]` — отдельный запрос Lampa к `/videos`; поля элемента `{key, name, official, published_at, iso_639_1, url, youtube, icon}` — полей `site` и `type` НЕТ. Штатная кнопка «Трейлеры»: на Android с `player_launch_trailers == 'youtube'` → `Lampa.Android.openYoutube(key)`, иначе `Lampa.Player.play(item)`; есть `Lampa.YouTube.play(id)` (iframe API, молча не работает без `YT`). Штатное поведение не трогаем.
 - Сеть: `new Lampa.Reguest().silent(url, ok, err, false, {headers:{'X-API-KEY': key}, dataType:'json', timeout: 8000})` — `headers` пробрасываются в `$.ajax`. CORS: `kinopoiskapiunofficial.tech` отвечает `Access-Control-Allow-Origin: *` и разрешает `x-api-key` (проверено OPTIONS-запросом) — прокси не нужен. `api.kinopoisk.dev` редиректит на `api.poiskkino.dev`, тоже `*`.
 - Иконки Lampa: кнопки карточки используют спрайты `<svg><use xlink:href="#sprite-play">` с разными viewBox (play 0 0 28 29, torrent 0 0 47 47, trailer 0 0 80 70) и инлайн-svg (book, subscribe). Замена «удалить svg внутри кнопки, вставить свой» работает для обоих случаев.
-- Прогресс: `Lampa.Timeline.view(hash)` → `{percent, time, duration}`; хэш фильма `Lampa.Utils.hash(movie.original_title)`; хэш серии — формула из online_mod (`grep -n "Utils.hash(\[" C:\Users\azark\AppData\Local\Temp\lampa\tmp.js`), ожидаемо `Lampa.Utils.hash([season, season > 10 ? ':' : '', episode, movie.original_name].join(''))`. Проверить grep'ом до реализации Task 8.
+- Прогресс: `Lampa.Timeline.view(hash)` → `{percent, time, duration}`; хэш фильма `Lampa.Utils.hash(movie.original_title)`; хэш серии — формула из online_mod (`grep -n "Utils.hash(\["` по сборке online_mod), ожидаемо `Lampa.Utils.hash([season, season > 10 ? ':' : '', episode, movie.original_name].join(''))`. Проверить grep'ом до реализации Task 8.
 - Навигация: любой элемент с классом `.selector` попадает в пул; фокус = CSS-класс `.focus`; события `hover:focus`, `hover:enter`, `hover:long`. Контроллер карточки `full_start` собирает `.selector` через `Controller.collectionSet(html)`. Кнопка `.button--play` при `hover:enter` открывает `Lampa.Select` со списком источников из `.buttons--container` — это и есть путь к TorrServer/торрентам; его не трогаем.
 - Настройки: `Lampa.SettingsApi.addComponent({component:'lumen_card', name:'Lumen Card', icon:'<svg…>'})`, `Lampa.SettingsApi.addParam({component:'lumen_card', param:{name:'lumen_accent', type:'select', values:{sand:'Песок',…}, default:'sand'}, field:{name:'Акцент', description:'…'}, onChange:function(v){}})`. Значения читаются `Lampa.Storage.field('lumen_accent')` (field применяет default) или `Lampa.Storage.get(name, def)`.
 - Платформа: `Lampa.Platform.screen('tv')`, `Lampa.Platform.is('android')`, `Lampa.Platform.is('tizen')`, `Lampa.Platform.is('webos')`, `Lampa.Platform.is('browser')`.
 - Уведомления: `Lampa.Noty.show('текст')`. Модал: `Lampa.Modal.open({title, html: $('<div>…</div>'), size:'medium', onBack:function(){ Lampa.Modal.close(); Lampa.Controller.toggle('full_start') }})`.
 - Старт плагина: `if(window.appready) init(); else Lampa.Listener.follow('app', function(e){ if(e.type=='ready') init() })`.
 
-Проверено живьём в Lampa 3.3.4 (подробности `C:\Users\azark\AppData\Local\Temp\lampa\API_NOTES_3.md`):
+Проверено живьём в Lampa 3.3.4 (подробности `docs/research/API_NOTES_3.md`):
 - **Реакции CUB** читаются без аккаунта: `e.data.reactions.result[]` = `{type:'fire'|'nice'|'think'|'bore'|'shit', counter}`, доступны уже на `type:'start'`. У «Дюны» `fire` = 5606. Короткая запись числа: `Lampa.Utils.bigNumberToShort(n)` → `5.6K`. Если `!Lampa.Storage.field('card_interfice_reactions')`, Lampa удаляет блок реакций — тогда и наш чип не показываем.
 - **Сериал**: `e.data.episodes.episodes[]` — серии **только последнего сезона**, все подряд (включая не вышедшие), без `original_name`; поля `season_number, episode_number, name, air_date, runtime, still_path`. Студия `movie.networks[0].name` («Prime Video»), автор `movie.created_by[0].name`, плюс `next_episode_to_air`, `last_episode_to_air`, `seasons[]`, `status`.
 - **Хэш и прогресс**: фильм `Lampa.Utils.hash(movie.original_title)`, серия `Lampa.Utils.hash([s, s > 10 ? ':' : '', e, movie.original_name || movie.original_title].join(''))`. `Lampa.Timeline.view(hash)` → `{hash, percent, time, duration, profile, updated, handler}`; запись `Lampa.Timeline.update({hash, percent, time, duration})`; для одной серии есть `Lampa.Timeline.watchedEpisode(card, s, e, true)`.
@@ -102,7 +102,7 @@
 
 ### 0.7 Источник дизайна — экспорт Claude Design (заменяет канвас из 0.1)
 
-Файлы: `C:\Users\azark\Новая папка\lumen-card\design\Lumen Card for Lampa - FHD.dc.html` (главный для кода: 1920×1080, **px ÷ 16 = em**), `- 2K.dc.html`, `- 4K.dc.html` (те же 14 экранов ×1.33 / ×2). Экраны разделены комментариями `<!-- 01 --- -->` … `<!-- 14 --- -->`, стили инлайновые, акценты через CSS-переменные `--ac --onac --ring --acglow`. Посмотреть вживую: `python -m http.server 8766` из `lumen-card\`, открыть `http://localhost:8766/design/Lumen%20Card%20for%20Lampa%20-%20FHD.dc.html`. Папка `design\_ds\` — TVI Design System, прицепилась к проекту случайно, в экранах не используется: **игнорировать**.
+Файлы: `design/Lumen Card for Lampa - FHD.dc.html` (главный для кода: 1920×1080, **px ÷ 16 = em**), `- 2K.dc.html`, `- 4K.dc.html` (те же 14 экранов ×1.33 / ×2). Экраны разделены комментариями `<!-- 01 --- -->` … `<!-- 14 --- -->`, стили инлайновые, акценты через CSS-переменные `--ac --onac --ring --acglow`. Посмотреть вживую: `python -m http.server 8766` из корня репозитория, открыть `http://localhost:8766/design/Lumen%20Card%20for%20Lampa%20-%20FHD.dc.html`. Папка `design\_ds\` — TVI Design System, прицепилась к проекту случайно, в экранах не используется: **игнорировать**.
 
 Решения дизайна, которые меняют задачи плана:
 
@@ -139,7 +139,7 @@
 ## 1. Структура файлов
 
 ```
-C:\Users\azark\Новая папка\lumen-card\
+lumen-card\
 ├── src\
 │   ├── 00_head.js        IIFE-начало, guard, константы, объект LC (namespace)
 │   ├── 10_util.js        ES5-хелперы: each/map/filter/find/clamp/fmtTime/esc/debounce/once
@@ -202,15 +202,15 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 > **ВЫПОЛНЕНО.** Результат — `docs/plans/acceptance-v1.md`; дефекты перенесены в Task 5 (Step 3b).
 
 **Files:**
-- Read: `C:\Users\azark\Новая папка\lumen-card\lumen_card.js`, `harness\index.html`, `README.md`, отчёт executor'а
-- Read: `C:\Users\azark\AppData\Local\Temp\lampa\API_NOTES.md`
+- Read: `lumen_card.js`, `harness\index.html`, `README.md`, отчёт executor'а
+- Read: `docs/research/API_NOTES.md`
 
 - [ ] **Step 1: Проверить, что файлы существуют и синтаксис валиден**
 
 Run:
 ```bash
-"C:/Users/azark/AppData/Local/Programs/nodejs/node.exe" --check "C:/Users/azark/Новая папка/lumen-card/lumen_card.js" && echo SYNTAX_OK
-grep -nE "=>|\blet\b|\bconst\b|\`|\bclass\s|Object\.assign|\.includes\(|\.find\(|Promise" "C:/Users/azark/Новая папка/lumen-card/lumen_card.js" | head
+node --check lumen_card.js && echo SYNTAX_OK
+grep -nE "=>|\blet\b|\bconst\b|\`|\bclass\s|Object\.assign|\.includes\(|\.find\(|Promise" lumen_card.js | head
 ```
 Expected: `SYNTAX_OK`, grep пустой. Если grep нашёл — записать строки, чинить в Task 2 при переносе в `src/`.
 
@@ -370,7 +370,7 @@ test('fmtTime', () => { assert.equal(u.fmtTime(166), '02:46'); assert.equal(u.fm
 test('initials', () => { assert.equal(u.initials('Тимоти Шаламе'), 'ТШ'); assert.equal(u.initials('Zendaya'), 'Z'); });
 test('esc', () => assert.equal(u.esc('<a href="x">&'), '&lt;a href=&quot;x&quot;&gt;&amp;'));
 ```
-Run: `cd "C:/Users/azark/Новая папка/lumen-card" && "C:/Users/azark/AppData/Local/Programs/nodejs/node.exe" --test test/` → Expected: FAIL (module not found) до создания util, PASS после.
+Run: `node --test test/` (из корня репозитория) → Expected: FAIL (module not found) до создания util, PASS после.
 
 - [ ] **Step 6: Перенести код v1 в src/ по модулям** (CSS → `30_css.js` как `LC.css = '...'`, шаблон → `40_template.js` как `LC.template = '...'`, настройки → `80_settings.js`, рантайм → `90_runtime.js`). Собрать: `node scripts/build.mjs && node scripts/es5check.mjs dist/lumen_card.js`. Expected: `built …`, `ES5 check: ok`.
 
@@ -379,7 +379,7 @@ Run: `cd "C:/Users/azark/Новая папка/lumen-card" && "C:/Users/azark/Ap
 - [ ] **Step 8: git**
 
 ```bash
-cd "C:/Users/azark/Новая папка/lumen-card" && git init -b main && printf "dist/chunks/\n" > .gitignore && git add -A && git commit -m "chore: v1 карточка, сборка, тесты"
+git init -b main && printf "dist/chunks/\n" > .gitignore && git add -A && git commit -m "chore: v1 карточка, сборка, тесты"
 ```
 
 ---
@@ -784,7 +784,7 @@ CSS: `.lumen-bg__img{position:absolute;inset:0;background-size:cover;background-
 
 > **ВЫПОЛНЕНО** (538715a, 84b8438, cae13d6; сверка PASS по экрану 02, ревью качества ×2 → Approved with minor): `LC.trailer` в `src/55_trailer.js` — выбор ролика по типу и языку, старт через 3 с, без звука (`youtube-nocookie`), таймаут 6 с и тихий откат, пауза/возврат слайдшоу через слой, метка «ТРЕЙЛЕР · БЕЗ ЗВУКА», кнопка «Стоп» (свой `.selector` вне групп кнопок, `collectionSet`/`collectionFocus` только для видимой карточки), узел `.lumen-bg__trailer` в `ensureLayer`, остановка через `layer.data(lumenTrailer)` в `stopSlideshow`/`revive`, сторож `.activity--active` раз в секунду только во время ролика (Lampa не шлёт событий покидаемой активности), глобальный хук `onYouTubeIframeAPIReady` с очередью (без утечки деревьев карточек), настройка `lumen_trailer` auto/on/off (auto → off на tizen/webos), не стартует при `lumen-motion-off`; класс `.lumen-actions` вместо `nth-child(6)`. 477 тестов, стенд 31/31, хэши 7/7. Живьём не проверялось только само воспроизведение (в скрытой панели браузера autoplay заблокирован) — проверены создание iframe, загрузка API и откат по таймауту на настоящем YouTube, остальное на застабленном плеере.
 >
-> **Отдельной задачей (7b, вне нумерации):** таймкод «00:05 / 02:18» и полоса прогресса ролика с экрана 02 — требуют третьего таймера (тик 1 с, `transform: scaleX`, снятие во всех ветках `kill`); делать после Task 11 (очистка ресурсов). Задание — `scratchpad/t7b-prompt.md`.
+> **Отдельной задачей (7b, вне нумерации):** таймкод «00:05 / 02:18» и полоса прогресса ролика с экрана 02 — требуют третьего таймера (тик 1 с, `transform: scaleX`, снятие во всех ветках `kill`); делать после Task 11 (очистка ресурсов).
 
 > **Поправки контроллера:**
 > - Кнопка «Стоп» (экран 02) — собственный `.selector` вне `.full-start-new__buttons` и `.buttons--container` (иначе попадёт в группировку кнопок Lampa и в хэши); режим корня `.lumen-trailer-on`.
@@ -956,7 +956,7 @@ test('сериал: последняя начатая серия', () => {
 
 > **ВЫПОЛНЕНО** (4279f4c, 767e749, 8efabdb; сверка PASS по экранам 07/08/13, ревью качества ×2 → Approved with minor): `LC.reviews` в `src/60_reviews.js` — `normalize` (обрезка до экранирования, тон good/mid/bad, дата, инициалы), кэш в Storage (8 фильмов, индекс `lumen_rv_index`, TTL 24 ч, пустой ответ 2 ч, `full` ≤ 4000, вытеснение `set(key,"")` + `localStorage.removeItem`, проверка факта записи `stored()` и `purge()` при отказе квоты — `Storage.remove` в Lampa это операция над CUB-массивом, а не удаление ключа), `load` с generation guard и снятием запроса (`dropNet`, `LC.reviews.cancel` в ветке destroy), ряд карточек `.lumen-review.selector` с тоном, «N полезно» и прокруткой к фокусной, модал экрана 08 с возвратом фокуса на ту же карточку, подсказка экрана 13 без ключа; `.selector` добавляются в навигацию только для видимой карточки (`isForeground`); подпись рендера включает отпечаток ключа, поэтому исправленный ключ применяется сразу; настройки `lumen_kp_key` (input) и `lumen_reviews` (trigger) с применением на лету. Описание в ряду при отзывах — кламп 8 строк с мягкой маской (вместо обрезки по высоте). 576 тестов, стенд 48 проверок (включая отзывы), хэши 7/7.
 >
-> **Долги (в Task 12):** мок `Lampa.Storage` в стенде не пишет в `localStorage`, поэтому проверка факта записи там всегда отрицательна и кэш отзывов в стенде отключён; отдельной задачей 9b — описание как фокусируемый узел с «Читать полностью» → модал (задание в `scratchpad/t9b-prompt.md`).
+> **Долги (в Task 12):** мок `Lampa.Storage` в стенде не пишет в `localStorage`, поэтому проверка факта записи там всегда отрицательна и кэш отзывов в стенде отключён; отдельной задачей 9b — описание как фокусируемый узел с «Читать полностью» → модал.
 
 > **Поправки контроллера:**
 > - Без ключа — блок-подсказка «Настройки → Lumen Card → Ключ Kinopoisk API» (экран 13), а не пусто; с ключом и без отзывов — блок скрыт.
@@ -1184,7 +1184,7 @@ test('cache key и TTL', () => {
 2. **Фаза 2 — главная и подборки**: `docs/plans/2026-09-15-lumen-phase2-main.md`, Task 14 → 20.
 3. **Фаза 3 — фишки**: `docs/plans/2026-09-15-lumen-phase3-features.md`, Task 21 → 30.
 
-Процесс: `superpowers:subagent-driven-development` — исполнитель (sonnet) на задачу, затем проверка соответствия (verifier), затем ревью качества (`superpowers:code-reviewer`); Critical/Important чинятся тем же исполнителем и перепроверяются до перехода дальше. Ветка `feat/lumen-v2`, коммит на задачу. Живые проверки — в локальной Lampa (раздел 0.8, порт 8766; конфигурация `lumen-static` в `C:\Users\azark\Новая папка\.claude\launch.json`), клавиши пульта диспатчить `keydown` с `keyCode` на `document`. Каждая живая проверка начинается с `resize_window` 1920×1080 (и `window.innerWidth === 1920`) и заканчивается `resize_window` preset `desktop`. Ресёрч API Lampa лежит в репозитории: `docs/research/API_NOTES*.md` (1–4 — карточка, 5–6 — путь TorrServer); ссылки на `Temp\lampa\` в этом файле читать как `docs/research/`.
+Процесс: `superpowers:subagent-driven-development` — исполнитель (sonnet) на задачу, затем проверка соответствия (verifier), затем ревью качества (`superpowers:code-reviewer`); Critical/Important чинятся тем же исполнителем и перепроверяются до перехода дальше. Ветка `feat/lumen-v2`, коммит на задачу. Живые проверки — в локальной Lampa (раздел 0.8, порт 8766; `python -m http.server 8766` из корня репозитория), клавиши пульта диспатчить `keydown` с `keyCode` на `document`. Каждая живая проверка начинается с `resize_window` 1920×1080 (и `window.innerWidth === 1920`) и заканчивается `resize_window` preset `desktop`. Ресёрч API Lampa лежит в репозитории: `docs/research/API_NOTES*.md` (1–4 — карточка, 5–6 — путь TorrServer).
 
 Когда пользователь положит новый экспорт Claude Design в `design/` (экраны 15–32): распаковать рядом с существующими файлами, найти экраны по комментариям `<!-- NN --- -->`, сверить с брифами `docs/design/claude-design-brief*.md`, расхождения занести в раздел 0.7 (что меняется в задачах) и только потом запускать задачи, которые этот экран затрагивают.
 

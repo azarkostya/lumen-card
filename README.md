@@ -974,9 +974,9 @@ API (`Template`, `Listener`, `Storage`, `Timeline`, `Api`, `Utils`, `TMDB`, `Lan
 
 Запуск:
 
-```powershell
-cd "C:\Users\azark\Новая папка\lumen-card"
-& "C:\Users\azark\AppData\Local\Programs\Python\Python312\python.exe" -m http.server 8765
+```sh
+# из корня репозитория
+python -m http.server 8765
 # открыть http://localhost:8765/harness/index.html
 ```
 
@@ -1002,23 +1002,23 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 Плагин собирается из модулей `src/NN_*.js` (по числовому префиксу) в один файл
 `dist/lumen_card.js`, который и коммитится в репозиторий и выкладывается на хостинг.
 
-```powershell
-cd "C:\Users\azark\Новая папка\lumen-card"
+```sh
+# из корня репозитория
 
 # сборка src/*.js -> dist/lumen_card.js (+ проверка синтаксиса node --check)
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/build.mjs
+node scripts/build.mjs
 
 # ES5-линт собранного файла (парсер acorn на ecmaVersion: 5 + скан токенов на
 # запрещённые ES2015+ API; ни одной находки быть не должно)
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/es5check.mjs dist/lumen_card.js
+node scripts/es5check.mjs dist/lumen_card.js
 
 # юнит-тесты (2973 на 1.0.0, 55 файлов) без браузера; 22 файла тестов сверяются с исходником Lampa
 # в vendor/lampa/ (app.min.js, css/app.css, lang/uk.js, vender/navigator/navigator.js) —
 # каталог в .gitignore, без него они падают с ENOENT
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test "test/*.test.mjs"
+node --test "test/*.test.mjs"
 
 # только проверить, что dist/lumen_card.js не устарел относительно src/ (ничего не пишет)
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/build.mjs --check
+node scripts/build.mjs --check
 ```
 
 `scripts/build.mjs` пишет во временный `dist/lumen_card.tmp.js`, гоняет на нём `node --check`

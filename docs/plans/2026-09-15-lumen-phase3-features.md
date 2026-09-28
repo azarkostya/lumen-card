@@ -6,7 +6,7 @@
 
 **Architecture:** Те же модули `src/NN_*.js` и контракт из плана фазы 1 (раздел 1.1). Всё, что рисуется поверх Lampa, живёт в собственных слоях (`.lumen-fx`, `.lumen-ambient`, `.lumen-overlay`) и не меняет штатный DOM, кроме добавления элементов внутрь карточек рядов (метки) и блока описания карточки (хронология). Правила тем и список кадров ambient — в манифесте (`manifest.themes`, `manifest.ambient`), обновляются без переустановки. Каждая фишка выключается отдельной настройкой и подчиняется `LC.motionMode()`.
 
-**Tech Stack:** как в фазах 1–2. Ресёрч: `API_NOTES*.md` в `C:\Users\azark\AppData\Local\Temp\lampa\`. Дизайн: экраны 26–32 из `docs/design/claude-design-brief-main.md` (экспорт пользователя появится в `design/`).
+**Tech Stack:** как в фазах 1–2. Ресёрч: `API_NOTES*.md` в `docs/research/`. Дизайн: экраны 26–32 из `docs/design/claude-design-brief-main.md` (экспорт пользователя появится в `design/`).
 
 **Зависимости:** фаза 1 (карточка, `LC.icons`, `LC.trailer.pickTrailer`, `LC.trailerPlayer`, `LC.motionMode`, `LC.reviews`) и фаза 2 (`LC.manifest`, `LC.sources`, `LC.rows`, `LC.hero`, `LC.hub`, компоненты `lumen_hub`/`lumen_grid`) должны быть завершены.
 

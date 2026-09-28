@@ -6,7 +6,7 @@
 
 **Architecture:** точечные правки под своими корнями (`.lumen-main`, `.selectbox` под `lumen-menus-all`), без переписывания. Порядок — по вкладу в 21 fps: сначала память (кадры `original`), потом дерево слоёв (три слоя на карточку от Lampa), потом фон Lampa, потом перерисовки на шаге фокуса. Дизайн — после того, как HUD подтвердит, что кадры вернулись.
 
-**Tech Stack:** ES5, Lampa 3.3.4 (`vendor/lampa`), тесты `node --test "test/*.test.mjs"`, сборка `node scripts/build.mjs`, `node scripts/es5check.mjs`. `node` в Bash: `export PATH="$PATH:/c/Users/azark/AppData/Local/Programs/nodejs"`.
+**Tech Stack:** ES5, Lampa 3.3.4 (`vendor/lampa`), тесты `node --test "test/*.test.mjs"`, сборка `node scripts/build.mjs`, `node scripts/es5check.mjs`.
 
 **Первоисточники:** аудит 2026-09-21 (выжимка ниже), замеры координатора на стенде в режиме `960×540@2` (Приложение Б), ресёрч `docs/research/2026-09-18-android-tv-animations.md`, бэклог с ТВ в конце `docs/plans/2026-09-18-lumen-phase4-tv.md`.
 

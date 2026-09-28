@@ -841,7 +841,7 @@ function reveal(source, opts) {
 
 **Ограничение стенда, важное для всей фазы:** `requestAnimationFrame` в Browser pane **не тикает вовсе** — собственный пробник получил 1 кадр за 3 с при `visibilityState === 'visible'` и вкладке на переднем плане. Любая живая проверка FPS, анимаций и rAF-циклов на стенде недостоверна. Проверять ЛОГИКУ цикла — подменой `window.requestAnimationFrame` на `setTimeout(cb(performance.now()), 16)` с возвратом оригинала после. Настоящие кадры — только с телевизора пользователя через HUD.
 
-**Как поднять стенд** (для живых проверок): `export PATH="$PATH:/c/Users/azark/AppData/Local/Programs/nodejs"`; сервер — конфигурация `lumen-static` (порт 8766); `http://localhost:8766/vendor/lampa/index.html`; стартует на выборе языка — `$('.lang__selector-item').eq(0).trigger('hover:enter')`; плагин — `fetch('/dist/lumen_card.js').then(r=>r.text())` и `<script textContent>` в `head`.
+**Как поднять стенд** (для живых проверок): `node` — в `PATH`; сервер — конфигурация `lumen-static` (порт 8766); `http://localhost:8766/vendor/lampa/index.html`; стартует на выборе языка — `$('.lang__selector-item').eq(0).trigger('hover:enter')`; плагин — `fetch('/dist/lumen_card.js').then(r=>r.text())` и `<script textContent>` в `head`.
 
 ## Самопроверка плана (выполнена координатором 2026-09-18)
 
