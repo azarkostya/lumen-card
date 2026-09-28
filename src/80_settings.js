@@ -356,12 +356,14 @@
     },
     /* Волна производительности: самотест на ТВ (src/69_bench.js). Строки
        экрана таблицы и отказа — здесь же: их видит только тот, кто нажал
-       эту кнопку. */
+       эту кнопку. Ревью 1.0.2: стадий девять (STAGES, девятая — «stop
+       scroll» с 2026-09-27), 8 × (1 + 5) с + 1 + 18,4 с ≈ 67 с — «чуть
+       больше минуты», как в README; сторож — test/bench.test.mjs. */
     lumen_debug_bench_name: { ru: 'Тест производительности', en: 'Performance test', uk: 'Тест продуктивності' },
     lumen_debug_bench_descr: {
-      ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
-      en: 'Runs the home screen through eight modes for about a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
-      uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
+      ru: 'Чуть больше минуты гоняет главную по девяти стадиям и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
+      en: 'Runs the home screen through nine stages for a little over a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
+      uk: 'Трохи більше хвилини ганяє головну через дев’ять стадій і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
     },
     lumen_rowmem_name: { ru: 'Сон дальних рядов', en: 'Sleep for far rows', uk: 'Сон дальніх рядів' },
     lumen_rowmem_descr: {

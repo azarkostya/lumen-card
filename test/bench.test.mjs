@@ -82,6 +82,22 @@ test('bench: стадии — девять, в порядке ТЗ; тяжёлы
   assert.equal(stops.ms, 18400);
 });
 
+/* Ревью 1.0.2: описание кнопки в разделе говорило «в восьми режимах», а
+   стадий девять. Число в описании — словом, на трёх языках — обязано
+   совпадать с STAGES.length. */
+test('bench: описание кнопки «Тест производительности» называет число стадий', () => {
+  const { api } = fresh();
+  const LC = {};
+  new Function('LC', 'module', readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8'))(LC, { exports: null, lumen: true });
+  const descr = LC.STRINGS.lumen_debug_bench_descr;
+  const words = { 9: { ru: 'девяти стадиям', en: 'nine stages', uk: 'дев’ять стадій' } }[api.STAGES.length];
+  assert.ok(words, 'стадий ' + api.STAGES.length + ' — поправить описание кнопки и эту таблицу слов');
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.ok(descr[lang].indexOf(words[lang]) !== -1, lang + ': нет «' + words[lang] + '»: ' + descr[lang]);
+    assert.equal(/восьми|eight/.test(descr[lang]), false, lang + ': прежнее число: ' + descr[lang]);
+  }
+});
+
 /* Самый широкий случай: все девять строк с большими числами, долгий кадр с
    длинным адресом скрипта, строка героя с пятизначными мс, прерывание.
    Экран — 960 CSS px, моноширинный шрифт FONT_PX, символ — CHAR_EM его
