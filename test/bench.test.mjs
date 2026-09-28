@@ -178,7 +178,7 @@ test('bench: partsOf — фазы долгого кадра: js, r+ev, st+l, frc
    CUB>, к скриптам плагинов — email=<base64>. Таблицу фотографируют и
    присылают: на экран и в JSON — без запроса и без логина-пароля. */
 const MAIL_IMG = 'IMG[src="https://imagetmdb.com/t/p/w300/8rpDcsfLJypbO6vREc0547VKqEv.jpg?email=user.name%40gmail.com"].onload';
-const MAIL_JS = 'https://bwa.to/rc/online.js?email=dXNlci5uYW1lQGdtYWlsLmNvbQ%3D%3D&logged=true';
+const MAIL_JS = 'https://example.org/rc/online.js?email=dXNlci5uYW1lQGdtYWlsLmNvbQ%3D%3D&logged=true';
 function mailFrame(script) {
   return { startTime: 1000, duration: 180, blockingDuration: 130, renderStart: 1170, styleAndLayoutStart: 1172, scripts: [script] };
 }
@@ -197,7 +197,7 @@ test('bench: partsOf — почта из запроса и логин-парол
   const js = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: MAIL_JS, sourceFunctionName: '', sourceCharPosition: 0,
     invoker: MAIL_JS, invokerType: 'classic-script' }));
   assert.ok(noMail(js.script), js.script);
-  assert.equal(js.script, 'bwa.to @0 https://bwa.to/rc/online.js');
+  assert.equal(js.script, 'example.org @0 https://example.org/rc/online.js');
   const creds = api.partsOf(mailFrame({ startTime: 1001, duration: 120, sourceURL: 'https://user:secret@proxy.example.org/app.js',
     sourceFunctionName: 'f', sourceCharPosition: 7, invoker: 'IMG[src="http://user:secret@proxy.example.org/p.jpg"].onload' }));
   assert.ok(noMail(creds.script), creds.script);
