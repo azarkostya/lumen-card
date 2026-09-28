@@ -1,4 +1,4 @@
-// Lumen Card for Lampa v1.0.0
+// Lumen Card for Lampa v1.0.1
 
 /* ---- 00_head.js ---- */
 /*!
@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') window.lumen_card_plugin = true;
 
 var LC = {};
 if (typeof window !== 'undefined') window.lumen_card = LC;
-LC.VERSION = '1.0.0';
+LC.VERSION = '1.0.1';
 
 
 
