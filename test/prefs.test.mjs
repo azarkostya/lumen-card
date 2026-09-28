@@ -610,6 +610,58 @@ test('1.0.2: описание «Стиля» говорит, что меняет
   }
 });
 
+/* Ревью 1.0.2 (возврат сторожа Task 73/A6): описание «Стиля» называет ВЕСЬ
+   набор — иначе человек узнаёт о правке своей настройки уже после выбора.
+   Разные у двух стилей пункты стиль меняет; одинаковые — возвращает из
+   ручного значения, и это описание тоже обязано сказать: «Кадр над рядами»
+   на «Крупный», логотип в кадре — включён. «Логотипы» во множественном
+   числе были неправдой: логотип карточки (lumen_card_logo) в набор не
+   входит. Набор изменился — сторож требует поправить описание. */
+test('ревью 1.0.2: описание «Стиля» называет все пункты набора — что меняет и что возвращает', () => {
+  const LC = loadStrings();
+  const S = LC.STRINGS;
+  const pack = S.lumen_style_descr;
+  const lumen = prefs.presetValues('lumen');
+  const apple = prefs.presetValues('appletv');
+  const differ = prefs.PRESET_KEYS.filter((k) => lumen[k] !== apple[k]).sort();
+  assert.deepEqual(differ, ['lumen_accent_scope', 'lumen_badges', 'lumen_card_accent', 'lumen_flat', 'lumen_font',
+    'lumen_hide_meta', 'lumen_theme'], 'разные у стилей пункты изменились — поправить описание «Стиля»');
+  /* Одинаковые пункты: значение, к которому стиль возвращает. */
+  assert.equal(lumen.lumen_hero_size, 'large');
+  assert.equal(apple.lumen_hero_size, 'large');
+  assert.equal(lumen.lumen_hero_logo, true);
+  assert.equal(apple.lumen_hero_logo, true);
+  assert.equal(prefs.PRESET_KEYS.indexOf('lumen_card_logo'), -1, 'логотип карточки в набор не входит');
+
+  const q = { ru: (t) => '«' + t + '»', en: (t) => '"' + t + '"', uk: (t) => '«' + t + '»' };
+  const colours = { ru: 'цвета', en: 'colours', uk: 'кольори' };
+  const named = {
+    lumen_theme: { ru: ['тему'], en: ['theme'], uk: ['тему'] },
+    lumen_card_accent: colours,
+    lumen_accent_scope: colours,
+    lumen_accent_auto: colours,
+    lumen_font: { ru: ['шрифт'], en: ['font'], uk: ['шрифт'] },
+    lumen_badges: { ru: ['метки'], en: ['badges'], uk: ['мітки'] },
+    lumen_flat: { ru: ['плоское'], en: ['flat'], uk: ['пласке'] },
+    lumen_hide_meta: 'lumen_hide_meta_name',
+    lumen_hero_size: ['lumen_hero_size_name', 'lumen_hero_size_large'],
+    lumen_hero_logo: { ru: ['включает логотип в кадре'], en: ['turns the hero logo on'], uk: ['вмикає логотип у кадрі'] }
+  };
+  assert.deepEqual(Object.keys(named).sort(), prefs.PRESET_KEYS.slice().sort(), 'набор стиля изменился — поправить описание «Стиля»');
+  for (const lang of LANGS) {
+    const text = pack[lang];
+    for (const key of Object.keys(named)) {
+      const want = named[key];
+      let parts;
+      if (typeof want === 'string') parts = [q[lang](S[want][lang])];
+      else if (Array.isArray(want)) parts = want.map((k) => q[lang](S[k][lang]));
+      else parts = [].concat(want[lang]);
+      for (const part of parts) assert.ok(text.indexOf(part) !== -1, lang + ': ' + key + ' — нет «' + part + '»: ' + text);
+    }
+    assert.equal(/логотипы|logos|логотипи/i.test(text), false, lang + ': «логотипы» во множественном — логотип карточки стиль не трогает: ' + text);
+  }
+});
+
 test('в словаре нет пунктов-сирот: заголовки групп — только те, что стоят в LIST', () => {
   const LC = loadStrings();
   const used = {};

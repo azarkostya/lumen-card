@@ -54,12 +54,19 @@
        пункты набора правили вручную (syncStyle ниже), поэтому описание его
        и объясняет. Что именно поменял выбор, говорит уведомление
        (applyPreset) — названиями пунктов; короткие имена стилей ниже — его
-       начало: «Стиль Apple TV · Тема, Акцентный цвет, Шрифт». */
+       начало: «Стиль Apple TV · Тема, Акцентный цвет, Шрифт».
+       Ревью 1.0.2: описание называет весь набор (LC.prefs.PRESET_KEYS,
+       сторож в test/prefs.test.mjs). Разные у двух стилей — тема, цвета
+       (акцент и где виден цвет кадра), шрифт, метки, плоский вид и блоки
+       анализа Lampa; одинаковые — «Кадр над рядами» «Крупный», «Цвет фона
+       от кадра» и логотип в кадре включены: их стиль не меняет, а
+       возвращает из ручного значения. «Логотипы» во множественном числе
+       были неправдой — логотип карточки в набор не входит. */
     lumen_style_name: { ru: 'Стиль', en: 'Style', uk: 'Стиль' },
     lumen_style_descr: {
-      ru: 'Готовое оформление одним выбором: Lumen — тёплое, Apple TV — чёрное, плоское и нейтральное. Меняет тему, цвета, шрифт, метки и логотипы. «Свой» — пункты меняли вручную.',
-      en: 'A ready-made look in one choice: Lumen is warm, Apple TV is black, flat and neutral. It sets the theme, colours, font, badges and logos. "Custom" means items were changed by hand.',
-      uk: 'Готове оформлення одним вибором: Lumen — тепле, Apple TV — чорне, пласке й нейтральне. Змінює тему, кольори, шрифт, мітки й логотипи. «Свій» — пункти змінювали вручну.'
+      ru: 'Lumen — тёплое оформление, Apple TV — чёрное и плоское. Меняет тему, цвета, шрифт, метки и «Скрывать блоки анализа Lampa», возвращает «Кадр над рядами» на «Крупный» и включает логотип в кадре. «Свой» — пункты меняли вручную.',
+      en: 'Lumen is warm, Apple TV is black and flat. Sets the theme, colours, font, badges and "Hide the Lampa analysis blocks", puts "Hero over the rows" back to "Large" and turns the hero logo on. "Custom" means items were changed by hand.',
+      uk: 'Lumen — тепле оформлення, Apple TV — чорне й пласке. Змінює тему, кольори, шрифт, мітки й «Ховати блоки аналізу Lampa», повертає «Кадр над рядами» на «Великий» і вмикає логотип у кадрі. «Свій» — пункти змінювали вручну.'
     },
     lumen_style_lumen: { ru: 'Lumen', en: 'Lumen', uk: 'Lumen' },
     lumen_style_appletv: { ru: 'Apple TV', en: 'Apple TV', uk: 'Apple TV' },
