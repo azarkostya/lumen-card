@@ -1270,3 +1270,38 @@ test('наборы: «английские» постеры спрашивают
     assert.deepEqual(cards.map(function (c) { return c.poster_path; }), ['/en557.jpg', '/en2661.jpg', '/en315635.jpg']);
   } finally { s.restore(); }
 });
+
+/* Жалоба 2026-09-27, замер на стенде: неудача запроса постеров Кинопоиска не
+   кэшировалась, а хаб перезапрашивает кадр упавшей плитки на каждом шаге
+   фокуса (loadBanner, src/46_hub.js) — с отвергнутым ключом один заход в хаб
+   дал 102 запроса. Неудача помнится LIFE_KP_EMPTY (10 минут), как у fetchKp. */
+test('bannerPath: неудача Кинопоиска помнится 10 минут — плитка не спрашивает на каждом шаге фокуса', function (t, done) {
+  var kpCalls = 0;
+  var storage = makeFakeStorage();
+  global.Lampa = makeFakeLampa({
+    storage: storage,
+    Reguest: function () {
+      return new FakeReguest(function (url, ok, err) { kpCalls++; err({ status: 402 }); });
+    }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+  var item = { id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+
+  S.bannerPath(item, function () { done(new Error('первый раз — ошибка, а не ok')); }, function (e) {
+    assert.ok(e && e.kp_failed, JSON.stringify(e));
+    assert.equal(kpCalls, 1);
+    var rec = storage.get('lumen_kpp_TOP_250_MOVIES', null);
+    assert.ok(rec && Array.isArray(rec.data) && rec.data.length === 0, 'пустая запись-отметка неудачи');
+    assert.ok(rec.ttl > 0 && rec.ttl <= 10 * 60000, 'короткий срок: ' + rec.ttl);
+    S.bannerPath(item, function (path) {
+      assert.equal(path, '', 'плитка без кадра');
+      assert.equal(kpCalls, 1, 'повторный шаг фокуса в сеть не идёт');
+      rec.at = Date.now() - 11 * 60000;
+      S.bannerPath(item, function () { done(new Error('через 10 минут — снова запрос и снова ошибка')); }, function () {
+        assert.equal(kpCalls, 2, 'через 10 минут — новый запрос');
+        done();
+      }, null);
+    }, function (e2) { done(new Error('второй раз — из кэша, получено err: ' + JSON.stringify(e2))); }, null);
+  }, null);
+});
