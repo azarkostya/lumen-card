@@ -623,9 +623,9 @@ test('render: без ключа — строка состояния и подс�
 
 /* 2026-09-28 (пользователь с ТВ: ключ не вписан, подсказку когда-то скрыл —
    и ряд отзывов молчал): «Скрыть» убирает только большую подсказку. Строка
-   состояния «ключ API не задан» с пояснением и путём до пункта настроек
-   остаётся. */
-test('ключ пуст, подсказка скрыта — строка состояния с путём до ключа есть', () => {
+   состояния «ключ API не задан» остаётся. Ревью 1.0.2: одна строка шапки —
+   без пояснения и пути; скрывший подсказку второй подсказки не ждёт. */
+test('ключ пуст, подсказка скрыта — одна строка «Кинопоиск · ключ API не задан»', () => {
   const env = freshEnv({ store: { lumen_kp_hint: 'false' } });
   const d = makeDescrRow();
   env.LC.reviews.render(d.row, DUNE);
@@ -636,16 +636,16 @@ test('ключ пуст, подсказка скрыта — строка сос
   assert.ok(blocks[0].hasClass('lumen-reviews--err'), 'строка состояния, как у сбоев ключа');
   const html = blocks[0].html();
   assert.ok(html.indexOf('Отзывы зрителей') !== -1 && html.indexOf('Кинопоиск') !== -1, html);
-  assert.ok(html.indexOf('ключ API не задан') !== -1, html);
-  assert.ok(html.indexOf('Отзывы Кинопоиска появятся, когда вы впишете ключ:') !== -1, html);
-  assert.ok(html.indexOf('Настройки → Lumen Card → Ключ Kinopoisk API') !== -1, html);
+  assert.ok(html.indexOf('· ключ API не задан') !== -1, html);
+  assert.equal(html.indexOf('lumen-reviews__note'), -1, 'пояснения под строкой нет: ' + html);
+  assert.equal(html.indexOf('Настройки → Lumen Card'), -1, 'пути до ключа нет: ' + html);
   assert.equal(html.indexOf('lumen-reviews__hint'), -1, 'большой подсказки нет');
   assert.equal(html.indexOf('selector'), -1, 'фокусируемых узлов нет — навигация ряда описания прежняя');
 });
 
-test('ключ пуст: строки состояния переведены на три языка', () => {
+test('ключ пуст: строка состояния переведена на три языка', () => {
   const env = freshEnv();
-  for (const key of ['lumen_reviews_st_nokey', 'lumen_reviews_st_nokey_note']) {
+  for (const key of ['lumen_reviews_st_nokey']) {
     const pack = env.LC.STRINGS[key];
     assert.ok(pack, key);
     for (const lang of ['ru', 'en', 'uk']) assert.ok(pack[lang] && pack[lang].trim(), key + '.' + lang);
@@ -680,7 +680,8 @@ test('Task 20: подпись ряда учитывает подсказку —
   assert.equal(blocksOf(d).filter((b) => b.hasClass('lumen-reviews--hint')).length, 0,
     'повторный рендер обязан снять подсказку, а не выйти по подписи');
   assert.equal(blocksOf(d).length, 1, 'строка состояния остаётся');
-  assert.ok(blocksOf(d)[0].html().indexOf('lumen-reviews__note-path') !== -1, 'под строкой — путь до ключа');
+  assert.ok(blocksOf(d)[0].html().indexOf('· ключ API не задан') !== -1, 'строка шапки на месте');
+  assert.equal(blocksOf(d)[0].html().indexOf('lumen-reviews__note'), -1, 'одной строкой, без пояснения и пути');
 });
 
 /* Жалоба 2026-09-27: вместо пустого места — одна строка шапки «Отзывы
