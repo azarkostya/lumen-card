@@ -1,4 +1,4 @@
-// Lumen Card for Lampa v1.0.1
+// Lumen Card for Lampa v1.0.2
 
 /* ---- 00_head.js ---- */
 /*!
@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') window.lumen_card_plugin = true;
 
 var LC = {};
 if (typeof window !== 'undefined') window.lumen_card = LC;
-LC.VERSION = '1.0.1';
+LC.VERSION = '1.0.2';
 
 
 
@@ -37920,8 +37920,10 @@ try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { re
 
 
 
+
+
 var STATES = {
-nokey: { err: true, path: true },
+nokey: { err: true },
 key: { err: true, path: true },
 quota: { err: true },
 busy: { err: true },
@@ -37971,9 +37973,8 @@ holder.append(block);
 
 
 function paintNoKey(holder) {
-var hint = hintEnabled();
-paintStatus(holder, 'nokey', hint);
-if (hint) paintHint(holder);
+paintStatus(holder, 'nokey', true);
+if (hintEnabled()) paintHint(holder);
 }
 
 
@@ -45277,11 +45278,18 @@ uk: 'Оформлення, картка й головна, пульт, для р
 
 
 
+
+
+
+
+
+
+
 lumen_style_name: { ru: 'Стиль', en: 'Style', uk: 'Стиль' },
 lumen_style_descr: {
-ru: 'Готовое оформление одним выбором: Lumen — тёплое, Apple TV — чёрное, плоское и нейтральное. Меняет тему, цвета, шрифт, метки и логотипы. «Свой» — пункты меняли вручную.',
-en: 'A ready-made look in one choice: Lumen is warm, Apple TV is black, flat and neutral. It sets the theme, colours, font, badges and logos. "Custom" means items were changed by hand.',
-uk: 'Готове оформлення одним вибором: Lumen — тепле, Apple TV — чорне, пласке й нейтральне. Змінює тему, кольори, шрифт, мітки й логотипи. «Свій» — пункти змінювали вручну.'
+ru: 'Lumen — тёплое оформление, Apple TV — чёрное и плоское. Меняет тему, цвета, шрифт, метки и «Скрывать блоки анализа Lampa», возвращает «Кадр над рядами» на «Крупный» и включает логотип в кадре. «Свой» — пункты меняли вручную.',
+en: 'Lumen is warm, Apple TV is black and flat. Sets the theme, colours, font, badges and "Hide the Lampa analysis blocks", puts "Hero over the rows" back to "Large" and turns the hero logo on. "Custom" means items were changed by hand.',
+uk: 'Lumen — тепле оформлення, Apple TV — чорне й пласке. Змінює тему, кольори, шрифт, мітки й «Ховати блоки аналізу Lampa», повертає «Кадр над рядами» на «Великий» і вмикає логотип у кадрі. «Свій» — пункти змінювали вручну.'
 },
 lumen_style_lumen: { ru: 'Lumen', en: 'Lumen', uk: 'Lumen' },
 lumen_style_appletv: { ru: 'Apple TV', en: 'Apple TV', uk: 'Apple TV' },
@@ -45572,11 +45580,13 @@ uk: 'Рядок із частотою кадрів і замірами в кут
 
 
 
+
+
 lumen_debug_bench_name: { ru: 'Тест производительности', en: 'Performance test', uk: 'Тест продуктивності' },
 lumen_debug_bench_descr: {
-ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
-en: 'Runs the home screen through eight modes for about a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
-uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
+ru: 'Чуть больше минуты гоняет главную по девяти стадиям и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
+en: 'Runs the home screen through nine stages for a little over a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
+uk: 'Трохи більше хвилини ганяє головну через дев’ять стадій і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
 },
 lumen_rowmem_name: { ru: 'Сон дальних рядов', en: 'Sleep for far rows', uk: 'Сон дальніх рядів' },
 lumen_rowmem_descr: {
@@ -45778,12 +45788,8 @@ uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
 
 
 
+
 lumen_reviews_st_nokey: { ru: 'ключ API не задан', en: 'API key not set', uk: 'ключ API не задано' },
-lumen_reviews_st_nokey_note: {
-ru: 'Отзывы Кинопоиска появятся, когда вы впишете ключ:',
-en: 'Kinopoisk reviews will appear once you enter the key:',
-uk: 'Відгуки Кінопошуку з’являться, коли ви впишете ключ:'
-},
 lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
 lumen_reviews_st_key_note: {
 ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
@@ -46794,14 +46800,18 @@ warn('style sync failed', e);
 
 
 
+
+
+
 function releaseMerged(name) {
 try {
 if (!Object.prototype.hasOwnProperty.call(LC.prefs.MERGED, name)) return;
 if (!window.Lampa || !Lampa.Storage) return;
 if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+var on = LC.prefs.mergedOn(name, presetCurrent(name));
 var old = LC.prefs.MERGED[name];
 for (var i = 0; i < old.length; i++) {
-if (LC.prefs.boolOf(Lampa.Storage.get(old[i], ''), true) === false) Lampa.Storage.set(old[i], 'true', true);
+if (LC.prefs.boolOf(Lampa.Storage.get(old[i], ''), true) !== on) Lampa.Storage.set(old[i], on ? 'true' : 'false', true);
 }
 } catch (e) {
 warn('merged release failed', e);
@@ -46929,6 +46939,37 @@ Lampa.Settings.create(moreComponent(), { onBack: backFromMore });
 warn('settings more failed', err);
 }
 }
+
+
+
+
+
+
+
+
+
+
+function moreOpened(e) {
+try {
+if (e && e.name === moreComponent() && e.params && !e.params.onBack) e.params.onBack = backFromMore;
+} catch (err) {
+warn('settings more back failed', err);
+}
+}
+
+
+
+
+LC.followMoreBack = function (on) {
+try {
+var listener = window.Lampa && Lampa.Settings && Lampa.Settings.listener;
+if (!listener || typeof listener.follow !== 'function' || typeof listener.remove !== 'function') return;
+listener.remove('open', moreOpened);
+if (on) listener.follow('open', moreOpened);
+} catch (err) {
+warn('settings more follow failed', err);
+}
+};
 
 
 function onButtonFor(name) {
@@ -47363,6 +47404,17 @@ lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
 lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll']
 };
 
+
+
+
+
+
+function mergedOn(name, value) {
+if (name === 'lumen_font') return value !== 'system';
+if (name === 'lumen_hero_media') return value !== 'frames';
+return boolOf(value, true);
+}
+
 function find(name) {
 if (!name) return null;
 for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
@@ -47513,7 +47565,7 @@ return overrides ? overrides[name] : undefined;
 return {
 LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
 motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED,
+PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED, mergedOn: mergedOn,
 normalize: normalize, override: override, clearOverride: clearOverride,
 overridden: overridden, overrideOf: overrideOf
 };
@@ -47619,6 +47671,9 @@ return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
 
 
 
+
+
+
 LC.migratePrefs = function () {
 if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
 if (typeof Lampa.Storage.get !== 'function') return;
@@ -47643,29 +47698,19 @@ if (badges === 'poster' || badges === 'caption' || badges === 'off') return;
 Lampa.Storage.set('lumen_badges', LC.prefs.badgesMode(badges));
 });
 step(function () {
-if (!off('lumen_card_fonts')) return;
-Lampa.Storage.set('lumen_font', 'system');
-Lampa.Storage.set('lumen_card_fonts', 'true');
+if (off('lumen_card_fonts') && get('lumen_font') !== 'system') Lampa.Storage.set('lumen_font', 'system');
 });
 step(function () {
-if (!off('lumen_hero_trailer')) return;
-Lampa.Storage.set('lumen_hero_media', 'frames');
-Lampa.Storage.set('lumen_hero_trailer', 'true');
+if (off('lumen_hero_trailer') && get('lumen_hero_media') !== 'frames') Lampa.Storage.set('lumen_hero_media', 'frames');
 });
 step(function () {
 if (get('lumen_fx') === 'all') Lampa.Storage.set('lumen_fx', 'seasonal');
 });
 step(function () {
-if (!off('lumen_franchise_button') || !off('lumen_franchise_row')) return;
-Lampa.Storage.set('lumen_franchise', 'false');
-Lampa.Storage.set('lumen_franchise_button', 'true');
-Lampa.Storage.set('lumen_franchise_row', 'true');
+if (off('lumen_franchise_button') && off('lumen_franchise_row') && !off('lumen_franchise')) Lampa.Storage.set('lumen_franchise', 'false');
 });
 step(function () {
-if (!off('lumen_minimap') || !off('lumen_fastscroll')) return;
-Lampa.Storage.set('lumen_remote_boost', 'false');
-Lampa.Storage.set('lumen_minimap', 'true');
-Lampa.Storage.set('lumen_fastscroll', 'true');
+if (off('lumen_minimap') && off('lumen_fastscroll') && !off('lumen_remote_boost')) Lampa.Storage.set('lumen_remote_boost', 'false');
 });
 };
 
@@ -51472,6 +51517,9 @@ if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
 } catch (eAmbient) {
 warn('ambient install failed', eAmbient);
 }
+
+
+if (LC.followMoreBack) LC.followMoreBack(true);
 }
 
 function deactivate() {
@@ -51569,6 +51617,8 @@ try { if (LC.roulette && LC.roulette.uninstall) LC.roulette.uninstall(); } catch
 
 
 try { if (LC.ambient && LC.ambient.uninstall) LC.ambient.uninstall(); } catch (eAmbientOff) {}
+
+if (LC.followMoreBack) LC.followMoreBack(false);
 }
 
 
