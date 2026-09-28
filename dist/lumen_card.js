@@ -4517,6 +4517,21 @@ css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + P.text
 
 
 
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews--quiet .lumen-reviews__head{margin-bottom:0}');
+css.push('.lumen-descr-row .lumen-reviews--err .lumen-reviews__state{color:' + P.text + '}');
+css.push('.lumen-descr-row .lumen-reviews__note{-webkit-box-sizing:border-box;box-sizing:border-box;max-width:36em;margin-left:-.7em;padding:.61em .7em;border-radius:.61em;background:' + P.plate + '}');
+css.push('.lumen-descr-row .lumen-reviews__note-text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.text + '}');
+css.push('.lumen-descr-row .lumen-reviews__note-path{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + A + ';margin-top:.35em}');
+
+
+
+
+
+
 css.push('.lumen-review-modal{display:-webkit-box;display:-webkit-flex;display:flex;border-radius:.61em;overflow:hidden;background:' + P.gradPanel + ';border:.04em solid ' + P.line + ';color:' + P.text + '}');
 css.push('.lumen-review-modal__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + P.muted + '}');
 css.push('.lumen-review-modal--good .lumen-review-modal__tone{background:' + P.good + '}');
@@ -7578,6 +7593,8 @@ css.push('.lumen-card .lumen-episode{border-radius:.3em;background:none;backgrou
 
 css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:.3em}');
 css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
+
+css.push('.lumen-descr-row .lumen-reviews__note{background:none;padding-left:0;padding-right:0;margin-left:0}');
 
 
 
@@ -11207,6 +11224,19 @@ try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, 
 if (!dead()) ok(urls.slice(0, limit));
 },
 function () {
+
+
+
+
+
+
+
+
+
+var s = storage();
+if (s) {
+try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
+}
 if (!dead()) err({ kp_failed: true });
 },
 false,
@@ -36962,6 +36992,18 @@ var MAX_EXCERPT = 300;
 var MAX_ITEMS = 12;
 var TIMEOUT_MS = 8000;
 var INDEX_KEY = 'lumen_rv_index';
+
+
+
+
+
+
+
+
+var IDS_KEY = 'lumen_kpids';
+var IDS_MAX = 300;
+var IDS_TTL = 7 * 24 * 3600 * 1000;
+var IMDB_RE = /^tt\d{1,10}$/;
 var ANON = 'Аноним';
 
 var esc = LC.util.esc;
@@ -37226,8 +37268,14 @@ function purge(store) {
 try {
 LC.util.each(readIndex(store), function (it) { if (it && it.id) drop(store, it.id); });
 store.set(INDEX_KEY, []);
+
+
+try { store.set(IDS_KEY, '', true); } catch (e3) { }
 try {
-if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(INDEX_KEY);
+if (typeof window !== 'undefined' && window.localStorage) {
+window.localStorage.removeItem(INDEX_KEY);
+window.localStorage.removeItem(IDS_KEY);
+}
 } catch (e2) { }
 } catch (e) {
 warn('reviews cache purge failed', e);
@@ -37346,6 +37394,10 @@ rec.total = parseInt(rec.total, 10) || 0;
 
 
 rec.rate = parseFloat(rec.rate) || 0;
+
+
+
+rec.nf = rec.nf ? 1 : 0;
 return rec;
 } catch (e) {
 warn('reviews cache read failed', e);
@@ -37353,7 +37405,10 @@ return null;
 }
 }
 
-function cacheWrite(imdbId, list, total, at, kp, rate) {
+
+
+
+function cacheWrite(imdbId, list, total, at, kp, rate, nf) {
 try {
 var store = storage();
 if (!store || !imdbId) return;
@@ -37380,9 +37435,64 @@ while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
 
 
 if (!put(store, INDEX_KEY, kept)) return;
-put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 });
+var rec = { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 };
+if (nf) rec.nf = 1;
+put(store, cacheKey(imdbId), rec);
 } catch (e) {
 warn('reviews cache write failed', e);
+}
+}
+
+
+
+
+
+
+function readIds(store) {
+var map = null;
+try { map = store.get(IDS_KEY, null); } catch (e) { }
+if (!map || typeof map !== 'object' || Object.prototype.toString.call(map) === '[object Array]') return {};
+return map;
+}
+
+function idLookup(imdbId, at) {
+try {
+var store = storage();
+if (!store || !IMDB_RE.test('' + imdbId)) return null;
+var map = readIds(store);
+if (!Object.prototype.hasOwnProperty.call(map, imdbId)) return null;
+var e = map[imdbId];
+if (Object.prototype.toString.call(e) !== '[object Array]') return null;
+var kp = '' + e[0];
+var t = e[2];
+if (!/^\d{1,10}$/.test(kp)) return null;
+if (typeof t !== 'number' || now(at) < t || now(at) - t >= IDS_TTL) return null;
+return { kp: kp, rate: kpRateOf({ ratingKinopoisk: e[1] }) };
+} catch (err) {
+return null;
+}
+}
+
+function idRemember(imdbId, kp, rate, at) {
+try {
+var store = storage();
+if (!store || !IMDB_RE.test('' + imdbId) || !/^\d{1,10}$/.test('' + kp)) return;
+var map = readIds(store);
+var keys = [];
+for (var k in map) {
+if (!Object.prototype.hasOwnProperty.call(map, k) || k === imdbId || !IMDB_RE.test(k)) continue;
+if (Object.prototype.toString.call(map[k]) !== '[object Array]' || typeof map[k][2] !== 'number') continue;
+keys.push(k);
+}
+
+keys.sort(function (a, b) { return map[a][2] - map[b][2]; });
+while (keys.length >= IDS_MAX) keys.shift();
+var out = {};
+for (var i = 0; i < keys.length; i++) out[keys[i]] = map[keys[i]];
+out[imdbId] = [parseInt(kp, 10), rate || 0, now(at)];
+put(store, IDS_KEY, out);
+} catch (e) {
+warn('reviews ids write failed', e);
 }
 }
 
@@ -37413,39 +37523,69 @@ timeout: TIMEOUT_MS
 
 
 
+
+
+function errorKind(xhr) {
+var code = 0;
+try { code = parseInt(xhr && xhr.status, 10) || 0; } catch (e) { }
+if (code === 401 || code === 403) return 'key';
+if (code === 402) return 'quota';
+if (code === 429) return 'busy';
+if (code === 404) return 'notfound';
+return 'net';
+}
+
+
+
+function failure(xhr) {
+var kind = errorKind(xhr);
+return kind === 'notfound' ? { notfound: true } : { error: kind };
+}
+
+
+function cachedResult(rec) {
+if (rec.list && rec.list.length) return { list: rec.list, total: rec.total || rec.list.length };
+return rec.nf ? { notfound: true } : { empty: true };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function load(imdbId, key, cb, alive, at, onRate) {
 function dead() {
 try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
 }
 try {
 if (!key) { cb({ nokey: true }); return null; }
-if (!imdbId) { cb(null); return null; }
+if (!imdbId) { cb({ noid: true }); return null; }
 
 var rec = cacheRead(imdbId, at);
 if (rec) {
 
 
 reportRate(rec.rate, onRate);
-cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
+cb(cachedResult(rec));
 return null;
 }
 
 if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return null; }
 var net = new Lampa.Reguest();
 
-request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
-if (dead()) return;
-try {
-var item = found && found.items && found.items[0];
-var kp = item && item.kinopoiskId;
 
 
-var rate = kpRateOf(item);
-reportRate(rate, onRate);
-
-
-
-if (!kp || !/^\d{1,10}$/.test('' + kp)) { cb(null); return; }
+function fetchReviews(kp, rate) {
 request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
 if (dead()) return;
 try {
@@ -37460,7 +37600,7 @@ if (!list.length) {
 
 
 cacheWrite(imdbId, [], 0, at, kp, rate);
-cb(null);
+cb({ empty: true });
 return;
 }
 var total = parseInt(resp && resp.total, 10) || list.length;
@@ -37468,19 +37608,51 @@ cacheWrite(imdbId, list, total, at, kp, rate);
 cb({ list: list, total: total });
 } catch (inner) {
 warn('reviews parse failed', inner);
-cb(null);
+cb({ error: 'net' });
 }
-}, function () { if (!dead()) cb(null); });
+}, function (xhr) { if (!dead()) cb(failure(xhr)); });
+}
+
+
+
+var known = idLookup(imdbId, at);
+if (known) {
+reportRate(known.rate, onRate);
+fetchReviews(known.kp, known.rate);
+return net;
+}
+
+request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
+if (dead()) return;
+try {
+var item = found && found.items && found.items[0];
+var kp = item && item.kinopoiskId;
+
+
+var rate = kpRateOf(item);
+reportRate(rate, onRate);
+
+
+
+
+
+if (!kp || !/^\d{1,10}$/.test('' + kp)) {
+cacheWrite(imdbId, [], 0, at, 0, rate, true);
+cb({ notfound: true });
+return;
+}
+idRemember(imdbId, kp, rate, at);
+fetchReviews(kp, rate);
 } catch (e) {
 warn('reviews search failed', e);
-cb(null);
+cb({ error: 'net' });
 }
-}, function () { if (!dead()) cb(null); });
+}, function (xhr) { if (!dead()) cb(failure(xhr)); });
 
 return net;
 } catch (e2) {
 warn('reviews load failed', e2);
-cb(null);
+cb({ error: 'net' });
 return null;
 }
 }
@@ -37667,6 +37839,56 @@ return '<div class="lumen-reviews__hint">' +
 
 function hintEnabled() {
 try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
+}
+
+
+
+
+
+
+
+
+var STATES = {
+key: { err: true, path: true },
+quota: { err: true },
+busy: { err: true },
+net: { err: true },
+empty: {},
+notfound: {},
+noid: {}
+};
+
+function stateKind(res) {
+if (!res) return '';
+if (res.error) return STATES.hasOwnProperty(res.error) ? res.error : 'net';
+if (res.empty) return 'empty';
+if (res.notfound) return 'notfound';
+if (res.noid) return 'noid';
+return '';
+}
+
+function statusHtml(kind) {
+var def = STATES[kind] || STATES.net;
+var html = '<div class="lumen-reviews__head">' +
+'<span class="lumen-reviews__ico"></span>' +
+'<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
+'<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
+'<span class="lumen-reviews__total lumen-reviews__state">· ' + esc(lang('lumen_reviews_st_' + kind)) + '</span>' +
+'</div>';
+if (def.err) {
+html += '<div class="lumen-reviews__note">' +
+'<div class="lumen-reviews__note-text">' + esc(lang('lumen_reviews_st_' + kind + '_note')) + '</div>' +
+(def.path ? '<div class="lumen-reviews__note-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' : '') +
+'</div>';
+}
+return html;
+}
+
+function paintStatus(holder, kind) {
+var def = STATES[kind] || STATES.net;
+var block = $('<div class="lumen-reviews lumen-reviews--status ' + (def.err ? 'lumen-reviews--err' : 'lumen-reviews--quiet') + '" data-lumen-state="' + kind + '"></div>');
+block.html(statusHtml(kind));
+holder.append(block);
 }
 
 
@@ -38104,7 +38326,9 @@ row.removeClass('lumen-descr-row--reviews');
 
 if (!on) return;
 if (!key) { paintHint(holder); state.painted = true; return; }
-if (!imdb) return;
+
+
+if (!imdb) { paintStatus(holder, 'noid'); state.painted = true; return; }
 
 
 
@@ -38117,6 +38341,11 @@ if (current.gen !== gen) return;
 clearBlock(holder);
 if (!res) return;
 if (res.nokey) { paintHint(holder); current.painted = true; return; }
+
+
+var kind = stateKind(res);
+if (kind) { paintStatus(holder, kind); current.painted = true; return; }
+if (!res.list) return;
 paintList(holder, res.list, res.total);
 
 
@@ -38195,6 +38424,7 @@ splitSpoilers: splitSpoilers,
 kpRateOf: kpRateOf,
 cacheRead: cacheRead,
 cacheWrite: cacheWrite,
+errorKind: errorKind,
 load: load,
 render: render,
 clearRow: clearRow,
@@ -45478,6 +45708,36 @@ ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
 en: 'Settings → Lumen Card → Kinopoisk API key',
 uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
 },
+
+
+
+lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
+lumen_reviews_st_key_note: {
+ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
+en: 'Kinopoisk answered "no access": the key has a typo or an extra character, or it was revoked. Check it:',
+uk: 'Кінопошук відповів «немає доступу»: у ключі помилка, зайвий символ або ключ відкликано. Перевірте його:'
+},
+lumen_reviews_st_quota: { ru: 'лимит ключа исчерпан', en: 'key limit reached', uk: 'ліміт ключа вичерпано' },
+lumen_reviews_st_quota_note: {
+ru: 'Бесплатный ключ kinopoiskapiunofficial.tech даёт 500 запросов в сутки, и на сегодня они закончились. Отзывы вернутся сами, когда лимит обнулится.',
+en: 'A free kinopoiskapiunofficial.tech key allows 500 requests a day, and today\'s are used up. Reviews will come back on their own once the limit resets.',
+uk: 'Безкоштовний ключ kinopoiskapiunofficial.tech дає 500 запитів на добу, і на сьогодні вони закінчились. Відгуки повернуться самі, коли ліміт обнулиться.'
+},
+lumen_reviews_st_busy: { ru: 'слишком много запросов', en: 'too many requests', uk: 'забагато запитів' },
+lumen_reviews_st_busy_note: {
+ru: 'Кинопоиск ограничивает частоту запросов. Откройте карточку ещё раз через минуту.',
+en: 'Kinopoisk limits how often it can be asked. Open the card again in a minute.',
+uk: 'Кінопошук обмежує частоту запитів. Відкрийте картку ще раз за хвилину.'
+},
+lumen_reviews_st_net: { ru: 'сервер не ответил', en: 'no response', uk: 'сервер не відповів' },
+lumen_reviews_st_net_note: {
+ru: 'Нет ответа от kinopoiskapiunofficial.tech — проверьте интернет. Отзывы загрузятся при следующем открытии карточки.',
+en: 'No response from kinopoiskapiunofficial.tech — check the connection. Reviews will load the next time the card is opened.',
+uk: 'Немає відповіді від kinopoiskapiunofficial.tech — перевірте інтернет. Відгуки завантажаться під час наступного відкриття картки.'
+},
+lumen_reviews_st_empty: { ru: 'отзывов пока нет', en: 'no reviews yet', uk: 'відгуків поки немає' },
+lumen_reviews_st_notfound: { ru: 'фильм не найден', en: 'title not found', uk: 'фільм не знайдено' },
+lumen_reviews_st_noid: { ru: 'нет IMDb ID для поиска', en: 'no IMDb ID to look up', uk: 'немає IMDb ID для пошуку' },
 
 
 
