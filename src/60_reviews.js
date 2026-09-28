@@ -421,6 +421,10 @@
         /* Task 10: рейтинг КП лежит в той же записи — приводим к числу здесь,
            у единственной точки чтения кэша (как total выше). */
         rec.rate = parseFloat(rec.rate) || 0;
+        /* Жалоба 2026-09-27: «фильма на Кинопоиске нет» тоже помним (флаг nf,
+           тот же короткий срок EMPTY_TTL, что у «отзывов нет») — иначе каждое
+           открытие такой карточки стоило запроса поиска. */
+        rec.nf = rec.nf ? 1 : 0;
         return rec;
       } catch (e) {
         warn('reviews cache read failed', e);
@@ -428,7 +432,10 @@
       }
     }
 
-    function cacheWrite(imdbId, list, total, at, kp, rate) {
+    /* nf — фильм не найден на Кинопоиске (список при этом пуст, срок —
+       EMPTY_TTL). Поле пишется только когда оно есть: прежние записи и
+       записи с отзывами не меняют формы. */
+    function cacheWrite(imdbId, list, total, at, kp, rate, nf) {
       try {
         var store = storage();
         if (!store || !imdbId) return;
@@ -455,7 +462,9 @@
            прошла бы успешно: получился бы ключ, которого нет в индексе, —
            его не вытеснит цикл выше и не найдёт следующий purge(). */
         if (!put(store, INDEX_KEY, kept)) return;
-        put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 });
+        var rec = { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 };
+        if (nf) rec.nf = 1;
+        put(store, cacheKey(imdbId), rec);
       } catch (e) {
         warn('reviews cache write failed', e);
       }
@@ -478,9 +487,49 @@
       });
     }
 
-    /* cb(result): {list, total} — есть что показать; null — показывать
-       нечего (нет id, ошибка сети, пустой ответ); {nokey:true} — ключ не
-       задан (подсказка экрана 13). alive() — необязательный сторож
+    /* Жалоба 2026-09-27 («где комменты кинопоиска, не мог же я токен
+       сожрать»): любой сбой прежде отдавал cb(null), и ряд молча исчезал —
+       неверный ключ, исчерпанный суточный лимит, фильм, которого нет на
+       Кинопоиске, и фильм без отзывов выглядели одинаково. Теперь ответ
+       API разбирается по коду (коды — из спецификации
+       kinopoiskapiunofficial.tech/documentation/api/openapi.json): 401 —
+       пустой или неверный ключ, 402 — превышен лимит (дневной или общий),
+       429 — слишком часто (у films?imdbId свой предел, 5 запросов в
+       секунду), 404 — фильма нет. Всё прочее (status 0: сеть, таймаут,
+       CORS; 5xx) — «сервер не ответил». Проверено живьём без ключа: ответ
+       401 приходит с Access-Control-Allow-Origin: *, то есть код ошибки
+       браузеру виден, а не превращается в status 0. */
+    function errorKind(xhr) {
+      var code = 0;
+      try { code = parseInt(xhr && xhr.status, 10) || 0; } catch (e) { }
+      if (code === 401 || code === 403) return 'key';
+      if (code === 402) return 'quota';
+      if (code === 429) return 'busy';
+      if (code === 404) return 'notfound';
+      return 'net';
+    }
+
+    /* Результат колбэка по неудачному ответу. 404 — тот же «фильма нет»,
+       что и пустой поиск, только без записи в кэш (как у любой ошибки). */
+    function failure(xhr) {
+      var kind = errorKind(xhr);
+      return kind === 'notfound' ? { notfound: true } : { error: kind };
+    }
+
+    /* Результат по записи кэша: отзывы, «фильма нет» или «отзывов нет». */
+    function cachedResult(rec) {
+      if (rec.list && rec.list.length) return { list: rec.list, total: rec.total || rec.list.length };
+      return rec.nf ? { notfound: true } : { empty: true };
+    }
+
+    /* cb(result): {list, total} — есть что показать; {nokey:true} — ключ
+       не задан (подсказка экрана 13); {noid:true} — у фильма нет IMDb id,
+       искать не по чему; {empty:true} — фильм найден, отзывов нет;
+       {notfound:true} — Кинопоиск фильма не знает; {error: 'key' | 'quota'
+       | 'busy' | 'net'} — запрос не удался (errorKind выше); null — нет
+       самой Lampa.Reguest (показывать нечего). Ошибки НЕ кэшируются:
+       следующее открытие карточки спросит заново, «залипнуть» сбою негде.
+       alive() — необязательный сторож
        актуальности (generation guard рендера): как только он вернёт false,
        цепочка обрывается молча — ни второго запроса, ни колбэка.
        Возвращает экземпляр Lampa.Reguest (или null, если запрос не
@@ -494,14 +543,14 @@
       }
       try {
         if (!key) { cb({ nokey: true }); return null; }
-        if (!imdbId) { cb(null); return null; }
+        if (!imdbId) { cb({ noid: true }); return null; }
 
         var rec = cacheRead(imdbId, at);
         if (rec) {
           /* Task 10: рейтинг КП — даже когда отзывов у фильма нет (отрицательный
              кэш): чип рейтинга от их наличия не зависит. */
           reportRate(rec.rate, onRate);
-          cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
+          cb(cachedResult(rec));
           return null;
         }
 
@@ -519,8 +568,14 @@
             reportRate(rate, onRate);
             /* Финальная проверка, B7: id Кинопоиска идёт в путь запроса
                (BASE + '/' + kp + '/reviews') — только цифры; иначе запроса
-               нет, как и без id. */
-            if (!kp || !/^\d{1,10}$/.test('' + kp)) { cb(null); return; }
+               нет, как и без id. Жалоба 2026-09-27: «не нашли» запоминается
+               на EMPTY_TTL (флаг nf) — повторное открытие карточки не
+               тратит запрос поиска. */
+            if (!kp || !/^\d{1,10}$/.test('' + kp)) {
+              cacheWrite(imdbId, [], 0, at, 0, rate, true);
+              cb({ notfound: true });
+              return;
+            }
             request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
               if (dead()) return;
               try {
@@ -535,7 +590,7 @@
                      запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
                      запросами на каждое открытие карточки. */
                   cacheWrite(imdbId, [], 0, at, kp, rate);
-                  cb(null);
+                  cb({ empty: true });
                   return;
                 }
                 var total = parseInt(resp && resp.total, 10) || list.length;
@@ -543,19 +598,19 @@
                 cb({ list: list, total: total });
               } catch (inner) {
                 warn('reviews parse failed', inner);
-                cb(null);
+                cb({ error: 'net' });
               }
-            }, function () { if (!dead()) cb(null); });
+            }, function (xhr) { if (!dead()) cb(failure(xhr)); });
           } catch (e) {
             warn('reviews search failed', e);
-            cb(null);
+            cb({ error: 'net' });
           }
-        }, function () { if (!dead()) cb(null); });
+        }, function (xhr) { if (!dead()) cb(failure(xhr)); });
 
         return net;
       } catch (e2) {
         warn('reviews load failed', e2);
-        cb(null);
+        cb({ error: 'net' });
         return null;
       }
     }
@@ -742,6 +797,56 @@
        настройки перерисовывает ряд, а не отсекается ранним return. */
     function hintEnabled() {
       try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
+    }
+
+    /* Жалоба 2026-09-27: вместо тишины — строка состояния. Шапка та же, что
+       у ряда (иконка, «Отзывы зрителей», «Кинопоиск»), а на месте счётчика —
+       короткое состояние. У ошибок ключа и сети под шапкой ещё и пояснение:
+       что случилось и что делать; у «отзывов нет» и «не найдено» — только
+       строка шапки, чтобы фильм без отзывов не получал лишнего блока.
+       Узлов .selector здесь нет: читать нечего по OK, и навигация ряда
+       описания остаётся прежней. Строки — src/80_settings.js. */
+    var STATES = {
+      key: { err: true, path: true },
+      quota: { err: true },
+      busy: { err: true },
+      net: { err: true },
+      empty: {},
+      notfound: {},
+      noid: {}
+    };
+
+    function stateKind(res) {
+      if (!res) return '';
+      if (res.error) return STATES.hasOwnProperty(res.error) ? res.error : 'net';
+      if (res.empty) return 'empty';
+      if (res.notfound) return 'notfound';
+      if (res.noid) return 'noid';
+      return '';
+    }
+
+    function statusHtml(kind) {
+      var def = STATES[kind] || STATES.net;
+      var html = '<div class="lumen-reviews__head">' +
+        '<span class="lumen-reviews__ico"></span>' +
+        '<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
+        '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
+        '<span class="lumen-reviews__total lumen-reviews__state">· ' + esc(lang('lumen_reviews_st_' + kind)) + '</span>' +
+        '</div>';
+      if (def.err) {
+        html += '<div class="lumen-reviews__note">' +
+          '<div class="lumen-reviews__note-text">' + esc(lang('lumen_reviews_st_' + kind + '_note')) + '</div>' +
+          (def.path ? '<div class="lumen-reviews__note-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' : '') +
+          '</div>';
+      }
+      return html;
+    }
+
+    function paintStatus(holder, kind) {
+      var def = STATES[kind] || STATES.net;
+      var block = $('<div class="lumen-reviews lumen-reviews--status ' + (def.err ? 'lumen-reviews--err' : 'lumen-reviews--quiet') + '" data-lumen-state="' + kind + '"></div>');
+      block.html(statusHtml(kind));
+      holder.append(block);
     }
 
     /* ------------------------------------------------------------------ */
@@ -1179,7 +1284,9 @@
 
         if (!on) return;
         if (!key) { paintHint(holder); state.painted = true; return; }
-        if (!imdb) return;
+        /* Жалоба 2026-09-27: без IMDb id искать на Кинопоиске не по чему —
+           говорим об этом строкой шапки, а не пустотой. */
+        if (!imdb) { paintStatus(holder, 'noid'); state.painted = true; return; }
 
         /* Task 25: плашки на месте карточек — пока идёт запрос. Снимаются
            первой же строкой ответа, в том числе когда отзывов не нашлось. */
@@ -1192,6 +1299,11 @@
             clearBlock(holder);
             if (!res) return;
             if (res.nokey) { paintHint(holder); current.painted = true; return; }
+            /* Жалоба 2026-09-27: сбой, «не найдено» и «отзывов нет» —
+               строкой состояния, а не пустым местом. */
+            var kind = stateKind(res);
+            if (kind) { paintStatus(holder, kind); current.painted = true; return; }
+            if (!res.list) return;
             paintList(holder, res.list, res.total);
             /* Ряд карточек и длинное описание вместе перерастают экран, а
                Lampa внутри ряда описания не прокручивает (находка Task 5d) —
@@ -1270,6 +1382,7 @@
       kpRateOf: kpRateOf,
       cacheRead: cacheRead,
       cacheWrite: cacheWrite,
+      errorKind: errorKind,
       load: load,
       render: render,
       clearRow: clearRow,

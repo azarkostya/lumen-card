@@ -3623,6 +3623,21 @@
     /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
     css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + P.text + ';color:' + P.bg + '}');
 
+    /* Жалоба 2026-09-27 («где комменты кинопоиска»): строка состояния ряда
+       вместо тишины (src/60_reviews.js, statusHtml). Шапка — та же, что у
+       ряда с отзывами; состояние стоит на месте счётчика и берёт его
+       правило (.lumen-reviews__total: muted, 1.01em). У «отзывов нет» и
+       «не найдено» больше ничего нет — отступ под шапкой снят. У сбоев
+       состояние — основным цветом (это не справка, а поломка), а под шапкой
+       пояснение на такой же подложке по содержимому, что и шапка; путь до
+       настройки — строкой акцентом, как в подсказке без ключа. Кегль
+       пояснения — 1.01em (Task 63: не мельче 23 px на ТВ). */
+    css.push('.lumen-descr-row .lumen-reviews--quiet .lumen-reviews__head{margin-bottom:0}');
+    css.push('.lumen-descr-row .lumen-reviews--err .lumen-reviews__state{color:' + P.text + '}');
+    css.push('.lumen-descr-row .lumen-reviews__note{-webkit-box-sizing:border-box;box-sizing:border-box;max-width:36em;margin-left:-.7em;padding:.61em .7em;border-radius:.61em;background:' + P.plate + '}');
+    css.push('.lumen-descr-row .lumen-reviews__note-text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.text + '}');
+    css.push('.lumen-descr-row .lumen-reviews__note-path{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + A + ';margin-top:.35em}');
+
     /* Экран 08: модал отзыва. Живёт в .modal Lampa (вне карточки и вне ряда),
        поэтому корень правил — собственный класс .lumen-review-modal, который
        ставит сам блок: маркер оформления пути TorrServer (lumen-modal,
@@ -6689,6 +6704,8 @@
          радиусом 0 она выходила резким прямоугольником. */
       css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:.3em}');
       css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
+      /* Пояснение сбоя под шапкой (жалоба 2026-09-27) — так же без подложки. */
+      css.push('.lumen-descr-row .lumen-reviews__note{background:none;padding-left:0;padding-right:0;margin-left:0}');
 
       /* Сетка подборки и хаб: подложки под плитками. Подпись в сетке уже
          под постером (.card__title ниже .card__view), в хабе — на кадре

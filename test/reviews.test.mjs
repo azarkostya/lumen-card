@@ -388,11 +388,11 @@ test('load: без ключа — колбэк «нет ключа», сеть �
   assert.equal(env.journal.instances, 0, 'без ключа экземпляр Reguest не создаём');
 });
 
-test('load: без imdb id — null, сеть не трогаем', () => {
+test('load: без imdb id — «искать не по чему», сеть не трогаем', () => {
   const env = freshEnv();
   const got = [];
   env.LC.reviews.load('', 'KEY', (res) => got.push(res));
-  assert.deepEqual(got, [null]);
+  assert.deepEqual(got, [{ noid: true }]);
   assert.equal(env.journal.calls.length, 0);
 });
 
@@ -439,19 +439,22 @@ test('load: свежий кэш отдаётся без единого запр�
   assert.equal(got[0].list[0].title, 'из кэша');
 });
 
-test('load: ошибка сети на любом шаге и пустой поиск -> null, без повторов', () => {
+/* Жалоба 2026-09-27: сбой больше не отдаёт null — ряд обязан сказать, что
+   случилось. Повторов в цикле по-прежнему нет, неудача не кэшируется. */
+test('load: ошибка сети на любом шаге и пустой поиск — состояние вместо null, без повторов', () => {
   const failSearch = freshEnv();
   const a = [];
   failSearch.LC.reviews.load('tt1', 'KEY', (res) => a.push(res));
   failSearch.journal.calls[0].err({ status: 502 });
-  assert.deepEqual(a, [null]);
+  assert.deepEqual(a, [{ error: 'net' }]);
   assert.equal(failSearch.journal.calls.length, 1, 'повторов в цикле нет');
+  assert.equal(failSearch.store.lumen_rv_tt1, undefined, 'сбой поиска не кэшируем');
 
   const empty = freshEnv();
   const b = [];
   empty.LC.reviews.load('tt1', 'KEY', (res) => b.push(res));
   empty.journal.calls[0].ok({ total: 0, items: [] });
-  assert.deepEqual(b, [null]);
+  assert.deepEqual(b, [{ notfound: true }]);
   assert.equal(empty.journal.calls.length, 1, 'нечего искать — второго запроса нет');
 
   const failReviews = freshEnv();
@@ -459,18 +462,22 @@ test('load: ошибка сети на любом шаге и пустой по�
   failReviews.LC.reviews.load('tt1', 'KEY', (res) => c.push(res));
   failReviews.journal.calls[0].ok(SEARCH_OK);
   failReviews.journal.calls[1].err({ status: 401 });
-  assert.deepEqual(c, [null]);
+  assert.deepEqual(c, [{ error: 'key' }]);
   assert.equal(failReviews.store.lumen_rv_tt1, undefined, 'неудачу не кэшируем');
   assert.deepEqual(warnLog, []);
 });
 
-test('load: с ключом, но без отзывов -> null (блок скрыт, экран 13 панель 1)', () => {
+test('load: с ключом, но без отзывов — «отзывов нет» (и из кэша тоже)', () => {
   const env = freshEnv();
   const got = [];
-  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res));
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res), null, 1000);
   env.journal.calls[0].ok(SEARCH_OK);
   env.journal.calls[1].ok({ total: 0, items: [] });
-  assert.deepEqual(got, [null]);
+  assert.deepEqual(got, [{ empty: true }]);
+
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res), null, 1000 + 60000);
+  assert.equal(env.journal.calls.length, 2, 'отрицательный кэш: второго открытия сеть не стоит');
+  assert.deepEqual(got[1], { empty: true }, 'из кэша — то же состояние, а не отзывы и не «не найдено»');
 });
 
 /* ---------------------------- рендер ---------------------------- */
@@ -644,20 +651,33 @@ test('Task 20: подпись ряда учитывает подсказку —
   assert.equal(blocksOf(d).length, 0, 'повторный рендер обязан снять подсказку, а не выйти по подписи');
 });
 
-test('render: с ключом и без отзывов — блок снят целиком', () => {
+/* Жалоба 2026-09-27: вместо пустого места — одна строка шапки «Отзывы
+   зрителей · Кинопоиск · отзывов пока нет». Карточек и .selector нет,
+   описание не поджимается. */
+test('render: с ключом и без отзывов — одна строка шапки «отзывов пока нет», без карточек', () => {
   const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
   const d = makeDescrRow();
   env.LC.reviews.render(d.row, DUNE);
   env.journal.calls[0].ok(SEARCH_OK);
   env.journal.calls[1].ok({ total: 0, items: [] });
-  assert.equal(blocksOf(d).length, 0);
+  const blocks = blocksOf(d);
+  assert.equal(blocks.length, 1, 'строка состояния вместо пустоты');
+  const html = blocks[0].html();
+  assert.ok(blocks[0].hasClass('lumen-reviews--quiet'), blocks[0].attr ? blocks[0].attr('class') : '');
+  assert.ok(html.indexOf('Отзывы зрителей') !== -1 && html.indexOf('Кинопоиск') !== -1, html);
+  assert.ok(html.indexOf('отзывов пока нет') !== -1, html);
+  assert.equal(html.indexOf('selector'), -1, 'фокусируемых узлов нет');
+  assert.equal(html.indexOf('lumen-reviews__note'), -1, 'пояснение — только у сбоев');
+  assert.equal(d.row.hasClass('lumen-descr-row--reviews'), false, 'строка низкая — описание не поджимается');
+  assert.equal(env.collected.length, 0, 'в навигацию ряда ничего не отдаём');
 });
 
-test('render: нет imdb id — блок не появляется, сети нет; external_ids тоже читается', () => {
+test('render: нет imdb id — строка «нет IMDb ID для поиска», сети нет; external_ids тоже читается', () => {
   const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
   const d = makeDescrRow();
   env.LC.reviews.render(d.row, { movie: { id: 1, title: 'Без id' } });
-  assert.equal(blocksOf(d).length, 0);
+  assert.equal(blocksOf(d).length, 1);
+  assert.ok(blocksOf(d)[0].html().indexOf('нет IMDb ID для поиска') !== -1, blocksOf(d)[0].html());
   assert.equal(env.journal.calls.length, 0);
 
   const d2 = makeDescrRow();
@@ -781,7 +801,10 @@ test('render: исправленный ключ применяется сраз�
   assert.equal(env.journal.calls.length, 1);
   assert.equal(env.journal.calls[0].params.headers['X-API-KEY'], 'WRONG-KEY');
   env.journal.calls[0].err({ status: 401 });
-  assert.equal(blocksOf(d).length, 0, 'с неверным ключом блока нет');
+  /* Жалоба 2026-09-27: с неверным ключом — строка «ключ API не принят» и
+     путь до настройки, а не пустое место. */
+  assert.equal(blocksOf(d).length, 1, 'с неверным ключом — строка состояния');
+  assert.ok(blocksOf(d)[0].html().indexOf('ключ API не принят') !== -1, blocksOf(d)[0].html());
 
   env.store.lumen_kp_key = 'RIGHT-KEY';
   env.LC.reviews.render(d.row, DUNE);
@@ -790,7 +813,9 @@ test('render: исправленный ключ применяется сраз�
 
   env.journal.calls[1].ok(SEARCH_OK);
   env.journal.calls[2].ok(REVIEWS_OK);
-  assert.equal(blocksOf(d).length, 1);
+  assert.equal(blocksOf(d).length, 1, 'строка сбоя снята, на её месте ряд');
+  assert.equal(blocksOf(d)[0].html().indexOf('ключ API не принят'), -1);
+  assert.ok(blocksOf(d)[0].html().indexOf('Иван Петров') !== -1);
   assert.deepEqual(warnLog, []);
 });
 
@@ -1027,7 +1052,7 @@ test('load: фильма в Кинопоиске нет — рейтинг не 
 /* Финальная проверка, B7: kinopoiskId из ответа films?imdbId идёт в путь
    запроса отзывов — только цифры; иначе второго запроса нет. Рейтинг из
    того же ответа от этого не зависит. */
-test('B7 load: kinopoiskId не из цифр — запроса отзывов нет, null, рейтинг показан', () => {
+test('B7 load: kinopoiskId не из цифр — запроса отзывов нет, «не найдено», рейтинг показан', () => {
   for (const kp of ['301/../../staff', '301?x=1', '301#x', ' 301', '12345678901', 'abc', -1, 3.5, true, [1, 2]]) {
     const env = freshEnv();
     const got = [];
@@ -1036,7 +1061,7 @@ test('B7 load: kinopoiskId не из цифр — запроса отзывов 
     env.LC.reviews.load('tt15239678', 'KEY', (res) => got.push(res));
     env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: kp, ratingKinopoisk: 7.8 }] });
     assert.equal(env.journal.calls.length, 1, 'второго запроса нет: ' + JSON.stringify(kp));
-    assert.deepEqual(got, [null]);
+    assert.deepEqual(got, [{ notfound: true }]);
     assert.equal(rates.length, 1, 'рейтинг из того же ответа — показан');
   }
   const ok = freshEnv();
@@ -1409,4 +1434,140 @@ test('кэш: поля отзывов нормализуются при чтен
 
   env.LC.reviews.cacheWrite('tt2', 'не массив', 1, 1000);
   assert.deepEqual(env.LC.reviews.cacheRead('tt2', 2000).list, []);
+});
+
+/* ====================================================================== */
+/* Жалоба 2026-09-27: «где комменты кинопоиска, не мог же я токен сожрать». */
+/*                                                                        */
+/* На фото пользователя в карточке был только ряд «Комментарии» самой      */
+/* Lampa (CUB), а ряд Кинопоиска молчал: при любом сбое load() отдавал     */
+/* null, и неверный ключ, исчерпанный лимит, «фильма нет» и «отзывов нет» */
+/* выглядели одинаково — никак. Теперь у каждого исхода своя строка.       */
+/* ====================================================================== */
+
+test('errorKind: коды kinopoiskapiunofficial.tech — ключ, лимит, частота, «нет фильма», прочее — сеть', () => {
+  const k = (x) => r.errorKind(x);
+  assert.equal(k({ status: 401 }), 'key');
+  assert.equal(k({ status: 403 }), 'key');
+  assert.equal(k({ status: 402 }), 'quota', '402 — «Превышен лимит запросов (или дневной, или общий)»');
+  assert.equal(k({ status: 429 }), 'busy');
+  assert.equal(k({ status: 404 }), 'notfound');
+  assert.equal(k({ status: 0 }), 'net', 'status 0 — сеть, таймаут, CORS');
+  assert.equal(k({ status: 500 }), 'net');
+  assert.equal(k({ status: '402' }), 'quota', 'строка тоже годится');
+  assert.equal(k(null), 'net');
+  assert.equal(k(undefined), 'net');
+  assert.equal(k('мусор'), 'net');
+});
+
+function renderWithError(status, step) {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  if (step === 'reviews') {
+    env.journal.calls[0].ok(SEARCH_OK);
+    env.journal.calls[1].err({ status: status });
+  } else {
+    env.journal.calls[0].err({ status: status });
+  }
+  return { env, d, blocks: blocksOf(d) };
+}
+
+test('render: сбой запроса — строка состояния и пояснение; фокусируемых узлов нет, описание не поджато', () => {
+  const cases = [
+    [401, 'search', 'ключ API не принят', 'опечатка', true],
+    [402, 'search', 'лимит ключа исчерпан', '500 запросов в сутки', false],
+    [402, 'reviews', 'лимит ключа исчерпан', '500 запросов в сутки', false],
+    [429, 'search', 'слишком много запросов', 'через минуту', false],
+    [0, 'search', 'сервер не ответил', 'проверьте интернет', false],
+    [503, 'reviews', 'сервер не ответил', 'проверьте интернет', false]
+  ];
+  for (const [status, step, state, note, path] of cases) {
+    const t = renderWithError(status, step);
+    assert.equal(t.blocks.length, 1, status + ': ровно один блок');
+    const html = t.blocks[0].html();
+    assert.ok(t.blocks[0].hasClass('lumen-reviews--err'), status + ': блок сбоя');
+    assert.ok(html.indexOf('Кинопоиск') !== -1, status + ': источник в шапке');
+    assert.ok(html.indexOf('· ' + state) !== -1, status + ': состояние в шапке — ' + html);
+    assert.ok(html.indexOf('lumen-reviews__note') !== -1 && html.indexOf(note) !== -1, status + ': пояснение — ' + html);
+    assert.equal(html.indexOf('Настройки → Lumen Card → Ключ Kinopoisk API') !== -1, path, status + ': путь до ключа только у неверного ключа');
+    assert.equal(html.indexOf('selector'), -1, status + ': навигация ряда не меняется');
+    assert.equal(html.indexOf('lumen-review--sk'), -1, status + ': скелетон снят');
+    assert.equal(t.d.row.hasClass('lumen-descr-row--reviews'), false, status + ': описание не поджато');
+    assert.equal(t.env.store.lumen_rv_tt15239678, undefined, status + ': сбой не кэшируется');
+    assert.equal(t.env.collected.length, 0, status + ': в навигацию ничего не отдано');
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('render: 404 от отзывов — «фильм не найден» одной строкой, без пояснения и без кэша', () => {
+  const t = renderWithError(404, 'reviews');
+  const html = t.blocks[0].html();
+  assert.ok(t.blocks[0].hasClass('lumen-reviews--quiet'));
+  assert.ok(html.indexOf('· фильм не найден') !== -1, html);
+  assert.equal(html.indexOf('lumen-reviews__note'), -1);
+  assert.equal(t.env.store.lumen_rv_tt15239678, undefined);
+});
+
+test('load: «фильма нет на Кинопоиске» запоминается на 2 часа — повторное открытие без запроса', () => {
+  const env = freshEnv();
+  const got = [];
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res), null, 1000);
+  env.journal.calls[0].ok({ total: 0, items: [] });
+  assert.deepEqual(got, [{ notfound: true }]);
+  assert.equal(env.store.lumen_rv_tt1.nf, 1, 'запись помечена «не найдено»');
+
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res), null, 1000 + 1.5 * 3600 * 1000);
+  assert.equal(env.journal.calls.length, 1, 'через 1.5 ч — из кэша, без запроса');
+  assert.deepEqual(got[1], { notfound: true });
+
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res), null, 1000 + 3 * 3600 * 1000);
+  assert.equal(env.journal.calls.length, 2, 'через 3 ч — спрашиваем снова: фильм могли завести');
+  assert.deepEqual(warnLog, []);
+});
+
+test('load: сбой не «залипает» — следующее открытие снова идёт в сеть', () => {
+  const env = freshEnv();
+  const got = [];
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res));
+  env.journal.calls[0].err({ status: 402 });
+  env.LC.reviews.load('tt1', 'KEY', (res) => got.push(res));
+  assert.equal(env.journal.calls.length, 2, 'после 402 повторное открытие спрашивает снова');
+  env.journal.calls[1].ok(SEARCH_OK);
+  env.journal.calls[2].ok(REVIEWS_OK);
+  assert.deepEqual(got[0], { error: 'quota' });
+  assert.equal(got[1].total, 318, 'лимит обнулился — отзывы пришли');
+});
+
+test('render: строка состояния не дублируется повторным build/complite и не шлёт второй запрос', () => {
+  const t = renderWithError(402, 'search');
+  t.env.LC.reviews.render(t.d.row, DUNE);
+  t.env.LC.reviews.render(t.d.row, DUNE);
+  assert.equal(blocksOf(t.d).length, 1);
+  assert.equal(t.env.journal.calls.length, 1, 'та же подпись — в сеть не идём');
+});
+
+test('render: сбой, пришедший после смены карточки, не рисуется', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  const stale = env.journal.calls[0];
+  env.LC.reviews.render(d.row, { movie: { id: 2, imdb_id: 'tt777' } });
+  stale.err({ status: 402 });
+  const html = blocksOf(d).map((b) => b.html()).join('');
+  assert.equal(html.indexOf('лимит ключа исчерпан'), -1, 'ответ старой карточки отброшен');
+  assert.equal(blocksOf(d).length, 1, 'на месте — только скелетон новой карточки');
+});
+
+test('строки состояний есть на всех трёх языках', () => {
+  const env = freshEnv();
+  const S = env.LC.STRINGS;
+  for (const kind of ['key', 'quota', 'busy', 'net', 'empty', 'notfound', 'noid']) {
+    for (const code of ['ru', 'en', 'uk']) {
+      assert.ok(S['lumen_reviews_st_' + kind] && S['lumen_reviews_st_' + kind][code], kind + '/' + code);
+      if (['key', 'quota', 'busy', 'net'].indexOf(kind) !== -1) {
+        assert.ok(S['lumen_reviews_st_' + kind + '_note'][code], kind + '_note/' + code);
+      }
+    }
+  }
 });

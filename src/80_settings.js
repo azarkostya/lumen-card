@@ -592,6 +592,36 @@
       en: 'Settings → Lumen Card → Kinopoisk API key',
       uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
     },
+    /* Жалоба 2026-09-27: состояние ряда отзывов вместо тишины
+       (src/60_reviews.js, STATES). Короткая строка встаёт в шапку ряда после
+       «Кинопоиск ·», пояснение (_note) — под шапкой, только у сбоев. */
+    lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
+    lumen_reviews_st_key_note: {
+      ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
+      en: 'Kinopoisk answered "no access": the key has a typo or an extra character, or it was revoked. Check it:',
+      uk: 'Кінопошук відповів «немає доступу»: у ключі помилка, зайвий символ або ключ відкликано. Перевірте його:'
+    },
+    lumen_reviews_st_quota: { ru: 'лимит ключа исчерпан', en: 'key limit reached', uk: 'ліміт ключа вичерпано' },
+    lumen_reviews_st_quota_note: {
+      ru: 'Бесплатный ключ kinopoiskapiunofficial.tech даёт 500 запросов в сутки, и на сегодня они закончились. Отзывы вернутся сами, когда лимит обнулится.',
+      en: 'A free kinopoiskapiunofficial.tech key allows 500 requests a day, and today\'s are used up. Reviews will come back on their own once the limit resets.',
+      uk: 'Безкоштовний ключ kinopoiskapiunofficial.tech дає 500 запитів на добу, і на сьогодні вони закінчились. Відгуки повернуться самі, коли ліміт обнулиться.'
+    },
+    lumen_reviews_st_busy: { ru: 'слишком много запросов', en: 'too many requests', uk: 'забагато запитів' },
+    lumen_reviews_st_busy_note: {
+      ru: 'Кинопоиск ограничивает частоту запросов. Откройте карточку ещё раз через минуту.',
+      en: 'Kinopoisk limits how often it can be asked. Open the card again in a minute.',
+      uk: 'Кінопошук обмежує частоту запитів. Відкрийте картку ще раз за хвилину.'
+    },
+    lumen_reviews_st_net: { ru: 'сервер не ответил', en: 'no response', uk: 'сервер не відповів' },
+    lumen_reviews_st_net_note: {
+      ru: 'Нет ответа от kinopoiskapiunofficial.tech — проверьте интернет. Отзывы загрузятся при следующем открытии карточки.',
+      en: 'No response from kinopoiskapiunofficial.tech — check the connection. Reviews will load the next time the card is opened.',
+      uk: 'Немає відповіді від kinopoiskapiunofficial.tech — перевірте інтернет. Відгуки завантажаться під час наступного відкриття картки.'
+    },
+    lumen_reviews_st_empty: { ru: 'отзывов пока нет', en: 'no reviews yet', uk: 'відгуків поки немає' },
+    lumen_reviews_st_notfound: { ru: 'фильм не найден', en: 'title not found', uk: 'фільм не знайдено' },
+    lumen_reviews_st_noid: { ru: 'нет IMDb ID для поиска', en: 'no IMDb ID to look up', uk: 'немає IMDb ID для пошуку' },
     /* Task 14/20 (фаза 2): адрес каталога подборок.
        Пусто — адрес по умолчанию LC.MANIFEST_URL (GitHub Pages плагина);
        ответ кэшируется на 12 ч, при недоступности сети берётся встроенный
