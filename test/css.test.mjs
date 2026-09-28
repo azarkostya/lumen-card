@@ -2521,6 +2521,38 @@ test('настройка «Шрифт»: выбранная гарнитура �
   assert.equal(inter.indexOf('Golos Text'), -1, 'прежняя гарнитура не должна оставаться в стилях');
 });
 
+/* Правка 2026-09-27 (жалоба «шрифты не меняются»): гарнитура стояла только
+   на наших узлах поимённо, и всё, что на экранах плагина рисует Lampa, — на
+   карточке ниже шапки ряды «Актеры», «Сезон N», «Комментарии», карточки
+   рекомендаций, счётчики «Жанр · Теги» — оставалось в SegoeUI с body и на
+   смену настройки не отзывалось (замер стенда 960×540@2). Корни экранов
+   обязаны нести выбранную гарнитуру: .lumen-scrim — лента карточки
+   (src/50_backdrops.js), .lumen-main — главная, .lumen-hub/.lumen-grid —
+   хаб и сетка. Пересборку таблицы по смене настройки сторожит
+   test/settings.test.mjs (lumen_font: fonts + css). */
+const FONT_ROOTS = ['.lumen-scrim', '.lumen-main', '.lumen-hub', '.lumen-grid'];
+function rootFont(built, root) {
+  const rule = ruleBodies(built).find((r) => r.selectors.indexOf(root) !== -1 && /(^|;)font-family:/.test(r.decl));
+  return rule ? /(?:^|;)font-family:([^;]+)/.exec(rule.decl)[1] : null;
+}
+
+test('настройка «Шрифт»: гарнитура стоит на корнях экранов — узлы Lampa на карточке и главной её наследуют', () => {
+  for (const key of Object.keys(FONT_FACES)) {
+    const built = withStorage({ lumen_font: key }, (LC) => LC.buildCss());
+    const stack = withStorage({ lumen_font: key }, (LC) => LC.tokens()).fontBody;
+    for (const root of FONT_ROOTS) {
+      assert.equal(rootFont(built, root), stack, key + ': у корня ' + root + ' нет выбранной гарнитуры');
+    }
+  }
+  /* Смена значения — другой текст таблицы у корней, а не только у наших узлов. */
+  const golos = withStorage({ lumen_font: 'golos' }, (LC) => LC.buildCss());
+  const plex = withStorage({ lumen_font: 'plex' }, (LC) => LC.buildCss());
+  assert.notEqual(rootFont(golos, '.lumen-scrim'), rootFont(plex, '.lumen-scrim'));
+  /* Фирменные шрифты выключены — корни наследуют шрифт Lampa, как и наши узлы. */
+  const off = withStorage({ lumen_font: 'plex', lumen_card_fonts: 'false' }, (LC) => LC.buildCss());
+  for (const root of FONT_ROOTS) assert.equal(rootFont(off, root), 'inherit', root + ': при выключенных шрифтах — inherit');
+});
+
 /* Task 43: моноширинного не осталось нигде — ни на метках, ни на цифрах.
    Колонок, которые надо выравнивать по разряду, в плагине нет: таймкод и
    проценты стоят в строке текста, а не друг под другом. */

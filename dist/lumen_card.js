@@ -7498,6 +7498,27 @@ css.push('body .settings .settings-param[data-name^="lumen_"].focus{background-c
 
 
 
+
+
+
+
+css.push('.lumen-scrim,.lumen-main,.lumen-hub,.lumen-grid{font-family:' + FB + '}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if (LC.pref('lumen_flat', false)) {
 
 
