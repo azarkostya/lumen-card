@@ -1,11 +1,27 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { load, loadCtx } from './_load.mjs';
 const u = load('10_util.js');
-test('fmtTime: часы → HH:MM, иначе MM:SS', () => {
-  assert.equal(u.fmtTime(4320), '01:12');
-  assert.equal(u.fmtTime(1120), '18:40');
-  assert.equal(u.fmtTime(0), '00:00');
-  assert.equal(u.fmtTime(-5), '00:00');
+/* Правка 2026-09-27 (фото с ТВ): «38:40 / 01:36» читалось как «38 минут
+   40 секунд из 1 минуты 36» — время и длительность были в разных единицах.
+   Теперь обе половины в одних: от часа — часы:минуты, короче часа — минуты. */
+test('fmtWatched: от часа — «ч:мм / ч:мм», обе половины в одних единицах', () => {
+  assert.equal(u.fmtWatched(2320, 5760, 'мин'), '0:38 / 1:36', 'случай с фото: 38:40 из 1:36');
+  assert.equal(u.fmtWatched(4320, 9960, 'мин'), '1:12 / 2:46');
+  assert.equal(u.fmtWatched(0, 9960, 'мин'), '0:00 / 2:46');
+  assert.equal(u.fmtWatched(3599, 3600, 'мин'), '0:59 / 1:00', 'ровно час — уже часы:минуты');
+});
+test('fmtWatched: короче часа — «м / м мин», просмотрено вниз, длительность к ближайшей', () => {
+  assert.equal(u.fmtWatched(1120, 3492, 'мин'), '18 / 58 мин', 'серия: 18:40 из 58:12');
+  assert.equal(u.fmtWatched(59, 1500, 'мин'), '0 / 25 мин');
+  assert.equal(u.fmtWatched(3000, 2990, 'мин'), '50 / 50 мин', 'просмотрено не больше длительности');
+  assert.equal(u.fmtWatched(3569, 3570, 'мин'), '0:59 / 1:00', '59.5 мин длительности округляются до часа');
+});
+test('fmtWatched: без длительности — одно время в виде fmtRuntime, мусор — пусто', () => {
+  assert.equal(u.fmtWatched(3900, 0, 'мин'), '1:05');
+  assert.equal(u.fmtWatched(1120, undefined, 'мин'), '18 мин');
+  assert.equal(u.fmtWatched(40, 0, 'мин'), '', 'меньше минуты без длительности — пусто, останется процент');
+  assert.equal(u.fmtWatched(-5, -1, 'мин'), '');
+  assert.equal(u.fmtWatched('x', null, 'мин'), '');
 });
 test('fmtRuntime', () => { assert.equal(u.fmtRuntime(166, 'мин'), '2:46'); assert.equal(u.fmtRuntime(48, 'мин'), '48 мин'); assert.equal(u.fmtRuntime(0, 'мин'), ''); });
 test('plural ru', () => { assert.equal(u.plural(1, ['сезон','сезона','сезонов']), 'сезон'); assert.equal(u.plural(3, ['сезон','сезона','сезонов']), 'сезона'); assert.equal(u.plural(11, ['сезон','сезона','сезонов']), 'сезонов'); assert.equal(u.plural(22, ['серия','серии','серий']), 'серии'); });

@@ -16,7 +16,7 @@ test('10_util.js гард экспорта: с меткой lumen — LC.util э
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', utilSrc)(LC, module);
   assert.equal(typeof module.exports, 'object');
-  assert.equal(typeof module.exports.fmtTime, 'function');
+  assert.equal(typeof module.exports.fmtWatched, 'function');
 });
 
 const progressSrc = readFileSync(new URL('../src/70_progress.js', import.meta.url), 'utf8');

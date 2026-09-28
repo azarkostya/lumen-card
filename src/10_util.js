@@ -46,14 +46,25 @@
       return out || '?';
     }
 
-    /* Секунды -> "01:12" (часы:минуты), если часов нет — "18:40" (минуты:секунды) */
-    function fmtTime(sec) {
-      sec = Math.max(0, Math.round(Number(sec) || 0));
-      var h = Math.floor(sec / 3600);
-      var m = Math.floor((sec % 3600) / 60);
-      var s = sec % 60;
-      if (h > 0) return pad2(h) + ':' + pad2(m);
-      return pad2(m) + ':' + pad2(s);
+    /* Таймкод просмотра «сколько из скольких» — строка «Продолжить» и надпись
+       начатой серии в сжатой шапке (src/85_header.js). Правка 2026-09-27
+       (фото с ТВ): прежний формат писал время с часами как часы:минуты, а без
+       часов — как минуты:секунды, и «38:40 / 01:36» читалось «38 минут
+       40 секунд из 1 минуты 36». Теперь обе половины в ОДНИХ единицах и в
+       том же виде, что длительность в мета-строке карточки (fmtRuntime ниже):
+       от часа — часы:минуты («0:38 / 1:36»), короче часа — минуты с
+       единицей («18 / 58 мин»). Секунды строке не нужны. Просмотрено —
+       вниз (не обещаем больше досмотренного), длительность — к ближайшей
+       минуте. Без длительности — одно время в виде fmtRuntime («1:05»,
+       «18 мин»), меньше минуты — пусто. unit — слово «мин» параметром,
+       модуль не зависит от перевода. */
+    function fmtWatched(time, duration, unit) {
+      var done = Math.floor(Math.max(0, Number(time) || 0) / 60);
+      var total = Math.round(Math.max(0, Number(duration) || 0) / 60);
+      if (!total) return fmtRuntime(done, unit);
+      if (done > total) done = total;
+      if (total < 60) return done + ' / ' + total + ' ' + unit;
+      return Math.floor(done / 60) + ':' + pad2(done % 60) + ' / ' + Math.floor(total / 60) + ':' + pad2(total % 60);
     }
 
     /* Минуты -> "2:46" (часы) или "48 <unit>". Единица измерения — параметром,
@@ -599,7 +610,7 @@
       pad2: pad2,
       plural: plural,
       initials: initials,
-      fmtTime: fmtTime,
+      fmtWatched: fmtWatched,
       fmtRuntime: fmtRuntime,
       daysUntil: daysUntil,
       screenPx: screenPx,

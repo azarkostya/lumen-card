@@ -1122,14 +1122,14 @@ function withViews(map, fn) {
   try { return fn(); } finally { keys.forEach((h) => { delete views[h]; }); }
 }
 
-test('progress: фильм — одна строка «01:12 / 02:46 · 43 %», кнопка остаётся штатной', () => {
+test('progress: фильм — одна строка «1:12 / 2:46 · 43 %», кнопка остаётся штатной', () => {
   const c = makeCard();
   withViews({ [lampaHash('Dune: Part Two')]: { percent: 43, time: 4320, duration: 9960 } }, () => {
     LC.header.decorate(c.root, { movie: FILM });
   });
   assert.equal(c.progress.hasClass('hide'), false);
   assert.equal(c.pLabel.text(), '', 'у фильма подписи серии нет — по §6 там только таймкод и процент');
-  assert.equal(c.pTime.text(), '01:12 / 02:46 · 43 %');
+  assert.equal(c.pTime.text(), '1:12 / 2:46 · 43 %', 'время и длительность в одних единицах — часы:минуты');
   assert.equal(c.root.hasClass('lumen-continue'), false, 'на экране 01 кнопка фильма — «Смотреть»');
   assert.deepEqual(warnLog, []);
 });
@@ -1168,14 +1168,14 @@ test('progress: досмотренный фильм (97 %) строки не п�
   assert.equal(c.root.hasClass('lumen-continue'), false);
 });
 
-test('progress: сериал — «S2 E3 «Серия 3» · 18:40 / 58:12 · 32 %» и подпись кнопки переменной', () => {
+test('progress: сериал — «S2 E3 «Серия 3» · 18 / 58 мин · 32 %» и подпись кнопки переменной', () => {
   const c = makeCard();
   withViews({ [hashOf(2, 3)]: { percent: 32, time: 1120, duration: 3492, updated: 5 } }, () => {
     LC.header.decorate(c.root, serial(8));
   });
   assert.equal(c.progress.hasClass('hide'), false);
   assert.equal(c.pLabel.text(), 'S2 E3 «Серия 3»');
-  assert.equal(c.pTime.text(), '· 18:40 / 58:12 · 32 %');
+  assert.equal(c.pTime.text(), '· 18 / 58 мин · 32 %', 'серия короче часа — минуты, без секунд');
   assert.ok(c.root.hasClass('lumen-continue'));
   assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E3"');
   assert.equal(c.play.getAttribute('style'), null, 'на кнопке инлайн-стилей нет — её outerHTML хэширует Lampa');
@@ -1247,7 +1247,7 @@ test('progress: надписи экрана 06 — «· смотрите» у н
   });
   const html = c.track._children[2].html();
   assert.ok(html.indexOf('<div class="lumen-episode__state">· смотрите</div>') !== -1, 'нет узла состояния «E3 · СМОТРИТЕ»');
-  assert.ok(html.indexOf('<div class="lumen-episode__timecode">18:40 / 58:12 · 32 %</div>') !== -1, 'нет таймкода сжатой шапки');
+  assert.ok(html.indexOf('<div class="lumen-episode__timecode">18 / 58 мин · 32 %</div>') !== -1, 'нет таймкода сжатой шапки');
   assert.ok(html.indexOf('смотрите · осталось 39 мин') !== -1, 'обычная подпись остаётся — её подменяет CSS, а не рендер');
   assert.ok(c.root.hasClass('lumen-progress-on'));
 });
@@ -1378,7 +1378,7 @@ test('refreshProgress: обновление Timeline перерисовывае�
     LC.header.refreshProgress();
     assert.equal(c.progress.hasClass('hide'), false);
     assert.equal(c.pLabel.text(), 'S2 E2 «Серия 2»');
-    assert.equal(c.pTime.text(), '· 05:00 / 41:40 · 12 %');
+    assert.equal(c.pTime.text(), '· 5 / 42 мин · 12 %');
     assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E2"');
   });
   assert.deepEqual(warnLog, []);

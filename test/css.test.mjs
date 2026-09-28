@@ -1762,18 +1762,38 @@ test('Task 59: задержек появления столько же, скол
 /* подпись кнопки переменной и надписи сжатой шапки (экран 06).           */
 /* -------------------------------------------------------------------- */
 
-test('buildCss: строка прогресса — одна подпись над полосой (flex-wrap, полоса 100 %, 760px = 33.32em)', () => {
+/* Правка 2026-09-27 (фото с ТВ): таймкод стоял под полосой вплотную (зазор
+   0 px на стенде). Подпись и таймкод — своя строка над полосой
+   (src/40_template.js), строка не переносится, длинная серия — многоточием,
+   зазор до полосы не нулевой. */
+test('buildCss: строка прогресса — подпись одной строкой над полосой, с зазором (760px = 33.32em)', () => {
   const row = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress');
   assert.ok(row, 'правило .lumen-progress не найдено');
   assert.ok(row.indexOf('width:33.32em') !== -1, '§6: ширина 760px = 33.32em');
-  assert.ok(row.indexOf('flex-wrap:wrap') !== -1, 'подпись и полоса — разные строки одного flex-контейнера');
   assert.ok(row.indexOf('letter-spacing:.04em') !== -1);
+  assert.equal(row.indexOf('flex-wrap'), -1, 'перенос строки блока уводил таймкод под полосу');
+
+  const line = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__line');
+  assert.ok(line, 'правило строки подписи не найдено');
+  assert.ok(/display:flex/.test(line) && line.indexOf('white-space:nowrap') !== -1, 'серия и таймкод — одна строка без переноса');
+  const label = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__label');
+  assert.ok(label.indexOf('text-overflow:ellipsis') !== -1 && label.indexOf('overflow:hidden') !== -1 && label.indexOf('min-width:0') !== -1,
+    'длинное название серии обрезается, а не выталкивает таймкод');
+  assert.ok(label.indexOf('margin-right:.27em') !== -1, 'отступ между серией и таймкодом — у подписи: у фильма её нет, и таймкод встаёт по краю полосы');
+  const time = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__time');
+  assert.equal(time.indexOf('margin-left'), -1, 'у фильма таймкод не должен отступать от левого края полосы');
+  assert.ok(time.indexOf('flex-shrink:0') !== -1, 'таймкод не сжимается');
+  for (const decl of [label, time]) {
+    const lh = parseFloat((/line-height:([0-9.]+)/.exec(decl) || [0, 0])[1]);
+    assert.ok(lh >= 1.2, 'обрезка многоточием не должна срезать выносные «у», «д», «р»: line-height ' + lh);
+  }
 
   const bar = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__bar');
   assert.ok(bar, 'правило полосы не найдено');
-  assert.ok(bar.indexOf('flex:0 0 100%') !== -1, 'полоса обязана переноситься под подпись, а не делить с ней строку');
+  assert.ok(bar.indexOf('width:100%') !== -1);
   assert.ok(bar.indexOf('height:.18em') !== -1 && bar.indexOf('border-radius:.09em') !== -1, '§6: 4px/2px');
-  assert.ok(bar.indexOf('margin:.44em 0 0') !== -1, 'зазор до полосы 10px = .44em');
+  const gap = parseFloat((/margin:([0-9.]+)em 0 0/.exec(bar) || [0, 0])[1]);
+  assert.ok(gap >= 0.3, 'зазор от строки подписи до полосы: ' + gap + 'em');
 });
 
 test('buildCss: подпись и таймкод — минимум tvOS (1.01em) muted, пустой узел убран :empty', () => {
@@ -7412,8 +7432,8 @@ const HERO_TEXT_KIDS = ['lumen-hero__meta', 'lumen-hero__logo', 'lumen-hero__tit
 
 /* Узлы, которым кегль задан, но СВОЕГО текста у них нет: всё, что читают,
    лежит в детях со своим font-size. Проверено по разметке:
-   .lumen-progress — три узла .lumen-progress__label/__time/__bar
-   (src/40_template.js:196-198), подписи 1.01em;
+   .lumen-progress — строка .lumen-progress__line с узлами __label/__time
+   и полоса __bar (src/40_template.js), подписи 1.01em;
    .full-start__button — штатная кнопка Lampa: <svg> плюс <span>, которому
    наше правило даёт 1.05em (подпись «Продолжить S2 E3» — :after с тем же
    1.05em);

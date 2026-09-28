@@ -404,7 +404,7 @@
 
   /* Task 8 (design-spec §6, экраны 01/05): «Продолжить» — одна подпись над
      полосой, а не «ПРОДОЛЖИТЬ» слева и время справа, как было в v1.
-     Фильм: «01:12 / 02:46 · 43 %». Сериал: «S2 E3 «Голова» · 18:40 / 58:12 ·
+     Фильм: «1:12 / 2:46 · 43 %». Сериал: «S2 E3 «Голова» · 18 / 58 мин ·
      32 %» (левая часть — чистая LC.progress.label, она же знает про серию, к
      которой только предстоит перейти: «S2 E4 «Гуль» · 61 мин»). Разделитель
      «·» между подписью и таймкодом ставится текстом: узлов в шаблоне два
@@ -451,9 +451,9 @@
     var percent = Math.max(0, Math.min(100, Math.round(found.view.percent || 0)));
     var caption = LC.progress.label(found, episodes, { min: LC.lang('lumen_card_min') });
 
-    var time = '';
-    if (found.view.duration > 0) time = LC.util.fmtTime(found.view.time) + ' / ' + LC.util.fmtTime(found.view.duration);
-    else if (found.view.time > 0) time = LC.util.fmtTime(found.view.time);
+    /* Правка 2026-09-27: таймкод в одних единицах — «1:12 / 2:46» у фильма,
+       «18 / 58 мин» у серии короче часа (разбор у LC.util.fmtWatched). */
+    var time = LC.util.fmtWatched(found.view.time, found.view.duration, LC.lang('lumen_card_min'));
     if (percent > 0) time = time ? time + ' · ' + percent + ' %' : percent + ' %';
 
     if (!caption && !time) return;
@@ -804,16 +804,14 @@
       badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
       /* Task 8 (экран 06, сжатая шапка): у начатой серии номер дополняется
          состоянием — «E3 · СМОТРИТЕ», а подпись «смотрите · осталось 39 мин»
-         уступает место таймкоду «18:40 / 58:12 · 32 %». Оба узла рисуются
+         уступает место таймкоду «18 / 58 мин · 32 %». Оба узла рисуются
          всегда; показывает их CSS (.lumen-progress-on.lumen-compact
          .lumen-episode.focus), поэтому ни фокус, ни режим шапки не требуют
          перерисовки ряда. Таймкод обновляется вместе с процентом (подпись
          lumenSign в paintEpisode): секунды между соседними update таймлайна
          карточку не пересобирают — ровно как решено ревью Task 5c (п.8). */
       state = '<div class="lumen-episode__state">· ' + esc(LC.lang('lumen_card_ep_watching')) + '</div>';
-      var played = view && view.time > 0 ? LC.util.fmtTime(view.time) : '';
-      var total = view && view.duration > 0 ? LC.util.fmtTime(view.duration) : '';
-      var stamp = played && total ? played + ' / ' + total : played;
+      var stamp = view ? LC.util.fmtWatched(view.time, view.duration, min) : '';
       timecode = '<div class="lumen-episode__timecode">' + esc(stamp ? stamp + ' · ' + st.percent + ' %' : st.percent + ' %') + '</div>';
     } else if (st.state === 'soon') {
       var date = LC.cardinfo.shortDate(ep.air_date, months);
@@ -838,7 +836,7 @@
      Ревью п.8: если состояние, процент и остаток те же, innerHTML не трогаем
      вовсе (Lampa шлёт update таймлайна каждые несколько секунд проигрывания).
      Ревью Task 8 (п.5): view.time в подпись СОЗНАТЕЛЬНО не входит, поэтому
-     таймкод сжатой шапки («18:40 / 58:12») догоняет реальное время только со
+     таймкод сжатой шапки («18 / 58 мин») догоняет реальное время только со
      сменой целого процента — у 58-минутной серии это раз в ~35 с. Размен в
      пользу тишины: время в подписи означало бы полную пересборку innerHTML
      карточки на каждое событие таймлайна, а их присылает пачками ещё и

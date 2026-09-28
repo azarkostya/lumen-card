@@ -95,13 +95,24 @@ return out || '?';
 }
 
 
-function fmtTime(sec) {
-sec = Math.max(0, Math.round(Number(sec) || 0));
-var h = Math.floor(sec / 3600);
-var m = Math.floor((sec % 3600) / 60);
-var s = sec % 60;
-if (h > 0) return pad2(h) + ':' + pad2(m);
-return pad2(m) + ':' + pad2(s);
+
+
+
+
+
+
+
+
+
+
+
+function fmtWatched(time, duration, unit) {
+var done = Math.floor(Math.max(0, Number(time) || 0) / 60);
+var total = Math.round(Math.max(0, Number(duration) || 0) / 60);
+if (!total) return fmtRuntime(done, unit);
+if (done > total) done = total;
+if (total < 60) return done + ' / ' + total + ' ' + unit;
+return Math.floor(done / 60) + ':' + pad2(done % 60) + ' / ' + Math.floor(total / 60) + ':' + pad2(total % 60);
 }
 
 
@@ -647,7 +658,7 @@ esc: esc,
 pad2: pad2,
 plural: plural,
 initials: initials,
-fmtTime: fmtTime,
+fmtWatched: fmtWatched,
 fmtRuntime: fmtRuntime,
 daysUntil: daysUntil,
 screenPx: screenPx,
@@ -3630,11 +3641,25 @@ css.push('.lumen-card .lumen-status__short{display:none}');
 
 
 
-css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FB + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
-css.push('.lumen-card .lumen-progress__label{font-size:1.01em;line-height:1;color:' + P.muted + '}');
-css.push('.lumen-card .lumen-progress__time{font-size:1.01em;line-height:1;color:' + P.muted + ';margin-left:.27em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-progress{width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FB + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
+css.push('.lumen-card .lumen-progress__line{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;white-space:nowrap}');
+css.push('.lumen-card .lumen-progress__label{-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto;min-width:0;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;font-size:1.01em;line-height:1.2;color:' + P.muted + ';margin-right:.27em}');
+css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
 css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
-css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:0;-webkit-flex:0 0 100%;flex:0 0 100%;width:100%;height:.18em;background:rgba(' + P.textRgb + ',0.16);border-radius:.09em;overflow:hidden;margin:.44em 0 0}');
+css.push('.lumen-card .lumen-progress__bar{width:100%;height:.18em;background:rgba(' + P.textRgb + ',0.16);border-radius:.09em;overflow:hidden;margin:.36em 0 0}');
 css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;border-radius:.09em;background:' + A + '}');
 
 
@@ -8295,10 +8320,16 @@ return '' +
 '</div>' +
 
 
+
+
+
+
 '<div class="lumen-in lumen-progress hide">' +
+'<div class="lumen-progress__line">' +
 '<span class="lumen-progress__label"></span>' +
-'<div class="lumen-progress__bar"><div></div></div>' +
 '<span class="lumen-progress__time"></span>' +
+'</div>' +
+'<div class="lumen-progress__bar"><div></div></div>' +
 '</div>' +
 
 
@@ -47823,9 +47854,9 @@ if (!row.length) return;
 var percent = Math.max(0, Math.min(100, Math.round(found.view.percent || 0)));
 var caption = LC.progress.label(found, episodes, { min: LC.lang('lumen_card_min') });
 
-var time = '';
-if (found.view.duration > 0) time = LC.util.fmtTime(found.view.time) + ' / ' + LC.util.fmtTime(found.view.duration);
-else if (found.view.time > 0) time = LC.util.fmtTime(found.view.time);
+
+
+var time = LC.util.fmtWatched(found.view.time, found.view.duration, LC.lang('lumen_card_min'));
 if (percent > 0) time = time ? time + ' · ' + percent + ' %' : percent + ' %';
 
 if (!caption && !time) return;
@@ -48183,9 +48214,7 @@ badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
 
 
 state = '<div class="lumen-episode__state">· ' + esc(LC.lang('lumen_card_ep_watching')) + '</div>';
-var played = view && view.time > 0 ? LC.util.fmtTime(view.time) : '';
-var total = view && view.duration > 0 ? LC.util.fmtTime(view.duration) : '';
-var stamp = played && total ? played + ' / ' + total : played;
+var stamp = view ? LC.util.fmtWatched(view.time, view.duration, min) : '';
 timecode = '<div class="lumen-episode__timecode">' + esc(stamp ? stamp + ' · ' + st.percent + ' %' : st.percent + ' %') + '</div>';
 } else if (st.state === 'soon') {
 var date = LC.cardinfo.shortDate(ep.air_date, months);

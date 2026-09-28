@@ -197,10 +197,16 @@
         '</div>' +
 
         /* 4: продолжить просмотр */
+        /* Правка 2026-09-27: подпись и таймкод — одной строкой НАД полосой
+           (design-spec §6). Прежний порядок «подпись, полоса, таймкод»
+           уводил таймкод под полосу вплотную к ней (разбор у правил
+           .lumen-progress, src/30_css.js). */
         '<div class="lumen-in lumen-progress hide">' +
+        '<div class="lumen-progress__line">' +
         '<span class="lumen-progress__label"></span>' +
-        '<div class="lumen-progress__bar"><div></div></div>' +
         '<span class="lumen-progress__time"></span>' +
+        '</div>' +
+        '<div class="lumen-progress__bar"><div></div></div>' +
         '</div>' +
 
         /* 5: кнопки (только LC.template.build — содержимое не трогать) */

@@ -291,3 +291,21 @@ test('build(фикстура): узел логотипа сразу за заг�
   assert.equal(buttons.indexOf('lumen-logo'), -1, 'узел логотипа попал в ряд кнопок');
   assert.equal(template.innerOf(result, 'buttons--container').indexOf('lumen-logo'), -1);
 });
+
+/* Правка 2026-09-27 (фото с ТВ): подпись «Продолжить» стояла ПОД полосой
+   вплотную — шаблон клал узлы в порядке «подпись, полоса, таймкод», и
+   flex-wrap уводил таймкод под полосу (у сериала подпись серии оставалась
+   над ней, а «· таймкод» уезжал вниз). Контракт: подпись и таймкод — в
+   одной строке .lumen-progress__line, и она стоит ДО полосы. */
+test('build(фикстура): строка «Продолжить» — подпись и таймкод одной строкой над полосой', () => {
+  const result = template.build(fixture);
+  const row = template.innerOf(result, 'lumen-progress');
+  assert.ok(row, 'блока .lumen-progress нет');
+  const line = template.innerOf(row, 'lumen-progress__line');
+  assert.ok(line, 'нет строки подписи .lumen-progress__line');
+  assert.ok(line.indexOf('lumen-progress__label') !== -1 && line.indexOf('lumen-progress__time') !== -1,
+    'подпись серии и таймкод обязаны лежать в одной строке');
+  assert.ok(line.indexOf('lumen-progress__label') < line.indexOf('lumen-progress__time'), 'сначала серия, потом таймкод');
+  assert.ok(row.indexOf('lumen-progress__line') < row.indexOf('lumen-progress__bar'), 'строка подписи — над полосой');
+  assert.equal(line.indexOf('lumen-progress__bar'), -1, 'полоса не внутри строки подписи');
+});

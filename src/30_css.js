@@ -2744,19 +2744,33 @@
     css.push('.lumen-card .lumen-status__short{display:none}');
 
     /* --- Продолжить (design-spec §6, экраны 01/05) ---
-       Task 8: подпись — ОДНА строка над полосой («01:12 / 02:46 · 43 %» у
-       фильма, «S2 E3 «Голова» · 18:40 / 58:12 · 32 %» у сериала), а не метка
-       слева и время справа, как было в v1. Узлов в шаблоне два (__label —
-       серия, __time — таймкод), поэтому строку собирает flex-wrap: оба текста
-       встают рядом, а полоса (flex-basis 100 %) переносится под них. Пустой
-       узел убирается :empty — иначе у фильма остался бы зазор от __time.
-       Числа §6: ширина 760px = 33.32em, кегль 18px = .79em, цвет muted,
-       трекинг .04em, зазор до полосы 10px = .44em, полоса 4px/2px. */
-    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FB + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
-    css.push('.lumen-card .lumen-progress__label{font-size:1.01em;line-height:1;color:' + P.muted + '}');
-    css.push('.lumen-card .lumen-progress__time{font-size:1.01em;line-height:1;color:' + P.muted + ';margin-left:.27em}');
+       Task 8: подпись — ОДНА строка над полосой («1:12 / 2:46 · 43 %» у
+       фильма, «S2 E3 «Голова» · 18 / 58 мин · 32 %» у сериала), а не метка
+       слева и время справа, как было в v1.
+       Правка 2026-09-27 (фото с ТВ, оба вида): строка стояла ПОД полосой
+       вплотную — зазор 0 px. Шаблон клал узлы в порядке «подпись, полоса,
+       таймкод», а flex-wrap переносил таймкод на строку под полосой; у
+       сериала подпись серии оставалась над полосой, а «· таймкод» уезжал
+       под неё. Теперь подпись и таймкод лежат в своей строке
+       (.lumen-progress__line, src/40_template.js) над полосой: строка не
+       переносится, длинное название серии обрезается многоточием, таймкод
+       виден всегда. line-height 1.2 — чтобы обрезка (overflow:hidden) не
+       срезала выносные элементы «у», «д», «р». Отступ между словами —
+       справа у подписи: у фильма она пустая и снята :empty, и таймкод
+       встаёт ровно по левому краю полосы (прежний margin-left таймкода
+       сдвигал его на .27em и у фильма). Зазор до полосы .36em поверх
+       межстрочного. Замер стенда (24 сочетания: ТВ 960×540@2 и ПК
+       2560×1440, оба вида, три «Размера интерфейса» Lampa): от базовой
+       линии цифр до полосы .58–.69 кегля подписи (ТВ, «Нормальный» —
+       7.9 px при кегле 11.5 px; было 0), от полосы до кнопок 16 px.
+       Числа §6: ширина 760px = 33.32em, цвет muted, трекинг .04em, полоса
+       4px/2px. */
+    css.push('.lumen-card .lumen-progress{width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FB + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
+    css.push('.lumen-card .lumen-progress__line{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;white-space:nowrap}');
+    css.push('.lumen-card .lumen-progress__label{-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto;min-width:0;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;font-size:1.01em;line-height:1.2;color:' + P.muted + ';margin-right:.27em}');
+    css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
-    css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:0;-webkit-flex:0 0 100%;flex:0 0 100%;width:100%;height:.18em;background:rgba(' + P.textRgb + ',0.16);border-radius:.09em;overflow:hidden;margin:.44em 0 0}');
+    css.push('.lumen-card .lumen-progress__bar{width:100%;height:.18em;background:rgba(' + P.textRgb + ',0.16);border-radius:.09em;overflow:hidden;margin:.36em 0 0}');
     css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;border-radius:.09em;background:' + A + '}');
 
     /* Task 8 (экран 05): «Продолжить S2 E3» на кнопке «Смотреть». Текст кнопки
@@ -3078,7 +3092,7 @@
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
     /* Task 8 (экран 06): в сжатой шапке фокусная серия подписана иначе —
-       «E3 · СМОТРИТЕ» вместо «E3» и таймкод «18:40 / 58:12 · 32 %» вместо
+       «E3 · СМОТРИТЕ» вместо «E3» и таймкод «18 / 58 мин · 32 %» вместо
        «смотрите · осталось 39 мин». Узлы рисует LC.header у каждой начатой
        серии и по умолчанию они скрыты: показывает их только эта пара условий
        (сжатая шапка + фокус). Класс .lumen-progress-on ставит renderProgress
