@@ -1571,3 +1571,100 @@ test('строки состояний есть на всех трёх языка
     }
   }
 });
+
+/* Жалоба 2026-09-27, замер на стенде: кэш отзывов держит 8 фильмов, и
+   круг из 9 карточек промахивался на каждой — повторное открытие стоило
+   двух запросов. Id Кинопоиска живёт в отдельной карте IMDb → Кинопоиск
+   (lumen_kpids), и вытесненный фильм стоит одного запроса — отзывов. */
+
+test('карта id: после поиска id Кинопоиска и рейтинг запоминаются', () => {
+  const env = freshEnv();
+  env.LC.reviews.load('tt15239678', 'KEY', () => { }, null, 5000);
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 7.8 }] });
+  assert.deepEqual(env.store.lumen_kpids, { tt15239678: [301, 7.8, 5000] });
+  assert.ok(env.nolistenFlags.filter((f) => f.name === 'lumen_kpids').every((f) => f.nolisten), 'запись без события change');
+  assert.deepEqual(warnLog, []);
+});
+
+test('карта id: вытесненный из кэша фильм — один запрос (отзывы), рейтинг из карты', () => {
+  const env = freshEnv({ store: { lumen_kpids: { tt15239678: [301, 7.8, 1000] } } });
+  const rates = [];
+  env.LC.applyKpRate = (v) => rates.push(v);
+  const got = [];
+  env.LC.reviews.load('tt15239678', 'KEY', (res) => got.push(res), null, 1000 + 3600 * 1000);
+  assert.equal(env.journal.calls.length, 1, 'поиска нет');
+  assert.equal(env.journal.calls[0].url, 'https://kinopoiskapiunofficial.tech/api/v2.2/films/301/reviews?page=1&order=USER_POSITIVE_RATING_DESC');
+  assert.equal(env.journal.calls[0].params.headers['X-API-KEY'], 'KEY');
+  assert.deepEqual(rates, [7.8], 'рейтинг — из карты, без запроса');
+  env.journal.calls[0].ok(REVIEWS_OK);
+  assert.equal(got[0].total, 318);
+  assert.equal(env.store.lumen_rv_tt15239678.total, 318, 'отзывы легли в кэш как обычно');
+});
+
+test('карта id: запись старше недели, из будущего или битая — снова поиск', () => {
+  const WEEK = 7 * 24 * 3600 * 1000;
+  const bad = [
+    [301, 7.8, 1000],            // протухла (смотрим через неделю)
+    [301, 7.8, 10 * WEEK],       // из будущего
+    ['301/../x', 7.8, 1000],     // id не из цифр — в путь запроса нельзя
+    [301, 7.8, 'вчера'],         // время не числом
+    { kp: 301 }                  // не массив
+  ];
+  for (const e of bad) {
+    const env = freshEnv({ store: { lumen_kpids: { tt1: e } } });
+    env.LC.reviews.load('tt1', 'KEY', () => { }, null, 1000 + WEEK);
+    assert.equal(env.journal.calls.length, 1, JSON.stringify(e));
+    assert.ok(env.journal.calls[0].url.indexOf('?imdbId=tt1') !== -1, 'снова поиск: ' + JSON.stringify(e));
+  }
+  const junk = freshEnv({ store: { lumen_kpids: 'битая строка' } });
+  junk.LC.reviews.load('tt1', 'KEY', () => { }, null, 1000);
+  assert.ok(junk.journal.calls[0].url.indexOf('?imdbId=tt1') !== -1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('карта id: не больше 300 фильмов, вытесняются самые старые; чужие ключи не попадают', () => {
+  const map = {};
+  for (let i = 0; i < 300; i++) map['tt' + (1000 + i)] = [i + 1, 7, 1000 + i];
+  map.__proto__x = [1, 1, 1];
+  const env = freshEnv({ store: { lumen_kpids: map } });
+  env.LC.reviews.load('tt9', 'KEY', () => { }, null, 99999);
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 42, ratingKinopoisk: 6 }] });
+  const out = env.store.lumen_kpids;
+  assert.equal(Object.keys(out).length, 300);
+  assert.equal(out.tt1000, undefined, 'самый старый вытеснен');
+  assert.deepEqual(out.tt9, [42, 6, 99999]);
+  assert.equal(out.__proto__x, undefined, 'ключ не формата tt… выброшен');
+});
+
+test('карта id: круг из 9 карточек при кэше на 8 — второй проход по запросу на фильм, а не по два', () => {
+  const env = freshEnv();
+  const ids = [];
+  for (let i = 1; i <= 9; i++) ids.push('tt' + (100 + i));
+  let at = 1000;
+  function open(id) {
+    const before = env.journal.calls.length;
+    env.LC.reviews.load(id, 'KEY', () => { }, null, at += 1000);
+    for (let n = before; n < env.journal.calls.length; n++) {
+      const c = env.journal.calls[n];
+      if (c.url.indexOf('?imdbId=') !== -1) c.ok({ total: 1, items: [{ kinopoiskId: parseInt(id.slice(2), 10), ratingKinopoisk: 7 }] });
+      else c.ok(REVIEWS_OK);
+    }
+    return env.journal.calls.length - before;
+  }
+  /* ok у поиска синхронно ставит второй запрос — цикл выше его тоже
+     обслужит: длина журнала растёт, пока идём по нему. */
+  const first = ids.map(open);
+  assert.deepEqual(first, [2, 2, 2, 2, 2, 2, 2, 2, 2], 'первый проход: поиск и отзывы');
+  const second = ids.map(open);
+  assert.deepEqual(second, [1, 1, 1, 1, 1, 1, 1, 1, 1], 'второй проход: кэш отзывов вытеснен по кругу, но id известен');
+  assert.deepEqual(warnLog, []);
+});
+
+test('карта id: уборка кэша при нехватке места убирает и её', () => {
+  const env = freshEnv({ quota: 3, store: { lumen_kpids: { tt1: [1, 7, 1000] } } });
+  env.ls.lumen_kpids = JSON.stringify({ tt1: [1, 7, 1000] });
+  for (let i = 1; i <= 3; i++) env.LC.reviews.cacheWrite('tt' + i, [{ title: 'i' + i }], i, 1000 + i);
+  env.LC.reviews.cacheWrite('tt4', [{ title: 'i4' }], 4, 2000);
+  assert.equal(env.ls.lumen_kpids, undefined, 'карта ушла вместе с кэшем');
+  warnLog.length = 0;
+});

@@ -37,6 +37,18 @@
     var MAX_ITEMS = 12;
     var TIMEOUT_MS = 8000;
     var INDEX_KEY = 'lumen_rv_index';
+    /* Жалоба 2026-09-27, замер на стенде: кэш отзывов держит 8 фильмов, и
+       тот, кто листает девять и больше карточек по кругу, промахивается на
+       каждой — вытесненный фильм снова стоил двух запросов (поиск по imdbId
+       и отзывы). Id Кинопоиска не меняется, поэтому соответствие IMDb →
+       Кинопоиск (с рейтингом из того же ответа) живёт отдельно: крошечная
+       карта на IDS_MAX фильмов, запись ~40 символов (≈12 КБ всего), срок
+       IDS_TTL. Повторное открытие вытесненного фильма — один запрос
+       (отзывы), а не два. Имя ключа — не из пространства lumen_rv_<id>. */
+    var IDS_KEY = 'lumen_kpids';
+    var IDS_MAX = 300;
+    var IDS_TTL = 7 * 24 * 3600 * 1000;
+    var IMDB_RE = /^tt\d{1,10}$/;
     var ANON = 'Аноним';
 
     var esc = LC.util.esc;
@@ -301,8 +313,14 @@
       try {
         LC.util.each(readIndex(store), function (it) { if (it && it.id) drop(store, it.id); });
         store.set(INDEX_KEY, []);
+        /* Карта IMDb → Кинопоиск (IDS_KEY ниже) — тоже наша, и при нехватке
+           места она уходит вместе с кэшем. */
+        try { store.set(IDS_KEY, '', true); } catch (e3) { }
         try {
-          if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(INDEX_KEY);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(INDEX_KEY);
+            window.localStorage.removeItem(IDS_KEY);
+          }
         } catch (e2) { }
       } catch (e) {
         warn('reviews cache purge failed', e);
@@ -470,6 +488,59 @@
       }
     }
 
+    /* Карта IMDb → Кинопоиск (IDS_KEY). Запись — [kp, rate, at]. Читается
+       только то, что прошло проверку: imdb — tt и цифры, kp — 1-10 цифр (он
+       идёт в путь запроса, как в B7), at — число не из будущего. Карта
+       приходит из localStorage, поэтому всё прочее просто не считается
+       попаданием. */
+    function readIds(store) {
+      var map = null;
+      try { map = store.get(IDS_KEY, null); } catch (e) { }
+      if (!map || typeof map !== 'object' || Object.prototype.toString.call(map) === '[object Array]') return {};
+      return map;
+    }
+
+    function idLookup(imdbId, at) {
+      try {
+        var store = storage();
+        if (!store || !IMDB_RE.test('' + imdbId)) return null;
+        var map = readIds(store);
+        if (!Object.prototype.hasOwnProperty.call(map, imdbId)) return null;
+        var e = map[imdbId];
+        if (Object.prototype.toString.call(e) !== '[object Array]') return null;
+        var kp = '' + e[0];
+        var t = e[2];
+        if (!/^\d{1,10}$/.test(kp)) return null;
+        if (typeof t !== 'number' || now(at) < t || now(at) - t >= IDS_TTL) return null;
+        return { kp: kp, rate: kpRateOf({ ratingKinopoisk: e[1] }) };
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function idRemember(imdbId, kp, rate, at) {
+      try {
+        var store = storage();
+        if (!store || !IMDB_RE.test('' + imdbId) || !/^\d{1,10}$/.test('' + kp)) return;
+        var map = readIds(store);
+        var keys = [];
+        for (var k in map) {
+          if (!Object.prototype.hasOwnProperty.call(map, k) || k === imdbId || !IMDB_RE.test(k)) continue;
+          if (Object.prototype.toString.call(map[k]) !== '[object Array]' || typeof map[k][2] !== 'number') continue;
+          keys.push(k);
+        }
+        /* Вытеснение — самые старые первыми, как у индекса кэша отзывов. */
+        keys.sort(function (a, b) { return map[a][2] - map[b][2]; });
+        while (keys.length >= IDS_MAX) keys.shift();
+        var out = {};
+        for (var i = 0; i < keys.length; i++) out[keys[i]] = map[keys[i]];
+        out[imdbId] = [parseInt(kp, 10), rate || 0, now(at)];
+        put(store, IDS_KEY, out);
+      } catch (e) {
+        warn('reviews ids write failed', e);
+      }
+    }
+
     /* ------------------------------------------------------------------ */
     /* Загрузка: Storage-кэш -> films?imdbId -> films/{id}/reviews.         */
     /* ------------------------------------------------------------------ */
@@ -557,6 +628,45 @@
         if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return null; }
         var net = new Lampa.Reguest();
 
+        /* Второй шаг — отзывы по id Кинопоиска (из поиска или из карты
+           IMDb → Кинопоиск). */
+        function fetchReviews(kp, rate) {
+          request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
+            if (dead()) return;
+            try {
+              /* Строки, попадающие в кэш (подпись «Аноним» у отзыва без
+                 автора), остаются на языке момента записи — метки тона и
+                 «полезно» этим не затронуты: они собираются из item.tone при
+                 каждом рендере. Запись живёт максимум сутки, поэтому
+                 нормализацию при чтении не городим (ревью, Minor 11). */
+              var list = normalize(resp, anonWord()).slice(0, MAX_ITEMS);
+              if (!list.length) {
+                /* Отрицательный кэш (Important 5): у фильма отзывов нет —
+                   запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
+                   запросами на каждое открытие карточки. */
+                cacheWrite(imdbId, [], 0, at, kp, rate);
+                cb({ empty: true });
+                return;
+              }
+              var total = parseInt(resp && resp.total, 10) || list.length;
+              cacheWrite(imdbId, list, total, at, kp, rate);
+              cb({ list: list, total: total });
+            } catch (inner) {
+              warn('reviews parse failed', inner);
+              cb({ error: 'net' });
+            }
+          }, function (xhr) { if (!dead()) cb(failure(xhr)); });
+        }
+
+        /* Жалоба 2026-09-27: id уже известен (карта IDS_KEY) — поиск не
+           нужен, рейтинг берётся оттуда же. */
+        var known = idLookup(imdbId, at);
+        if (known) {
+          reportRate(known.rate, onRate);
+          fetchReviews(known.kp, known.rate);
+          return net;
+        }
+
         request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
           if (dead()) return;
           try {
@@ -576,31 +686,8 @@
               cb({ notfound: true });
               return;
             }
-            request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
-              if (dead()) return;
-              try {
-                /* Строки, попадающие в кэш (подпись «Аноним» у отзыва без
-                   автора), остаются на языке момента записи — метки тона и
-                   «полезно» этим не затронуты: они собираются из item.tone при
-                   каждом рендере. Запись живёт максимум сутки, поэтому
-                   нормализацию при чтении не городим (ревью, Minor 11). */
-                var list = normalize(resp, anonWord()).slice(0, MAX_ITEMS);
-                if (!list.length) {
-                  /* Отрицательный кэш (Important 5): у фильма отзывов нет —
-                     запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
-                     запросами на каждое открытие карточки. */
-                  cacheWrite(imdbId, [], 0, at, kp, rate);
-                  cb({ empty: true });
-                  return;
-                }
-                var total = parseInt(resp && resp.total, 10) || list.length;
-                cacheWrite(imdbId, list, total, at, kp, rate);
-                cb({ list: list, total: total });
-              } catch (inner) {
-                warn('reviews parse failed', inner);
-                cb({ error: 'net' });
-              }
-            }, function (xhr) { if (!dead()) cb(failure(xhr)); });
+            idRemember(imdbId, kp, rate, at);
+            fetchReviews(kp, rate);
           } catch (e) {
             warn('reviews search failed', e);
             cb({ error: 'net' });
