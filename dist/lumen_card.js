@@ -3048,8 +3048,64 @@ return ACCENTS[key] || ACCENTS.sand;
 
 
 
+
+
+
+
+
 function useFonts() {
-return LC.enabled() && LC.pref(PLUGIN + '_fonts', true);
+return LC.enabled() && LC.pref('lumen_font', FONT_DEFAULT) !== 'system' && !!LC.pref(PLUGIN + '_fonts', true);
+}
+
+
+
+
+LC.fontStack = function () {
+return useFonts() ? bodyStack(fontSet()) : '';
+};
+
+
+
+
+
+
+
+LC.fontsFailed = null;
+
+LC.fontsState = function () {
+try {
+if (!useFonts()) return 'off';
+} catch (e) {
+return 'off';
+}
+if (LC.fontsFailed === true) return 'fail';
+if (LC.fontsFailed === false) return 'ok';
+return 'load';
+};
+
+
+
+
+
+
+function checkFontFace() {
+var family = fontSet().body;
+try {
+var fonts = document.fonts;
+if (!fonts || typeof fonts.load !== 'function') { LC.fontsFailed = false; return; }
+fonts.load('400 1em "' + family + '"').then(function (list) {
+if (fontSet().body === family) LC.fontsFailed = !(list && list.length);
+}, function () {
+if (fontSet().body === family) LC.fontsFailed = true;
+});
+} catch (e) {
+LC.fontsFailed = false;
+}
+}
+
+function watchFonts(link) {
+link.onload = function () { checkFontFace(); };
+link.onerror = function () { LC.fontsFailed = true; };
 }
 
 
@@ -7678,6 +7734,7 @@ try {
 var existing = document.getElementById(FONTS_ID);
 if (!useFonts()) {
 if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+LC.fontsFailed = null;
 return;
 }
 
@@ -7687,12 +7744,19 @@ return;
 
 var href = LC.fontsUrl();
 if (existing) {
-if (existing.getAttribute('href') !== href) existing.setAttribute('href', href);
+if (existing.getAttribute('href') !== href) {
+
+LC.fontsFailed = null;
+watchFonts(existing);
+existing.setAttribute('href', href);
+}
 return;
 }
 var link = document.createElement('link');
 link.id = FONTS_ID;
 link.rel = 'stylesheet';
+LC.fontsFailed = null;
+watchFonts(link);
 link.href = href;
 (document.head || document.getElementsByTagName('head')[0]).appendChild(link);
 } catch (e) {
@@ -16787,8 +16851,10 @@ return menu_node;
 
 
 
+
+
 function buttonEnabled() {
-try { return LC.pref ? !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
+try { return LC.pref ? !!LC.pref('lumen_franchise', true) && !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
 }
 
 function franchise(root, movie) {
@@ -37824,6 +37890,8 @@ return '<div class="lumen-review-modal__tone"></div>' +
 
 
 
+
+
 function hintHtml() {
 return '<div class="lumen-reviews__hint">' +
 '<div class="lumen-reviews__hint-ico"></div>' +
@@ -37848,7 +37916,12 @@ try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { re
 
 
 
+
+
+
+
 var STATES = {
+nokey: { err: true, path: true },
 key: { err: true, path: true },
 quota: { err: true },
 busy: { err: true },
@@ -37867,7 +37940,9 @@ if (res.noid) return 'noid';
 return '';
 }
 
-function statusHtml(kind) {
+
+
+function statusHtml(kind, bare) {
 var def = STATES[kind] || STATES.net;
 var html = '<div class="lumen-reviews__head">' +
 '<span class="lumen-reviews__ico"></span>' +
@@ -37875,7 +37950,7 @@ var html = '<div class="lumen-reviews__head">' +
 '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
 '<span class="lumen-reviews__total lumen-reviews__state">· ' + esc(lang('lumen_reviews_st_' + kind)) + '</span>' +
 '</div>';
-if (def.err) {
+if (def.err && !bare) {
 html += '<div class="lumen-reviews__note">' +
 '<div class="lumen-reviews__note-text">' + esc(lang('lumen_reviews_st_' + kind + '_note')) + '</div>' +
 (def.path ? '<div class="lumen-reviews__note-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' : '') +
@@ -37884,11 +37959,21 @@ html += '<div class="lumen-reviews__note">' +
 return html;
 }
 
-function paintStatus(holder, kind) {
+function paintStatus(holder, kind, bare) {
 var def = STATES[kind] || STATES.net;
 var block = $('<div class="lumen-reviews lumen-reviews--status ' + (def.err ? 'lumen-reviews--err' : 'lumen-reviews--quiet') + '" data-lumen-state="' + kind + '"></div>');
-block.html(statusHtml(kind));
+block.html(statusHtml(kind, bare));
 holder.append(block);
+}
+
+
+
+
+
+function paintNoKey(holder) {
+var hint = hintEnabled();
+paintStatus(holder, 'nokey', hint);
+if (hint) paintHint(holder);
 }
 
 
@@ -38325,7 +38410,7 @@ clearBlock(holder);
 row.removeClass('lumen-descr-row--reviews');
 
 if (!on) return;
-if (!key) { paintHint(holder); state.painted = true; return; }
+if (!key) { paintNoKey(holder); state.painted = true; return; }
 
 
 if (!imdb) { paintStatus(holder, 'noid'); state.painted = true; return; }
@@ -38340,7 +38425,7 @@ var current = stateOf(holder);
 if (current.gen !== gen) return;
 clearBlock(holder);
 if (!res) return;
-if (res.nokey) { paintHint(holder); current.painted = true; return; }
+if (res.nokey) { paintNoKey(holder); current.painted = true; return; }
 
 
 var kind = stateKind(res);
@@ -40366,12 +40451,19 @@ return (i + 1) + ' / ' + n;
 
 
 
+
+
+
+function boostOn() {
+try { return LC.pref('lumen_remote_boost', true) !== false; } catch (e) { return false; }
+}
+
 function minimapOn() {
-try { return LC.pref('lumen_minimap', true) !== false; } catch (e) { return false; }
+try { return boostOn() && LC.pref('lumen_minimap', true) !== false; } catch (e) { return false; }
 }
 
 function fastOn() {
-try { return LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
+try { return boostOn() && LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
 }
 
 
@@ -42071,8 +42163,11 @@ return false;
 
 
 
+
+
+
 function rowEnabled() {
-try { return LC.pref ? !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
+try { return LC.pref ? !!LC.pref('lumen_franchise', true) && !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
 }
 
 
@@ -44174,13 +44269,16 @@ return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 
 
 
+
+
+
 function format(d) {
 return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
 ' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
 ' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
 ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
 ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · font ' + (d.font || 'n/a') + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
 }
 
 function pfText(p) {
@@ -44192,6 +44290,14 @@ return p.fly + '/' + p.queue + '/' + p.hits;
 function prefetchStats() {
 try {
 if (LC.prefetch && typeof LC.prefetch.stats === 'function') return LC.prefetch.stats();
+} catch (e) { }
+return null;
+}
+
+
+function fontStatus() {
+try {
+if (typeof LC.fontsState === 'function') return LC.fontsState();
 } catch (e) { }
 return null;
 }
@@ -44804,7 +44910,7 @@ dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 cr: chrome(), mode: mode,
 long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
 loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
-raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), tr: trailerStatus(), tint: accentStatus()
+raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), font: fontStatus(), tr: trailerStatus(), tint: accentStatus()
 }) + '\n' + heroText(state.probe.summary());
 state.frames = 0; state.last = t;
 
@@ -45152,59 +45258,46 @@ uk: 'Вимкніть — повернеться штатна картка Lampa
 
 
 
-lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
 
-
-
-lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
-lumen_preset_appletv_descr: {
-ru: 'Нейтральный стиль вместо тёплого. Выставляет десять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, блоки анализа Lampa скрыты, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-en: 'A neutral style instead of the warm one. It sets ten items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, the Lampa analysis blocks hidden, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-uk: 'Нейтральний стиль замість теплого. Виставляє десять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, блоки аналізу Lampa сховано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
-},
-lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
-lumen_preset_lumen_descr: {
-ru: 'Возвращает те же десять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, блоки анализа Lampa показаны, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
-en: 'Returns the same ten items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, the Lampa analysis blocks shown, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
-uk: 'Повертає ті самі десять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, блоки аналізу Lampa показано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+lumen_group_look: { ru: 'Внешний вид', en: 'Look', uk: 'Зовнішній вигляд' },
+lumen_group_card: { ru: 'Карточка фильма', en: 'Film card', uk: 'Картка фільму' },
+lumen_group_style: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+lumen_group_screens: { ru: 'Карточка и главная', en: 'Card and home', uk: 'Картка й головна' },
+lumen_group_remote: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
+lumen_group_dev: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
+lumen_more_name: { ru: 'Дополнительно…', en: 'More…', uk: 'Додатково…' },
+lumen_more_descr: {
+ru: 'Оформление, карточка и главная, пульт, для разработчика.',
+en: 'Appearance, card and home, remote, for developers.',
+uk: 'Оформлення, картка й головна, пульт, для розробника.'
 },
 
 
 
 
+
+
+lumen_style_name: { ru: 'Стиль', en: 'Style', uk: 'Стиль' },
+lumen_style_descr: {
+ru: 'Готовое оформление одним выбором: Lumen — тёплое, Apple TV — чёрное, плоское и нейтральное. Меняет тему, цвета, шрифт, метки и логотипы. «Свой» — пункты меняли вручную.',
+en: 'A ready-made look in one choice: Lumen is warm, Apple TV is black, flat and neutral. It sets the theme, colours, font, badges and logos. "Custom" means items were changed by hand.',
+uk: 'Готове оформлення одним вибором: Lumen — тепле, Apple TV — чорне, пласке й нейтральне. Змінює тему, кольори, шрифт, мітки й логотипи. «Свій» — пункти змінювали вручну.'
+},
+lumen_style_lumen: { ru: 'Lumen', en: 'Lumen', uk: 'Lumen' },
+lumen_style_appletv: { ru: 'Apple TV', en: 'Apple TV', uk: 'Apple TV' },
+lumen_style_custom: { ru: 'Свой', en: 'Custom', uk: 'Свій' },
 lumen_preset_appletv_short: { ru: 'Стиль Apple TV', en: 'Apple TV style', uk: 'Стиль Apple TV' },
 lumen_preset_lumen_short: { ru: 'Стиль Lumen', en: 'Lumen style', uk: 'Стиль Lumen' },
 lumen_preset_same: { ru: 'уже применён', en: 'already applied', uk: 'вже застосовано' },
-lumen_group_motion: { ru: 'Движение и эффекты', en: 'Motion and effects', uk: 'Рух і ефекти' },
-lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
-lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
-lumen_group_nav: { ru: 'Навигация и пульт', en: 'Navigation and remote', uk: 'Навігація та пульт' },
-lumen_group_roulette: { ru: 'Рулетка «Что посмотреть»', en: 'The "What to watch" roulette', uk: 'Рулетка «Що подивитися»' },
-lumen_card_group_path: { ru: 'Меню и экраны плеера', en: 'Menus and player screens', uk: 'Меню та екрани плеєра' },
+lumen_group_motion: { ru: 'Движение', en: 'Motion', uk: 'Рух' },
 lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
 
 
 
 lumen_card_accent_descr: {
-ru: 'Цвет кнопок, колец фокуса, полос прогресса и подсветок на экранах плагина. Применяется сразу.',
-en: 'The colour of buttons, focus rings, progress bars and highlights on the plugin screens. Applied immediately.',
-uk: 'Колір кнопок, кілець фокуса, смуг прогресу та підсвічувань на екранах плагіна. Застосовується одразу.'
+ru: 'Цвет кнопок, фокуса и полос прогресса.',
+en: 'The colour of buttons, focus and progress bars.',
+uk: 'Колір кнопок, фокуса та смуг прогресу.'
 },
 lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
 lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
@@ -45222,25 +45315,31 @@ lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Граф�
 
 
 
-
-
-lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
+lumen_accent_auto_name: {
+ru: 'Цвет фона от кадра',
+en: 'Background colour from the film',
+uk: 'Колір тла від кадру'
+},
 lumen_accent_auto_descr: {
-ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, вуаль кадра и подложка карточки под фокусом — сразу вместе с фильмом в герое, одной сменой; при зажатой стрелке ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the hero veil and the plate under the focused card — at once, together with the film in the hero, in a single change; holding an arrow key computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, вуаль кадру та підкладка картки під фокусом — одразу разом із фільмом у герої, однією зміною; при затиснутій стрілці нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+ru: 'Фон главной и карточки подкрашивается в цвет постера фильма. Выключите — останется «Акцентный цвет».',
+en: 'The home and card background takes on the colour of the film poster. Turn it off to keep the "Accent color".',
+uk: 'Тло головної та картки підфарбовується в колір постера фільму. Вимкніть — лишиться «Акцентний колір».'
 },
 
 
 
 
-lumen_accent_scope_name: { ru: 'Где виден цвет постера', en: 'Where the poster colour shows', uk: 'Де видно колір постера' },
+lumen_accent_scope_name: {
+ru: 'Где виден цвет кадра',
+en: 'Where the film colour shows',
+uk: 'Де видно колір кадру'
+},
 lumen_accent_scope_descr: {
-ru: '«Полная» — цветом постера подкрашиваются и фон с вуалью кадра, и подложка карточки под фокусом. «Только фон» оставляет цвет в фоне, а карточка под фокусом остаётся нейтральной и просто увеличивается. Действует при включённом «Акценте от постера». Применяется сразу.',
-en: '"Everywhere" tints both the background with the hero veil and the plate under the focused card. "Background only" keeps the colour in the background, while the focused card stays neutral and simply grows. Works with "Accent from poster" on. Applied immediately.',
-uk: '«Повна» — кольором постера підфарбовуються і тло з вуаллю кадру, і підкладка картки під фокусом. «Лише тло» лишає колір у тлі, а картка під фокусом залишається нейтральною і просто збільшується. Діє за увімкненого «Акценту від постера». Застосовується одразу.'
+ru: '«Только фон» — карточка под фокусом остаётся нейтральной. Действует, когда включён «Цвет фона от кадра».',
+en: '"Background only" keeps the focused card neutral. Works while "Background colour from the film" is on.',
+uk: '«Лише тло» — картка під фокусом лишається нейтральною. Діє, коли ввімкнено «Колір тла від кадру».'
 },
-lumen_accent_scope_full: { ru: 'Полная', en: 'Everywhere', uk: 'Повна' },
+lumen_accent_scope_full: { ru: 'Везде', en: 'Everywhere', uk: 'Скрізь' },
 lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk: 'Лише тло' },
 
 
@@ -45248,48 +45347,45 @@ lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk:
 
 
 
-lumen_fx_name: { ru: 'Атмосферы', en: 'Atmospheres', uk: 'Атмосфери' },
 
 
 
-
-
-
+lumen_fx_name: { ru: 'Праздничные эффекты', en: 'Holiday effects', uk: 'Святкові ефекти' },
 lumen_fx_descr: {
-ru: 'Праздничные частицы поверх кадра: снег и гирлянда под Новый год, угли и летучие мыши на Хэллоуин. На главной — в сам праздник у любого фильма (Новый год — с 1 декабря по 7 января, Хэллоуин — неделя до 31 октября), а у новогодних, рождественских и хэллоуинских фильмов — и в карточке. Видны и при лёгких анимациях, замирают, пока листаете, и встают на паузу под трейлером и плеером. «Только сезонные» показывает сцену фильма лишь в эти же дни праздника, «Все» — круглый год.',
-en: 'Holiday particles over the still: snow and a garland for New Year, embers and bats for Halloween. On the home screen they show for any film during the holiday itself (New Year — 1 December to 7 January, Halloween — the week up to 31 October), and New Year, Christmas and Halloween films get them on their card too. They show with light animations too, freeze while you browse and pause under a trailer and the player. "Seasonal only" shows a film scene only on those same holiday dates, "All" — all year round.',
-uk: 'Святкові частинки поверх кадру: сніг і гірлянда на Новий рік, жаринки й кажани на Гелловін. На головній — у саме свято для будь-якого фільму (Новий рік — з 1 грудня до 7 січня, Гелловін — тиждень до 31 жовтня), а новорічні, різдвяні й гелловінські фільми мають їх і в картці. Їх видно й за легких анімацій, вони завмирають, поки гортаєте, і стають на паузу під трейлером і плеєром. «Лише сезонні» показує сцену фільму тільки в ці ж дні свята, «Усі» — цілий рік.'
+ru: 'На Новый год (1 декабря — 7 января) — снег и гирлянда, в неделю до Хэллоуина — угли и летучие мыши. На главной и в карточках праздничных фильмов.',
+en: 'For New Year (1 December – 7 January) snow and a garland, in the week before Halloween embers and bats. On the home screen and on holiday films.',
+uk: 'На Новий рік (1 грудня — 7 січня) — сніг і гірлянда, тиждень до Гелловіну — жаринки й кажани. На головній і в картках святкових фільмів.'
 },
-
-
-lumen_group_ambient: { ru: 'Экранная заставка', en: 'Screensaver', uk: 'Екранна заставка' },
-
-
-
-
-
 
 
 
 lumen_ambient_name: { ru: 'Заставка из кадров', en: 'Frame screensaver', uk: 'Заставка з кадрів' },
 lumen_ambient_descr: {
-ru: 'Заменяет заставку Lampa: вместо её видео экран сменяется кадрами из фильмов в полный размер, с названием и часами. Работает, только когда собственная заставка Lampa выключена в её настройках — двух заставок разом не бывает. Любое нажатие возвращает экран мгновенно, и первое нажатие фокус не двигает. Не включается при играющем трейлере, открытом плеере, меню и в неактивной вкладке, а при выключенных анимациях не работает вовсе. Применяется сразу.',
-en: 'Replaces the Lampa screensaver: instead of its video the screen turns into full-size film stills with the title and a clock. Works only while the Lampa screensaver itself is off in its own settings — there are never two screensavers at once. Any key brings the screen back at once, and that first press does not move focus. It never starts while a trailer is playing, while the player or a menu is open, or in a background tab, and it does not work at all with animations off. Applied immediately.',
-uk: 'Замінює заставку Lampa: замість її відео екран змінюється кадрами з фільмів на весь розмір, з назвою та годинником. Працює, лише коли власну заставку Lampa вимкнено в її налаштуваннях — двох заставок водночас не буває. Будь-яке натискання миттєво повертає екран, і перше натискання не рухає фокус. Не вмикається під час трейлера, з відкритим плеєром чи меню та в неактивній вкладці, а з вимкненими анімаціями не працює зовсім. Застосовується одразу.'
+ru: 'Вместо заставки Lampa — кадры из фильмов с названием и часами. Работает, когда заставка самой Lampa выключена в её настройках.',
+en: 'Film stills with the title and a clock instead of the Lampa screensaver. Works while the Lampa screensaver itself is off in its settings.',
+uk: 'Замість заставки Lampa — кадри з фільмів із назвою та годинником. Працює, коли заставку самої Lampa вимкнено в її налаштуваннях.'
 },
-lumen_ambient_source_name: { ru: 'Какие кадры', en: 'Which stills', uk: 'Які кадри' },
+lumen_ambient_source_name: {
+ru: 'Заставка: какие кадры',
+en: 'Screensaver: which stills',
+uk: 'Заставка: які кадри'
+},
 lumen_ambient_source_descr: {
-ru: '«Известные фильмы» — отобранный список кадров из каталога плагина, он обновляется вместе с ним. «Кадры открытого фильма» показывает кадры той карточки, что осталась на экране, и падает на отобранный список, если карточки нет.',
-en: '"Famous films" is a curated list of stills from the plugin catalog, updated together with it. "Stills of the open film" shows the frames of the card left on screen and falls back to the curated list when there is no card.',
-uk: '«Відомі фільми» — дібраний список кадрів з каталогу плагіна, він оновлюється разом із ним. «Кадри відкритого фільму» показує кадри тієї картки, що лишилася на екрані, і падає на дібраний список, якщо картки немає.'
+ru: '«Известные фильмы» — отобранные кадры из каталога плагина. «Кадры открытого фильма» — кадры карточки, оставшейся на экране.',
+en: '"Famous films" are curated stills from the plugin catalog. "Stills of the open film" are the frames of the card left on screen.',
+uk: '«Відомі фільми» — дібрані кадри з каталогу плагіна. «Кадри відкритого фільму» — кадри картки, що лишилася на екрані.'
 },
 lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
 lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
-lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
+lumen_ambient_delay_name: {
+ru: 'Заставка: через сколько',
+en: 'Screensaver: start after',
+uk: 'Заставка: через скільки'
+},
 lumen_ambient_delay_descr: {
-ru: 'Сколько пульт должен молчать, прежде чем включится заставка. Отсчёт начинается заново от любого нажатия. Применяется сразу.',
-en: 'How long the remote has to stay silent before the screensaver starts. Any key press restarts the countdown. Applied immediately.',
-uk: 'Скільки пульт має мовчати, перш ніж увімкнеться заставка. Відлік починається знову від будь-якого натискання. Застосовується одразу.'
+ru: 'Сколько пульт должен молчать, прежде чем включится заставка.',
+en: 'How long the remote has to stay idle before the screensaver starts.',
+uk: 'Скільки пульт має мовчати, перш ніж увімкнеться заставка.'
 },
 
 lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
@@ -45342,16 +45438,8 @@ uk: 'Зніміть фільтр або позначте інші підбірк
 
 lumen_roulette_similar: { ru: 'Что посмотреть похожее', en: 'What to watch like this', uk: 'Що подивитися схоже' },
 lumen_roulette_like: { ru: 'Как «%s»', en: 'Like “%s”', uk: 'Як «%s»' },
-
-lumen_roulette_unseen_name: { ru: 'Рулетка: только непросмотренное', en: 'Roulette: unwatched only', uk: 'Рулетка: лише непереглянуте' },
-lumen_roulette_unseen_descr: {
-ru: 'С чего начинается фильтр «Не смотрел» при входе в рулетку. Просмотренным считается то, что отмечено в Lampa или досмотрено до конца. Сам фильтр в рулетке можно снять и включить чипом.',
-en: 'The starting state of the "Not watched" filter when the roulette opens. Watched means marked in Lampa or played to the end. The filter itself can be toggled by a chip on the roulette screen.',
-uk: 'З чого починається фільтр «Не дивився» під час входу в рулетку. Переглянутим вважається те, що позначено в Lampa або додивлено до кінця. Сам фільтр у рулетці можна зняти й увімкнути чипом.'
-},
-lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
-lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
-lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
+lumen_fx_seasonal: { ru: 'Новый год и Хэллоуин', en: 'New Year and Halloween', uk: 'Новий рік і Гелловін' },
+lumen_fx_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 lumen_season_badge: { ru: 'Сезон', en: 'In season', uk: 'Сезон' },
 lumen_advent_title: { ru: 'Адвент-календарь', en: 'Advent calendar', uk: 'Адвент-календар' },
@@ -45373,30 +45461,19 @@ uk: 'Lumen Card: увімкнено легкі анімації — пристр
 
 lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
 lumen_theme_descr: {
-ru: 'Цвет тёмного фона. «Глубокая чёрная» — настоящий чёрный без тёплого оттенка, для OLED-экранов. Применяется сразу.',
-en: 'The colour of the dark background. "Deep black" is true black without the warm tint, for OLED screens. Applied immediately.',
-uk: 'Колір темного тла. «Глибока чорна» — справжній чорний без теплого відтінку, для OLED-екранів. Застосовується одразу.'
+ru: 'Цвет тёмного фона. «Глубокая чёрная» — для OLED-экранов.',
+en: 'The colour of the dark background. "Deep black" is for OLED screens.',
+uk: 'Колір темного тла. «Глибока чорна» — для OLED-екранів.'
 },
 lumen_theme_warm: { ru: 'Тёплая тёмная', en: 'Warm dark', uk: 'Тепла темна' },
 lumen_theme_black: { ru: 'Глубокая чёрная', en: 'Deep black', uk: 'Глибока чорна' },
 
-lumen_solid_name: { ru: 'Плотные подложки', en: 'Solid panels', uk: 'Щільні підкладки' },
+lumen_solid_name: { ru: 'Без прозрачности', en: 'No transparency', uk: 'Без прозорості' },
 lumen_solid_descr: {
-ru: 'Кнопки, чипы и подложки текста становятся сплошными, без просвечивающего кадра и размытия. Включите, если на телевизоре картинка мылит или подтормаживает.',
-en: 'Buttons, chips and text panels become opaque, with no show-through backdrop and no blur. Turn on if the picture looks smeared or stutters on your TV.',
-uk: 'Кнопки, чипи та підкладки тексту стають суцільними, без просвічування кадру і розмиття. Увімкніть, якщо на телевізорі картинка мулиться або підгальмовує.'
+ru: 'Кнопки и подложки без просвечивания и размытия. Включите, если картинка мылит или тормозит.',
+en: 'Buttons and panels without show-through and blur. Turn on if the picture looks smeared or stutters.',
+uk: 'Кнопки й підкладки без просвічування та розмиття. Увімкніть, якщо картинка мулиться або гальмує.'
 },
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -45404,40 +45481,10 @@ uk: 'Кнопки, чипи та підкладки тексту стають с
 
 lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
 lumen_flat_descr: {
-ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, отзывы — рамки и подложки, а у плиток серий кадр встаёт сверху во всю ширину, название и подпись уходят под него (ряд серий из-за этого чуть выше); на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. В сетке подборки и в хабе меняется немногое: снимается только подложка под плиткой, а её видно, пока не пришёл постер или кадр, и у карточек без картинки. Экран «Что посмотреть» собирается как «Смотреть» в Apple TV: кадр 16:9 вместо постера и полка карточек с логотипами названий — со следующего открытия экрана. Фокус и размер текста не меняются. Применяется сразу.',
-en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. The "What to watch" screen is laid out like Apple TV "Watch Now": a 16:9 still instead of a poster and a shelf of cards with title logos — from the next time the screen opens. Focus and text size stay as they are. Applied immediately.',
-uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Екран «Що подивитися» збирається як «Дивитися» в Apple TV: кадр 16:9 замість постера і полиця карток із логотипами назв — з наступного відкриття екрана. Фокус і розмір тексту не змінюються. Застосовується одразу.'
+ru: 'Содержимое лежит прямо на фоне, без коробок и рамок: карточка, отзывы, серии, экраны торрентов. «Что посмотреть» — в виде Apple TV.',
+en: 'Content sits right on the background, without boxes and frames: the card, reviews, episodes, torrent screens. "What to watch" gets the Apple TV layout.',
+uk: 'Вміст лежить просто на тлі, без коробок і рамок: картка, відгуки, серії, екрани торентів. «Що подивитися» — у вигляді Apple TV.'
 },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -45446,38 +45493,32 @@ uk: 'Вміст лежить прямо на тлі, а не в коробках
 
 lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
 lumen_scale_descr: {
-ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. На главной ряд в фокусе целиком помещается под кадром, поэтому карточки рядов там растут только до высоты экрана: с настройкой «Кадр над рядами» в значении «Крупный» «Ещё крупнее» может дать те же ряды, что «Крупнее», а если в самой Lampa выбран «Размер интерфейса: крупнее», ряды не растут вовсе. С меньшим кадром запас больше, а на остальных экранах плагина масштаб действует целиком.',
-en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. On the home screen the focused row always fits under the frame, so the row cards grow only up to the screen height: with "Hero over the rows" set to "Large", "Largest" may give the same rows as "Larger", and if Lampa\'s own "Interface size" is set to larger, the rows do not grow at all. A smaller frame leaves more room, and on the other plugin screens the scale applies in full.',
-uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. На головній ряд у фокусі завжди вміщується під кадром, тож картки рядів ростуть лише до висоти екрана: з налаштуванням «Кадр над рядами» у значенні «Великий» «Ще більше» може дати ті самі ряди, що «Більше», а якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», ряди не ростуть зовсім. З меншим кадром запас більший, а на решті екранів плагіна масштаб діє повністю.'
+ru: 'Размер текста и блоков на экранах плагина. Ряды главной растут, только пока помещаются под кадром: при «Кадр над рядами» — «Крупный» большие значения могут их не менять.',
+en: 'The size of text and blocks on the plugin screens. Home rows grow only while they fit under the hero: with "Hero over the rows" set to "Large", the bigger values may not change them.',
+uk: 'Розмір тексту та блоків на екранах плагіна. Ряди головної ростуть, лише доки вміщуються під кадром: при «Кадр над рядами» — «Великий» більші значення можуть їх не змінювати.'
 },
 lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
 lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
 lumen_scale_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більше' },
 lumen_scale_huge: { ru: 'Ещё крупнее', en: 'Largest', uk: 'Ще більше' },
-lumen_card_fonts_name: { ru: 'Фирменные шрифты', en: 'Custom fonts', uk: 'Фірмові шрифти' },
-lumen_card_fonts_descr: {
-ru: 'Шрифты с Google Fonts. Требуется интернет. Выключите, если шрифты не грузятся.',
-en: 'Fonts from Google Fonts. Requires internet access.',
-uk: 'Шрифти з Google Fonts. Потрібен інтернет.'
-},
 
 
 
 
-lumen_card_logo_name: { ru: 'Логотип названия в карточке', en: 'Title logo on the card', uk: 'Логотип назви в картці' },
+lumen_card_logo_name: { ru: 'Логотип в карточке', en: 'Logo on the card', uk: 'Логотип у картці' },
 lumen_card_logo_descr: {
-ru: 'Вместо набранного названия — логотип фильма, как в кадре главной. Если логотипа на языке интерфейса нет, берётся английский. Выключите, чтобы в карточке всегда было название текстом. Применяется сразу.',
-en: 'The film logo instead of the typed title, as in the home hero. If there is no logo in the interface language, the English one is used. Turn off to always see the title as text on the card. Applied immediately.',
-uk: 'Замість набраної назви — логотип фільму, як у кадрі головної. Якщо логотипа мовою інтерфейсу немає, береться англійський. Вимкніть, щоб у картці завжди була назва текстом. Застосовується одразу.'
+ru: 'Название фильма — его логотипом, а не текстом. Если логотипа на вашем языке нет, берётся английский.',
+en: 'The film title as its logo instead of text. If there is no logo in your language, the English one is used.',
+uk: 'Назва фільму — його логотипом, а не текстом. Якщо логотипа вашою мовою немає, береться англійський.'
 },
 lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
 
 
 
 lumen_card_progress_descr: {
-ru: 'Полоса с таймкодом и процентом в карточке того, что вы не досмотрели, подпись «Продолжить S2 E3» на кнопке «Смотреть» и отметки просмотра в карточках серий. Применяется сразу.',
-en: 'The bar with the timecode and percentage on a card you have not finished, the "Continue S2 E3" label on the Watch button and the watched marks on episode cards. Applied immediately.',
-uk: 'Смуга з таймкодом і відсотком у картці того, що ви не додивилися, підпис «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в картках серій. Застосовується одразу.'
+ru: 'Полоса просмотра в карточке, «Продолжить S2 E3» на кнопке «Смотреть» и отметки просмотра у серий.',
+en: 'The progress bar on the card, "Continue S2 E3" on the Watch button and watched marks on episodes.',
+uk: 'Смуга перегляду в картці, «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в серій.'
 },
 
 
@@ -45486,10 +45527,11 @@ uk: 'Смуга з таймкодом і відсотком у картці то
 
 lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
 lumen_card_font_descr: {
-ru: 'Шрифт интерфейса: им набрано всё — заголовки, текст и цифры. Действует только при включённых фирменных шрифтах. Применяется сразу.',
-en: 'The interface font: headings, text and figures all use it. Works only with custom fonts on. Applied immediately.',
-uk: 'Шрифт інтерфейсу: ним набрано все — заголовки, текст і цифри. Діє лише з увімкненими фірмовими шрифтами. Застосовується одразу.'
+ru: 'Шрифт экранов плагина. Грузится из интернета (Google Fonts); если не загрузился — вид не изменится.',
+en: 'The font of the plugin screens. It loads from the internet (Google Fonts); if it fails to load, nothing changes.',
+uk: 'Шрифт екранів плагіна. Вантажиться з інтернету (Google Fonts); якщо не завантажився — вигляд не зміниться.'
 },
+lumen_card_font_system: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
 lumen_card_font_golos: { ru: 'Golos Text', en: 'Golos Text', uk: 'Golos Text' },
 lumen_card_font_onest: { ru: 'Onest', en: 'Onest', uk: 'Onest' },
 lumen_card_font_manrope: { ru: 'Manrope', en: 'Manrope', uk: 'Manrope' },
@@ -45497,9 +45539,9 @@ lumen_card_font_inter: { ru: 'Inter', en: 'Inter', uk: 'Inter' },
 lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
 lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
 lumen_card_motion_descr: {
-ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Лёгкие» оставляют смену кадров и трейлеры (на Tizen/webOS трейлеры по умолчанию выключены — пункт «Трейлер в фоне карточки»), но кадр меняется резко, без перехода. «Выкл» отключает всё движение: появление блоков, наезд, смену кадров и фоновые трейлеры.',
-en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Light" keeps the changing stills and trailers (on Tizen/webOS trailers are off by default — see "Background trailer on the card"), but a still changes with a hard cut. "Off" disables all motion: block reveal, Ken Burns zoom, changing stills and background trailers.',
-uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Легкі» залишають зміну кадрів і трейлери (на Tizen/webOS трейлери за замовчуванням вимкнені — пункт «Трейлер у фоні картки»), але кадр змінюється різко, без переходу. «Викл» вимикає весь рух: появу блоків, наїзд, зміну кадрів і фонові трейлери.'
+ru: '«Авто» подбирает режим под устройство. «Лёгкие» — без плавных переходов, для слабых телевизоров. «Выкл» — без движения: кадры не сменяются, трейлеров нет.',
+en: '"Auto" picks the mode for the device. "Light" drops smooth transitions, for weak TVs. "Off" stops all motion: stills do not change and no trailers play.',
+uk: '«Авто» добирає режим під пристрій. «Легкі» — без плавних переходів, для слабких телевізорів. «Викл» — без руху: кадри не змінюються, трейлерів немає.'
 },
 lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
 lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
@@ -45508,30 +45550,65 @@ lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 
 
-lumen_fx_heavy_name: { ru: 'Тяжёлые эффекты', en: 'Heavy effects', uk: 'Важкі ефекти' },
+lumen_fx_heavy_name: {
+ru: 'Плавная смена кадров и наезд',
+en: 'Smooth still changes and zoom',
+uk: 'Плавна зміна кадрів і наїзд'
+},
 lumen_fx_heavy_descr: {
-ru: 'Наезд на кадр, зум заставки и плавная смена кадров в карточке и на главной. Сами кадры и трейлеры работают и без них — кадр тогда меняется резко. Праздничные частицы Нового года и Хэллоуина от этого пункта не зависят. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
-en: 'Ken Burns zoom, screensaver zoom and the crossfade between stills on the card and the home screen. The changing stills and trailers work without them too — a still then changes with a hard cut. New Year and Halloween holiday particles do not depend on this item. Off by default on a TV: they cost frames. Work only with full animations.',
-uk: 'Наїзд на кадр, зум заставки та плавна зміна кадрів у картці й на головній. Самі кадри й трейлери працюють і без них — кадр тоді змінюється різко. Святкові частинки Нового року й Гелловіну від цього пункту не залежать. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
+ru: 'Кадры сменяются плавно, а камера медленно наезжает. Только при полных анимациях; на телевизоре по умолчанию выключено.',
+en: 'Stills change smoothly and the camera slowly zooms in. Only with full animations; off by default on a TV.',
+uk: 'Кадри змінюються плавно, а камера повільно наїжджає. Лише за повних анімацій; на телевізорі за замовчуванням вимкнено.'
 },
 
 
 
-
-lumen_debug_hud_name: { ru: 'Отладка: показать FPS', en: 'Debug: show FPS', uk: 'Налагодження: показати FPS' },
+lumen_debug_hud_name: { ru: 'Показать FPS', en: 'Show FPS', uk: 'Показати FPS' },
 lumen_debug_hud_descr: {
-ru: 'Счётчик кадров, длинные задачи, разрешение и режим анимаций в углу экрана. Для проверки на телевизоре.',
-en: 'Frame counter, long tasks, resolution and animation mode in the screen corner. For testing on a TV.',
-uk: 'Лічильник кадрів, довгі задачі, роздільність та режим анімацій у кутку екрана. Для перевірки на телевізорі.'
+ru: 'Строка с частотой кадров и замерами в углу экрана — для проверки на телевизоре.',
+en: 'A line with the frame rate and measurements in the screen corner — for testing on a TV.',
+uk: 'Рядок із частотою кадрів і замірами в кутку екрана — для перевірки на телевізорі.'
 },
 
 
 
-lumen_debug_bench_name: { ru: 'Отладка: тест производительности', en: 'Debug: performance test', uk: 'Налагодження: тест продуктивності' },
+lumen_debug_bench_name: { ru: 'Тест производительности', en: 'Performance test', uk: 'Тест продуктивності' },
 lumen_debug_bench_descr: {
-ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её целиком. Запускайте с главной, фокус на первом ряду. Ваши настройки не меняются; любая кнопка прерывает тест.',
-en: 'Runs the home screen through eight modes for about a minute and shows a table — take one photo of it. Start from the home screen with focus on the first row. Your settings are not changed; any key stops the test.',
-uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її цілком. Запускайте з головної, фокус на першому ряду. Ваші налаштування не змінюються; будь-яка кнопка перериває тест.'
+ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
+en: 'Runs the home screen through eight modes for about a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
+uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
+},
+lumen_rowmem_name: { ru: 'Сон дальних рядов', en: 'Sleep for far rows', uk: 'Сон дальніх рядів' },
+lumen_rowmem_descr: {
+ru: 'Ряды главной далеко от фокуса перестают рисоваться — меньше памяти в долгом сеансе. Выключите, если при прокрутке видите пустые полосы.',
+en: 'Home rows far from focus stop being drawn — less memory in a long session. Turn it off if you see empty strips while scrolling.',
+uk: 'Ряди головної далеко від фокуса перестають малюватися — менше пам’яті в довгому сеансі. Вимкніть, якщо під час гортання бачите порожні смуги.'
+},
+lumen_rowmem_bytes_name: {
+ru: 'Отпускать постеры дальних рядов',
+en: 'Release posters of far rows',
+uk: 'Відпускати постери дальніх рядів'
+},
+lumen_rowmem_bytes_descr: {
+ru: 'Спящие ряды ещё и выгружают постеры, а у фокуса загружают снова: памяти меньше, запросов больше. Только вместе со «Сном дальних рядов».',
+en: 'Sleeping rows also unload their posters and load them again near focus: less memory, more requests. Only together with "Sleep for far rows".',
+uk: 'Сплячі ряди ще й вивантажують постери, а біля фокуса завантажують знову: пам’яті менше, запитів більше. Лише разом зі «Сном дальніх рядів».'
+},
+lumen_netmem_name: {
+ru: 'Отпускать запросы экранов',
+en: 'Release screen requests',
+uk: 'Відпускати запити екранів'
+},
+lumen_netmem_descr: {
+ru: 'Закрытые карточки и подборки не остаются в памяти после ответа сервера. Действует со следующего запуска Lampa.',
+en: 'Closed cards and collections do not stay in memory after the server answers. Takes effect on the next Lampa start.',
+uk: 'Закриті картки й підбірки не лишаються в пам’яті після відповіді сервера. Діє з наступного запуску Lampa.'
+},
+lumen_prefill_name: { ru: 'Достройка рядов', en: 'Build rows ahead', uk: 'Добудова рядів' },
+lumen_prefill_descr: {
+ru: 'Пока пульт молчит, карточки рядов главной дорисовываются заранее — прокрутка потом не подтормаживает.',
+en: 'While the remote is idle, home row cards are built in advance so scrolling does not stutter later.',
+uk: 'Поки пульт мовчить, картки рядів головної домальовуються заздалегідь — гортання потім не гальмує.'
 },
 lumen_bench_need_home: {
 ru: 'Тест производительности запускается с главной: откройте главную и нажмите кнопку снова',
@@ -45591,33 +45668,33 @@ ru: 'янв,фев,мар,апр,мая,июн,июл,авг,сен,окт,но�
 en: 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec',
 uk: 'січ,лют,бер,кві,тра,чер,лип,сер,вер,жов,лис,гру'
 },
-lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
+lumen_card_slideshow_name: { ru: 'Смена кадров', en: 'Changing stills', uk: 'Зміна кадрів' },
 
 
 lumen_card_slideshow_descr: {
-ru: 'Кадры из фильма за текстом карточки сменяют друг друга. Выключите — останется один, первый кадр. Слайдшоу встаёт на паузу под трейлером и на карточке, оставленной позади. Применяется сразу.',
-en: 'The film stills behind the card text replace one another. Turn it off and only the first still stays. The slideshow pauses under a trailer and on a card left behind. Applied immediately.',
-uk: 'Кадри з фільму за текстом картки змінюють один одного. Вимкніть — залишиться один, перший кадр. Слайдшоу стає на паузу під трейлером і на картці, залишеній позаду. Застосовується одразу.'
+ru: 'Кадры фильма за текстом карточки сменяют друг друга. Выключите — останется один.',
+en: 'The film stills behind the card text replace one another. Turn it off to keep one.',
+uk: 'Кадри фільму за текстом картки змінюють один одного. Вимкніть — лишиться один.'
 },
 lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
 lumen_card_slide_interval_descr: {
-ru: 'Сколько секунд держится на экране один кадр фона карточки и кадр главной. В карточке действует только при включённом слайдшоу. Применяется сразу.',
-en: 'How many seconds a single card background still and the home hero still stay on screen. On the card it works only with the slideshow on. Applied immediately.',
-uk: 'Скільки секунд тримається на екрані один кадр тла картки і кадр головної. У картці діє лише з увімкненим слайдшоу. Застосовується одразу.'
+ru: 'Сколько секунд держится один кадр — в карточке и на главной.',
+en: 'How many seconds one still stays — on the card and on the home screen.',
+uk: 'Скільки секунд тримається один кадр — у картці та на головній.'
 },
 lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
 lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
 
 
 lumen_card_menus_descr: {
-ru: '«Только путь до плеера» — окна выбора озвучки, качества, серии и раздачи. «Все меню и окна» — ещё и прочие списки и диалоги Lampa. Меняется только вид: пункты, порядок и поведение окон остаются штатными. Применяется сразу.',
-en: '"Player path only" covers the dialogs for voice-over, quality, episode and torrent choice. "All menus and dialogs" adds the rest of Lampa lists and dialogs. Only the look changes: items, order and behaviour stay stock. Applied immediately.',
-uk: '«Лише шлях до плеєра» — вікна вибору озвучення, якості, серії та роздачі. «Усі меню і вікна» — ще й інші списки та діалоги Lampa. Змінюється лише вигляд: пункти, порядок і поведінка вікон лишаються штатними. Застосовується одразу.'
+ru: '«Только путь до плеера» — окна выбора озвучки, качества, серии и раздачи; «Все меню и окна» — и остальные окна Lampa. Меняется только вид.',
+en: '"Player path only" covers the voice-over, quality, episode and torrent dialogs; "All menus and dialogs" adds the other Lampa dialogs. Only the look changes.',
+uk: '«Лише шлях до плеєра» — вікна вибору озвучення, якості, серії та роздачі; «Усі меню і вікна» — і решта вікон Lampa. Змінюється лише вигляд.'
 },
 lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
 lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
 lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
-lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' },
+lumen_card_torrents_name: { ru: 'Оформление торрентов', en: 'Torrents style', uk: 'Оформлення торентів' },
 lumen_card_torrents_descr: {
 ru: 'Список раздач, окна подключения и ошибок, списки файлов и предзагрузка — в стиле карточки.',
 en: 'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
@@ -45626,16 +45703,11 @@ uk: 'Список роздач, вікна підключення та поми�
 
 
 
-
-
-
-
-
-lumen_card_trailer: { ru: 'Трейлер в фоне карточки', en: 'Background trailer on the card', uk: 'Трейлер у фоні картки' },
+lumen_card_trailer: { ru: 'Трейлер в карточке', en: 'Trailer on the card', uk: 'Трейлер у картці' },
 lumen_card_trailer_descr: {
-ru: 'Трейлер с YouTube без звука через 3 с после открытия карточки. «Авто» — выключено на Tizen/webOS.',
-en: 'Muted YouTube trailer 3 s after the card opens. "Auto" is off on Tizen/webOS.',
-uk: 'Трейлер з YouTube без звуку через 3 с після відкриття картки. «Авто» — вимкнено на Tizen/webOS.'
+ru: 'Трейлер без звука через 3 секунды после открытия карточки. «Авто» — выключен на Tizen и webOS.',
+en: 'A muted trailer 3 seconds after the card opens. "Auto" is off on Tizen and webOS.',
+uk: 'Трейлер без звуку через 3 секунди після відкриття картки. «Авто» — вимкнено на Tizen і webOS.'
 },
 lumen_card_trailer_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
 lumen_card_trailer_on: { ru: 'Вкл', en: 'On', uk: 'Увімк' },
@@ -45649,9 +45721,9 @@ lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAI
 
 lumen_card_reviews_name: { ru: 'Отзывы Кинопоиска', en: 'Kinopoisk reviews', uk: 'Відгуки Кінопошуку' },
 lumen_card_reviews_descr: {
-ru: 'Ряд отзывов зрителей в блоке описания. Нужен ключ API — строка ниже.',
-en: 'A row of viewer reviews in the description block. Requires the API key below.',
-uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
+ru: 'Отзывы зрителей в карточке фильма. Нужен ключ API — строка ниже.',
+en: 'Viewer reviews on the film card. Needs the API key below.',
+uk: 'Відгуки глядачів у картці фільму. Потрібен ключ API — рядок нижче.'
 },
 lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
 
@@ -45679,14 +45751,6 @@ lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корис
 
 
 
-lumen_reviews_mode_name: { ru: 'Текст отзывов в ряду', en: 'Review text in the row', uk: 'Текст відгуків у ряду' },
-lumen_reviews_mode_descr: {
-ru: '«Только заголовки» — в ряду видны автор, оценка и заголовок, а текст открывается по OK: случайный спойлер не попадётся на глаза. «С выдержкой» показывает начало отзыва прямо в ряду. Спойлерные куски скрыты в обоих режимах и раскрываются кнопкой в окне отзыва. Применяется сразу.',
-en: '"Headlines only" shows the author, tone and title in the row and opens the text on OK, so a stray spoiler never catches your eye. "With excerpt" shows the beginning of the review in the row. Spoiler fragments stay hidden in both modes and are revealed by a button in the review window. Applied immediately.',
-uk: '«Лише заголовки» — у ряду видно автора, оцінку і заголовок, а текст відкривається по OK: випадковий спойлер не трапиться на очі. «З уривком» показує початок відгуку просто в ряду. Спойлерні шматки приховані в обох режимах і розкриваються кнопкою у вікні відгуку. Застосовується одразу.'
-},
-lumen_reviews_mode_headlines: { ru: 'Только заголовки', en: 'Headlines only', uk: 'Лише заголовки' },
-lumen_reviews_mode_full: { ru: 'С выдержкой', en: 'With excerpt', uk: 'З уривком' },
 
 
 lumen_reviews_mode_toggle: { ru: 'Показывать текст', en: 'Show text', uk: 'Показувати текст' },
@@ -45711,6 +45775,15 @@ uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
 
 
 
+
+
+
+lumen_reviews_st_nokey: { ru: 'ключ API не задан', en: 'API key not set', uk: 'ключ API не задано' },
+lumen_reviews_st_nokey_note: {
+ru: 'Отзывы Кинопоиска появятся, когда вы впишете ключ:',
+en: 'Kinopoisk reviews will appear once you enter the key:',
+uk: 'Відгуки Кінопошуку з’являться, коли ви впишете ключ:'
+},
 lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
 lumen_reviews_st_key_note: {
 ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
@@ -45719,9 +45792,9 @@ uk: 'Кінопошук відповів «немає доступу»: у кл�
 },
 lumen_reviews_st_quota: { ru: 'лимит ключа исчерпан', en: 'key limit reached', uk: 'ліміт ключа вичерпано' },
 lumen_reviews_st_quota_note: {
-ru: 'Бесплатный ключ kinopoiskapiunofficial.tech даёт 500 запросов в сутки, и на сегодня они закончились. Отзывы вернутся сами, когда лимит обнулится.',
-en: 'A free kinopoiskapiunofficial.tech key allows 500 requests a day, and today\'s are used up. Reviews will come back on their own once the limit resets.',
-uk: 'Безкоштовний ключ kinopoiskapiunofficial.tech дає 500 запитів на добу, і на сьогодні вони закінчились. Відгуки повернуться самі, коли ліміт обнулиться.'
+ru: 'Лимит запросов ключа исчерпан. Отзывы вернутся, когда лимит обновится (у бесплатного ключа — 500 запросов в сутки).',
+en: 'The key has run out of requests. Reviews will come back once the limit renews (a free key gets 500 requests a day).',
+uk: 'Ліміт запитів ключа вичерпано. Відгуки повернуться, коли ліміт оновиться (у безкоштовного ключа — 500 запитів на добу).'
 },
 lumen_reviews_st_busy: { ru: 'слишком много запросов', en: 'too many requests', uk: 'забагато запитів' },
 lumen_reviews_st_busy_note: {
@@ -45748,24 +45821,12 @@ en: 'Custom collections catalog',
 uk: 'Свій каталог підбірок'
 },
 lumen_manifest_url_descr: {
-ru: 'Адрес JSON-каталога. Пусто — каталог плагина из интернета, он обновляется сам (кэш 12 ч). Без сети работает встроенный список.',
-en: 'JSON catalog address. Empty — the plugin catalog from the internet, updated automatically (12 h cache). Offline the built-in list is used.',
-uk: 'Адреса JSON-каталогу. Порожньо — каталог плагіна з інтернету, оновлюється сам (кеш 12 год). Без мережі працює вбудований список.'
+ru: 'Адрес своего каталога подборок (файл JSON). Пусто — каталог плагина из интернета; без сети — встроенный список.',
+en: 'The address of your own collections catalog (a JSON file). Empty — the plugin catalog from the internet; offline — the built-in list.',
+uk: 'Адреса свого каталогу підбірок (файл JSON). Порожньо — каталог плагіна з інтернету; без мережі — вбудований список.'
 },
 
 
-
-
-lumen_kp_hint_name: {
-ru: 'Подсказка про ключ',
-en: 'API key hint',
-uk: 'Підказка про ключ'
-},
-lumen_kp_hint_descr: {
-ru: 'Напоминание «Ключ API не задан» в карточке и в подборках Кинопоиска. Его можно убрать кнопкой «Скрыть» прямо на экране.',
-en: 'The "API key is not set" reminder in the card and in Kinopoisk collections. It can also be dismissed with the "Hide" button on screen.',
-uk: 'Нагадування «Ключ API не задано» у картці та в підбірках Кінопошуку. Його можна прибрати кнопкою «Сховати» просто на екрані.'
-},
 
 
 lumen_kp_hint_hide: {
@@ -45794,9 +45855,9 @@ en: 'Hide the Lampa analysis blocks',
 uk: 'Ховати блоки аналізу Lampa'
 },
 lumen_hide_meta_descr: {
-ru: 'Убирает с карточки ряды «Метаданные» (Темп, Страх, Экшн…) и «Настроения» (проценты). Это блоки самой Lampa, не плагина: данные для них приходят от аккаунта CUB и только для фильмов, «Настроения» — ещё и только при языке интерфейса ru/uk/be. Ничего не удаляется: ряд просто не строится на экране, выключите — вернётся. Применяется при следующем открытии карточки.',
-en: 'Removes the "Metadata" (Pace, Fear, Action…) and "Moods" (percentages) rows from the card. These are Lampa own blocks, not the plugin: their data comes from the CUB account and only for movies, and "Moods" only with the ru/uk/be interface language. Nothing is deleted: the row simply is not put on screen, turn it off and it comes back. Applied the next time you open a card.',
-uk: 'Прибирає з картки ряди «Метадані» (Темп, Страх, Екшн…) і «Настрої» (відсотки). Це блоки самої Lampa, а не плагіна: дані для них приходять від акаунта CUB і лише для фільмів, «Настрої» — ще й лише за мови інтерфейсу ru/uk/be. Нічого не видаляється: ряд просто не будується на екрані, вимкніть — повернеться. Застосовується при наступному відкритті картки.'
+ru: 'Убирает с карточки ряды «Метаданные» и «Настроения» — это блоки самой Lampa. Действует со следующего открытия карточки.',
+en: 'Removes the "Metadata" and "Moods" rows from the card — these are Lampa own blocks. Takes effect the next time you open a card.',
+uk: 'Прибирає з картки ряди «Метадані» та «Настрої» — це блоки самої Lampa. Діє з наступного відкриття картки.'
 },
 
 
@@ -45808,31 +45869,20 @@ ru: 'Главная',
 en: 'Home screen',
 uk: 'Головна'
 },
-lumen_group_rows: {
-ru: 'Ряды подборок',
-en: 'Collection rows',
-uk: 'Ряди підбірок'
-},
 
-lumen_moods_name: {
-ru: 'Профили настроения',
-en: 'Mood profiles',
-uk: 'Профілі настрою'
-},
-
-
+lumen_moods_name: { ru: 'Чипы настроения', en: 'Mood chips', uk: 'Чипи настрою' },
 
 
 lumen_moods_descr: {
-ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен: «Пятничный вечер», «Семейный просмотр», «Страшное на ночь», «90 минут».',
-en: 'A row of quick picks above the home rows when "Hero over the rows" is off: "Friday Evening", "Family Viewing", "Scary at Night", "90 Minutes".',
-uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено: «П\'ятничний вечір», «Сімейний перегляд», «Страшне вночі», «90 хвилин».'
+ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен.',
+en: 'A row of quick picks above the home rows when "Hero over the rows" is off.',
+uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено.'
 },
 
 lumen_home_rows_name: {
-ru: 'Какие ряды показывать',
-en: 'Which rows to show',
-uk: 'Які ряди показувати'
+ru: 'Какие подборки показывать',
+en: 'Which collections to show',
+uk: 'Які підбірки показувати'
 },
 lumen_home_rows_descr: {
 ru: 'Отметьте подборки для главной. Если не отмечено ничего — показывается набор по умолчанию.',
@@ -45850,17 +45900,11 @@ uk: 'Ряди підбірок на головній'
 lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
 
 
-lumen_franchise_button_name: { ru: 'Кнопка «Франшиза»', en: '"Franchise" button', uk: 'Кнопка «Франшиза»' },
-lumen_franchise_button_descr: {
-ru: 'Кнопка рядом с кнопками карточки, если фильм входит в серию: открывает всю серию сеткой. Остальные кнопки остаются на своих местах. Применяется сразу.',
-en: 'A button next to the card buttons when the movie is part of a series: opens the whole series as a grid. The other buttons stay where they are. Applied immediately.',
-uk: 'Кнопка поруч із кнопками картки, якщо фільм входить до серії: відкриває всю серію сіткою. Інші кнопки залишаються на своїх місцях. Застосовується одразу.'
-},
-lumen_franchise_row_name: { ru: 'Ряд «Смотреть по порядку»', en: '"Watch in order" row', uk: 'Ряд «Дивитися по черзі»' },
-lumen_franchise_row_descr: {
-ru: 'Части серии в порядке выхода или по рейтингу с отметками просмотренного — в блоке описания карточки. Выключенный ряд ничего не запрашивает. Применяется сразу.',
-en: 'The parts of the series in release or rating order with watched marks, in the card description block. When off, nothing is requested. Applied immediately.',
-uk: 'Частини серії в порядку виходу або за рейтингом із позначками переглянутого — у блоці опису картки. Вимкнений ряд нічого не запитує. Застосовується одразу.'
+lumen_franchise_name: { ru: 'Франшизы', en: 'Franchises', uk: 'Франшизи' },
+lumen_franchise_descr: {
+ru: 'Кнопка «Франшиза» и ряд «Смотреть по порядку» у фильмов из серии.',
+en: 'The "Franchise" button and the "Watch in order" row for films in a series.',
+uk: 'Кнопка «Франшиза» і ряд «Дивитися по порядку» у фільмів із серії.'
 },
 lumen_hide_watched_name: {
 ru: 'Скрывать досмотренное',
@@ -45873,16 +45917,16 @@ en: 'Removes already-watched movies and shows from collection rows.',
 uk: 'Забирає з рядів підбірок фільми та серіали, які ви вже переглянули.'
 },
 lumen_rows_limit_name: {
-ru: 'Количество рядов',
-en: 'Number of rows',
-uk: 'Кількість рядів'
+ru: 'Сколько рядов подборок',
+en: 'How many collection rows',
+uk: 'Скільки рядів підбірок'
 },
 
 
 lumen_rows_limit_descr: {
-ru: 'Сколько рядов подборок строится на главной. Каждый ряд — отдельный запрос к каталогу, поэтому на слабом телевизоре меньшее число заметно ускоряет появление главной. Персональные ряды в это число не входят.',
-en: 'How many collection rows the home screen builds. Each row is a separate catalog request, so on a weak TV a smaller number noticeably speeds the home screen up. Personal rows are not counted here.',
-uk: 'Скільки рядів підбірок будується на головній. Кожен ряд — окремий запит до каталогу, тому на слабкому телевізорі менше число помітно пришвидшує появу головної. Персональні ряди в це число не входять.'
+ru: 'Меньше рядов — главная открывается быстрее. Персональные ряды не в счёт.',
+en: 'Fewer rows — the home screen opens faster. Personal rows are not counted.',
+uk: 'Менше рядів — головна відкривається швидше. Персональні ряди не враховуються.'
 },
 
 lumen_rows_limit_suffix: {
@@ -45891,15 +45935,11 @@ en: 'rows',
 uk: 'рядів'
 },
 
-lumen_rows_dedupe_name: {
-ru: 'Не повторять фильмы в рядах',
-en: 'No repeats across rows',
-uk: 'Не повторювати фільми в рядах'
-},
+lumen_rows_dedupe_name: { ru: 'Не повторять фильмы', en: 'No repeated films', uk: 'Не повторювати фільми' },
 lumen_rows_dedupe_descr: {
-ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, который от этого укоротился и в котором осталось меньше четырёх карточек — или меньше половины прежнего, и они не заполняют ширину экрана, — не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
-en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row this shortens is hidden if it is left with fewer than four movies — or with less than half of them and not enough to fill the screen; rows you picked yourself and personal rows always stay.',
-uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, який від цього вкоротився і в якому лишилося менше чотирьох карток — або менше половини колишніх, і вони не заповнюють ширину екрана, — не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
+ru: 'Фильм показывается только в первом ряду, где встретился. Опустевший от этого ряд скрывается; выбранные вами и личные ряды остаются.',
+en: 'A film is shown only in the first row it appears in. A row this empties is hidden; rows you picked and personal rows stay.',
+uk: 'Фільм показується лише в першому ряду, де трапився. Ряд, що від цього спорожнів, ховається; обрані вами й особисті ряди лишаються.'
 },
 
 
@@ -45959,20 +45999,11 @@ uk: 'Сьогодні прем\'єра'
 
 
 
-
-
-
-
-
-
-
-
-
 lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
 lumen_hero_size_descr: {
-ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, над ними строка чипов настроения. Применяется сразу.',
-en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen, with the mood chips above them. Applied immediately.',
-uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, над ними рядок чипів настрою. Застосовується одразу.'
+ru: 'Какую часть экрана занимает большой кадр с описанием фильма. «Выключен» — ряды на весь экран, над ними чипы настроения.',
+en: 'How much of the screen the large hero with the film description takes. "Off" gives the rows the whole screen, with mood chips above them.',
+uk: 'Яку частину екрана займає великий кадр з описом фільму. «Вимкнено» — ряди на весь екран, над ними чипи настрою.'
 },
 lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
 lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
@@ -45984,41 +46015,13 @@ lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено'
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-lumen_hero_media_name: { ru: 'Что показывает кадр главной', en: 'What the home hero shows', uk: 'Що показує кадр головної' },
+lumen_hero_media_name: { ru: 'Что в кадре', en: 'What the hero shows', uk: 'Що в кадрі' },
 lumen_hero_media_trailer: { ru: 'Кадры и трейлер', en: 'Stills and trailer', uk: 'Кадри і трейлер' },
 lumen_hero_media_frames: { ru: 'Только кадры', en: 'Stills only', uk: 'Лише кадри' },
 lumen_hero_media_descr: {
-ru: 'Кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров». «Кадры и трейлер» — если фокус постоял на карточке, кадры сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»; на Tizen/webOS по умолчанию трейлера нет), а когда он кончится, кадры пойдут дальше. «Только кадры» — трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
-en: 'The film’s stills replace one another like on the card, at the same "Frame interval". "Stills and trailer": if focus rests on a card, a muted trailer takes over (see "Auto-trailer in the home hero"; on Tizen/webOS there is no trailer by default), and the stills carry on once it ends. "Stills only": no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
-uk: 'Кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів». «Кадри і трейлер» — якщо фокус постояв на картці, кадри змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»; на Tizen/webOS за замовчуванням трейлера немає), а коли він закінчиться, кадри підуть далі. «Лише кадри» — трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
-},
-lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
-lumen_hero_trailer_descr: {
-ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Не работает при выключенных анимациях, при «Трейлер в фоне карточки» — «Выкл» (на Tizen/webOS — и «Авто») и при «Только кадры». Применяется сразу.',
-en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Does not work with animations off, with "Background trailer on the card" set to Off (on Tizen/webOS also Auto) or with "Stills only". Applied immediately.',
-uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Не працює з вимкненими анімаціями, з «Трейлер у фоні картки» — «Викл» (на Tizen/webOS — і «Авто») і з «Лише кадри». Застосовується одразу.'
+ru: 'Кадры фильма сменяют друг друга. Если фокус простоял на карточке 8 секунд, включается трейлер без звука; «Только кадры» — без трейлера.',
+en: 'The film stills replace one another. If focus rests on a card for 8 seconds, a muted trailer starts; "Stills only" means no trailer.',
+uk: 'Кадри фільму змінюють один одного. Якщо фокус простояв на картці 8 секунд, вмикається трейлер без звуку; «Лише кадри» — без трейлера.'
 },
 
 
@@ -46026,26 +46029,22 @@ uk: 'Кадр над рядами сам змінюється беззвучни
 
 
 
-lumen_hero_logo_name: { ru: 'Логотип названия в кадре', en: 'Title logo in the hero', uk: 'Логотип назви в кадрі' },
+lumen_hero_logo_name: { ru: 'Логотип в кадре', en: 'Logo in the hero', uk: 'Логотип у кадрі' },
 lumen_hero_logo_descr: {
-ru: 'Название фильма в кадре над рядами показывается его фирменной надписью с TMDB, а не обычным заголовком. Надпись появляется, только когда картинка загрузилась: пока её нет — и если её нет вовсе — стоит обычный заголовок. Выключите, чтобы название всегда было набрано текстом. Применяется сразу.',
-en: 'The title in the hero above the rows is shown as the film’s own logo from TMDB instead of plain text. The logo appears only once its image has loaded: until then — and if there is none — the plain title stays. Turn it off to always keep the title as text. Applied immediately.',
-uk: 'Назва фільму в кадрі над рядами показується його фірмовим написом з TMDB, а не звичайним заголовком. Напис з’являється лише тоді, коли картинка завантажилась: доки її немає — і якщо її немає взагалі — лишається звичайний заголовок. Вимкніть, щоб назва завжди була набрана текстом. Застосовується одразу.'
+ru: 'Название в кадре над рядами — логотипом фильма. Пока логотип грузится или если его нет, стоит обычный заголовок.',
+en: 'The title in the hero above the rows as the film logo. While it loads, or if there is none, the plain title stays.',
+uk: 'Назва в кадрі над рядами — логотипом фільму. Доки логотип вантажиться або якщо його немає, стоїть звичайний заголовок.'
 },
 
 
 
 
 
-
-
-
-
-lumen_tile_size_name: { ru: 'Размер плиток в рядах', en: 'Tile size in rows', uk: 'Розмір плиток у рядах' },
+lumen_tile_size_name: { ru: 'Размер плиток', en: 'Tile size', uk: 'Розмір плиток' },
 lumen_tile_size_descr: {
-ru: 'Размер постеров в рядах главной и в сетках подборок; текст и остальной интерфейс меняет «Масштаб интерфейса». Ряд в фокусе всегда целиком помещается под кадром вместе с названием и годом, поэтому «Крупнее» увеличивает плитки только там, где есть место: с «Кадром над рядами» в значении «Крупный» они уже самые крупные из помещающихся, и «Крупнее» их не меняет — кроме «Размера интерфейса: мельче» в самой Lampa. В сетке подборки — семь, шесть или пять колонок. Применяется сразу.',
-en: 'The size of posters in the home rows and in collection grids; text and the rest of the interface follow "Interface scale". The focused row always fits under the frame together with its title and year, so "Larger" enlarges tiles only where there is room: with "Hero over the rows" set to "Large" they are already the largest that fit, and "Larger" does not change them — except when Lampa’s own "Interface size" is set to smaller. Collection grids get seven, six or five columns. Applied immediately.',
-uk: 'Розмір постерів у рядах головної та в сітках підбірок; текст і решту інтерфейсу змінює «Масштаб інтерфейсу». Ряд у фокусі завжди повністю вміщується під кадром разом із назвою та роком, тож «Більші» збільшують плитки лише там, де є місце: з «Кадром над рядами» у значенні «Великий» вони вже найбільші з тих, що вміщуються, і «Більші» їх не змінюють — крім «Розміру інтерфейсу: менше» в самій Lampa. У сітці підбірки — сім, шість або п’ять колонок. Застосовується одразу.'
+ru: 'Размер постеров в рядах главной и в подборках. С крупным кадром над рядами «Крупнее» может ничего не менять — плитки уже самые крупные из помещающихся.',
+en: 'The size of posters in the home rows and in collections. With a large hero above the rows "Larger" may change nothing — the tiles are already the largest that fit.',
+uk: 'Розмір постерів у рядах головної та в підбірках. З великим кадром над рядами «Більші» можуть нічого не змінити — плитки вже найбільші з тих, що вміщуються.'
 },
 lumen_tile_size_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніші' },
 lumen_tile_size_normal: { ru: 'Обычные', en: 'Normal', uk: 'Звичайні' },
@@ -46058,20 +46057,11 @@ lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges'
 
 
 
-
 lumen_badges_descr: {
-ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, перед годом: обложка остаётся чистой; рейтинг у карточки с меткой в ряду главной не дописывается — подпись узкая, в сетке подборки он есть. Применяется сразу.',
-en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, before the year, leaving the artwork clean; a card with a badge gets no rating in a home row, where the caption is narrow, but keeps it in a collection grid. Applied immediately.',
-uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, перед роком: обкладинка лишається чистою; рейтинг у картки з міткою в ряду головної не дописується — підпис вузький, у сітці підбірки він є. Застосовується одразу.'
+ru: '«Скоро», «Новинка», процент просмотра и новые серии. «На постере» — плашкой поверх обложки, «В подписи» — строкой под ней.',
+en: '"Soon", "New", the watched percentage and new episodes. "On the poster" puts a plate over the artwork, "In the caption" a line under it.',
+uk: '«Скоро», «Новинка», відсоток перегляду та нові серії. «На постері» — плашкою поверх обкладинки, «У підписі» — рядком під нею.'
 },
-
-
-
-
-
-
-
-
 
 
 
@@ -46082,9 +46072,9 @@ uk: '«Скоро», «Новинка», відсоток перегляду т�
 
 lumen_posters_name: { ru: 'Постеры карточек', en: 'Card posters', uk: 'Постери карток' },
 lumen_posters_descr: {
-ru: 'Откуда берётся обложка в рядах главной и в сетках подборок. «Как в Lampa» — та, что приходит с карточкой: ни одного лишнего запроса. «Английские» — тот же список, запрошенный на английском: это английская обложка, а не обложка на языке оригинала — у аниме и дорам тоже английская, если она есть на TMDB; цена — запрос на каждую половину подборки, фильмы и сериалы отдельно, то есть один-два на ряд и на страницу сетки; подборки Кинопоиска остаются с обложками Lampa. «Без надписей» — постер, на котором нет текста ни на каком языке: по запросу на каждую карточку — двадцать на ряд из одного списка, до сорока у рядов с фильмами и сериалами, около 150 на набор главной по умолчанию. Эти ответы кладутся в кэш на месяц, если в настройках Lampa (раздел «Остальное») включено «Кэширование запросов»: тогда платят только первое открытие и новые фильмы, а выключено — платит каждое открытие. Обложка непривычной пропорции не подставляется — остаётся та, что в Lampa. Применяется сразу: главная собирается заново.',
-en: 'Where the artwork in home rows and collection grids comes from. "As in Lampa" is the one that arrives with the card: not a single extra request. "English" is the same list requested in English: an English poster, not one in the original language — anime and K-dramas get the English one too, when TMDB has it; the cost is one request per half of a collection, movies and series separately, that is one or two per row and per grid page; Kinopoisk collections keep the Lampa artwork. "No lettering" is a poster with no text in any language: one request per card — twenty per single-list row, up to forty for rows with both movies and series, about 150 for the default home set. These answers are cached for a month if "Request Caching" is on in Lampa settings (the "Other" section): then only the first opening and new films pay; if it is off, every opening pays. Artwork with an unusual aspect ratio is not substituted — the Lampa one stays. Applied immediately: the home screen is rebuilt.',
-uk: 'Звідки береться обкладинка в рядах головної та в сітках підбірок. «Як у Lampa» — та, що приходить із карткою: жодного зайвого запиту. «Англійські» — той самий список, запитаний англійською: це англійська обкладинка, а не обкладинка мовою оригіналу — в аніме й дорам теж англійська, якщо вона є на TMDB; ціна — запит на кожну половину підбірки, фільми й серіали окремо, тобто один-два на ряд і на сторінку сітки; підбірки Кінопошуку лишаються з обкладинками Lampa. «Без написів» — постер, на якому немає тексту жодною мовою: по запиту на кожну картку — двадцять на ряд з одного списку, до сорока в рядах із фільмами й серіалами, близько 150 на набір головної за замовчуванням. Ці відповіді кладуться в кеш на місяць, якщо в налаштуваннях Lampa (розділ «Інше») увімкнено «Кешування запитів»: тоді платять лише перше відкриття та нові фільми, а вимкнено — платить кожне відкриття. Обкладинка незвичної пропорції не підставляється — лишається та, що в Lampa. Застосовується одразу: головна збирається наново.'
+ru: 'Откуда берётся обложка рядов и подборок. «Английские» и «Без надписей» ищут другую — это лишние запросы, у «Без надписей» по запросу на карточку. Если в настройках Lampa включено «Кэширование запросов», ответы хранятся месяц.',
+en: 'Where row and collection artwork comes from. "English" and "No lettering" look for other artwork at an extra cost — "No lettering" asks once per card. With "Request caching" on in Lampa settings answers stay in the cache for a month.',
+uk: 'Звідки береться обкладинка рядів і підбірок. «Англійські» та «Без написів» шукають іншу — це зайві запити, у «Без написів» по запиту на картку. Якщо в налаштуваннях Lampa ввімкнено «Кешування запитів», відповіді зберігаються місяць.'
 },
 lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
 lumen_posters_original: { ru: 'Английские', en: 'English', uk: 'Англійські' },
@@ -46102,22 +46092,18 @@ en: 'Menu on holding OK',
 uk: 'Меню за утриманням OK'
 },
 lumen_context_menu_descr: {
-ru: 'Удержание OK на постере открывает штатное меню Lampa, а плагин дописывает в него «Трейлер», «Похожие», «Вся франшиза», отметку просмотра и «Скрыть из рекомендаций». Обычное нажатие по-прежнему открывает карточку. Применяется сразу.',
-en: 'Holding OK on a poster opens the stock Lampa menu, and the plugin appends "Trailer", "Similar", "Whole franchise", the watched mark and "Hide from recommendations". A normal press still opens the card. Applied immediately.',
-uk: 'Утримання OK на постері відкриває штатне меню Lampa, а плагін дописує до нього «Трейлер», «Схожі», «Вся франшиза», позначку перегляду та «Сховати з рекомендацій». Звичайне натискання, як і раніше, відкриває картку. Застосовується одразу.'
+ru: 'Удержание OK на постере открывает меню Lampa с пунктами «Трейлер», «Похожие», «Вся франшиза», отметкой просмотра и «Скрыть из рекомендаций».',
+en: 'Holding OK on a poster opens the Lampa menu with "Trailer", "Similar", "Whole franchise", the watched mark and "Hide from recommendations".',
+uk: 'Утримання OK на постері відкриває меню Lampa з пунктами «Трейлер», «Схожі», «Вся франшиза», позначкою перегляду та «Сховати з рекомендацій».'
 },
 
-lumen_minimap_name: { ru: 'Мини-карта рядов', en: 'Rows minimap', uk: 'Міні-карта рядів' },
-lumen_minimap_descr: {
-ru: 'Удержание «вверх» или «вниз» на главной показывает справа список рядов с подсветкой того, в котором вы сейчас. Нажатия не перехватывает. Применяется сразу.',
-en: 'Holding "up" or "down" on the home screen shows a list of rows on the right with the current one highlighted. It never intercepts key presses. Applied immediately.',
-uk: 'Утримання «вгору» або «вниз» на головній показує праворуч список рядів із підсвіткою того, у якому ви зараз. Натискання не перехоплює. Застосовується одразу.'
-},
-lumen_fastscroll_name: { ru: 'Быстрое листание', en: 'Fast scrolling', uk: 'Швидке гортання' },
-lumen_fastscroll_descr: {
-ru: 'Удержание «влево» или «вправо» разгоняет листание ряда вдвое, а кнопки каналов на пульте прыгают сразу на десять карточек. Позиция в ряду показывается внизу экрана. Применяется сразу.',
-en: 'Holding "left" or "right" scrolls a row twice as fast, and the channel buttons on the remote jump ten cards at once. The position in the row is shown at the bottom. Applied immediately.',
-uk: 'Утримання «вліво» або «вправо» пришвидшує гортання ряду удвічі, а кнопки каналів на пульті стрибають одразу на десять карток. Позиція в ряду показується внизу екрана. Застосовується одразу.'
+
+
+lumen_remote_boost_name: { ru: 'Ускорители пульта', en: 'Remote shortcuts', uk: 'Прискорювачі пульта' },
+lumen_remote_boost_descr: {
+ru: 'Удержание «вверх»/«вниз» на главной показывает список рядов, «влево»/«вправо» листает вдвое быстрее, кнопки каналов прыгают на десять карточек.',
+en: 'Holding up/down on the home screen shows the list of rows, left/right scrolls twice as fast, the channel buttons jump ten cards.',
+uk: 'Утримання «вгору»/«вниз» на головній показує список рядів, «вліво»/«вправо» гортає удвічі швидше, кнопки каналів стрибають на десять карток.'
 },
 
 lumen_minimap_rows: { ru: 'РЯДЫ', en: 'ROWS', uk: 'РЯДИ' },
@@ -46182,9 +46168,9 @@ lumen_home_start_name: { ru: 'Начало главной', en: 'Top of the home
 lumen_home_start_rotate: { ru: 'Подборки по очереди', en: 'Rotating collections', uk: 'Підбірки по черзі' },
 lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Досивитися»' },
 lumen_home_start_descr: {
-ru: 'Первые ряды меняются при каждом запуске Lampa и раз в несколько часов, «Досмотреть» стоит вторым. «Сначала «Досмотреть»» — ваша история сверху, как раньше.',
-en: 'The top rows change every time Lampa starts and every few hours, with "Continue watching" second. "Continue watching" first keeps your history on top, as before.',
-uk: 'Перші ряди змінюються під час кожного запуску Lampa і раз на кілька годин, «Досивитися» стоїть другим. «Спочатку «Досивитися»» — ваша історія вгорі, як раніше.'
+ru: 'Первые ряды меняются при каждом запуске Lampa и раз в несколько часов, «Досмотреть» стоит вторым. «Сначала «Досмотреть»» — ваша история сверху.',
+en: 'The top rows change every time Lampa starts and every few hours, with "Continue watching" second. "Continue watching" first keeps your history on top.',
+uk: 'Перші ряди змінюються під час кожного запуску Lampa і раз на кілька годин, «Досивитися» стоїть другим. «Спочатку «Досивитися»» — ваша історія вгорі.'
 },
 
 
@@ -46362,6 +46348,12 @@ function applyPrefChange(name) {
 
 pref_handled = '';
 if (!name) return false;
+
+
+
+
+releaseMerged(name);
+if (LC.prefs.PRESET_KEYS.indexOf(name) !== -1) syncStyle();
 if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
 
 
@@ -46411,7 +46403,19 @@ if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
 
 
 
-if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
+
+
+if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); refreshFontPreview(); return true; }
+
+
+
+
+if (name === 'lumen_style') {
+var style = LC.pref('lumen_style', 'lumen');
+if (style === 'lumen' || style === 'appletv') applyPreset(style);
+else syncStyle();
+return true;
+}
 
 
 
@@ -46469,10 +46473,12 @@ if (name === 'lumen_reviews' || name === 'lumen_kp_key' || name === 'lumen_revie
 
 
 
-if (name === 'lumen_franchise_button' || name === 'lumen_franchise_row') {
+
+if (name === 'lumen_franchise' || name === 'lumen_franchise_button' || name === 'lumen_franchise_row') {
 try { if (LC.applyFranchisePref) LC.applyFranchisePref(); } catch (eFr) {}
 return true;
 }
+
 
 
 
@@ -46526,7 +46532,8 @@ return true;
 
 
 
-if (name === 'lumen_minimap' || name === 'lumen_fastscroll') {
+
+if (name === 'lumen_remote_boost' || name === 'lumen_minimap' || name === 'lumen_fastscroll') {
 try { if (LC.applyNavPref) LC.applyNavPref(); } catch (eNav) {}
 return true;
 }
@@ -46569,15 +46576,13 @@ return true;
 
 
 
+if (name === 'lumen_debug_bench' || name === 'lumen_more') return true;
 
 
 
 
 
-if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
-
-
-if (name === 'lumen_debug_bench') return true;
+if (name === 'lumen_rowmem' || name === 'lumen_rowmem_bytes' || name === 'lumen_netmem' || name === 'lumen_prefill') return true;
 
 
 
@@ -46625,6 +46630,7 @@ if (pref_handled === name) { pref_handled = ''; return; }
 applyPrefChange(name);
 };
 }
+
 
 
 
@@ -46733,6 +46739,11 @@ warn('home rows select failed', err);
 
 
 
+
+
+
+
+
 function presetCurrent(key) {
 var entry = LC.prefs.find(key);
 var def = entry ? entry['default'] : '';
@@ -46762,6 +46773,66 @@ warn('preset row refresh failed', e);
 }
 }
 
+
+
+
+function syncStyle() {
+try {
+if (!window.Lampa || !Lampa.Storage) return;
+if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+var now = LC.prefs.styleOf(presetCurrent);
+if (Lampa.Storage.get('lumen_style', 'lumen') === now) return;
+Lampa.Storage.set('lumen_style', now, true);
+refreshParamRow('lumen_style');
+} catch (e) {
+warn('style sync failed', e);
+}
+}
+
+
+
+
+
+
+function releaseMerged(name) {
+try {
+if (!Object.prototype.hasOwnProperty.call(LC.prefs.MERGED, name)) return;
+if (!window.Lampa || !Lampa.Storage) return;
+if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+var old = LC.prefs.MERGED[name];
+for (var i = 0; i < old.length; i++) {
+if (LC.prefs.boolOf(Lampa.Storage.get(old[i], ''), true) === false) Lampa.Storage.set(old[i], 'true', true);
+}
+} catch (e) {
+warn('merged release failed', e);
+}
+}
+
+
+
+
+
+
+
+function fontPreview(item) {
+try {
+if (!item || typeof item.css !== 'function') return;
+item.css('font-family', typeof LC.fontStack === 'function' ? LC.fontStack() : '');
+} catch (e) {
+warn('font preview failed', e);
+}
+}
+
+function refreshFontPreview() {
+try {
+if (typeof $ !== 'function') return;
+var elem = $('.settings-param[data-name="lumen_font"]');
+if (elem && elem.length) fontPreview(elem);
+} catch (e) {
+warn('font preview refresh failed', e);
+}
+}
+
 function applyPreset(id) {
 try {
 if (!window.Lampa || !Lampa.Storage) return;
@@ -46776,6 +46847,7 @@ if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
 var want = values[key];
 if (presetCurrent(key) === want) continue;
 Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want, true);
+releaseMerged(key);
 written.push(key);
 refreshParamRow(key);
 var entry = LC.prefs.find(key);
@@ -46783,6 +46855,8 @@ if (entry) changed.push(LC.lang(entry.label));
 }
 
 if (written.length && LC.applyPresetChanges) LC.applyPresetChanges(written);
+if (written.indexOf('lumen_font') !== -1) refreshFontPreview();
+syncStyle();
 
 
 
@@ -46796,11 +46870,71 @@ warn('preset failed', err);
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function moreComponent() {
+return PLUGIN + '_more';
+}
+
+function moreIndex() {
+var at = 0;
+for (var i = 0; i < LC.prefs.LIST.length; i++) {
+var e = LC.prefs.LIST[i];
+if (e.section === 'more') continue;
+if (e.name === 'lumen_more') return at;
+if (e.type !== 'title') at++;
+}
+return 0;
+}
+
+
+
+
+
+
+
+function backFromMore() {
+try {
+Lampa.Settings.create(PLUGIN, { last_index: moreIndex() });
+if (typeof $ !== 'function' || !Lampa.Controller || typeof Lampa.Controller.collectionFocus !== 'function') return;
+var row = $('.settings-param[data-name="lumen_more"]');
+if (row && row.length && row.hasClass('focus')) Lampa.Controller.collectionFocus(row[0], row.parent());
+} catch (e) {
+warn('settings back failed', e);
+}
+}
+
+function openMore() {
+try {
+if (!window.Lampa || !Lampa.Settings || typeof Lampa.Settings.create !== 'function') return;
+Lampa.Settings.create(moreComponent(), { onBack: backFromMore });
+} catch (err) {
+warn('settings more failed', err);
+}
+}
+
+
 function onButtonFor(name) {
 return function () {
 if (name === 'lumen_home_rows') openHomeRows();
-else if (name === 'lumen_preset_appletv') applyPreset('appletv');
-else if (name === 'lumen_preset_lumen') applyPreset('lumen');
+else if (name === 'lumen_more') openMore();
 else if (name === 'lumen_debug_bench') {
 try { if (LC.bench) LC.bench.start(); } catch (e) { warn('bench start failed', e); }
 }
@@ -46819,17 +46953,18 @@ return out;
 }
 
 function addPrefParam(entry) {
+var component = entry.section === 'more' ? moreComponent() : PLUGIN;
 var param = { name: entry.name, type: entry.type };
 var field = { name: LC.lang(entry.label) };
 if (entry.descr) field.description = LC.lang(entry.descr);
 
 if (entry.type === 'title') {
-Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field });
+Lampa.SettingsApi.addParam({ component: component, param: param, field: field });
 return;
 }
 
 if (entry.type === 'button') {
-Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onButtonFor(entry.name) });
+Lampa.SettingsApi.addParam({ component: component, param: param, field: field, onChange: onButtonFor(entry.name) });
 return;
 }
 
@@ -46847,7 +46982,9 @@ param.values = '';
 
 param.placeholder = LC.lang(entry.placeholder);
 }
-Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onChangeFor(entry.name) });
+var data = { component: component, param: param, field: field, onChange: onChangeFor(entry.name) };
+if (entry.name === 'lumen_font') data.onRender = fontPreview;
+Lampa.SettingsApi.addParam(data);
 }
 
 LC.addSettings = function () {
@@ -46866,8 +47003,18 @@ name: LC.lang('lumen_card_title')
 });
 
 
+try {
+if (Lampa.Template && typeof Lampa.Template.add === 'function') Lampa.Template.add('settings_' + moreComponent(), '<div></div>');
+} catch (eTpl) {
+warn('settings more template failed', eTpl);
+}
+
+
 for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
 LC.settingsAdded = true;
+
+
+syncStyle();
 } catch (e) {
 warn('settings failed', e);
 }
@@ -47034,25 +47181,20 @@ return !(platform.android || platform.tizen || platform.webos);
 
 
 
-var LIST = [
+var MAIN = [
 { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
 
+{ name: 'lumen_group_look', type: 'title', label: 'lumen_group_look' },
 
 
 
 
 
+{ name: 'lumen_style', type: 'select', values: ['lumen', 'appletv', 'custom'], vprefix: 'lumen_style_', 'default': 'lumen', label: 'lumen_style_name', descr: 'lumen_style_descr' },
 
 
 
-
-{ name: 'lumen_group_preset', type: 'title', label: 'lumen_group_preset' },
-{ name: 'lumen_preset_appletv', type: 'button', label: 'lumen_preset_appletv_name', descr: 'lumen_preset_appletv_descr' },
-{ name: 'lumen_preset_lumen', type: 'button', label: 'lumen_preset_lumen_name', descr: 'lumen_preset_lumen_descr' },
-
-{ name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
-
-
+{ name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
 
 
 { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
@@ -47060,61 +47202,39 @@ var LIST = [
 
 
 
-
-
-
-
-{ name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
-
-
-
-
-
-
-{ name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
-{ name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
-
+{ name: 'lumen_font', type: 'select', values: ['system', 'golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
 
 
 { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
-{ name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
+
+{ name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
+
+
+{ name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+
+
+{ name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': 'trailer', label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
+
+
+{ name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
+
+
+{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
 
 
 
 
+{ name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
 
-{ name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
+{ name: 'lumen_group_card', type: 'title', label: 'lumen_group_card' },
+{ name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
+
+
+{ name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
 
 
 
-
-
+{ name: 'lumen_franchise', type: 'trigger', 'default': true, label: 'lumen_franchise_name', descr: 'lumen_franchise_descr' },
 
 { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
 { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
@@ -47124,107 +47244,54 @@ var LIST = [
 
 
 
-{ name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
+{ name: 'lumen_fx', type: 'select', values: ['seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
+
+
+
+{ name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+
+
+{ name: 'lumen_more', type: 'button', label: 'lumen_more_name', descr: 'lumen_more_descr' }
+];
+
+var MORE = [
+{ name: 'lumen_group_style', type: 'title', label: 'lumen_group_style' },
 
 
 
 
-{ name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
+{ name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
+{ name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
 
 
 
-
-
-{ name: 'lumen_debug_bench', type: 'button', label: 'lumen_debug_bench_name', descr: 'lumen_debug_bench_descr' },
-
+{ name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
 
 
 
-
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
-
-{ name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
-{ name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
-{ name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
-{ name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
-
-{ name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
-
-
-
-
-
-
-
+{ name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
 
 
 
 { name: 'lumen_card_logo', type: 'trigger', 'default': true, label: 'lumen_card_logo_name', descr: 'lumen_card_logo_descr' },
+{ name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
+
+
+{ name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+
+
+{ name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' },
+
+{ name: 'lumen_group_screens', type: 'title', label: 'lumen_group_screens' },
+
+
+
+
+{ name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
+{ name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
+{ name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
+{ name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
 { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
-
-
-
-
-{ name: 'lumen_franchise_button', type: 'trigger', 'default': true, label: 'lumen_franchise_button_name', descr: 'lumen_franchise_button_descr' },
-
-
-
-{ name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
-
-
-
-
-{ name: 'lumen_reviews_mode', type: 'select', values: ['headlines', 'full'], vprefix: 'lumen_reviews_mode_', 'default': 'headlines', label: 'lumen_reviews_mode_name', descr: 'lumen_reviews_mode_descr' },
-
-
-
-{ name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
-
-
-
-
-{ name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
-
-
-
-{ name: 'lumen_franchise_row', type: 'trigger', 'default': true, label: 'lumen_franchise_row_name', descr: 'lumen_franchise_row_descr' },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -47234,167 +47301,74 @@ var LIST = [
 { name: 'lumen_hide_meta', type: 'trigger', 'default': false, label: 'lumen_hide_meta_name', descr: 'lumen_hide_meta_descr' },
 
 
-
-
-
-
-
-{ name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
-
-
-
-
-{ name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': 'trailer', label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
-{ name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
-
-
-
-
-
-
-{ name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
-
-
-
-
-
-
-
-{ name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 
 
-
-
-
 { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
 
-
-
-
-
-
-
-{ name: 'lumen_group_rows', type: 'title', label: 'lumen_group_rows' },
-
-
-
-
-{ name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-
-
-
-{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
-
-
-
-
-
-
 { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
-
-
-
-
-
-
-
-{ name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' },
-
-
-
-
-
-
-
-
-{ name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
+{ name: 'lumen_group_remote', type: 'title', label: 'lumen_group_remote' },
 
 
-{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' },
-
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_group_nav', type: 'title', label: 'lumen_group_nav' },
 { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
-{ name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
-{ name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
 
 
+{ name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },
+{ name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
+{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
 
 
-
-
-
-{ name: 'lumen_group_roulette', type: 'title', label: 'lumen_group_roulette' },
-{ name: 'lumen_roulette_unseen', type: 'trigger', 'default': true, label: 'lumen_roulette_unseen_name', descr: 'lumen_roulette_unseen_descr' },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-{ name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
 { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
 { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
 
 
 
 
-{ name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
-{ name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
-{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
+
+
+
+
+{ name: 'lumen_group_dev', type: 'title', label: 'lumen_group_dev' },
+
+{ name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
+
+{ name: 'lumen_debug_bench', type: 'button', label: 'lumen_debug_bench_name', descr: 'lumen_debug_bench_descr' },
+
+{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' },
+{ name: 'lumen_rowmem', type: 'trigger', 'default': true, label: 'lumen_rowmem_name', descr: 'lumen_rowmem_descr' },
+
+
+{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
+{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'lumen_netmem_name', descr: 'lumen_netmem_descr' },
+{ name: 'lumen_prefill', type: 'trigger', 'default': true, label: 'lumen_prefill_name', descr: 'lumen_prefill_descr' }
 ];
+
+var m;
+for (m = 0; m < MORE.length; m++) MORE[m].section = 'more';
+var LIST = MAIN.concat(MORE);
+
+
+
+
+
+
+
+var MERGED = {
+lumen_font: ['lumen_card_fonts'],
+lumen_hero_media: ['lumen_hero_trailer'],
+lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
+lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll']
+};
 
 function find(name) {
 if (!name) return null;
 for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
 return null;
 }
+
 
 
 
@@ -47483,6 +47457,24 @@ return out;
 
 
 
+
+
+
+function styleOf(read) {
+var ids = ['lumen', 'appletv'];
+for (var i = 0; i < ids.length; i++) {
+var want = presetValues(ids[i]);
+var same = true;
+for (var k = 0; k < PRESET_KEYS.length && same; k++) {
+if (read(PRESET_KEYS[k]) !== want[PRESET_KEYS[k]]) same = false;
+}
+if (same) return ids[i];
+}
+return 'custom';
+}
+
+
+
 function normalize(value, def) {
 if (typeof value === 'undefined' || value === null || value === '') return def;
 if (typeof def === 'boolean') return boolOf(value, def);
@@ -47521,7 +47513,7 @@ return overrides ? overrides[name] : undefined;
 return {
 LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
 motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-PRESET_KEYS: PRESET_KEYS, presetValues: presetValues,
+PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED,
 normalize: normalize, override: override, clearOverride: clearOverride,
 overridden: overridden, overrideOf: overrideOf
 };
@@ -47614,19 +47606,67 @@ return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 LC.migratePrefs = function () {
-try {
 if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
 if (typeof Lampa.Storage.get !== 'function') return;
-var badges = Lampa.Storage.get('lumen_badges', '');
+
+function get(name) {
+return Lampa.Storage.get(name, '');
+}
+
+function off(name) {
+return LC.prefs.boolOf(get(name), true) === false;
+}
+function step(fn) {
+try { fn(); } catch (e) { warn('prefs migrate failed', e); }
+}
+
+step(function () {
+var badges = get('lumen_badges');
 
 
 if (badges === '' || badges === null || typeof badges === 'undefined') return;
 if (badges === 'poster' || badges === 'caption' || badges === 'off') return;
 Lampa.Storage.set('lumen_badges', LC.prefs.badgesMode(badges));
-} catch (e) {
-warn('prefs migrate failed', e);
-}
+});
+step(function () {
+if (!off('lumen_card_fonts')) return;
+Lampa.Storage.set('lumen_font', 'system');
+Lampa.Storage.set('lumen_card_fonts', 'true');
+});
+step(function () {
+if (!off('lumen_hero_trailer')) return;
+Lampa.Storage.set('lumen_hero_media', 'frames');
+Lampa.Storage.set('lumen_hero_trailer', 'true');
+});
+step(function () {
+if (get('lumen_fx') === 'all') Lampa.Storage.set('lumen_fx', 'seasonal');
+});
+step(function () {
+if (!off('lumen_franchise_button') || !off('lumen_franchise_row')) return;
+Lampa.Storage.set('lumen_franchise', 'false');
+Lampa.Storage.set('lumen_franchise_button', 'true');
+Lampa.Storage.set('lumen_franchise_row', 'true');
+});
+step(function () {
+if (!off('lumen_minimap') || !off('lumen_fastscroll')) return;
+Lampa.Storage.set('lumen_remote_boost', 'false');
+Lampa.Storage.set('lumen_minimap', 'true');
+Lampa.Storage.set('lumen_fastscroll', 'true');
+});
 };
 
 LC.motionModeFor = LC.prefs.motionModeFor;
@@ -51010,7 +51050,9 @@ if (typeof cards[i].lumen_fr_movie !== 'undefined') LC.hub.franchise(cards.eq(i)
 warn('franchise button pref failed', e);
 }
 try {
-if (!LC.pref('lumen_franchise_row', true)) {
+
+
+if (!LC.pref('lumen_franchise', true) || !LC.pref('lumen_franchise_row', true)) {
 var rows = $('.lumen-descr-row');
 for (i = 0; i < rows.length; i++) LC.franchise.render(rows.eq(i), LC.active && LC.active.data);
 return;
