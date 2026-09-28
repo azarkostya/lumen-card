@@ -937,6 +937,72 @@ test('1.0.2: «Назад» из второго экрана прокручив�
   }
 });
 
+/* Ревью 1.0.2: Lampa.Settings.update() пересоздаёт открытый экран через
+   create(last, { last_index }) — без нашего onBack (app.min.js:10377-10383),
+   и «Назад» уводил в общий список настроек Lampa. Мок повторяет вендора:
+   create шлёт 'open' с тем же объектом params, что держит экран, а «Назад»
+   (Component$2.back) читает params.onBack в момент нажатия. */
+function settingsLikeLampa() {
+  const created = [];
+  const opens = [];
+  let last = '';
+  const Settings = {
+    listener: {
+      follow: (type, cb) => { if (type === 'open' && opens.indexOf(cb) === -1) opens.push(cb); },
+      remove: (type, cb) => { const i = type === 'open' ? opens.indexOf(cb) : -1; if (i !== -1) opens.splice(i, 1); }
+    },
+    create: (name, params) => {
+      params = params || {};
+      created.push([name, params]);
+      opens.slice().forEach((cb) => cb({ name: name, body: null, params: params }));
+      last = name;
+    },
+    update: () => Settings.create(last, { last_index: 3 }),
+    back: () => { const p = created[created.length - 1][1]; if (p.onBack) p.onBack(); else created.push(['<список настроек Lampa>', null]); }
+  };
+  return { Settings, created, opens };
+}
+
+test('1.0.2: Lampa.Settings.update() на втором экране — «Назад» по-прежнему в «Lumen Card»', () => {
+  const env = setup();
+  const lampa = settingsLikeLampa();
+  globalThis.Lampa.Settings = lampa.Settings;
+  env.LC.addSettings();
+  env.LC.followMoreBack(true);
+  env.LC.followMoreBack(true);
+  assert.equal(lampa.opens.length, 1, 'повторное включение второй подписки не заводит');
+
+  press(env, 'lumen_more');
+  lampa.Settings.update();
+  assert.equal(lampa.created[1][0], 'lumen_card_more', 'update пересоздал второй экран');
+  assert.equal(lampa.created[1][1].last_index, 3, 'фокус Lampa ставит сама — last_index не тронут');
+  lampa.Settings.back();
+  assert.equal(lampa.created[2][0], 'lumen_card', '«Назад» — в «Lumen Card», а не в список Lampa');
+  assert.deepEqual(lampa.created[2][1], { last_index: 17 }, 'на кнопку «Дополнительно…»; главный экран своего onBack не получает');
+
+  /* Чужой onBack у второго экрана не перетирается. */
+  const foreign = () => { };
+  lampa.Settings.create('lumen_card_more', { onBack: foreign });
+  assert.equal(lampa.created[3][1].onBack, foreign);
+
+  /* Выключенный плагин подписки не держит: без неё update теряет «Назад»,
+     как у Lampa без плагина. */
+  env.LC.followMoreBack(false);
+  assert.equal(lampa.opens.length, 0);
+  lampa.Settings.create('lumen_card_more', {});
+  assert.equal(lampa.created[4][1].onBack, undefined);
+});
+
+test('1.0.2: подписка «Назад» второго экрана без Settings.listener ничего не ломает', () => {
+  const env = setup();
+  globalThis.Lampa.Settings = { create: () => { } };
+  env.LC.followMoreBack(true);
+  globalThis.Lampa.Settings = { listener: { follow: () => { throw new Error('чужой сбой'); }, remove: () => { } } };
+  env.LC.followMoreBack(true);
+  delete globalThis.Lampa.Settings;
+  env.LC.followMoreBack(false);
+});
+
 test('1.0.2: без Lampa.Settings «Дополнительно…» ничего не ломает', () => {
   const env = setup();
   env.LC.addSettings();

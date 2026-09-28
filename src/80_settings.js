@@ -1708,6 +1708,37 @@
     }
   }
 
+  /* Ревью 1.0.2: Lampa.Settings.update() пересоздаёт открытый экран
+     заново — create$b(last, { last_index }) (update$f, app.min.js:10377-
+     10383) без нашего onBack, и «Назад» со второго экрана уводил в общий
+     список настроек Lampa. Зовёт update и сама Lampa: истёкший код
+     удалённой настройки CUB (app.min.js:55759), выход из аккаунта. Событие
+     'open' (create$b) несёт тот самый объект params, что держит экран, а
+     onBack Lampa читает в момент нажатия (Component$2.back,
+     app.min.js:8535), — достаточно дописать его в событии. Свой onBack
+     (openMore, чужой вызов) не трогаем. */
+  function moreOpened(e) {
+    try {
+      if (e && e.name === moreComponent() && e.params && !e.params.onBack) e.params.onBack = backFromMore;
+    } catch (err) {
+      warn('settings more back failed', err);
+    }
+  }
+
+  /* Подписка живёт, пока плагин включён: activate/deactivate
+     (src/90_runtime.js). Снять и поставить заново — повтор не заводит
+     второй подписки. */
+  LC.followMoreBack = function (on) {
+    try {
+      var listener = window.Lampa && Lampa.Settings && Lampa.Settings.listener;
+      if (!listener || typeof listener.follow !== 'function' || typeof listener.remove !== 'function') return;
+      listener.remove('open', moreOpened);
+      if (on) listener.follow('open', moreOpened);
+    } catch (err) {
+      warn('settings more follow failed', err);
+    }
+  };
+
   /* Обработчик нажатия для параметров type:'button'. */
   function onButtonFor(name) {
     return function () {

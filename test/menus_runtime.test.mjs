@@ -708,6 +708,29 @@ test('волна 4: активация отдаёт ряды плану глав
   assert.deepEqual(log, ['unregister']);
 });
 
+/* Ревью 1.0.2: подписка на 'open' настроек («Назад» второго экрана после
+   Lampa.Settings.update(), src/80_settings.js) — только у включённого
+   плагина: активация ставит её один раз, выключение снимает. */
+test('ревью 1.0.2: подписка «Назад» второго экрана живёт, пока плагин включён', () => {
+  const env = setupHomeRace({ active: null, served: true });
+  const opens = [];
+  globalThis.Lampa.Settings = {
+    listener: {
+      follow: (type, cb) => { if (type === 'open' && opens.indexOf(cb) === -1) opens.push(cb); },
+      remove: (type, cb) => { const i = type === 'open' ? opens.indexOf(cb) : -1; if (i !== -1) opens.splice(i, 1); }
+    }
+  };
+  env.LC.init();
+  assert.equal(opens.length, 1, 'активация подписала');
+  env.storage.lumen_enabled = 'false';
+  env.LC.applyEnabledPref();
+  assert.equal(opens.length, 0, 'выключение сняло');
+  env.storage.lumen_enabled = 'true';
+  env.LC.applyEnabledPref();
+  env.LC.applyEnabledPref();
+  assert.equal(opens.length, 1, 'повторное включение — одна подписка');
+});
+
 test('гонку выиграли: главной на экране ещё нет — пересборки нет', async () => {
   const env = setupHomeRace({ active: null, served: false });
   env.LC.init();

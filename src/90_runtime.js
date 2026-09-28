@@ -1629,6 +1629,9 @@
     } catch (eAmbient) {
       warn('ambient install failed', eAmbient);
     }
+    /* Ревью 1.0.2: «Назад» второго экрана настроек переживает
+       Lampa.Settings.update() (src/80_settings.js, moreOpened). */
+    if (LC.followMoreBack) LC.followMoreBack(true);
   }
 
   function deactivate() {
@@ -1726,6 +1729,8 @@
        document, ни таймера покоя, ни открытого слоя заставки с его
        предзагрузкой кадра. */
     try { if (LC.ambient && LC.ambient.uninstall) LC.ambient.uninstall(); } catch (eAmbientOff) {}
+    /* Ревью 1.0.2: подписка на 'open' настроек — только у включённого. */
+    if (LC.followMoreBack) LC.followMoreBack(false);
   }
 
   /* -------------------------------------------------------------------- */
