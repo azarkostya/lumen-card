@@ -2553,12 +2553,12 @@ test('настройка «Шрифт»: гарнитура стоит на ко
   for (const root of FONT_ROOTS) assert.equal(rootFont(off, root), 'inherit', root + ': при выключенных шрифтах — inherit');
 });
 
-/* 1.0.1: выключатель «Фирменные шрифты» слит в «Шрифт» — значение 'system'
+/* 1.0.2: выключатель «Фирменные шрифты» слит в «Шрифт» — значение 'system'
    («Как в Lampa»). Им шрифты плагина выключаются так же, как прежним
    выключателем: стек 'inherit' у наших узлов и у корней экранов, <link>
    на Google Fonts не ставится. Прежний ключ, сохранённый выключенным,
    дочитывается (до миграции или правки нового пункта). */
-test('1.0.1: «Шрифт: Как в Lampa» выключает шрифты плагина, как прежний выключатель', () => {
+test('1.0.2: «Шрифт: Как в Lampa» выключает шрифты плагина, как прежний выключатель', () => {
   const sys = withStorage({ lumen_font: 'system' }, (LC) => ({ t: LC.tokens(), css: LC.buildCss(), stack: LC.fontStack(), st: LC.fontsState() }));
   assert.equal(sys.t.fontBody, 'inherit');
   for (const root of FONT_ROOTS) assert.equal(rootFont(sys.css, root), 'inherit', root);
@@ -2614,9 +2614,9 @@ async function withFontDoc(storage, doc, fn) {
   }
 }
 
-/* 1.0.1: загрузился ли шрифт — LC.fontsFailed и LC.fontsState для HUD. Без
+/* 1.0.2: загрузился ли шрифт — LC.fontsFailed и LC.fontsState для HUD. Без
    интернета «Шрифт» молча не менял вида, и отличить это было нечем. */
-test('1.0.1: шрифт не загрузился — <link> с ошибкой или document.fonts без начертания', async () => {
+test('1.0.2: шрифт не загрузился — <link> с ошибкой или document.fonts без начертания', async () => {
   /* Ошибка самого <link> (нет сети, домен закрыт). */
   const d1 = fontDoc(() => Promise.resolve([]));
   await withFontDoc({ lumen_font: 'inter' }, d1, (LC) => {
@@ -2647,7 +2647,7 @@ test('1.0.1: шрифт не загрузился — <link> с ошибкой �
   });
 });
 
-test('1.0.1: шрифт загрузился — ok; смена гарнитуры — снова load; «Как в Lampa» — off и <link> снят', async () => {
+test('1.0.2: шрифт загрузился — ok; смена гарнитуры — снова load; «Как в Lampa» — off и <link> снят', async () => {
   const d = fontDoc(() => Promise.resolve([{ family: 'Onest' }]));
   const storage = { lumen_font: 'onest' };
   await withFontDoc(storage, d, async (LC) => {
@@ -2680,7 +2680,7 @@ test('1.0.1: шрифт загрузился — ok; смена гарнитур
 
 /* Ответ document.fonts про прежнюю гарнитуру пришёл после смены — он
    устарел и состояние новой не трогает. */
-test('1.0.1: устаревший ответ document.fonts состояние новой гарнитуры не меняет', async () => {
+test('1.0.2: устаревший ответ document.fonts состояние новой гарнитуры не меняет', async () => {
   let resolve;
   const d = fontDoc(() => new Promise((r) => { resolve = r; }));
   const storage = { lumen_font: 'inter' };

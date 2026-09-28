@@ -751,10 +751,10 @@ test('hud: format — поле pf «в пути/в очереди/попадан
   assert.ok(none.indexOf(' · pf n/a · font n/a · tr n/a · ') !== -1, none);
 });
 
-/* 1.0.1: «font ok|load|fail|off» — загрузился ли шрифт с Google Fonts
+/* 1.0.2: «font ok|load|fail|off» — загрузился ли шрифт с Google Fonts
    (LC.fontsState, src/30_css.js). Без интернета «Шрифт» молча ничего не
    менял, и на телевизоре отличить это было нечем. Стоит между pf и tr. */
-test('1.0.1: hud — поле font из LC.fontsState, между pf и tr', () => {
+test('1.0.2: hud — поле font из LC.fontsState, между pf и tr', () => {
   const { api } = fresh();
   for (const st of ['ok', 'load', 'fail', 'off']) {
     const line = api.format(Object.assign({}, BASE, { pf: { fly: 0, queue: 0, hits: 0 }, font: st, tr: 'none' }));

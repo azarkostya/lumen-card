@@ -1207,7 +1207,7 @@
       warn('franchise button pref failed', e);
     }
     try {
-      /* 1.0.1: ряд решают и «Франшизы», и прежний ключ ряда (rowEnabled,
+      /* 1.0.2: ряд решают и «Франшизы», и прежний ключ ряда (rowEnabled,
          src/66_franchise.js). */
       if (!LC.pref('lumen_franchise', true) || !LC.pref('lumen_franchise_row', true)) {
         var rows = $('.lumen-descr-row');

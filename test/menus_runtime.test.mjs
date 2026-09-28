@@ -30,7 +30,7 @@ function setup(opts) {
      оригинал (главный выключатель lumen_enabled). */
   const added = [];
   const Lampa = {
-    /* 1.0.1: шаблон второго экрана настроек (settings_lumen_card_more,
+    /* 1.0.2: шаблон второго экрана настроек (settings_lumen_card_more,
        LC.addSettings) — не шаблон карточки; журнал added — только про
        подмену full_start_new. */
     Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => { if (name.indexOf('settings_') !== 0) added.push({ name, html }); }, get: () => '' },
@@ -145,7 +145,7 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_font: ['injectFonts', 'injectCss'],
     lumen_reviews: ['applyReviewsPref'],
     lumen_kp_key: ['applyReviewsPref'],
-    /* 1.0.1: «Франшизы» — кнопка и ряд одним пунктом: перерисовка
+    /* 1.0.2: «Франшизы» — кнопка и ряд одним пунктом: перерисовка
        открытой карточки, CSS не трогается. */
     lumen_franchise: ['applyFranchisePref'],
     lumen_menus: ['applyMenusPref'],
@@ -209,7 +209,7 @@ test('долг ревью (п.2): каждая настройка раздела
        (правило подложки фокуса либо есть, либо нет), и узел подкраски
        переписывает сама пересборка — LC.injectCss зовёт LC.accent.restyle. */
     lumen_accent_scope: ['injectCss'],
-    /* 1.0.1: «Ускорители пульта» (мини-карта и быстрое листание) —
+    /* 1.0.2: «Ускорители пульта» (мини-карта и быстрое листание) —
        applyNavPref (вне POINTS): он только ставит и снимает подписки на
        клавиатуру Lampa. */
     lumen_remote_boost: [],
@@ -238,7 +238,7 @@ test('долг ревью (п.2): каждая настройка раздела
        частиц через applyMotionMode. Ротация кадров карточки от него с
        2026-09-24 не зависит. */
     lumen_fx_heavy: ['applyMotionMode'],
-    /* 1.0.1: «Стиль» — select. Выбор пишет ЧУЖИЕ настройки набора
+    /* 1.0.2: «Стиль» — select. Выбор пишет ЧУЖИЕ настройки набора
        (applyPreset) и применяет их одним LC.applyPresetChanges; в этом
        окружении запись уходит в no-op (Storage.set в моке выше нет), а что
        именно она пишет — в test/settings.test.mjs. Здесь проверяется, что
@@ -246,11 +246,11 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_style: [],
     /* Волна производительности: кнопка самотеста — значения нет, запись
        ничего не применяет; нажатие зовёт LC.bench.start (его здесь нет —
-       проверка нажатия в test/settings.test.mjs). 1.0.1: так же кнопка
+       проверка нажатия в test/settings.test.mjs). 1.0.2: так же кнопка
        «Дополнительно…» (Lampa.Settings.create здесь нет — no-op). */
     lumen_debug_bench: [],
     lumen_more: [],
-    /* 1.0.1: выключатели «Для разработчика» читаются модулями на каждом
+    /* 1.0.2: выключатели «Для разработчика» читаются модулями на каждом
        шаге — применять нечего. */
     lumen_rowmem: [],
     lumen_rowmem_bytes: [],

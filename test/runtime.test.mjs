@@ -448,7 +448,7 @@ function initLC(opts) {
          НАШ шаблон (оригинал она принимает — иначе нечем было бы проверить сам
          откат). */
       add: (name, html) => {
-        /* 1.0.1: шаблон второго экрана настроек (settings_lumen_card_more,
+        /* 1.0.2: шаблон второго экрана настроек (settings_lumen_card_more,
            LC.addSettings) — не шаблон карточки, журнал о нём не пишет. */
         if (name.indexOf('settings_') === 0) return;
         extra.added.push({ name: name, html: html });

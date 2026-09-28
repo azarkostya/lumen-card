@@ -85,7 +85,7 @@
       return !(platform.android || platform.tizen || platform.webos);
     }
 
-    /* Раздел «Lumen Card», версия 1.0.1. Автор 2026-09-27: «в настройках
+    /* Раздел «Lumen Card», версия 1.0.2. Автор 2026-09-27: «в настройках
        куча мусора; хочу шарить плагин другим людям — привести к нормальному
        виду». Было 53 пункта в одиннадцати группах одного длинного списка,
        стало два экрана (структура согласована с автором):
@@ -133,7 +133,7 @@
       { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
 
       { name: 'lumen_group_look', type: 'title', label: 'lumen_group_look' },
-      /* 1.0.1: готовый стиль — select вместо двух кнопок (Task 62b). Его
+      /* 1.0.2: готовый стиль — select вместо двух кнопок (Task 62b). Его
          значение не врёт: пункты набора правятся и по одному, и тогда оно
          само становится 'custom' («Свой»), а совпав с набором — его именем
          (styleOf ниже, syncStyle в 80_settings.js). Выбор Lumen или Apple TV
@@ -147,7 +147,7 @@
          (палитра и замеры контраста — ACCENTS в src/30_css.js). */
       { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
       /* Пять гарнитур с Google Fonts (CSP плагина другого источника не
-         пропустит), набор — FONT_SETS в src/30_css.js. 1.0.1: 'system' —
+         пропустит), набор — FONT_SETS в src/30_css.js. 1.0.2: 'system' —
          «Как в Lampa», бывший выключатель «Фирменные шрифты». Строка пункта
          набрана выбранной гарнитурой (onRender, src/80_settings.js). */
       { name: 'lumen_font', type: 'select', values: ['system', 'golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
@@ -160,7 +160,7 @@
          всему остальному (HERO_SIZES в src/30_css.js). */
       { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
       /* Кадры с автотрейлером (дефолт) или только кадры (heroMedia,
-         src/48_hero.js). 1.0.1: выключатель автотрейлера слит сюда. */
+         src/48_hero.js). 1.0.2: выключатель автотрейлера слит сюда. */
       { name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': 'trailer', label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
       /* Правка 2026-09-26: ширина постера ряда и колонки сетки (TILES,
          GCARD_COLS_TILE в src/30_css.js); текст — за «Масштабом». */
@@ -179,7 +179,7 @@
       /* placeholder обязателен у type:'input': пустое поле Lampa показывает
          им, а без него в разделе стояло слово «undefined» (addPrefParam). */
       { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
-      /* 1.0.1: кнопка «Франшиза» (src/46_hub.js) и ряд «Смотреть по
+      /* 1.0.2: кнопка «Франшиза» (src/46_hub.js) и ряд «Смотреть по
          порядку» (src/66_franchise.js) — одним выключателем. Выключенный
          ряд коллекцию не запрашивает. */
       { name: 'lumen_franchise', type: 'trigger', 'default': true, label: 'lumen_franchise_name', descr: 'lumen_franchise_descr' },
@@ -189,7 +189,7 @@
       /* Раунд holB: частицы — только праздничные (автотемы по словам
          выключены флагом LC.fxAutoThemes, src/53_themes.js), поэтому
          прежние «Все» и «Только сезонные» различались лишь сценой
-         праздничного фильма вне праздника. 1.0.1: два значения; сохранённое
+         праздничного фильма вне праздника. 1.0.2: два значения; сохранённое
          'all' LC.migratePrefs переводит в 'seasonal', а модуль тем по-прежнему
          его понимает. */
       { name: 'lumen_fx', type: 'select', values: ['seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
@@ -198,7 +198,7 @@
          включавшие и выключавшие смены дефолта не заметят. */
       { name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
 
-      /* 1.0.1: кнопка на второй экран (openMore, src/80_settings.js). */
+      /* 1.0.2: кнопка на второй экран (openMore, src/80_settings.js). */
       { name: 'lumen_more', type: 'button', label: 'lumen_more_name', descr: 'lumen_more_descr' }
     ];
 
@@ -262,7 +262,7 @@
       /* Task 26: удержание OK — штатный жест Lampa, мы лишь дописываем в
          её меню свои пункты. */
       { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
-      /* 1.0.1: мини-карта рядов и быстрое листание (src/64_nav.js) — одним
+      /* 1.0.2: мини-карта рядов и быстрое листание (src/64_nav.js) — одним
          выключателем; обычное нажатие не меняет ни то, ни другое. */
       { name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },
       { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
@@ -274,7 +274,7 @@
 
       /* «Для разработчика» — последней группой второго экрана, в самом
          низу: замеры, свой каталог и выключатели оптимизаций памяти и
-         прокрутки. Четыре последних до 1.0.1 включались только из консоли
+         прокрутки. Четыре последних до 1.0.2 включались только из консоли
          (Lampa.Storage.set); значения по умолчанию прежние, и читают их те
          же места (src/58_rowmem.js, src/58_netmem.js, src/58_prefill.js) —
          на каждом шаге, кроме lumen_netmem: его обёртки ставятся при
@@ -298,7 +298,7 @@
     for (m = 0; m < MORE.length; m++) MORE[m].section = 'more';
     var LIST = MAIN.concat(MORE);
 
-    /* 1.0.1: слитые пункты — новый ключ и старые, которые он заменил.
+    /* 1.0.2: слитые пункты — новый ключ и старые, которые он заменил.
        Старый ключ, сохранённый выключенным, дочитывается местом чтения
        (lumen_franchise И lumen_franchise_row и т. д.), пока человек не
        тронет новый пункт: тогда старые ставятся в 'true'
@@ -346,7 +346,7 @@
        Apple TV логотип включён (Apple всегда показывает title treatment), в
        Lumen — тоже; отличия нет»
        (docs/plans/2026-09-22-lumen-phase6-tv-feedback.md, строка 150).
-       1.0.1: вместо двух кнопок — select «Стиль» (lumen_style); что
+       1.0.2: вместо двух кнопок — select «Стиль» (lumen_style); что
        изменилось, перечисляет уведомление после выбора (applyPreset,
        src/80_settings.js) — названиями самих пунктов. */
     /* A6: десятым в наборе — «Скрывать блоки анализа Lampa». Курс стиля
@@ -403,7 +403,7 @@
       return out;
     }
 
-    /* 1.0.1: какой стиль стоит СЕЙЧАС — по фактическим значениям пунктов
+    /* 1.0.2: какой стиль стоит СЕЙЧАС — по фактическим значениям пунктов
        набора. read(key) отдаёт значение так, как его видит плагин (с
        дефолтом пункта и нормализацией, presetCurrent в src/80_settings.js).
        Совпало со стилем целиком — его имя, иначе 'custom' («Свой»): после
@@ -553,7 +553,7 @@
      Зовётся из LC.init ДО подписки на 'change' — значит собственное событие
      мы не ловим и лишнего применения настройки не делаем.
 
-     1.0.1 — слитые и сокращённые пункты (LC.prefs.MERGED):
+     1.0.2 — слитые и сокращённые пункты (LC.prefs.MERGED):
        «Фирменные шрифты» выкл ............ lumen_font = 'system';
        «Автотрейлер в кадре главной» выкл . lumen_hero_media = 'frames';
        «Атмосферы» = 'all' ................ lumen_fx = 'seasonal';
