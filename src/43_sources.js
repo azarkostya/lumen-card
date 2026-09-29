@@ -1,19 +1,19 @@
   /* -------------------------------------------------------------------- */
-  /* LC.sources — преобразование описания подборки в запросы TMDB/КП       */
+  /* LC.sources — преобразование описания подборки в запросы TMDB          */
   /*                                                                       */
   /* Публичное API:                                                         */
   /*   buildRequest(spec, media, page) → {url, params, life}               */
   /*   normalize(type, json) → {results, title, page, total_results, ...}  */
   /*   discoverUrl(spec, media) → строка для category_full                  */
-  /*   kpToFinds(json, limit) → [imdbId, ...]                               */
   /*   mergeMedia(movies, tv) → [card, ...]                                 */
   /*   isSet / setRequests / partOf / setParts — коллекция с also/movies    */
   /*   fetchOne(spec, media, page, ok, err, alive) — runtime, требует Lampa */
   /*   fetch(item, page, ok, err, alive) → {clear} — runtime, требует Lampa */
   /*                                                                        */
-  /* Сетевые запросы — только через Lampa.Api.sources.tmdb.get и           */
-  /* Lampa.Reguest (для Кинопоиска). Кэш КП — Lampa.Storage с защитой      */
-  /* квоты по образцу 60_reviews.js (nolisten, stored(), purge()).          */
+  /* Сетевые запросы — только через Lampa.Api.sources.tmdb.get; кэш —      */
+  /* штатный кэш запросов Lampa ({life}). Подборки Кинопоиска (тип kp)     */
+  /* сняты после 1.0.2 (LC.manifest.validate, RETIRED): источник, которого */
+  /* здесь не знают, отвечает ошибкой, а не запросом (fetchOne).            */
   /* -------------------------------------------------------------------- */
 
   LC.sources = (function () {
@@ -36,73 +36,12 @@
 
     /* Время жизни кэша:
        discover — 12 ч (популярность меняется; 720 мин)
-       collection/list — 1 неделя (статичные данные; 10080 мин)
-       кп — 30 дней (43200 мин)
-       кп пустой — 10 мин (негативный TTL для пустых/неудачных ответов) */
+       collection/list — 1 неделя (статичные данные; 10080 мин) */
     var LIFE_DISCOVER = 720;
     var LIFE_STATIC = 10080;
-    var LIFE_KP = 43200;
-    var LIFE_KP_EMPTY = 10;
 
     /* Глобальный дедлайн fetchAll: 15 сек, после — частичный результат. */
     var FETCH_TIMEOUT = 15000;
-
-    /* ------------------------------------------------------------------ */
-    /* Кэш КП в Lampa.Storage: индексированный, с защитой квоты.          */
-    /* Механика по образцу 60_reviews.js (nolisten, stored(), purge()).    */
-    /* ------------------------------------------------------------------ */
-
-    var INDEX_KEY = 'lumen_sources_index';
-    var MAX_CACHED = 60;
-
-    function storage() {
-      try { return Lampa && Lampa.Storage; } catch (e) { return null; }
-    }
-
-    function readIndex(store) {
-      var raw = null;
-      try { raw = store.get(INDEX_KEY, null); } catch (e) {}
-      return Array.isArray(raw) ? raw : [];
-    }
-
-    function drop(store, key) {
-      try { store.set(key, '', { nolisten: true }); } catch (e) {}
-      try {
-        var ls = (typeof window !== 'undefined' && window.localStorage) ||
-                 (typeof localStorage !== 'undefined' ? localStorage : null);
-        if (ls) ls.removeItem(key);
-      } catch (e) {}
-    }
-
-    function stored(key, value) {
-      try {
-        var ls = (typeof window !== 'undefined' && window.localStorage) ||
-                 (typeof localStorage !== 'undefined' ? localStorage : null);
-        if (!ls) return true;
-        var s = JSON.stringify(value);
-        ls.setItem(key, s);
-        var got = ls.getItem(key);
-        return got !== null && got.length >= s.length;
-      } catch (e) { return false; }
-    }
-
-    function purge(store) {
-      var idx = readIndex(store);
-      LC.util.each(idx, function (k) { drop(store, k); });
-      try { store.set(INDEX_KEY, [], { nolisten: true }); } catch (e) {}
-    }
-
-    function put(store, key, value) {
-      var idx = readIndex(store);
-      if (idx.indexOf(key) < 0) { idx.push(key); }
-      while (idx.length > MAX_CACHED) { drop(store, idx.shift()); }
-      try { store.set(INDEX_KEY, idx, { nolisten: true }); } catch (e) {}
-      try { store.set(key, value, { nolisten: true }); } catch (e2) {}
-      if (!stored(key, value)) {
-        purge(store);
-        try { store.set(key, value, { nolisten: true }); } catch (e3) {}
-      }
-    }
 
     /* ------------------------------------------------------------------ */
     /* Не-фильмы в подборках (находка 2026-09-23).                          */
@@ -190,10 +129,9 @@
        и неизвестные ключи. Поэтому в запрос идут только ключи MAP, ключи
        filter вида with_runtime.lte и значения — числа или строки из
        [\w.,|:-] (формат каталога, тот же, что проверяет LC.manifest.
-       validate); коллекция Кинопоиска — [A-Z0-9_] и encodeURIComponent. */
+       validate). */
     var FILTER_KEY = /^[a-z_]{1,48}(\.(gte|lte))?$/;
     var SAFE_VALUE = /^[\w.,|:-]{1,256}$/;
-    var KP_COLLECTION = /^[A-Z0-9_]{1,64}$/;
 
     function safeValue(v) {
       if (typeof v === 'number') return isFinite(v);
@@ -209,11 +147,6 @@
         if (f.hasOwnProperty(k) && FILTER_KEY.test(k) && safeValue(f[k])) out[k] = f[k];
       }
       return out;
-    }
-
-    function kpCollection(spec) {
-      var c = spec && spec.collection;
-      return (typeof c === 'string' && KP_COLLECTION.test(c)) ? c : '';
     }
 
     /* Строит параметры запроса к Lampa.Api.sources.tmdb.get.
@@ -461,22 +394,6 @@
       return 'discover/' + media + (q.length ? '?' + q.join('&') : '');
     }
 
-    /* Извлекает IMDb-идентификаторы из ответа Кинопоиска, до limit штук,
-       пропуская позиции без imdbId.
-       Финальная проверка, B7: id идёт в путь запроса TMDB ('find/' + id) —
-       берём только вид IMDb (tt и цифры); прочее из ответа КП — мимо, без
-       запроса. */
-    var IMDB_RE = /^tt\d{1,10}$/;
-    function kpToFinds(json, limit) {
-      var ids = [];
-      LC.util.each((json && json.items) || [], function (it) {
-        if (it && typeof it.imdbId === 'string' && IMDB_RE.test(it.imdbId) && ids.length < limit) {
-          ids.push(it.imdbId);
-        }
-      });
-      return ids;
-    }
-
     /* Чередует карточки из двух медиа-списков.
        Ключ дедупликации — media + ':' + id (не bare id):
        фильм и сериал с одинаковым TMDB id — разные объекты, оба попадают.
@@ -501,110 +418,25 @@
       return out;
     }
 
-    /* Кинопоиск: IMDb-ID → TMDB find.
-       alive-guard обрывает цепочку next() при смене поколения (C1).
-       Непустые результаты кэшируются на LIFE_KP (C2);
-       пустые ответы и сетевые ошибки — на LIFE_KP_EMPTY мин (отрицательный TTL).
-       Механика кэша: nolisten, stored(), put(), purge() (C3).
-       Ключ КП читается напрямую через LC.pref, без LC.reviews (I5).
-       При отсутствии ключа: err({nokey:true}) (I5).
-       Проверка формы при чтении кэша (I2). */
-    function fetchKp(spec, page, ok, err, alive) {
-      var gen = alive ? alive() : 0;
-      function dead() { return alive && alive() !== gen; }
+    /* Типы источников, которые здесь умеют запрашивать. */
+    var KNOWN = { discover: 1, collection: 1, list: 1 };
 
-      var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
-      if (!key) { err({ nokey: true }); return null; }
-      var collection = kpCollection(spec);
-      if (!collection) { err({ kp_failed: true }); return null; }
-
-      var cacheKey = 'lumen_kp_' + collection + '_' + (page || 1);
-      var store = storage();
-      var cached = null;
-      try {
-        var raw = store ? store.get(cacheKey, null) : null;
-        if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at) {
-          cached = raw;
-        }
-      } catch (e) {}
-      if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
-        if (!dead()) ok(cached.data);
-        return null;
-      }
-
-      var net = new Lampa.Reguest();
-      net.silent(
-        'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-          encodeURIComponent(collection) + '&page=' + (page || 1),
-        function (json) {
-          if (dead()) return;
-          var ids = kpToFinds(json, 20);
-          var results = [];
-          var i = 0;
-          function next() {
-            if (dead()) return;
-            if (i >= ids.length) {
-              var data = {
-                results: results,
-                page: page || 1,
-                total_pages: (json && json.totalPages) || 1,
-                total_results: (json && json.total) || results.length,
-                title: ''
-              };
-              var s = storage();
-              if (s) {
-                if (results.length > 0) {
-                  put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: data });
-                } else {
-                  try {
-                    s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: data }, { nolisten: true });
-                  } catch (e2) {}
-                }
-              }
-              if (!dead()) ok(data);
-              return;
-            }
-            var id = ids[i++];
-            Lampa.Api.sources.tmdb.get(
-              'find/' + id,
-              { filter: { external_source: 'imdb_id' } },
-              function (f) {
-                var m = (f.movie_results && f.movie_results[0]) ||
-                        (f.tv_results && f.tv_results[0]);
-                if (m) results.push(m);
-                next();
-              },
-              next,
-              { life: LIFE_KP }
-            );
-          }
-          next();
-        },
-        function () {
-          var s = storage();
-          if (s) {
-            try {
-              var errData = { results: [], page: page || 1, total_pages: 1, total_results: 0, title: '' };
-              s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: errData }, { nolisten: true });
-            } catch (e2) {}
-          }
-          if (!dead()) err({ kp_failed: true });
-        },
-        false,
-        { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
-      );
-      return net;
+    function known(spec) {
+      return !!(spec && KNOWN.hasOwnProperty(spec.type));
     }
 
-    /* Один источник одного медиа. Для kp — fetchKp: он возвращает
-       Lampa.Reguest, который clear() действительно отменяет (или null, если
-       ответ взят из кэша). Для TMDB возвращать нечего: Lampa.Api.sources.
+    /* Один источник одного медиа. Возвращать нечего: Lampa.Api.sources.
        tmdb.get ничего не возвращает (get$c, vendor/lampa/app.min.js:
        19693-19737), и запрос не отменяется — поздний ответ отсекает сторож
        dead() по alive (fetchAll отдаёт сюда requestAlive, который гаснет с
-       последним подписчиком). */
+       последним подписчиком).
+       Тип, которого здесь не знают, — ошибка без запроса. Прежде всё, что не
+       collection и не list, уходило в discover/{media} без параметров: Lampa
+       восстанавливает сетку открытой подборки после перезапуска, и сетка
+       снятой подборки Кинопоиска (тип kp, после 1.0.2) показала бы
+       случайное «популярное» под её названием. */
     function fetchOne(spec, media, page, ok, err, alive) {
-      if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
+      if (!known(spec)) { err({ unknown_type: true }); return null; }
       if (isSet(spec)) { fetchSet(spec, ok, err, alive); return null; }
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
@@ -631,8 +463,8 @@
        sort_by, поэтому без подписи запрос «та же подборка, другая сортировка»
        подписывался бы на уже летящий с прежним порядком и получал бы чужой
        ответ: сетка показывала порядок манифеста, а подпись — выбранный
-       пользователем. Считается только по discover-источникам: у collection,
-       list и kp порядок задаёт не запрос, а сортировка на месте. */
+       пользователем. Считается только по discover-источникам: у collection
+       и list порядок задаёт не запрос, а сортировка на месте. */
     function sortSignature(item) {
       var src = (item && item.sources) || {};
       var parts = [];
@@ -712,17 +544,14 @@
         }
       }
 
-      /* Отдельный alive для самого запроса: умирает когда отменились все подписчики.
-         Это позволяет fetchKp прерывать цепочку find/ при полной отмене. */
+      /* Отдельный alive для самого запроса: умирает, когда отменились все
+         подписчики, — поздние ответы TMDB (их не отменить) глушит он. */
       var _reqAliveGen = 0;
       function requestAlive() { return _reqAliveGen; }
 
       var src = item.sources || {};
       var want = [];
       var got = {};
-      /* Отменяемые запросы — только Кинопоиска (Lampa.Reguest); у TMDB
-         дескриптора нет (fetchOne), его ответ глушит requestAlive. */
-      var nets = [];
 
       if (src.movie) want.push('movie');
       if (src.tv) want.push('tv');
@@ -760,24 +589,12 @@
       });
 
       LC.util.each(want, function (media) {
-        var n = fetchOne(
+        fetchOne(
           src[media], media, page,
           function (json) { got[media] = json; gate.tick(); },
-          function (e) {
-            /* {nokey:true} — фатальная ошибка конфигурации: ключ КП отсутствует,
-               пробовать другие медиа-типы бессмысленно. Пробрасываем напрямую —
-               но только пока подборка никому не ответила: cancel() вернёт false,
-               если сборщик уже закрыт (ответом или дедлайном). */
-            if (e && e.nokey) {
-              if (!gate.cancel()) return;
-              notifySubs('err', e);
-            } else {
-              gate.tick();
-            }
-          },
+          function () { gate.tick(); },
           requestAlive
         );
-        if (n) nets.push(n);
       });
 
       function cancelRequest() {
@@ -787,9 +604,6 @@
         gate.cancel();
         /* Только своя запись — чужую под тем же ключом не удаляем. */
         if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
-        LC.util.each(nets, function (n) {
-          try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
-        });
       }
       entry._cancel = cancelRequest;
 
@@ -803,96 +617,18 @@
       };
     }
 
-    /* Постеры Кинопоиска для картинки плитки: ОДИН запрос к КП, без
-       сопоставления с TMDB (ревью Task 17, C1). Полный путь подборки КП стоит
-       1 запрос к КП + до 20 к TMDB (fetchKp выше), а плитке нужна одна
-       картинка — и она уже есть в ответе КП полем posterUrlPreview.
-       Возвращает абсолютные URL (st.kp.yandex.net), не пути TMDB.
-       Кэш — свой ключ, тот же механизм и те же TTL, что у fetchKp. */
-    function kpPosters(spec, limit, ok, err, alive) {
-      var gen = alive ? alive() : 0;
-      function dead() { return alive && alive() !== gen; }
-
-      var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
-      if (!key) { err({ nokey: true }); return null; }
-      var collection = kpCollection(spec);
-      if (!collection) { err({ kp_failed: true }); return null; }
-
-      var cacheKey = 'lumen_kpp_' + collection;
-      var store = storage();
-      var cached = null;
-      try {
-        var raw = store ? store.get(cacheKey, null) : null;
-        if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at && Array.isArray(raw.data)) cached = raw;
-      } catch (e) {}
-      if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
-        if (!dead()) ok(cached.data.slice(0, limit));
-        return null;
-      }
-
-      var net = new Lampa.Reguest();
-      net.silent(
-        'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-          encodeURIComponent(collection) + '&page=1',
-        function (json) {
-          if (dead()) return;
-          var urls = [];
-          LC.util.each((json && json.items) || [], function (it) {
-            var url = it && (it.posterUrlPreview || it.posterUrl);
-            if (url && urls.length < 20) urls.push(url);
-          });
-          var s = storage();
-          if (s) {
-            if (urls.length) {
-              put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: urls });
-            } else {
-              try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
-            }
-          }
-          if (!dead()) ok(urls.slice(0, limit));
-        },
-        function () {
-          /* Жалоба 2026-09-27, замер на стенде: неудача не кэшировалась, а
-             хаб по своему правилу перезапрашивает кадр упавшей плитки на
-             каждом шаге фокуса (loadBanner, src/46_hub.js). С отвергнутым
-             ключом (401/402) один заход в хаб с листанием всех групп дал
-             102 запроса к Кинопоиску. Теперь неудача помнится
-             LIFE_KP_EMPTY минут — как у fetchKp выше: плитка стоит без
-             кадра, следующий запрос — не раньше чем через 10 минут. При
-             таймауте (8 с) сервер мог запрос и засчитать — тогда повтор на
-             каждом шаге фокуса тратил бы суточный лимит ключа. */
-          var s = storage();
-          if (s) {
-            try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
-          }
-          if (!dead()) err({ kp_failed: true });
-        },
-        false,
-        { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
-      );
-      return net;
-    }
-
     /* Task 41: одна картинка для баннера плитки хаба (плитка 16:9 показывает
        кадр, а не коллаж постеров — см. src/46_hub.js).
-       Для подборки Кинопоиска — дешёвый путь kpPosters (1 запрос вместо 21);
-       кадров в ответе films/collections нет вовсе (там posterUrlPreview, см.
-       kpPosters выше), поэтому оттуда приходит постер, и плитка обрежет его
-       по object-position.
-       Для остальных — обычная первая страница (её ответ всё равно нужен и
-       кэшируется на общих основаниях): backdrop_path первой карточки, у
-       которой он есть, а если кадра нет ни у одной — первый poster_path
-       страницы.
-       В ok приходит строка: абсолютный URL (начинается с http) — готовая
-       картинка Кинопоиска, иначе это путь TMDB, который вызывающий
-       превращает в URL через прокси (LC.cardinfo.imageUrl). Ничего не
-       нашлось — пустая строка.
+       Это обычная первая страница (её ответ всё равно нужен и кэшируется на
+       общих основаниях): backdrop_path первой карточки, у которой он есть, а
+       если кадра нет ни у одной — первый poster_path страницы.
+       В ok приходит путь TMDB, который вызывающий превращает в URL через
+       прокси (LC.cardinfo.imageUrl). Ничего не нашлось — пустая строка.
        Возвращает {clear} — как fetchAll.
        Правка 2026-09-25: подборка с полем cover (путь кадра TMDB из
        каталога) отдаёт его сразу, без запроса, — так снимаются одинаковые
        кадры у подборок с общим лидером выдачи (разбор у поля cover в
-       src/42_manifest.js). Кинопоиск проверяется раньше: его плитка без
-       ключа обязана сказать «нужен ключ», а не показать красивый кадр.
+       src/42_manifest.js).
        Ревью каталога (65): cover — только путь TMDB (COVER_PATH). Каталог
        может прийти и внешним (LC.MANIFEST_URL), а тест формата стоит лишь
        на встроенном; всё прочее (чужой адрес, «..», пробелы) не берётся, и
@@ -904,17 +640,6 @@
       var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
       var spec = media ? src[media] : null;
       if (!spec) { err({ no_sources: true }); return { clear: function () {} }; }
-
-      if (spec.type === 'kp') {
-        var net = kpPosters(spec, 1, function (urls) {
-          ok((urls && urls[0]) || '');
-        }, err, alive);
-        return {
-          clear: function () {
-            try { if (net && net.clear) net.clear(); } catch (e) {}
-          }
-        };
-      }
 
       if (typeof item.cover === 'string' && COVER_PATH.test(item.cover)) {
         ok(item.cover);
@@ -1030,7 +755,7 @@
     /* Медиа-тип карточки. У фильма TMDB есть title, у сериала — name;
        поля взаимоисключающие во всех ответах, которыми мы пользуемся
        (discover/movie, discover/tv, collection/{id}, list/{id},
-       find/{imdb_id}). Нужен он дважды: в адресе movie|tv/{id}/images и в
+       movie/{id}). Нужен он дважды: в адресе movie|tv/{id}/images и в
        ключе сопоставления «оригинала» — там id фильма и id сериала могут
        совпасть, это разные объекты. */
     function cardMedia(card) {
@@ -1080,9 +805,8 @@
        Lampa подставляет язык сама из Storage.field('tmdb_lang'), а
        переопределяет его ключ params.langs (app.min.js:19656-19663) — свой
        'language=' в адрес дописывать нельзя, он оказался бы вторым.
-       Источник типа 'kp' пропускается: там список приходит от Кинопоиска и
-       переспросить его на другом языке нечем — такие карточки остаются с
-       постером Lampa.
+       Источник незнакомого типа пропускается (known выше): списка у него
+       нет и переспрашивать нечего.
        page — страница, с которой пришли карточки (Ф3 п.1 ревью фикс-раундов):
        сетка подборки зовёт подмену на каждой догруженной странице, и
        английский список обязан быть той же страницей — иначе со второй
@@ -1094,8 +818,8 @@
 
       var src = (item && item.sources) || {};
       var want = [];
-      if (src.movie && src.movie.type !== 'kp') want.push('movie');
-      if (src.tv && src.tv.type !== 'kp') want.push('tv');
+      if (known(src.movie)) want.push('movie');
+      if (known(src.tv)) want.push('tv');
       if (!want.length) { done(0); return; }
 
       /* Набор (коллекция с also/movies) — это несколько запросов, и
@@ -1201,7 +925,6 @@
       buildRequest: buildRequest,
       normalize: normalize,
       discoverUrl: discoverUrl,
-      kpToFinds: kpToFinds,
       mergeMedia: mergeMedia,
       sortSignature: sortSignature,
       fetchOne: fetchOne,
@@ -1210,7 +933,6 @@
       setRequests: setRequests,
       partOf: partOf,
       setParts: setParts,
-      kpPosters: kpPosters,
       bannerPath: bannerPath,
       /* Постеры: чистые части наружу ради тестов, posters — ради рядов
          главной (src/44_rows.js) и сетки подборки (src/46_hub.js). */

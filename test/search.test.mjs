@@ -333,7 +333,7 @@ test('Н4 find: «Рокки» — только «Рокки»: скелет и 
 /* Прогон 2026-09-27 (Н5): «Киновселенная Marvel» в поиске была тёмной
    панелью — cover в каталоге у неё нет, а поиск, в отличие от плитки хаба,
    кадра из самой подборки не брал. Теперь берёт тем же LC.sources.bannerPath
-   (путь TMDB — backdrop_path карточки, адрес Кинопоиска — img), для первых
+   (путь TMDB — backdrop_path карточки), для первых
    COVER_AHEAD карточек без cover и не дольше COVER_WAIT; новый поиск и
    отмена прежний ответ глушат. */
 function withSources(bannerPath, fn) {
@@ -357,16 +357,17 @@ test('Н5 source: подборка без cover — кадр подборки, �
     assert.ok(asked.indexOf('mcu') !== -1);
     assert.equal(byId['marvel-classic'].backdrop_path, CATALOG.collections.filter((c) => c.id === 'marvel-classic')[0].cover);
   });
-  /* Кинопоиск отдаёт готовый адрес постера; пусто и ошибка — заглушка. */
+  /* Кадр — только путь TMDB: готовый адрес (его отдавали подборки
+     Кинопоиска, снятые после 1.0.2), пусто и ошибка — заглушка. */
   const manifest = { collections: [
-    { id: 'kp', title: 'Топ КП', sources: { movie: { type: 'kp' } } },
+    { id: 'abs', title: 'Топ адрес', sources: { movie: { type: 'discover', params: {} } } },
     { id: 'none', title: 'Топ пусто', sources: { movie: { type: 'discover', params: {} } } },
     { id: 'bad', title: 'Топ сбой', sources: { movie: { type: 'discover', params: {} } } },
     { id: 'evil', title: 'Топ чужой', sources: { movie: { type: 'discover', params: {} } } }
   ] };
   const { api, LC } = fresh({ manifest: manifest });
   LC.sources = { bannerPath: (item, ok, err) => {
-    if (item.id === 'kp') ok('https://kinopoiskapiunofficial.tech/images/posters/kp_small/1.jpg');
+    if (item.id === 'abs') ok('https://image.example/posters/1.jpg');
     else if (item.id === 'none') ok('');
     else if (item.id === 'evil') ok('//evil.example/x.jpg');
     else err({ failed: true });
@@ -375,9 +376,7 @@ test('Н5 source: подборка без cover — кадр подборки, �
   api.source().search({ query: encodeURIComponent('топ') }, (r) => { rows = r; });
   const by = {};
   for (const c of rows[0].results) by[c.lumen_id] = c;
-  assert.equal(by.kp.img, 'https://kinopoiskapiunofficial.tech/images/posters/kp_small/1.jpg');
-  assert.equal(by.kp.backdrop_path, undefined);
-  for (const id of ['none', 'bad', 'evil']) {
+  for (const id of ['abs', 'none', 'bad', 'evil']) {
     assert.ok(/^data:image\/svg\+xml/.test(by[id].img), id + ': без кадра — заглушка');
     assert.equal(by[id].backdrop_path, undefined, id);
   }

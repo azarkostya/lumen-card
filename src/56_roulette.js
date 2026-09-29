@@ -49,7 +49,7 @@
   /* только разметку сцены и размеры картинок.                              */
   /*                                                                       */
   /* Данные — только уже готовые LC.manifest и LC.sources.fetch: рулетка   */
-  /* не знает ни про TMDB, ни про Кинопоиск и не заводит своего кэша.      */
+  /* не знает, откуда подборки берут карточки, и не заводит своего кэша.   */
   /* Единственный собственный запрос — детали ВЫБРАННОГО фильма, и только  */
   /* когда включён фильтр длительности: у карточек из discover поля        */
   /* runtime нет вовсе, поэтому неизвестная длительность кандидата не      */
@@ -180,7 +180,7 @@
 
     /* Кандидаты одного медиа без дублей. needPoster — требовать постер:
        барабану нечего показать без картинки, а карточки без постера
-       попадаются у Кинопоиска и у свежих премьер. */
+       попадаются у свежих премьер и у редкого кино. */
     function buildPool(results, media, needPoster) {
       var out = [];
       if (!results || !results.length) return out;
@@ -351,23 +351,14 @@
       return land(plan, n);
     }
 
-    /* Ключ API Кинопоиска задан (только чтение настройки). */
-    function kpKeySet() {
-      try { return !!(typeof LC.pref === 'function' && LC.pref('lumen_kp_key', '')); } catch (e) { return false; }
-    }
-
     /* Подборки каталога, у которых есть источник нужного медиа. Подборки
        главной идут первыми: с них начинают, и докручивать ленту чипов до
-       «В тренде» никто не должен.
-       Полное ревью, C6: подборки Кинопоиска — только с ключом API. Без него
-       их выдача пуста всегда (LC.sources.fetchKp: nokey), и чип «КП Топ-250»
-       давал «0 в выборке» и «Под фильтры ничего не подошло». Тот же список
-       решает кнопку «Крутить по этой подборке» в сетке (LC.hub.rouletteMedia). */
+       «В тренде» никто не должен. Тот же список решает кнопку «Крутить по
+       этой подборке» в сетке (LC.hub.rouletteMedia). */
     function collectionsFor(manifest, media) {
       var out = [];
       if (!manifest || !Array.isArray(manifest.collections)) return out;
       var want = normalizeMedia(media);
-      var kp = kpKeySet();
       var home = {};
       var homeList = manifest.home || [];
       var i;
@@ -377,7 +368,6 @@
       for (i = 0; i < manifest.collections.length; i++) {
         var c = manifest.collections[i];
         if (!c || !c.sources || !c.sources[want]) continue;
-        if (!kp && c.sources[want].type === 'kp') continue;
         if (home[c.id]) first.push(c);
         else rest.push(c);
       }

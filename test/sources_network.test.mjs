@@ -1,6 +1,7 @@
 /* test/sources_network.test.mjs — сетевые пути LC.sources (I10).
-   Покрывает: нет ключа КП, 401, пустой ответ КП, битый JSON манифеста,
-   протухший кэш, отмену на полпути (alive-guard).
+   Покрывает: отмену на полпути (alive-guard), дедупликацию и дедлайн
+   подборки, кадр плитки, постеры, наборы коллекций и источник незнакомого
+   типа (подборки Кинопоиска сняты после 1.0.2).
    Использует loadCtx для доступа к LC после загрузки, и global.Lampa
    (устанавливается перед каждым тестом) для имитации Lampa API. */
 import test from 'node:test';
@@ -10,8 +11,7 @@ import { loadCtx } from './_load.mjs';
 /* Заглушки Lampa.Api.sources.tmdb.get здесь ничего не возвращают — как
    настоящая Lampa (get$c, vendor/lampa/app.min.js:19693-19737). Ф3,
    довесок Д2 (ревью фикс-раундов): прежние отдавали { clear }, то есть
-   отмену, которой у Lampa нет; отменяемый дескриптор есть только у
-   Lampa.Reguest (Кинопоиск). */
+   отмену, которой у Lampa нет. */
 
 /* ---- Утилиты ----------------------------------------------------------- */
 
@@ -51,64 +51,64 @@ FakeReguest.prototype.clear = function () {};
 
 /* ---- Тесты -------------------------------------------------------------- */
 
-/* нет ключа КП → err({nokey:true}) */
-test('fetchKp: нет ключа КП → err({nokey:true}) (I5, I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  global.Lampa = makeFakeLampa({ storage: fakeStorage });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function () { return ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function () { done(new Error('ok не должен вызываться при отсутствии ключа')); }, function (e) {
-    assert.ok(e && e.nokey, 'ошибка должна содержать nokey:true, получено: ' + JSON.stringify(e));
-    done();
+/* После 1.0.2: подборки Кинопоиска сняты. Источник типа, которого LC.sources
+   не знает (kp из старого каталога или из сетки, которую Lampa восстановила
+   после перезапуска), — ошибка без единого запроса. Прежде всё, что не
+   collection и не list, уходило в discover/{media} без параметров, и сетка
+   снятой подборки показала бы случайное «популярное» под её названием. */
+function recordNet() {
+  var net = { tmdb: [], reguest: 0 };
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () { net.reguest++; return new FakeReguest('ok_empty'); },
+    Api: { sources: { tmdb: { get: function (url, params, ok) { net.tmdb.push({ url: url, params: params, ok: ok }); } } } }
   });
+  global.window = { localStorage: null };
+  net.S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+  return net;
+}
+
+test('после 1.0.2: fetchOne — источник незнакомого типа отвечает ошибкой, в сеть не идёт', function () {
+  var net = recordNet();
+  var specs = [{ type: 'kp', collection: 'TOP_250_MOVIES' }, { type: 'kp' }, { type: 'eval' }, {}];
+  specs.forEach(function (spec) {
+    var got = [];
+    var r = net.S.fetchOne(spec, 'movie', 1, function (j) { got.push(['ok', j]); }, function (e) { got.push(['err', e]); }, null);
+    assert.equal(r, null);
+    assert.deepEqual(got, [['err', { unknown_type: true }]], JSON.stringify(spec));
+  });
+  assert.equal(net.tmdb.length, 0, 'ни одного запроса к TMDB, в том числе discover/movie');
+  assert.equal(net.reguest, 0, 'ни одного Lampa.Reguest');
 });
 
-/* 401 от КП API → fetchAll сообщает all_failed (все источники упали) */
-test('fetchKp: 401 от KP API → err({all_failed:true}) от fetchAll (I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { return new FakeReguest('err'); }
-  });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
+test('после 1.0.2: fetch — подборка Кинопоиска целиком отвечает ошибкой, смешанная — своей половиной TMDB', function () {
+  var net = recordNet();
+  var errs = [];
+  net.S['fetch']({ id: 'kp-top250', title: 'КП Топ-250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } }, 1,
+    function () { errs.push('ok'); }, function (e) { errs.push(e); }, null);
+  assert.deepEqual(errs, [{ all_failed: true }], 'сетка покажет «Здесь пока пусто», а не чужую выдачу');
 
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function () { done(new Error('ok не должен вызываться при 401')); }, function (e) {
-    assert.ok(e && e.all_failed, 'fetchAll при 401 KP должен вернуть all_failed, получено: ' + JSON.stringify(e));
-    done();
-  });
+  var got = [];
+  net.S['fetch']({ id: 'mix', title: 'Смесь', sources: { movie: { type: 'kp', collection: 'X' }, tv: { type: 'discover', params: { networks: 213 } } } }, 1,
+    function (j) { got.push(j); }, function (e) { got.push({ err: e }); }, null);
+  assert.equal(net.tmdb.length, 1, 'запрос только у половины TMDB');
+  assert.equal(net.tmdb[0].url, 'discover/tv');
+  net.tmdb[0].ok({ results: [{ id: 7, name: 'Сериал' }], page: 1, total_pages: 1, total_results: 1 });
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [7]);
+  assert.equal(net.reguest, 0);
 });
 
-/* Пустой ответ КП (items: []) → ok с results:[], короткий TTL в кэше */
-test('fetchKp: пустой ответ → ok с results:[], кэш с коротким TTL (C2, I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { return new FakeReguest('ok_empty'); }
-  });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function (data) {
-    assert.ok(Array.isArray(data.results), 'results должен быть массивом');
-    assert.equal(data.results.length, 0, 'results должен быть пустым');
-    // Проверяем что кэш получил короткий TTL (< 30 дней)
-    var cacheKey = 'lumen_kp_TOP_250_MOVIES_1';
-    var cached = fakeStorage.get(cacheKey, null);
-    assert.ok(cached && cached.ttl, 'кэш должен содержать ttl');
-    var LIFE_KP_EMPTY_MS = 10 * 60000; // 10 минут
-    var LIFE_KP_MS = 43200 * 60000; // 30 дней
-    assert.ok(cached.ttl <= LIFE_KP_EMPTY_MS, 'пустой кэш должен иметь короткий TTL, получено: ' + cached.ttl);
-    assert.ok(cached.ttl < LIFE_KP_MS, 'пустой кэш не должен иметь длинный TTL');
-    done();
-  }, function (e) { done(new Error('err не должен вызываться, получено: ' + JSON.stringify(e))); });
+test('после 1.0.2: bannerPath подборки Кинопоиска — ошибка без запросов, плитка перезапросит на фокусе', function () {
+  var net = recordNet();
+  var got = [];
+  var h = net.S.bannerPath({ id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+    function (p) { got.push(p); }, function (e) { got.push(e); }, null);
+  assert.deepEqual(got, [{ all_failed: true }]);
+  assert.equal(net.tmdb.length, 0);
+  assert.equal(net.reguest, 0);
+  assert.equal(typeof h.clear, 'function');
+  h.clear();
 });
 
 /* alive-guard: после clear() ok не вызывается (C1, I10) */
@@ -152,80 +152,6 @@ test('fetchAll + alive: после clear() ok не вызывается (C1, I10
   }, 150);
 });
 
-/* Протухший кэш КП (at в прошлом) → запрос идёт заново (I10) */
-test('fetchKp: протухший кэш → запрос идёт заново (I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  var LIFE_KP_MS = 43200 * 60000;
-  // Ставим протухший кэш
-  var cacheKey = 'lumen_kp_TOP_250_MOVIES_1';
-  fakeStorage.set(cacheKey, {
-    at: Date.now() - LIFE_KP_MS - 1000,
-    ttl: LIFE_KP_MS,
-    data: { results: [{ id: 999, title: 'old' }], page: 1, total_pages: 1, total_results: 1, title: '' }
-  });
-
-  var networkCalled = false;
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { return new FakeReguest(function (url, ok) { networkCalled = true; ok({ items: [], totalPages: 1, total: 0 }); }); }
-  });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function () {
-    assert.ok(networkCalled, 'при протухшем кэше должен идти сетевой запрос');
-    done();
-  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); });
-});
-
-/* Свежий кэш КП → ok без сетевого запроса (I2, I10) */
-test('fetchKp: свежий кэш (объект с at/ttl) → ok без запроса (I2, I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  var cacheKey = 'lumen_kp_TOP_250_MOVIES_1';
-  var freshData = { results: [{ id: 42 }], page: 1, total_pages: 1, total_results: 1, title: '' };
-  fakeStorage.set(cacheKey, { at: Date.now(), ttl: 43200 * 60000, data: freshData });
-
-  var networkCalled = false;
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { networkCalled = true; return new FakeReguest('ok_empty'); }
-  });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function (data) {
-    assert.ok(!networkCalled, 'при свежем кэше не должно быть сетевого запроса');
-    assert.deepEqual(data.results, [{ id: 42 }], 'данные должны совпадать с кэшем');
-    done();
-  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); });
-});
-
-/* Битый кэш (строка вместо объекта) → запрос идёт заново (I2, I10) */
-test('fetchKp: битый кэш (строка) → игнорируется, запрос заново (I2, I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  var cacheKey = 'lumen_kp_TOP_250_MOVIES_1';
-  fakeStorage.set(cacheKey, 'corrupted_string');
-
-  var networkCalled = false;
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { return new FakeReguest(function (url, ok) { networkCalled = true; ok({ items: [], totalPages: 1, total: 0 }); }); }
-  });
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](kpItem, 1, function () {
-    assert.ok(networkCalled, 'при битом кэше должен идти сетевой запрос');
-    done();
-  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); });
-});
-
 /* done-latch: ok вызывается ровно один раз при двух источниках (I3, I10) */
 test('fetchAll: ok вызывается ровно один раз (done-latch, I3, I10)', function (t, done) {
   var callCount = 0;
@@ -263,109 +189,6 @@ test('fetchAll: ok вызывается ровно один раз (done-latch, 
   }, 100);
 });
 
-/* C2: сетевая ошибка KP кэшируется с коротким TTL, повторный вызов не идёт в сеть */
-test('fetchKp: сетевая ошибка (401) кэшируется с коротким TTL, повторный вызов не идёт в сеть (C2)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  var networkCallCount = 0;
-  global.Lampa = makeFakeLampa({
-    storage: fakeStorage,
-    Reguest: function () { networkCallCount++; return new FakeReguest('err'); }
-  });
-  global.window = { localStorage: null };
-
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-  var kpItem = { id: 'kp-top250', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-
-  /* Первый вызов: ошибка — должна попасть в кэш. */
-  S['fetch'](kpItem, 1, function () {
-    done(new Error('ok не должен вызываться при 401'));
-  }, function (e) {
-    assert.ok(e && e.all_failed, 'ожидали all_failed, получили: ' + JSON.stringify(e));
-    var cacheKey = 'lumen_kp_TOP_250_MOVIES_1';
-    var cached = fakeStorage.get(cacheKey, null);
-    assert.ok(cached && cached.ttl, 'ошибка должна быть закэширована с ttl');
-    assert.ok(cached.ttl <= 10 * 60000, 'ttl должен быть коротким (<= 10 мин), получили: ' + cached.ttl);
-
-    /* Второй вызов: должен вернуть кэшированную ошибку, не идти в сеть. */
-    /* Перезагружаем контекст чтобы inflight очистился. */
-    var ctx2 = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-    /* Делим тот же fakeStorage — кэш уже есть. */
-    global.Lampa = makeFakeLampa({
-      storage: fakeStorage,
-      Reguest: function () { networkCallCount++; return new FakeReguest('err'); }
-    });
-    var ctx3 = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-    var S3 = ctx3.api;
-    var callsBefore = networkCallCount;
-    S3['fetch'](kpItem, 1, function (data) {
-      /* ok с кэшированными пустыми данными */
-      assert.equal(networkCallCount, callsBefore, 'повторный вызов не должен идти в сеть');
-      assert.ok(Array.isArray(data.results), 'результат должен быть массивом');
-      done();
-    }, function () {
-      /* тоже допустимо — главное что сеть не вызвалась */
-      assert.equal(networkCallCount, callsBefore, 'повторный вызов не должен идти в сеть (err ветка)');
-      done();
-    });
-  });
-});
-
-/* I10: clear() посреди цепочки find/{imdbId} в fetchKp останавливает дальнейшие запросы */
-test('fetchKp: clear() посреди цепочки find/ останавливает дальнейшие TMDB-запросы (I10)', function (t, done) {
-  var fakeStorage = makeFakeStorage();
-  var tmdbFindCalls = 0;
-  var handle;
-
-  global.Lampa = {
-    Storage: fakeStorage,
-    Reguest: function () {
-      return {
-        silent: function (url, okCb) {
-          /* Асинхронно отдаём два IMDb ID из KP (поле imdbId нужно для kpToFinds). */
-          setTimeout(function () {
-            okCb({ items: [{ filmId: 111, imdbId: 'tt0111' }, { filmId: 222, imdbId: 'tt0222' }], totalPages: 1, total: 2 });
-          }, 5);
-        },
-        clear: function () {}
-      };
-    },
-    Api: {
-      sources: {
-        tmdb: {
-          get: function (url, params, okCb, errCb, opts) {
-            tmdbFindCalls++;
-            if (tmdbFindCalls === 1 && handle) {
-              /* После первого find/ запроса — отменяем. */
-              handle.clear();
-            }
-            /* Отвечаем с задержкой — второй next() не должен вызваться. */
-            setTimeout(function () {
-              okCb({ movie_results: [{ id: tmdbFindCalls * 100 }], tv_results: [] });
-            }, 15);
-          }
-        }
-      }
-    }
-  };
-  global.window = { localStorage: null };
-  var ctx = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'test-key' : ''; } });
-  var S = ctx.api;
-
-  var kpItem = { id: 'kp-chain', title: 'Test', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  handle = S['fetch'](kpItem, 1, function () {
-    done(new Error('ok не должен вызываться после clear()'));
-  }, function () {
-    done(new Error('err не должен вызываться после clear()'));
-  }, null);
-
-  /* Ждём завершения обоих find/ таймеров + запаса. */
-  setTimeout(function () {
-    assert.equal(tmdbFindCalls, 1, 'после clear() цепочка find/ должна остановиться, запросов: ' + tmdbFindCalls);
-    done();
-  }, 120);
-});
-
 /* ---- Ревью Task 17: подпись сортировки в ключе дедупликации (I5) -------- */
 
 test('sortSignature: разные sort_by — разные подписи, порядок медиа не важен', function () {
@@ -382,12 +205,12 @@ test('sortSignature: разные sort_by — разные подписи, по�
   assert.equal(S.sortSignature(both), S.sortSignature(both2));
 });
 
-test('sortSignature: коллекция, список и КП подписи не дают (их порядок не от запроса)', function () {
+test('sortSignature: коллекция и список подписи не дают (их порядок не от запроса)', function () {
   global.Lampa = makeFakeLampa({});
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
   assert.equal(S.sortSignature({ id: 'c', sources: { movie: { type: 'collection', id: 10 } } }), '');
-  assert.equal(S.sortSignature({ id: 'k', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } }), '');
+  assert.equal(S.sortSignature({ id: 'l', sources: { movie: { type: 'list', id: 10 } } }), '');
 });
 
 test('fetch: та же подборка с другой сортировкой не подписывается на летящий запрос (I5)', function () {
@@ -423,84 +246,9 @@ test('fetch: та же подборка с той же сортировкой п
   assert.equal(calls.length, 1, 'второй вызов — подписчик первого');
 });
 
-/* ---- Ревью Task 17: дешёвая картинка плитки (C1) ----------------------- */
-/* Task 41: коллаж из трёх постеров заменён одним кадром, и вместо
-   collagePaths(item, count, …) источники отдают bannerPath(item, …) — одну
-   строку. Проверки те же по смыслу: подборка Кинопоиска стоит один запрос к
-   КП и ноль к TMDB, кэш работает, отмена гасит запрос. */
-
-test('bannerPath: подборка Кинопоиска — один запрос к КП, ноль к TMDB (C1)', function (t, done) {
-  var tmdbCalls = 0;
-  var kpUrls = [];
-  global.Lampa = makeFakeLampa({
-    storage: makeFakeStorage(),
-    Reguest: function () {
-      return new FakeReguest(function (url, ok) {
-        kpUrls.push(url);
-        ok({ items: [
-          { kinopoiskId: 1, imdbId: 'tt1', posterUrlPreview: 'https://kp/1.jpg' },
-          { kinopoiskId: 2, imdbId: 'tt2', posterUrlPreview: 'https://kp/2.jpg' },
-          { kinopoiskId: 3, imdbId: 'tt3', posterUrlPreview: 'https://kp/3.jpg' },
-          { kinopoiskId: 4, imdbId: 'tt4', posterUrlPreview: 'https://kp/4.jpg' }
-        ], totalPages: 5, total: 100 });
-      });
-    },
-    Api: { sources: { tmdb: { get: function () { tmdbCalls++; } } } }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-
-  var item = { id: 'kp-top250', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S.bannerPath(item, function (path) {
-    /* Кадров в ответе films/collections нет — приходит первый постер КП. */
-    assert.equal(path, 'https://kp/1.jpg', 'готовый URL Кинопоиска');
-    assert.equal(tmdbCalls, 0, 'сопоставления с TMDB для плитки не нужно');
-    assert.equal(kpUrls.length, 1, 'ровно один запрос к Кинопоиску');
-    done();
-  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
-});
-
-test('bannerPath: картинка КП кэшируется — вторая плитка в сеть не идёт (C1)', function (t, done) {
-  var kpCalls = 0;
-  var storage = makeFakeStorage();
-  global.Lampa = makeFakeLampa({
-    storage: storage,
-    Reguest: function () {
-      return new FakeReguest(function (url, ok) {
-        kpCalls++;
-        ok({ items: [{ posterUrlPreview: 'https://kp/a.jpg' }, { posterUrlPreview: 'https://kp/b.jpg' }], totalPages: 1, total: 2 });
-      });
-    }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-  var item = { id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-
-  S.bannerPath(item, function () {
-    S.bannerPath(item, function (path) {
-      assert.equal(kpCalls, 1, 'второй раз — из кэша');
-      assert.equal(path, 'https://kp/a.jpg');
-      done();
-    }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
-  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
-});
-
-test('bannerPath: без ключа КП — err({nokey:true}) и ни одного запроса (C1)', function (t, done) {
-  var made = 0;
-  global.Lampa = makeFakeLampa({
-    storage: makeFakeStorage(),
-    Reguest: function () { made++; return new FakeReguest('ok_empty'); }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
-  S.bannerPath({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {
-    done(new Error('ok не должен вызываться'));
-  }, function (e) {
-    assert.ok(e && e.nokey);
-    assert.equal(made, 0);
-    done();
-  }, null);
-});
+/* ---- Кадр плитки (Task 41) ------------------------------------------- */
+/* Коллаж из трёх постеров заменён одним кадром: bannerPath(item, …) отдаёт
+   одну строку — путь TMDB. */
 
 /* Task 41: плитка показывает КАДР, а не постер — берётся backdrop_path
    первой карточки первой страницы, у которой он есть. */
@@ -544,23 +292,6 @@ test('bannerPath: пустая страница — пустая строка, �
     assert.equal(path, '');
     done();
   }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
-});
-
-test('bannerPath: отмена гасит запрос Кинопоиска', function () {
-  var cleared = 0;
-  global.Lampa = makeFakeLampa({
-    storage: makeFakeStorage(),
-    Reguest: function () {
-      var r = new FakeReguest(function () {});
-      r.clear = function () { cleared++; };
-      return r;
-    }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-  var h = S.bannerPath({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {}, function () {}, null);
-  h.clear();
-  assert.equal(cleared, 1);
 });
 
 /* Important 3 (fix-раунд итогового ревью фазы 2): дескриптор подписки
@@ -838,7 +569,7 @@ test('Постеры: «английские» на странице 2 спра�
   } finally { s.restore(); }
 });
 
-test('Постеры: «английские» — источник Кинопоиска пропускается, списка на другом языке у него нет', function () {
+test('Постеры: «английские» — источник незнакомого типа (снятый kp) пропускается, запросов нет', function () {
   var s = setupPosters('original');
   try {
     var kp = { id: 'kp', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
@@ -940,8 +671,7 @@ test('Постеры: сменилось поколение — поздний �
   } finally { s.restore(); }
 });
 
-/* Правка 2026-09-25: кадр из каталога (cover) — сразу и без запроса; у
-   подборки Кинопоиска он не заслоняет ошибку «нет ключа». */
+/* Правка 2026-09-25: кадр из каталога (cover) — сразу и без запроса. */
 test('bannerPath: cover из каталога — сразу, ни одного запроса к TMDB', function () {
   var calls = 0;
   global.Lampa = makeFakeLampa({
@@ -997,47 +727,6 @@ test('bannerPath: cover .png тоже путь TMDB — сразу, без за�
   }, function (e) { throw new Error('err: ' + JSON.stringify(e)); }, null);
   assert.equal(got, '/Ab_9-z.png');
   assert.equal(calls, 0);
-});
-
-test('bannerPath: cover у подборки Кинопоиска не отменяет err({nokey:true})', function (t, done) {
-  global.Lampa = makeFakeLampa({
-    storage: makeFakeStorage(),
-    Reguest: function () { return new FakeReguest('ok_empty'); }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
-  S.bannerPath({ id: 'kp', cover: '/c.jpg', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {
-    done(new Error('ok не должен вызываться'));
-  }, function (e) {
-    assert.ok(e && e.nokey);
-    done();
-  }, null);
-});
-
-/* Полное ревью, S3: коллекция КП из каталога уходила в адрес запроса и в
-   ключ localStorage как есть. Только формат КП ([A-Z0-9_]) и
-   encodeURIComponent. */
-test('S3: fetchKp и kpPosters — коллекция не по формату в сеть не идёт', function () {
-  var urls = [];
-  global.Lampa = makeFakeLampa({
-    storage: makeFakeStorage(),
-    Reguest: function () {
-      return new FakeReguest(function (url, ok) { urls.push(url); ok({ items: [], totalPages: 1, total: 0 }); });
-    }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-  var errs = [];
-  var bad = { id: 'kp-x', title: 'x', sources: { movie: { type: 'kp', collection: 'TOP&api_key=1' } } };
-  S['fetch'](bad, 1, function () { errs.push('ok'); }, function (e) { errs.push(e); });
-  S.bannerPath(bad, function () { errs.push('ok'); }, function (e) { errs.push(e); }, null);
-  assert.equal(urls.length, 0, 'запрос по кривой коллекции ушёл: ' + urls.join(' '));
-  assert.equal(errs.length, 2);
-  assert.ok(errs.indexOf('ok') < 0);
-  var good = { id: 'kp-top', title: 'x', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S['fetch'](good, 2, function () {}, function () {});
-  assert.equal(urls.length, 1);
-  assert.ok(urls[0].indexOf('collections?type=TOP_250_MOVIES&page=2') > 0, urls[0]);
 });
 
 /* ====================================================================== */
@@ -1269,39 +958,4 @@ test('наборы: «английские» постеры спрашивают
     assert.deepEqual(done, [3]);
     assert.deepEqual(cards.map(function (c) { return c.poster_path; }), ['/en557.jpg', '/en2661.jpg', '/en315635.jpg']);
   } finally { s.restore(); }
-});
-
-/* Жалоба 2026-09-27, замер на стенде: неудача запроса постеров Кинопоиска не
-   кэшировалась, а хаб перезапрашивает кадр упавшей плитки на каждом шаге
-   фокуса (loadBanner, src/46_hub.js) — с отвергнутым ключом один заход в хаб
-   дал 102 запроса. Неудача помнится LIFE_KP_EMPTY (10 минут), как у fetchKp. */
-test('bannerPath: неудача Кинопоиска помнится 10 минут — плитка не спрашивает на каждом шаге фокуса', function (t, done) {
-  var kpCalls = 0;
-  var storage = makeFakeStorage();
-  global.Lampa = makeFakeLampa({
-    storage: storage,
-    Reguest: function () {
-      return new FakeReguest(function (url, ok, err) { kpCalls++; err({ status: 402 }); });
-    }
-  });
-  global.window = { localStorage: null };
-  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-  var item = { id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-
-  S.bannerPath(item, function () { done(new Error('первый раз — ошибка, а не ok')); }, function (e) {
-    assert.ok(e && e.kp_failed, JSON.stringify(e));
-    assert.equal(kpCalls, 1);
-    var rec = storage.get('lumen_kpp_TOP_250_MOVIES', null);
-    assert.ok(rec && Array.isArray(rec.data) && rec.data.length === 0, 'пустая запись-отметка неудачи');
-    assert.ok(rec.ttl > 0 && rec.ttl <= 10 * 60000, 'короткий срок: ' + rec.ttl);
-    S.bannerPath(item, function (path) {
-      assert.equal(path, '', 'плитка без кадра');
-      assert.equal(kpCalls, 1, 'повторный шаг фокуса в сеть не идёт');
-      rec.at = Date.now() - 11 * 60000;
-      S.bannerPath(item, function () { done(new Error('через 10 минут — снова запрос и снова ошибка')); }, function () {
-        assert.equal(kpCalls, 2, 'через 10 минут — новый запрос');
-        done();
-      }, null);
-    }, function (e2) { done(new Error('второй раз — из кэша, получено err: ' + JSON.stringify(e2))); }, null);
-  }, null);
 });

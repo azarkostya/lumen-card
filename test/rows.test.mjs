@@ -5,11 +5,11 @@ const R = load('44_rows.js');
 /* Минимальный манифест для тестов */
 var MANIFEST = {
   version: 1,
-  home: ['star-wars', 'kp-top250', 'anime'],
-  groups: [{ id: 'franchise' }, { id: 'kp' }, { id: 'country' }, { id: 'theme' }],
+  home: ['star-wars', 'top-rated', 'anime'],
+  groups: [{ id: 'franchise' }, { id: 'top' }, { id: 'country' }, { id: 'theme' }],
   collections: [
     { id: 'star-wars', title: 'Звёздные войны', group: 'franchise', sources: { movie: { type: 'collection', id: 10 } } },
-    { id: 'kp-top250', title: 'КП Топ-250 фильмов', group: 'kp', badge: 'KINOPOISK', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+    { id: 'top-rated', title: 'Высокий рейтинг', group: 'top', sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc' } } } },
     { id: 'anime', title: 'Аниме', group: 'country', sources: { tv: { type: 'discover', params: {} } } },
     { id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', season: [12, 1], sources: { movie: { type: 'discover', params: {} } } },
     { id: 'comedy', title: 'Комедии', group: 'theme', sources: { movie: { type: 'discover', params: {} } } }
@@ -19,7 +19,7 @@ var MANIFEST = {
 // --- rowName ---
 test('rowName: возвращает строку с префиксом lumen_', function () {
   assert.equal(R.rowName('star-wars'), 'lumen_star-wars');
-  assert.equal(R.rowName('kp-top250'), 'lumen_kp-top250');
+  assert.equal(R.rowName('top-rated'), 'lumen_top-rated');
   assert.equal(R.rowName('continue'), 'lumen_continue');
 });
 
@@ -57,7 +57,7 @@ test('homeRows: возвращает объекты подборок по id и�
   var rows = R.homeRows(MANIFEST, null, null, 15);
   assert.equal(rows.length, 3);
   assert.equal(rows[0].id, 'star-wars');
-  assert.equal(rows[1].id, 'kp-top250');
+  assert.equal(rows[1].id, 'top-rated');
   assert.equal(rows[2].id, 'anime');
 });
 test('homeRows: лимит обрезает список', function () {
@@ -262,9 +262,9 @@ test('bumpGen: метод существует и живёт на публичн
    с меткой источника и экран главной. */
 test('describe: описание ряда подборки — имя, заголовок с меткой, экран главной, без места', function () {
   var s = setupRows();
-  var row = s.R.describe({ id: 'kp-top250', title: 'КП Топ-250 фильмов', badge: 'KINOPOISK', sources: { movie: {} } }, false);
-  assert.equal(row.name, 'lumen_kp-top250');
-  assert.equal(row.title, 'КП Топ-250 фильмов · KINOPOISK');
+  var row = s.R.describe({ id: 'netflix-series', title: 'Netflix: Сериалы', badge: 'NETFLIX', sources: { tv: {} } }, false);
+  assert.equal(row.name, 'lumen_netflix-series');
+  assert.equal(row.title, 'Netflix: Сериалы · NETFLIX');
   assert.equal(row.screen, 'main');
   assert.equal(row.index, undefined, 'место назначает план главной');
   assert.equal(typeof row.call, 'function');
@@ -344,7 +344,7 @@ test('viewedIds: без results не падает и возвращает тол
 test('rowChoices: отмеченные первыми, по умолчанию — набор manifest.home', function () {
   var list = R.rowChoices(MANIFEST, null);
   assert.deepEqual(list.map(function (c) { return c.id; }),
-    ['star-wars', 'kp-top250', 'anime', 'xmas-comedy', 'comedy']);
+    ['star-wars', 'top-rated', 'anime', 'xmas-comedy', 'comedy']);
   assert.deepEqual(list.map(function (c) { return c.checked; }), [true, true, true, false, false]);
   assert.equal(list[0].title, 'Звёздные войны');
   assert.equal(list[3].group, 'theme');
@@ -353,14 +353,14 @@ test('rowChoices: отмеченные первыми, по умолчанию �
 test('rowChoices: сохранённый список отмечен и стоит в своём порядке', function () {
   var list = R.rowChoices(MANIFEST, ['comedy', 'anime']);
   assert.deepEqual(list.map(function (c) { return c.id; }),
-    ['comedy', 'anime', 'star-wars', 'kp-top250', 'xmas-comedy']);
+    ['comedy', 'anime', 'star-wars', 'top-rated', 'xmas-comedy']);
   assert.deepEqual(list.map(function (c) { return c.checked; }), [true, true, false, false, false]);
 });
 
 test('rowChoices: id, которого больше нет в каталоге, отбрасывается', function () {
   var list = R.rowChoices(MANIFEST, ['comedy', 'исчезнувшая']);
   assert.deepEqual(list.map(function (c) { return c.id; }),
-    ['comedy', 'star-wars', 'kp-top250', 'anime', 'xmas-comedy']);
+    ['comedy', 'star-wars', 'top-rated', 'anime', 'xmas-comedy']);
   assert.equal(list.filter(function (c) { return c.checked; }).length, 1);
 });
 
@@ -368,10 +368,12 @@ test('rowChoices: id, которого больше нет в каталоге, 
    каталоге больше нет (сменили каталог, подборку убрали), — устаревшая
    запись: главная и экран выбора берут набор по умолчанию. */
 test('L2: состав из одних неизвестных id — набор по умолчанию на главной и на экране выбора', function () {
-  var stale = ['venom', 'suicide-squad'];
-  assert.deepEqual(R.homeRows(MANIFEST, stale, null, 10).map(function (c) { return c.id; }), ['star-wars', 'kp-top250', 'anime']);
+  /* После 1.0.2 так выглядит и состав из одних подборок Кинопоиска: их id
+     в каталоге больше нет, а lumen_home_rows миграция не переписывает. */
+  var stale = ['venom', 'suicide-squad', 'kp-top250'];
+  assert.deepEqual(R.homeRows(MANIFEST, stale, null, 10).map(function (c) { return c.id; }), ['star-wars', 'top-rated', 'anime']);
   assert.deepEqual(R.rowChoices(MANIFEST, stale).filter(function (c) { return c.checked; }).map(function (c) { return c.id; }),
-    ['star-wars', 'kp-top250', 'anime']);
+    ['star-wars', 'top-rated', 'anime']);
   /* Хоть один живой id — это выбор пользователя: ровно он. */
   assert.deepEqual(R.homeRows(MANIFEST, ['venom', 'comedy'], null, 10).map(function (c) { return c.id; }), ['comedy']);
   assert.deepEqual(R.knownIds(MANIFEST, ['venom', 'comedy', 'anime']), ['comedy', 'anime']);

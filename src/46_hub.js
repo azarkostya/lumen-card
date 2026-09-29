@@ -76,10 +76,9 @@
        же, как окно постеров сетки (POSTER_AHEAD выше), но короче: плитки
        идут по четыре в ряд, и восемь вперёд — это два ряда, тогда как у
        сетки шесть в ряд и 14 закрывают чуть больше двух.
-       Цена одной плитки — одна картинка и один запрос: для discover это
-       первая страница подборки (кэш 12 ч), для Кинопоиска —
-       LC.sources.bannerPath берёт картинку прямо из ответа КП, не
-       сопоставляя фильмы с TMDB (кэш 30 дней). */
+       Цена одной плитки — одна картинка и не больше одного запроса: первая
+       страница подборки (кэш Lampa: discover — 12 ч, коллекция и список —
+       неделя), а у плитки с кадром каталога (cover) — ни одного. */
     var BANNER_AHEAD = 8;
 
     /* Task 68: ширины, по которым выбирается размер картинки, считаются той
@@ -230,8 +229,8 @@
     }
 
     /* Медиа единственного источника подборки, если он один И это discover.
-       Иначе null: два медиа-типа одной строкой url не выразить, а коллекции,
-       списки и Кинопоиск штатная сетка не открывает вовсе (план, раздел 0:
+       Иначе null: два медиа-типа одной строкой url не выразить, а коллекции
+       и списки штатная сетка не открывает вовсе (план, раздел 0:
        category_full с url 'collection/10' падает TypeError). */
     function singleDiscover(item) {
       var src = (item && item.sources) || {};
@@ -343,8 +342,8 @@
        Человек-паук», «Человек-паук 3»… — эпохи вперемешку (замер на стенде).
        Поэтому у подборки из одних коллекций TMDB первый чип — «По годам»
        (строка ряда «Смотреть по порядку», src/66_franchise.js), и сетка
-       открывается им. Прочим подборкам (discover, список TMDB, Кинопоиск)
-       порядок по годам ничего не добавляет — у них три прежних чипа. */
+       открывается им. Прочим подборкам (discover, список TMDB) порядок по
+       годам ничего не добавляет — у них три прежних чипа. */
     function byYears(item) {
       var src = (item && item.sources) || {};
       var any = false;
@@ -400,8 +399,8 @@
     }
 
     /* Нужна ли сортировка на месте: хотя бы один источник не discover
-       (коллекция, список TMDB, Кинопоиск — их TMDB отдаёт одним куском в
-       своём порядке). */
+       (коллекция, список TMDB — их TMDB отдаёт одним куском в своём
+       порядке). */
     function needsLocalSort(item) {
       var src = (item && item.sources) || {};
       var k;
@@ -502,12 +501,6 @@
       return LC.util.esc('' + (text == null ? '' : text));
     }
 
-    /* Task 20: показывать ли подсказку «нужен ключ Кинопоиска» (настройка
-       lumen_kp_hint, по умолчанию да; её же читает ряд отзывов карточки). */
-    function kpHintEnabled() {
-      try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
-    }
-
     /* Класс режима анимаций на корень нашего экрана. На карточке его ставит
        applyMotionMode (90_runtime.js) по её корню; хаб и сетка — отдельные
        активности, и без этого класса CSS-правила lite/off (они привязаны к
@@ -589,11 +582,11 @@
       try { return stageMotion() === 'full' && typeof LC.fxHeavy === 'function' && !!LC.fxHeavy(); } catch (e) { return false; }
     }
 
-    /* Путь TMDB ('/abc.jpg') или готовый адрес (подборки Кинопоиска). */
+    /* Путь TMDB ('/abc.jpg') → адрес кадра фона. */
     function stageUrl(path) {
       path = '' + (path || '');
       if (!path) return '';
-      return path.indexOf('http') === 0 ? path : imageUrl(path, STAGE_SIZE);
+      return imageUrl(path, STAGE_SIZE);
     }
 
     function ScreenStage(activity) {
@@ -667,8 +660,8 @@
         } catch (e) { warn('hub: stage tone failed', e); }
       }
 
-      /* Цвет считаем только у кадра TMDB: у готового адреса Кинопоиска
-         пути TMDB нет, и LC.accent собрал бы из него битый адрес w300.
+      /* Цвет считаем только у пути TMDB ('/…'): из чего-то другого
+         LC.accent собрал бы битый адрес w300.
          done — цвет готов или считать нечего (тогда синхронно). */
       function colorFor(path, done) {
         if (path.charAt(0) !== '/' || !LC.accent || typeof LC.accent.prepareFrame !== 'function' || colorOf(path) !== undefined) { done(); return; }
@@ -1559,19 +1552,15 @@
          коллажа из трёх повёрнутых постеров: на плитку приходится одна
          картинка вместо трёх, и текст лежит на затемнении кадра, а не
          поверх постеров.
-         Путь по-прежнему дешёвый: LC.sources.bannerPath для подборки
-         Кинопоиска берёт картинку прямо из ответа КП — один запрос вместо
-         «1 к КП + до 20 к TMDB», которых стоила бы целая страница подборки
-         (ревью Task 17, C1). */
+         Путь TMDB приходит от LC.sources.bannerPath: первая страница
+         подборки (она же нужна ряду и кэшируется) или кадр каталога. */
       function paintBanner(node, path, onFail) {
         var box = $(node).find('.lumen-tile__media');
         if (!box || !box.length) return;
         box.empty();
         path = '' + (path || '');
         if (!path) return;
-        /* Готовый http-адрес (подборка Кинопоиска отдаёт свои картинки
-           сама) размер не выбирает — он берётся как есть. */
-        var url = path.indexOf('http') === 0 ? path : imageUrl(path, bannerSize());
+        var url = imageUrl(path, bannerSize());
         if (!url) return;
         /* 2026-09-27: кадр плитки — он же фон экрана, когда плитка в фокусе
            (или первая в группе, пока фокус на чипах). */
@@ -1637,15 +1626,13 @@
           skeleton(false);
           if (gen !== captured) return;
           paintBanner(node, path, src.cover && path === src.cover ? toLive : null);
-        }, function (err) {
+        }, function () {
           skeleton(false);
           if (gen !== captured) return;
           /* Неудача не должна оставлять плитку пустой навсегда: снимаем
              отметку, и кадр перезапросится, когда плитка снова получит
-             фокус. Единственная ошибка, о которой стоит сказать сразу, —
-             подборка Кинопоиска без ключа API. */
+             фокус. */
           node.lumen_banner = false;
-          if (err && err.nokey) $(node).addClass('lumen-tile--nokey');
         }, alive(captured));
         if (handle) handles.push(handle);
       }
@@ -1712,8 +1699,7 @@
         }
         var sub = item.badge || titleOf(group, lang()) || (item.lumen_mood ? LC.lang('lumen_hub_moods') : '');
         /* Task 21: подборка своего сезона поднята наверх — метка объясняет,
-           почему она здесь. Рисуется тем же узлом, что и подсказка про ключ
-           API, поэтому разметка плитки не усложняется. */
+           почему она здесь. */
         var season = inSeason(item, month())
           ? '<div class="lumen-tile__season">' + esc(LC.lang('lumen_season_badge')) + '</div>'
           : '';
@@ -1726,7 +1712,6 @@
               '<div class="lumen-tile__title">' + esc(titleOf(item, lang())) + '</div>' +
               '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
             '</div>' +
-            '<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
           '</div>'
         );
         /* Task 68: LC.focus.on — подписка на фокус и пультом, и мышью
@@ -2405,27 +2390,11 @@
         subtitle.html(esc(parts.join(' · ')));
       }
 
-      function showEmpty(reason) {
+      function showEmpty() {
         itemsRow.empty();
         cardNodes = [];
         emptyNodes = [];
-        /* Task 20: подсказку про ключ Кинопоиска можно выключить — тогда
-           сетка говорит просто «Здесь пока пусто», как любая другая пустая. */
-        var nokey = reason === 'nokey' && kpHintEnabled();
-        var text = nokey ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
-        var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
-        if (nokey) {
-          /* Строка 'false': Storage.set с JS-false не сохраняется (план 0.2).
-             Запись поднимает listener 'change' → LC.applyKpHintPref
-             пересобирает эту сетку уже без подсказки. */
-          var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-          LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; dim(false); });
-          hide.on('hover:enter', function () {
-            try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
-          });
-          box.append(hide);
-          emptyNodes.push(hide[0]);
-        }
+        var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(LC.lang('lumen_hub_empty')) + '</div></div>');
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
         LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; dim(false); });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
@@ -2467,11 +2436,9 @@
           totalResults = json.total_results || (json.results || []).length;
           if (reset) raw = [];
           raw = raw.concat(json.results || []);
-          /* Коллекция, список TMDB и Кинопоиск приходят в своём порядке —
-             его задаёт сортировка на месте, и при догрузке страницы список
-             приходится пересобирать целиком. Кинопоиск, в отличие от
-             коллекции, многостраничный (total_pages из ответа КП), так что
-             ветка рабочая, а не теоретическая. */
+          /* Коллекция и список TMDB приходят в своём порядке — его задаёт
+             сортировка на месте, и при догрузке страницы (если источник
+             многостраничный) список приходится пересобирать целиком. */
           var localSort = needsLocalSort(item);
           var list = localSort ? sortLocal(raw, sortMode) : (json.results || []);
           if (reset || localSort) {
@@ -2479,7 +2446,7 @@
             cardNodes = [];
             emptyNodes = [];
           }
-          if (!list.length && !cardNodes.length) showEmpty('');
+          if (!list.length && !cardNodes.length) showEmpty();
           else appendCards(list);
           var from = focusedIndex();
           loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
@@ -2509,12 +2476,12 @@
             if (gen !== captured) return;
             fill(json);
           }, alive(captured), nextPage);
-        }, function (err) {
+        }, function () {
           if (gen !== captured) return;
           loading = false;
           pending = null;
           try { self.activity.loader(false); } catch (e3) {}
-          if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
+          if (!cardNodes.length) showEmpty();
           renderSub();
           if (started && ownsRemote(self.activity)) recollect(null, byMouse);
         }, alive(captured));
@@ -2551,7 +2518,7 @@
           }
           sortMode = mode.id;
           highlightSort();
-          /* Коллекция, список TMDB и Кинопоиск уже загружены целиком —
+          /* Коллекция и список TMDB уже загружены целиком —
              их достаточно переставить на месте, в сеть за тем же ответом не
              ходим. Для discover порядок задаёт TMDB, там нужен новый запрос
              с первой страницы. */

@@ -163,17 +163,6 @@
       return !!(month && item && item.season && item.season.length && !inSeason(item, month));
     }
 
-    /* Подборка Кинопоиска: без ключа её ряд пуст (LC.sources.fetchKp). */
-    function kpOnly(item) {
-      if (!item) return false;
-      if (item.group === 'kp') return true;
-      var s = item.sources || {};
-      var any = false;
-      if (s.movie) { if (s.movie.type !== 'kp') return false; any = true; }
-      if (s.tv) { if (s.tv.type !== 'kp') return false; any = true; }
-      return any;
-    }
-
     /* Взвешенная случайная перестановка (Efraimidis–Spirakis): ключ
        u^(1/w), по убыванию. Равные ключи — по исходному порядку, чтобы
        результат не зависел от устойчивости sort у движка. */
@@ -191,9 +180,9 @@
     /* Состав подборок ротации: лидер первым, потом (не в декабре с
        адвентом) сезонная в свой месяц, если лидер не она, потом остальные
        по перестановке — всего limit.
-       Пул — весь каталог, кроме подборок Кинопоиска без ключа и сезонных не
-       в свой месяц; набор manifest.home — с двойным весом. Выбранный вручную
-       состав (picked) — ровно он, крутится только его порядок. */
+       Пул — весь каталог, кроме сезонных не в свой месяц; набор
+       manifest.home — с двойным весом. Выбранный вручную состав (picked) —
+       ровно он, крутится только его порядок. */
     function choose(o, month, limit) {
       var manifest = o.manifest;
       if (!manifest || !Array.isArray(manifest.collections) || limit <= 0) return [];
@@ -220,7 +209,6 @@
         for (i = 0; i < manifest.collections.length; i++) {
           c = manifest.collections[i];
           if (!c || !c.id || off(c.id)) continue;
-          if (!o.kpKey && kpOnly(c)) continue;
           if (offSeason(c, month)) continue;
           pool.push(c);
           weight.push(home[c.id] ? 2 : 1);
@@ -239,14 +227,11 @@
         if (c && recent.indexOf(c.id) !== -1 && inSeason(c, month)) seasonLed = true;
       }
       /* Лидер — первый по перестановке, кого не было лидером в двух прошлых
-         эпохах. Подборка Кинопоиска без ключа (бывает только в выбранном
-         вручную составе) лидером не встаёт: её ряд пуст, и место 0 занял
-         бы личный ряд. В декабре с адвентом лидер — не сезонная: адвент сам
+         эпохах. В декабре с адвентом лидер — не сезонная: адвент сам
          сезонный ряд наверху и собран из рождественских подборок. */
       var lead = null;
       for (i = 0; i < order.length && !lead; i++) {
         if (recent.indexOf(order[i].id) !== -1) continue;
-        if (!o.kpKey && kpOnly(order[i])) continue;
         if ((o.advent || seasonLed) && inSeason(order[i], month)) continue;
         lead = order[i];
       }
@@ -425,9 +410,9 @@
                ряды); picked — состав, выбранный вручную (lumen_home_rows),
                или null; month — 1…12; epoch — номер эпохи; have —
                {continue, because, new_episodes, soon}: какие личные ряды
-               есть; recentLeads — лидеры двух прошлых эпох; kpKey — задан
-               ли ключ Кинопоиска; limit — число подборок; mode — 'rotate'
-               или 'history'; advent — есть ли ряд адвента (декабрь);
+               есть; recentLeads — лидеры двух прошлых эпох; limit — число
+               подборок; mode — 'rotate' или 'history'; advent — есть ли
+               ряд адвента (декабрь);
                off(id) — подборка выключена пользователем в «Каналах» Lampa.
        Возвращает {slots, lead}: слоты по возрастанию места — kind
        'collection' (id, item), 'personal' (id) или 'advent'; lead — id
@@ -628,7 +613,6 @@
         epoch: epoch.n,
         have: have,
         recentLeads: recentLeads(leads, epoch.n),
-        kpKey: !!LC.pref('lumen_kp_key', ''),
         limit: limit,
         mode: mode,
         advent: !!advent,

@@ -38,7 +38,7 @@ var MANIFEST = {
     { id: 'matrix', title: 'Матрица', group: 'franchise', sources: { movie: { type: 'collection', id: 2344 } } },
     { id: 'pixar', title: 'Pixar', group: 'studio', sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } } },
     { id: 'apple-tv', title: 'Apple TV+', group: 'service', badge: 'APPLE TV+', sources: { tv: { type: 'discover', params: { networks: 2552, sort_by: 'popularity.desc' } } } },
-    { id: 'kp-top250', title: 'КП Топ-250', group: 'kp', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+    { id: 'top-grossing', title: 'Кассовые хиты', group: 'top', sources: { movie: { type: 'list', id: 10 } } },
     { id: 'mood-x', title: 'Настроенческая', group: 'mood', sources: { movie: { type: 'discover', params: {} } } }
   ]
 };
@@ -192,11 +192,11 @@ test('groupsWithCounts: только непустые чипы, count по об�
   assert.equal(g[1].count, 2, 'studio + service считаются вместе');
   assert.equal(g[0].title, 'Франшизы');
 });
-test('groupsWithCounts: подборки групп вне hubGroups (kp/mood) не попадают ни в один чип', function () {
+test('groupsWithCounts: подборки групп вне hubGroups (top/mood) не попадают ни в один чип', function () {
   var g = H.groupsWithCounts(MANIFEST, 'ru');
   var total = 0;
   for (var i = 0; i < g.length; i++) total += g[i].count;
-  assert.equal(total, 4, 'kp-top250 и mood-x в чипы не входят');
+  assert.equal(total, 4, 'top-grossing и mood-x в чипы не входят');
 });
 test('groupsWithCounts: нет hubGroups/манифеста — пустой массив', function () {
   assert.deepEqual(H.groupsWithCounts(null, 'ru'), []);
@@ -243,9 +243,10 @@ test('openTarget: два медиа-источника — свой компон
   assert.equal(t.component, 'lumen_grid');
   assert.equal(t.lumen.id, 'star-wars');
 });
-test('openTarget: Кинопоиск — свой компонент', function () {
+test('openTarget: список TMDB — свой компонент', function () {
   var t = H.openTarget(MANIFEST.collections[4]);
   assert.equal(t.component, 'lumen_grid');
+  assert.equal(t.lumen.id, 'top-grossing');
 });
 test('openTarget: подборка без источников — свой компонент, без падения', function () {
   var t = H.openTarget({ id: 'broken', title: 'X', sources: {} });
@@ -317,9 +318,10 @@ test('applySort: для tv «Новые» — first_air_date.desc, для movie 
   assert.equal(H.applySort(MANIFEST.collections[3], 'new').sources.tv.params.sort_by, 'first_air_date.desc');
   assert.equal(H.applySort(MANIFEST.collections[2], 'new').sources.movie.params.sort_by, 'primary_release_date.desc');
 });
-test('applySort: collection/list/kp не меняются (сортируются локально)', function () {
+test('applySort: collection/list не меняются (сортируются локально)', function () {
   var item = H.applySort(MANIFEST.collections[1], 'rating');
   assert.deepEqual(item.sources.movie, { type: 'collection', id: 2344 });
+  assert.deepEqual(H.applySort(MANIFEST.collections[4], 'rating').sources.movie, { type: 'list', id: 10 });
 });
 test('applySort: неизвестный режим возвращает подборку как есть', function () {
   assert.equal(H.applySort(MANIFEST.collections[2], 'nope').sources.movie.params.sort_by, 'popularity.desc');
@@ -343,10 +345,9 @@ test('sortModes: у подборки из коллекций первым — «
   assert.equal(H.sortModes(col)[0].key, 'lumen_fr_order_release', 'строка «По годам» ряда «Смотреть по порядку»');
   assert.equal(H.defaultSort(col), 'years');
   var disc = { id: 'd', sources: { movie: { type: 'discover', params: {} } } };
-  var kp = { id: 'k', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
   var list = { id: 'l', sources: { movie: { type: 'list', id: 10 } } };
   var mixed = { id: 'm', sources: { movie: { type: 'collection', id: 1241 }, tv: { type: 'discover', params: {} } } };
-  [disc, kp, list, mixed, null].forEach(function (it) {
+  [disc, list, mixed, null].forEach(function (it) {
     assert.deepEqual(H.sortModes(it).map(function (x) { return x.id; }), ['popular', 'rating', 'new']);
     assert.equal(H.defaultSort(it), 'popular');
   });
@@ -367,7 +368,7 @@ test('sortLocal: пустое/мусор не роняет', function () {
 });
 
 // --- needsLocalSort ---
-test('needsLocalSort: true для collection/list/kp, false для чистого discover', function () {
+test('needsLocalSort: true для collection/list, false для чистого discover', function () {
   assert.equal(H.needsLocalSort(MANIFEST.collections[1]), true);
   assert.equal(H.needsLocalSort(MANIFEST.collections[4]), true);
   assert.equal(H.needsLocalSort(MANIFEST.collections[2]), false);
@@ -809,8 +810,8 @@ function loadHub(opts) {
        этих тестах по умолчанию нет — как и кнопок; тесты входов кладут
        заглушку с журналом вызовов open. */
     roulette: opts.roulette,
-    /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
-       по умолчанию её нет вовсе, как и в бандле до LC.init. */
+    /* Настройки (кнопка «Франшиза» в сетке) — по умолчанию LC.pref нет
+       вовсе, как и в бандле до LC.init. */
     pref: opts.pref,
     /* Task 40: замер автодетекта — модуля perf в этих тестах по умолчанию
        нет, как и в бандле до его загрузки (вызов защищён проверкой). */
@@ -990,9 +991,9 @@ test('lumen_hub: кадр плитки идёт дешёвым путём banner
 
 /* Task 41: на плитке ОДНА картинка — <img> с подсказкой декодирования,
    вместо трёх постеров коллажа, которые рисовались фоном блоков. */
-test('lumen_hub: плитка рисует один <img decoding="async">, принимая и URL КП, и путь TMDB', function () {
+test('lumen_hub: плитка рисует один <img decoding="async"> — путь TMDB через прокси', function () {
   var s = openHub();
-  s.h.bannerCalls[0].ok('https://kp/a.jpg');
+  s.h.bannerCalls[0].ok('/a.jpg');
   s.h.bannerCalls[1].ok('/bd.jpg');
 
   var first = s.root.all('lumen-tile')[0];
@@ -1000,7 +1001,7 @@ test('lumen_hub: плитка рисует один <img decoding="async">, пр
   assert.equal(imgs.length, 1, 'ровно одна картинка на плитку');
   assert.equal(imgs[0]._tag, 'img', 'это <img>, а не фон блока');
   assert.equal(imgs[0].attr('decoding'), 'async', 'декодирование вне главного потока');
-  assert.equal(imgs[0].src, 'https://kp/a.jpg', 'URL КП берётся как есть');
+  assert.equal(imgs[0].src, 'https://proxy/t/p/w780/a.jpg');
 
   var second = s.root.all('lumen-tile')[1].all('lumen-tile__img')[0];
   assert.equal(second.src, 'https://proxy/t/p/w780/bd.jpg', 'путь TMDB — через прокси, кадровой ступенью');
@@ -1070,10 +1071,15 @@ test('Task 39: DPR 2 поднимает размер картинок карто
     'карточка сетки при DPR 2 — w500 (при DPR 1 хватало w342)');
 });
 
-test('lumen_hub: подборка Кинопоиска без ключа помечается на плитке', function () {
+/* После 1.0.2: метки «НУЖЕН КЛЮЧ» (подборки Кинопоиска) на плитке нет —
+   ошибка кадра просто оставляет плитку без картинки до следующего фокуса. */
+test('после 1.0.2: плитка без узла подсказки про ключ; ошибка кадра ничего не метит', function () {
   var s = openHub();
-  s.h.bannerCalls[0].err({ nokey: true });
-  assert.ok(s.root.all('lumen-tile')[0].hasClass('lumen-tile--nokey'));
+  var tile = s.root.all('lumen-tile')[0];
+  assert.equal(tile.all('lumen-tile__nokey').length, 0);
+  s.h.bannerCalls[0].err({ all_failed: true });
+  assert.equal(tile.all('lumen-tile__img').length, 0);
+  assert.equal(tile.hasClass('lumen-tile--filled'), false);
 });
 
 /* Task 41: кадры грузятся окном вперёд от фокуса (BANNER_AHEAD = 8), а не
@@ -1149,7 +1155,7 @@ test('lumen_hub: при входе кадр получает и частично
 test('lumen_hub: кадр, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
   var s = openHub();
   var tile = s.root.all('lumen-tile')[0];
-  s.h.bannerCalls[0].err({ kp_failed: true });
+  s.h.bannerCalls[0].err({ all_failed: true });
   var before = s.h.bannerCalls.length;
   fire(tile, 'hover:focus');
   assert.equal(s.h.bannerCalls.length, before + 1, 'вторая попытка есть');
@@ -1965,9 +1971,10 @@ test('lumen_grid: смена сортировки оставляет фокус 
 });
 
 test('lumen_grid: догрузка страницы с сортировкой на месте не теряет фокус (I3)', function () {
-  /* Кинопоиск многостраничный, и его страницы пересобирают список целиком. */
-  var kp = MANIFEST.collections[4];
-  var g = openGrid(kp);
+  /* Источник не discover (список TMDB) с несколькими страницами: каждая
+     догруженная пересобирает список целиком. */
+  var list = MANIFEST.collections[4];
+  var g = openGrid(list);
   g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 36 });
   g.comp.start();
   var ctrl = g.env.log.controllers.content;
@@ -2057,38 +2064,25 @@ test('lumen_grid: пустой ответ показывает заглушку 
   assert.equal(g.env.log.backward, 1);
 });
 
-test('lumen_grid: ошибка «нет ключа» объясняет, чего не хватает', function () {
+test('lumen_grid: ошибка подборки — заглушка, лоадер гаснет', function () {
   var g = openGrid(MANIFEST.collections[4]);
   warnLog.length = 0;
-  g.h.fetchCalls[0].err({ nokey: true });
+  g.h.fetchCalls[0].err({ all_failed: true });
   assert.equal(g.root.all('lumen-grid__empty-text').length, 1);
   assert.deepEqual(g.comp.activity.states, [true, false], 'лоадер гаснет и на ошибке');
   assert.deepEqual(warnLog, []);
 });
 
-/* Task 20: подсказку про ключ Кинопоиска можно убрать одной кнопкой — она
-   висела на каждом заходе в подборки КП, пока ключа нет. */
-test('Task 20: подсказка «нет ключа» даёт кнопку «Скрыть», она пишет настройку', function () {
-  var g = openGrid(MANIFEST.collections[4]);
+/* После 1.0.2: подсказки «нет ключа» с кнопкой «Скрыть» у сетки больше нет —
+   её показывали только подборки Кинопоиска. Любая ошибка (и снятая подборка
+   КП из сетки, восстановленной Lampa) — обычный пустой экран. */
+test('после 1.0.2: ошибка сетки — «Назад» единственный .selector, настройки не пишутся', function () {
+  var g = openGrid(MANIFEST.collections[4], { pref: function (name, def) { return def; } });
   g.h.fetchCalls[0].err({ nokey: true });
   g.comp.start();
-
-  var hide = g.root.all('lumen-grid__hide');
-  assert.equal(hide.length, 1, 'ожидалась кнопка «Скрыть»');
-  assert.ok(hide[0].hasClass('selector'), 'кнопка обязана фокусироваться пультом');
-  fire(hide[0], 'hover:enter');
-  /* Строка, а не JS-false: Storage.set(name, false) у Lampa не сохраняется. */
-  assert.deepEqual(g.env.log.stored, [{ name: 'lumen_kp_hint', value: 'false' }]);
-  assert.equal(g.env.log.backward, 0, '«Скрыть» экран не закрывает');
-});
-
-test('Task 20: подсказка выключена — обычный пустой экран, кнопки «Скрыть» нет', function () {
-  var g = openGrid(MANIFEST.collections[4], { pref: function (name, def) { return name === 'lumen_kp_hint' ? false : def; } });
-  g.h.fetchCalls[0].err({ nokey: true });
-
-  assert.equal(g.root.all('lumen-grid__empty-text').length, 1, 'экран всё равно не пустой');
-  assert.equal(g.root.all('lumen-grid__hide').length, 0, 'прятать нечего — подсказки нет');
-  assert.equal(g.root.all('lumen-grid__back').length, 1, '«Назад» остаётся единственным .selector');
+  assert.equal(g.root.all('lumen-grid__hide').length, 0);
+  assert.equal(g.root.all('lumen-grid__back').length, 1);
+  assert.deepEqual(g.env.log.stored, []);
 });
 
 /* ---------------------------------------------------------------------- */
@@ -2819,19 +2813,6 @@ test('C4: плитка хаба и заголовок сетки — на язы
   var grid = makeComponent('lumen_grid', { lumen: I18N_MANIFEST.collections[1], title: 'Матрица' }, env2);
   grid.create();
   assert.ok(seen2.indexOf('The Matrix') >= 0, 'заголовок сетки без перевода: ' + seen2.join(' | '));
-});
-
-/* Полное ревью, C6: сетка подборки Кинопоиска без ключа API предлагала
-   «Крутить по этой подборке» — рулетка по ней пуста всегда. Кнопку решает
-   настоящий LC.roulette.collectionsFor: без ключа подборок КП в нём нет. */
-test('C6: сетка Кинопоиска без ключа — кнопки рулетки нет, с ключом — есть', function () {
-  var KP = MANIFEST.collections[4];
-  var noKey = loadCtx('56_roulette.js', { pref: function (k, d) { return k === 'lumen_kp_key' ? '' : d; } }).api;
-  var g = openGrid(KP, { roulette: noKey });
-  assert.equal(g.root.all('lumen-grid__roulette').length, 0, 'без ключа кнопка рулетки есть');
-  var withKey = loadCtx('56_roulette.js', { pref: function (k, d) { return k === 'lumen_kp_key' ? 'KEY' : d; } }).api;
-  var k = openGrid(KP, { roulette: withKey });
-  assert.equal(k.root.all('lumen-grid__roulette').length, 1, 'с ключом кнопки рулетки нет');
 });
 
 /* Полное ревью, C7: модульный кэш окна коллекции (lastNodes) держал узлы

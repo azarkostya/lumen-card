@@ -598,16 +598,12 @@ test('Task 20: возврат на ЧУЖОЙ экран пересборку н
   assert.equal(env.replaced(), 0);
 });
 
-test('Task 20: подсказка про ключ пересобирает только открытую сетку подборки', async () => {
-  const env = setupRefresh('main');
-  env.LC.applyKpHintPref();
-  await tick();
-  assert.equal(env.replaced(), 0, 'на главной подсказки про ключ нет');
-
-  env.setActive('lumen_grid');
-  env.LC.applyKpHintPref();
-  await tick();
-  assert.equal(env.replaced(), 1);
+/* После 1.0.2: подсказку про ключ показывает только ряд отзывов карточки
+   (LC.applyReviewsPref) — сетки подборки Кинопоиска, которую пересобирал
+   LC.applyKpHintPref, больше нет. */
+test('после 1.0.2: пересборки сетки по подсказке про ключ нет', () => {
+  const env = setupRefresh('lumen_grid');
+  assert.equal(env.LC.applyKpHintPref, undefined);
 });
 
 /* Настройки Lampa 3.3.4 — слой поверх активности, а не активность: пересборка

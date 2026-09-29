@@ -280,7 +280,7 @@
        панель. cover в каталоге есть не у всех (у 100 подборок из 174 его
        нет, у mcu тоже), и плитка хаба без него берёт кадр из самой подборки
        (LC.sources.bannerPath: backdrop_path первой карточки её первой
-       страницы, у Кинопоиска — постер), а поиск — нет: брал только cover.
+       страницы), а поиск — нет: брал только cover.
        Теперь и поиск берёт кадр тем же путём и ту же картинку, что плитка
        хаба. Ответ Lampa ждёт (Results.search рисует строку по oncomplite),
        поэтому кадров просим не больше COVER_AHEAD (первые карточки строки —
@@ -318,8 +318,7 @@
         try {
           LC.sources.bannerPath(found[k], function (path) {
             if (over) return;
-            if (typeof path === 'string' && /^https?:\/\//.test(path)) card.img = path;
-            else if (typeof path === 'string' && TMDB_PATH.test(path)) { card.backdrop_path = path; delete card.img; }
+            if (typeof path === 'string' && TMDB_PATH.test(path)) { card.backdrop_path = path; delete card.img; }
             next();
           }, function () {
             if (!over) next();

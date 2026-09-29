@@ -482,7 +482,7 @@
      STAGE_LEAK. Поэтому весь текст, лежащий на кадре, в подборках — не
      темнее P.soft (правила хаба и сетки ниже), и контраст держится на любом
      кадре, а не только на тёмном. Цвета нет (подкраска выключена, прокси
-     без CORS, кадр Кинопоиска) — затемнение фоном темы. */
+     без CORS) — затемнение фоном темы. */
   var STAGE_A = 0.8;
   var STAGE_TOP_A = 0.9;
   var STAGE_TOP_EM = 9;
@@ -4185,12 +4185,9 @@
        невыполнима») ломал ровный низ ряда плиток. */
     css.push('.lumen-hub .lumen-tile__title{font-family:' + FB + ';font-weight:700;font-size:1.15em;line-height:1.2;color:' + P.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
     css.push('.lumen-hub .lumen-tile__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';margin-top:.29em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
-    css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.49em;right:.49em;font-family:' + FB + ';font-weight:500;font-size:1.01em;letter-spacing:.03em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.04em solid rgba(' + P.textRgb + ',.3);border-radius:.14em;padding:.17em .31em}');
-    css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
-    /* Task 21 (фаза 3): метка сезонной подборки. Место — левый верхний угол
-       плитки: правый занят подсказкой про ключ API, и на подборках
-       Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
-       единственная плитка в списке, на которую сейчас стоит смотреть. */
+    /* Task 21 (фаза 3): метка сезонной подборки — левый верхний угол
+       плитки. Цвет — акцент: это единственная плитка в списке, на которую
+       сейчас стоит смотреть. */
     css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.49em;left:.49em;font-family:' + FB + ';font-weight:500;font-size:1.01em;letter-spacing:.03em;color:' + t.onac + ';background:' + A + ';border-radius:.14em;padding:.17em .31em}');
     /* Task 41: фокус — только увеличение и подложка, без кольца: на плитке
        с кадром рамка читается как ещё одна коробка. Тень вне transition
@@ -4383,8 +4380,6 @@
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;color:' + P.text + '}');
     /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
     css.push('.lumen-grid .lumen-grid__back.focus{background:' + P.text + ';color:' + P.bg + '}');
-    /* Task 20: «Скрыть» стоит слева от «Назад» и отделено от неё зазором. */
-    css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
     /* --- 2026-09-27: фон подборок (разбор — у STAGE_A и в src/46_hub.js,
        ScreenStage) ---

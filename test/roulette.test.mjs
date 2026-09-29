@@ -253,17 +253,13 @@ const manifest = {
     { id: 'trend', title: 'В тренде', group: 'top', sources: { movie: { type: 'discover' }, tv: { type: 'discover' } } },
     { id: 'marvel', title: 'Marvel', group: 'franchise', sources: { movie: { type: 'collection', id: 1 } } },
     { id: 'hbo', title: 'HBO', group: 'studio', sources: { tv: { type: 'discover' } } },
-    { id: 'kp', title: 'Кинопоиск', group: 'kp', sources: { movie: { type: 'kp', collection: 'TOP' } } }
+    { id: 'top', title: 'Кассовые хиты', group: 'top', sources: { movie: { type: 'list', id: 10 } } }
   ]
 };
 
-/* Полное ревью, C6: подборки Кинопоиска — только с ключом API; этим
-   тестам ключ задан (RK). */
-const RK = fresh({ pref: (name, def) => (name === 'lumen_kp_key' ? 'KEY' : def) }).api;
-
 test('collectionsFor: только подборки с источником нужного медиа, подборки главной первыми', () => {
-  const movies = RK.collectionsFor(manifest, 'movie');
-  assert.deepEqual(movies.map((c) => c.id), ['trend', 'marvel', 'kp']);
+  const movies = R.collectionsFor(manifest, 'movie');
+  assert.deepEqual(movies.map((c) => c.id), ['trend', 'marvel', 'top']);
   const tv = R.collectionsFor(manifest, 'tv');
   assert.deepEqual(tv.map((c) => c.id), ['trend', 'hbo']);
   assert.deepEqual(R.collectionsFor(null, 'movie'), []);
@@ -296,10 +292,10 @@ test('parseIds / joinIds: сохранённый набор подборок —
 });
 
 test('sourcesFor: пустой выбор — подборки главной, иначе выбранные, не больше предела', () => {
-  const all = RK.collectionsFor(manifest, 'movie');
+  const all = R.collectionsFor(manifest, 'movie');
   assert.deepEqual(R.sourcesFor(all, [], manifest).map((c) => c.id), ['trend', 'marvel'],
     '«Все» означает набор главной, а не полторы сотни запросов');
-  assert.deepEqual(R.sourcesFor(all, ['kp'], manifest).map((c) => c.id), ['kp']);
+  assert.deepEqual(R.sourcesFor(all, ['top'], manifest).map((c) => c.id), ['top']);
   assert.deepEqual(R.sourcesFor(all, ['нет-такой'], manifest).map((c) => c.id), ['trend', 'marvel'],
     'неизвестные id — как будто выбора нет');
   const many = [];
@@ -2224,28 +2220,6 @@ test('C5: удалённый id в сохранённом наборе — го�
   const chips2 = env2.chips();
   assert.equal(chips2[0].hasClass('lumen-chip--on'), false);
   assert.equal(chips2[1].hasClass('lumen-chip--on'), true, 'существующая подборка из набора не горит');
-});
-
-/* Полное ревью, C6: без ключа API Кинопоиска чип «КП Топ-250» давал «0 в
-   выборке» и «Под фильтры ничего не подошло» — подборка КП без ключа пуста
-   всегда (LC.sources.fetchKp: nokey). Такие подборки рулетке не
-   предлагаются; тот же список решает и кнопку «Крутить по этой подборке» в
-   сетке (LC.hub.rouletteMedia). */
-test('C6: без ключа Кинопоиска его подборок в рулетке нет', () => {
-  assert.deepEqual(R.collectionsFor(manifest, 'movie').map((c) => c.id), ['trend', 'marvel'], 'без LC.pref — ключа нет');
-  const empty = fresh({ pref: (name, def) => (name === 'lumen_kp_key' ? '' : def) }).api;
-  assert.deepEqual(empty.collectionsFor(manifest, 'movie').map((c) => c.id), ['trend', 'marvel']);
-  assert.deepEqual(RK.collectionsFor(manifest, 'movie').map((c) => c.id), ['trend', 'marvel', 'kp']);
-});
-
-test('C6: экран рулетки без ключа — чипа подборки Кинопоиска нет', (t) => {
-  const saved = MANIFEST34.collections;
-  MANIFEST34.collections = saved.concat([{ id: 'kp-top', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } }]);
-  t.after(() => { MANIFEST34.collections = saved; });
-  const env = openRoulette34([R44], t, 1, 'full', { media: 'movie' });
-  assert.equal(env.chips().length, 2, '«Все подборки» и одна подборка — без КП');
-  const keyed = openRoulette34([R44], t, 1, 'full', { media: 'movie' }, null, { lumen_kp_key: 'KEY' });
-  assert.equal(keyed.chips().length, 3, 'с ключом подборка КП на месте');
 });
 
 /* Полное ревью, D1: у «Что посмотреть» свой фон — класс lumen-screen на
