@@ -265,6 +265,22 @@ test('collectionsFor: только подборки с источником ну
   assert.deepEqual(R.collectionsFor(null, 'movie'), []);
 });
 
+/* Раунд r4: режиссёр — фильмография (источник person). Одна «страница» —
+   вся фильмография, как у коллекции: рулетка просит PAGES страниц и
+   получает тот же список дважды — в пуле он один раз. */
+test('рулетка: режиссёр (person) — чип фильмов, фильмография в пуле без повторов', () => {
+  const m = { version: 1, home: [], groups: [{ id: 'people', title: 'Люди' }], collections: [
+    { id: 'wes-anderson', title: 'Уэс Андерсон', group: 'people', sources: { movie: { type: 'person', id: 5655, job: 'Director' } } }
+  ] };
+  assert.deepEqual(R.collectionsFor(m, 'movie').map((c) => c.id), ['wes-anderson']);
+  assert.deepEqual(R.collectionsFor(m, 'tv'), []);
+  const page = [
+    { id: 120467, title: 'Отель «Гранд Будапешт»', release_date: '2014-02-26', poster_path: '/gb.jpg' },
+    { id: 83666, title: 'Королевство полной луны', release_date: '2012-05-16', poster_path: '/mk.jpg' }
+  ];
+  assert.deepEqual(R.buildPool(page.concat(page), 'movie', true).map((c) => c.id), [120467, 83666]);
+});
+
 test('chipList: на экране не весь каталог, но отмеченное видно всегда', () => {
   const list = [];
   for (let i = 0; i < 30; i++) list.push({ id: 'c' + i, title: 'c' + i });

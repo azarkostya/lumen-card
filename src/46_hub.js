@@ -431,12 +431,27 @@
       return any;
     }
 
+    /* Раунд r4: фильмография режиссёра (источник person) — тоже одна
+       «страница» целиком, и путь по годам у неё осмысленный: «По годам»
+       есть, но последним — открывается она, как и прежде, популярными. */
+    function personOnly(item) {
+      var src = (item && item.sources) || {};
+      var any = false;
+      for (var k in src) {
+        if (!src.hasOwnProperty(k) || !src[k]) continue;
+        if (src[k].type !== 'person') return false;
+        any = true;
+      }
+      return any;
+    }
+
     function sortModes(item) {
       var out = [];
       if (byYears(item)) out.push({ id: 'years', key: 'lumen_fr_order_release' });
       out.push({ id: 'popular', key: 'lumen_sort_popular' });
       out.push({ id: 'rating', key: 'lumen_sort_rating' });
       out.push({ id: 'new', key: 'lumen_sort_new' });
+      if (personOnly(item)) out.push({ id: 'years', key: 'lumen_fr_order_release' });
       return out;
     }
 
@@ -475,8 +490,8 @@
     }
 
     /* Нужна ли сортировка на месте: хотя бы один источник не discover
-       (коллекция, список TMDB — их TMDB отдаёт одним куском в своём
-       порядке). */
+       (коллекция, список TMDB, фильмография person — их TMDB отдаёт одним
+       куском в своём порядке). */
     function needsLocalSort(item) {
       var src = (item && item.sources) || {};
       var k;

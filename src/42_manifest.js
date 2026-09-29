@@ -1852,7 +1852,8 @@
          filter — вида with_runtime.lte, значения — числа или строки из
          [\w.,|:-]), collection/list (числовой id; у collection ещё
          необязательные also и movies — непустые массивы до 24 числовых id,
-         а с базовой коллекцией вместе — не больше SET_TOTAL запросов);
+         а с базовой коллекцией вместе — не больше SET_TOTAL запросов),
+         person (id человека — положительное целое, job — из PERSON_JOBS);
          снятый тип (RETIRED ниже) не проверяется, а убирается;
        - темы: id и preset — [a-z0-9-], accent — #rrggbb;
        - необязательные поля подборки (финальная проверка, L3): season —
@@ -1938,8 +1939,26 @@
       return true;
     }
 
+    /* Фильмография человека (тип person, src/43_sources.js): id — id
+       человека TMDB, положительное целое (числом или строкой цифр); job —
+       должность в crew, по умолчанию Director. Должности — из списка:
+       значение в адрес запроса не уходит, но опечатка («director») дала бы
+       пустую подборку без всякой ошибки. */
+    var PERSON_ID_RE = /^[1-9]\d{0,11}$/;
+    var PERSON_JOBS = {
+      Director: 1, Writer: 1, Screenplay: 1, Producer: 1,
+      'Executive Producer': 1, 'Director of Photography': 1, 'Original Music Composer': 1, Editor: 1
+    };
+
+    function personOk(spec) {
+      if ((typeof spec.id !== 'number' && typeof spec.id !== 'string') || !PERSON_ID_RE.test(String(spec.id))) return false;
+      if (typeof spec.job === 'undefined') return true;
+      return typeof spec.job === 'string' && PERSON_JOBS.hasOwnProperty(spec.job);
+    }
+
     function specOk(spec) {
       if (!spec || typeof spec !== 'object') return false;
+      if (spec.type === 'person') return personOk(spec);
       if (spec.type === 'collection') {
         if (!NUM_ID_RE.test(String(spec.id))) return false;
         if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;

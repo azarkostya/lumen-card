@@ -149,12 +149,71 @@
       return out;
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Фильмография человека (тип person, раунд r4 2026-09-29).            */
+    /*                                                                     */
+    /* Режиссёры в каталоге были discover с with_crew — это ЛЮБАЯ роль в   */
+    /* съёмочной группе: продюсер, сценарист, даже «Thanks» в титрах. У    */
+    /* Уэса Андерсона четвёртым шёл «Трудности перевода» Копполы, у        */
+    /* Спилберга — «Назад в будущее» и «Шрек» (живые запросы, разбор у     */
+    /* группы people в src/42_manifest.js). Отсечь «не режиссёр» discover  */
+    /* не умеет, поэтому источник person — один запрос                     */
+    /* person/{id}/movie_credits (tv_credits у сериального источника), из  */
+    /* crew — только записи с нужной должностью (job, по умолчанию         */
+    /* Director). Одна «страница» — вся фильмография, как у коллекции:     */
+    /* порядок в сетке задаёт сортировка на месте (LC.hub.needsLocalSort), */
+    /* а ряд, плитка и рулетка получают список по популярности.            */
+    /* Без записей adult и без постера: у фильмографии это короткий метр, */
+    /* ролики и анонсы без картинки — в ряду они встали бы пустыми         */
+    /* плитками. Язык — как у всех запросов: его дописывает Lampa.          */
+    /* ------------------------------------------------------------------ */
+    var PERSON_JOB = 'Director';
+
+    function personJob(job) {
+      return typeof job === 'string' && job ? job : PERSON_JOB;
+    }
+
+    /* Карточка из записи crew: те же поля, что у карточки discover, без
+       полей роли (credit_id, department, job) — они в DOM и в кэш рядов не
+       нужны. */
+    function creditCard(c) {
+      var out = {};
+      for (var k in c) {
+        if (c.hasOwnProperty(k) && k !== 'credit_id' && k !== 'department' && k !== 'job') out[k] = c[k];
+      }
+      return out;
+    }
+
+    /* Работы человека в должности job: без повторов (id), без adult и без
+       постера, по популярности (при равной — порядок ответа). */
+    function credits(json, job) {
+      var want = personJob(job);
+      var list = (json && json.crew) || [];
+      var out = [];
+      var seen = {};
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (!c || !c.id || c.job !== want || c.adult || !c.poster_path || seen[c.id]) continue;
+        seen[c.id] = 1;
+        out.push({ card: creditCard(c), at: out.length });
+      }
+      out.sort(function (a, b) {
+        var d = (Number(b.card.popularity) || 0) - (Number(a.card.popularity) || 0);
+        return d || a.at - b.at;
+      });
+      for (var j = 0; j < out.length; j++) out[j] = out[j].card;
+      return out;
+    }
+
     /* Строит параметры запроса к Lampa.Api.sources.tmdb.get.
-       Для collection/list — фиксированный URL без page (TMDB отдаёт всё сразу).
+       Для collection/list/person — фиксированный URL без page (TMDB отдаёт всё сразу).
        Для discover — page обязателен. */
     function buildRequest(spec, media, page) {
       if (spec.type === 'collection') {
         return { url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
+      }
+      if (spec.type === 'person') {
+        return { url: 'person/' + encodeURIComponent(spec.id) + '/' + (media === 'tv' ? 'tv' : 'movie') + '_credits', params: {}, life: LIFE_STATIC };
       }
       if (spec.type === 'list') {
         return { url: 'list/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
@@ -174,9 +233,10 @@
     /* Нормализует ответ TMDB к единому виду {results, title, page, total_*}.
        collection → parts[], сортировка по release_date ASC (хронологический порядок).
        list → items[].
+       person → crew[] в должности job (credits выше), по популярности.
        discover → results[] (уже в нужном виде).
        Мутирует копию массива, а не оригинал (slice()). */
-    function normalize(type, json) {
+    function normalize(type, json, job) {
       json = json || {};
       var results;
       if (type === 'collection') {
@@ -190,6 +250,8 @@
         });
       } else if (type === 'list') {
         results = (json.items || []).slice();
+      } else if (type === 'person') {
+        results = credits(json, job);
       } else {
         results = (json.results || []).slice();
       }
@@ -419,7 +481,7 @@
     }
 
     /* Типы источников, которые здесь умеют запрашивать. */
-    var KNOWN = { discover: 1, collection: 1, list: 1 };
+    var KNOWN = { discover: 1, collection: 1, list: 1, person: 1 };
 
     function known(spec) {
       return !!(spec && KNOWN.hasOwnProperty(spec.type));
@@ -446,7 +508,7 @@
         r.params,
         function (json) {
           if (dead()) return;
-          var data = normalize(spec.type, json);
+          var data = normalize(spec.type, json, spec.job);
           /* Ток-шоу и подкасты — только в discover/tv: коллекции и списки
              TMDB — ручной отбор, у фильмов жанра Talk нет (разбор у
              talkOnly выше). */
@@ -463,8 +525,8 @@
        sort_by, поэтому без подписи запрос «та же подборка, другая сортировка»
        подписывался бы на уже летящий с прежним порядком и получал бы чужой
        ответ: сетка показывала порядок манифеста, а подпись — выбранный
-       пользователем. Считается только по discover-источникам: у collection
-       и list порядок задаёт не запрос, а сортировка на месте. */
+       пользователем. Считается только по discover-источникам: у collection,
+       list и person порядок задаёт не запрос, а сортировка на месте. */
     function sortSignature(item) {
       var src = (item && item.sources) || {};
       var parts = [];
@@ -834,6 +896,7 @@
         }
         var one = buildRequest(spec, media, page || 1);
         one.kind = spec.type;
+        one.job = spec.job;
         jobs.push(one);
       });
 
@@ -853,7 +916,7 @@
           r.url,
           params,
           function (json) {
-            if (!dead()) posterIndex(r.kind === 'movie' ? [json] : normalize(r.kind, json).results, map);
+            if (!dead()) posterIndex(r.kind === 'movie' ? [json] : normalize(r.kind, json, r.job).results, map);
             gate.tick();
           },
           function () { gate.tick(); },

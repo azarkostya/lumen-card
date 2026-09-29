@@ -354,6 +354,35 @@ test('sortModes: у подборки из коллекций первым — «
   });
 });
 
+/* Раунд r4: режиссёр — фильмография целиком (источник person). Сетка
+   открывается популярными, «По годам» — последним чипом; сортировка — на
+   месте, запрос тот же. */
+test('sortModes: у фильмографии режиссёра «По годам» последним, открывается популярными, сортировка на месте', function () {
+  var person = { id: 'wes-anderson', sources: { movie: { type: 'person', id: 5655, job: 'Director' } } };
+  assert.deepEqual(H.sortModes(person).map(function (x) { return x.id; }), ['popular', 'rating', 'new', 'years']);
+  assert.equal(H.sortModes(person)[3].key, 'lumen_fr_order_release');
+  assert.equal(H.defaultSort(person), 'popular');
+  assert.equal(H.needsLocalSort(person), true);
+  assert.equal(H.applySort(person, 'rating').sources.movie, person.sources.movie, 'источник person не переписывается');
+  var mixed = { id: 'm', sources: { movie: { type: 'person', id: 1 }, tv: { type: 'discover', params: {} } } };
+  assert.deepEqual(H.sortModes(mixed).map(function (x) { return x.id; }), ['popular', 'rating', 'new']);
+  var films = [
+    { id: 1, title: 'a', popularity: 5, vote_average: 9, release_date: '2014-02-26' },
+    { id: 2, title: 'b', popularity: 9, vote_average: 7, release_date: '1996-02-21' },
+    { id: 3, title: 'c', popularity: 7, vote_average: 8, release_date: '2023-06-01' }
+  ];
+  assert.deepEqual(H.sortLocal(films, 'popular').map(function (c) { return c.id; }), [2, 3, 1]);
+  assert.deepEqual(H.sortLocal(films, 'rating').map(function (c) { return c.id; }), [1, 3, 2]);
+  assert.deepEqual(H.sortLocal(films, 'new').map(function (c) { return c.id; }), [3, 1, 2]);
+  assert.deepEqual(H.sortLocal(films, 'years').map(function (c) { return c.id; }), [2, 1, 3]);
+});
+
+test('openTarget: режиссёр открывается своей сеткой — штатная category_full фильмографию не умеет', function () {
+  var t = H.openTarget({ id: 'wes-anderson', title: 'Уэс Андерсон', sources: { movie: { type: 'person', id: 5655, job: 'Director' } } });
+  assert.equal(t.component, 'lumen_grid');
+  assert.equal(t.lumen.id, 'wes-anderson');
+});
+
 test('sortLocal: years — старые первыми, анонс без даты в конце', function () {
   var list = [
     { id: 1, release_date: '2017-07-05' }, { id: 2, release_date: '' },
