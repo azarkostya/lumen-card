@@ -3314,11 +3314,11 @@ sources:{tv:{type:'discover',params:{sort_by:'vote_count.desc',filter:{'first_ai
 },
 {
 id:'nolan',title:'Кристофер Нолан',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:525}}}}
+sources:{movie:{type:'person',id:525,job:'Director'}}
 },
 {
 id:'tarantino',title:'Квентин Тарантино',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:138}}}}
+sources:{movie:{type:'person',id:138,job:'Director'}}
 },
 {
 id:'dicaprio',title:'Леонардо ДиКаприо',group:'people',
@@ -3326,43 +3326,43 @@ sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_c
 },
 {
 id:'spielberg',title:'Стивен Спилберг',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:488}}}}
+sources:{movie:{type:'person',id:488,job:'Director'}}
 },
 {
 id:'fincher',title:'Дэвид Финчер',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:7467}}}}
+sources:{movie:{type:'person',id:7467,job:'Director'}}
 },
 {
 id:'scorsese',title:'Мартин Скорсезе',group:'people',cover:'/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:1032}}}}
+sources:{movie:{type:'person',id:1032,job:'Director'}}
 },
 {
 id:'villeneuve',title:'Дени Вильнёв',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:137427}}}}
+sources:{movie:{type:'person',id:137427,job:'Director'}}
 },
 {
 id:'miyazaki',title:'Хаяо Миядзаки',group:'people',animation:true,cover:'/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:608}}}}
+sources:{movie:{type:'person',id:608,job:'Director'}}
 },
 {
 id:'ridley-scott',title:'Ридли Скотт',group:'people',cover:'/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:578}}}}
+sources:{movie:{type:'person',id:578,job:'Director'}}
 },
 {
 id:'cameron',title:'Джеймс Кэмерон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:2710}}}}
+sources:{movie:{type:'person',id:2710,job:'Director'}}
 },
 {
 id:'del-toro',title:'Гильермо дель Торо',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:10828}}}}
+sources:{movie:{type:'person',id:10828,job:'Director'}}
 },
 {
 id:'wes-anderson',title:'Уэс Андерсон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:5655}}}}
+sources:{movie:{type:'person',id:5655,job:'Director'}}
 },
 {
 id:'coen-brothers',title:'Братья Коэн',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:'1223|1224'}}}}
+sources:{movie:{type:'person',id:1223,job:'Director'}}
 },
 {
 id:'tom-hanks',title:'Том Хэнкс',group:'people',cover:'/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
@@ -3386,7 +3386,7 @@ sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_c
 },
 {
 id:'kubrick',title:'Стэнли Кубрик',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:240}}}}
+sources:{movie:{type:'person',id:240,job:'Director'}}
 },
 {
 id:'de-niro',title:'Роберт Де Ниро',group:'people',
@@ -3398,31 +3398,31 @@ sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_c
 },
 {
 id:'hitchcock',title:'Альфред Хичкок',i18n:{en:'Alfred Hitchcock',uk:'Альфред Гічкок'},group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:2636}}}}
+sources:{movie:{type:'person',id:2636,job:'Director'}}
 },
 {
 id:'kurosawa',title:'Акира Куросава',i18n:{en:'Akira Kurosawa',uk:'Акіра Куросава'},group:'people',
-sources:{movie:{type:'discover',params:{orig_lang:'ja',sort_by:'popularity.desc',filter:{with_crew:5026}}}}
+sources:{movie:{type:'person',id:5026,job:'Director'}}
 },
 {
 id:'tarkovsky',title:'Андрей Тарковский',i18n:{en:'Andrei Tarkovsky',uk:'Андрій Тарковський'},group:'people',
-sources:{movie:{type:'discover',params:{orig_lang:'ru|it|sv',sort_by:'popularity.desc',filter:{with_crew:8452}}}}
+sources:{movie:{type:'person',id:8452,job:'Director'}}
 },
 {
 id:'lynch',title:'Дэвид Линч',i18n:{en:'David Lynch',uk:'Девід Лінч'},group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:5602}}}}
+sources:{movie:{type:'person',id:5602,job:'Director'}}
 },
 {
 id:'burton',title:'Тим Бёртон',i18n:{en:'Tim Burton',uk:'Тім Бертон'},group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:510}}}}
+sources:{movie:{type:'person',id:510,job:'Director'}}
 },
 {
 id:'ritchie',title:'Гай Ричи',i18n:{en:'Guy Ritchie',uk:'Гай Річі'},group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:956}}}}
+sources:{movie:{type:'person',id:956,job:'Director'}}
 },
 {
 id:'bong-joon-ho',title:'Пон Джун Хо',i18n:{en:'Bong Joon Ho',uk:'Пон Джун Хо'},group:'people',cover:'/8eihUxjQsJ7WvGySkVMC0EwbPAD.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:21684}}}}
+sources:{movie:{type:'person',id:21684,job:'Director'}}
 },
 {
 id:'top-grossing',title:'Кассовые хиты',group:'top',
@@ -3602,8 +3602,19 @@ if((typeof v[i]!=='number'&&typeof v[i]!=='string')||!NUM_ID_RE.test(String(v[i]
 }
 return true;
 }
+var PERSON_ID_RE=/^[1-9]\d{0,11}$/;
+var PERSON_JOBS={
+Director:1,Writer:1,Screenplay:1,Producer:1,
+'Executive Producer':1,'Director of Photography':1,'Original Music Composer':1,Editor:1
+};
+function personOk(spec){
+if((typeof spec.id!=='number'&&typeof spec.id!=='string')||!PERSON_ID_RE.test(String(spec.id)))return false;
+if(typeof spec.job==='undefined')return true;
+return typeof spec.job==='string'&&PERSON_JOBS.hasOwnProperty(spec.job);
+}
 function specOk(spec){
 if(!spec||typeof spec!=='object')return false;
+if(spec.type==='person')return personOk(spec);
 if(spec.type==='collection'){
 if(!NUM_ID_RE.test(String(spec.id)))return false;
 if(typeof spec.also!=='undefined'&&!idsOk(spec.also))return false;
@@ -3871,9 +3882,41 @@ if(f.hasOwnProperty(k)&&FILTER_KEY.test(k)&&safeValue(f[k]))out[k]=f[k];
 }
 return out;
 }
+var PERSON_JOB='Director';
+function personJob(job){
+return typeof job==='string'&&job?job:PERSON_JOB;
+}
+function creditCard(c){
+var out={};
+for(var k in c){
+if(c.hasOwnProperty(k)&&k!=='credit_id'&&k!=='department'&&k!=='job')out[k]=c[k];
+}
+return out;
+}
+function credits(json,job){
+var want=personJob(job);
+var list=(json&&json.crew)||[];
+var out=[];
+var seen={};
+for(var i=0;i<list.length;i++){
+var c=list[i];
+if(!c||!c.id||c.job!==want||c.adult||!c.poster_path||seen[c.id])continue;
+seen[c.id]=1;
+out.push({card:creditCard(c),at:out.length});
+}
+out.sort(function(a,b){
+var d=(Number(b.card.popularity)||0)-(Number(a.card.popularity)||0);
+return d||a.at-b.at;
+});
+for(var j=0;j<out.length;j++)out[j]=out[j].card;
+return out;
+}
 function buildRequest(spec,media,page){
 if(spec.type==='collection'){
 return{url:'collection/'+encodeURIComponent(spec.id),params:{},life:LIFE_STATIC};
+}
+if(spec.type==='person'){
+return{url:'person/'+encodeURIComponent(spec.id)+'/'+(media==='tv'?'tv':'movie')+'_credits',params:{},life:LIFE_STATIC};
 }
 if(spec.type==='list'){
 return{url:'list/'+encodeURIComponent(spec.id),params:{},life:LIFE_STATIC};
@@ -3889,7 +3932,7 @@ else if(MAP.hasOwnProperty(k)&&safeValue(src[k]))params[k]=src[k];
 params.page=page||1;
 return{url:'discover/'+media,params:params,life:LIFE_DISCOVER};
 }
-function normalize(type,json){
+function normalize(type,json,job){
 json=json||{};
 var results;
 if(type==='collection'){
@@ -3903,6 +3946,8 @@ return 0;
 });
 }else if(type==='list'){
 results=(json.items||[]).slice();
+}else if(type==='person'){
+results=credits(json,job);
 }else{
 results=(json.results||[]).slice();
 }
@@ -4068,7 +4113,7 @@ if(!seen[kt]){seen[kt]=1;out.push(b[i]);}
 }
 return out;
 }
-var KNOWN={discover:1,collection:1,list:1};
+var KNOWN={discover:1,collection:1,list:1,person:1};
 function known(spec){
 return!!(spec&&KNOWN.hasOwnProperty(spec.type));
 }
@@ -4083,7 +4128,7 @@ r.url,
 r.params,
 function(json){
 if(dead())return;
-var data=normalize(spec.type,json);
+var data=normalize(spec.type,json,spec.job);
 ok(spec.type==='discover'&&media==='tv'?dropTalk(data):data);
 },
 function(e){if(!dead())err(e);},
@@ -4282,6 +4327,7 @@ return;
 }
 var one=buildRequest(spec,media,page||1);
 one.kind=spec.type;
+one.job=spec.job;
 jobs.push(one);
 });
 var map={};
@@ -4299,7 +4345,7 @@ Lampa.Api.sources.tmdb.get(
 r.url,
 params,
 function(json){
-if(!dead())posterIndex(r.kind==='movie'?[json]:normalize(r.kind,json).results,map);
+if(!dead())posterIndex(r.kind==='movie'?[json]:normalize(r.kind,json,r.job).results,map);
 gate.tick();
 },
 function(){gate.tick();},
@@ -5893,12 +5939,23 @@ any=true;
 }
 return any;
 }
+function personOnly(item){
+var src=(item&&item.sources)||{};
+var any=false;
+for(var k in src){
+if(!src.hasOwnProperty(k)||!src[k])continue;
+if(src[k].type!=='person')return false;
+any=true;
+}
+return any;
+}
 function sortModes(item){
 var out=[];
 if(byYears(item))out.push({id:'years',key:'lumen_fr_order_release'});
 out.push({id:'popular',key:'lumen_sort_popular'});
 out.push({id:'rating',key:'lumen_sort_rating'});
 out.push({id:'new',key:'lumen_sort_new'});
+if(personOnly(item))out.push({id:'years',key:'lumen_fr_order_release'});
 return out;
 }
 function defaultSort(item){

@@ -3817,13 +3817,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 525
-            }
-          }
+          "type": "person",
+          "id": 525,
+          "job": "Director"
         }
       }
     },
@@ -3833,13 +3829,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 138
-            }
-          }
+          "type": "person",
+          "id": 138,
+          "job": "Director"
         }
       }
     },
@@ -3865,13 +3857,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 488
-            }
-          }
+          "type": "person",
+          "id": 488,
+          "job": "Director"
         }
       }
     },
@@ -3881,13 +3869,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 7467
-            }
-          }
+          "type": "person",
+          "id": 7467,
+          "job": "Director"
         }
       }
     },
@@ -3898,13 +3882,9 @@
       "cover": "/6aoyUbvu0419XLKLIMoH0TkEicH.jpg",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 1032
-            }
-          }
+          "type": "person",
+          "id": 1032,
+          "job": "Director"
         }
       }
     },
@@ -3914,13 +3894,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 137427
-            }
-          }
+          "type": "person",
+          "id": 137427,
+          "job": "Director"
         }
       }
     },
@@ -3932,13 +3908,9 @@
       "cover": "/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 608
-            }
-          }
+          "type": "person",
+          "id": 608,
+          "job": "Director"
         }
       }
     },
@@ -3949,13 +3921,9 @@
       "cover": "/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 578
-            }
-          }
+          "type": "person",
+          "id": 578,
+          "job": "Director"
         }
       }
     },
@@ -3965,13 +3933,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 2710
-            }
-          }
+          "type": "person",
+          "id": 2710,
+          "job": "Director"
         }
       }
     },
@@ -3981,13 +3945,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 10828
-            }
-          }
+          "type": "person",
+          "id": 10828,
+          "job": "Director"
         }
       }
     },
@@ -3997,13 +3957,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 5655
-            }
-          }
+          "type": "person",
+          "id": 5655,
+          "job": "Director"
         }
       }
     },
@@ -4013,13 +3969,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": "1223|1224"
-            }
-          }
+          "type": "person",
+          "id": 1223,
+          "job": "Director"
         }
       }
     },
@@ -4112,13 +4064,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 240
-            }
-          }
+          "type": "person",
+          "id": 240,
+          "job": "Director"
         }
       }
     },
@@ -4165,13 +4113,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 2636
-            }
-          }
+          "type": "person",
+          "id": 2636,
+          "job": "Director"
         }
       }
     },
@@ -4185,14 +4129,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "orig_lang": "ja",
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 5026
-            }
-          }
+          "type": "person",
+          "id": 5026,
+          "job": "Director"
         }
       }
     },
@@ -4206,14 +4145,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "orig_lang": "ru|it|sv",
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 8452
-            }
-          }
+          "type": "person",
+          "id": 8452,
+          "job": "Director"
         }
       }
     },
@@ -4227,13 +4161,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 5602
-            }
-          }
+          "type": "person",
+          "id": 5602,
+          "job": "Director"
         }
       }
     },
@@ -4247,13 +4177,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 510
-            }
-          }
+          "type": "person",
+          "id": 510,
+          "job": "Director"
         }
       }
     },
@@ -4267,13 +4193,9 @@
       "group": "people",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 956
-            }
-          }
+          "type": "person",
+          "id": 956,
+          "job": "Director"
         }
       }
     },
@@ -4288,13 +4210,9 @@
       "cover": "/8eihUxjQsJ7WvGySkVMC0EwbPAD.jpg",
       "sources": {
         "movie": {
-          "type": "discover",
-          "params": {
-            "sort_by": "popularity.desc",
-            "filter": {
-              "with_crew": 21684
-            }
-          }
+          "type": "person",
+          "id": 21684,
+          "job": "Director"
         }
       }
     },
