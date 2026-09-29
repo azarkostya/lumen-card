@@ -580,7 +580,9 @@
      запуск ничего не пишет: миграция идемпотентна без отдельной метки
      версии. Булевы — строками: JS-false Lampa отдаёт из памяти как false,
      а LC.pref не отличит его от «нет значения» (boolOf выше).
-     Каждый шаг — в своём try: сбой одного не отменяет остальные. */
+     Каждый шаг — в своём try: сбой одного не отменяет остальные.
+
+     После 1.0.2 — кэш снятых подборок Кинопоиска (KP_CACHE ниже). */
   LC.migratePrefs = function () {
     if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
     if (typeof Lampa.Storage.get !== 'function') return;
@@ -619,7 +621,48 @@
     step(function () {
       if (off('lumen_minimap') && off('lumen_fastscroll') && !off('lumen_remote_boost')) Lampa.Storage.set('lumen_remote_boost', 'false');
     });
+    step(dropKpCache);
   };
+
+  /* После 1.0.2: подборки Кинопоиска сняты (src/42_manifest.js, RETIRED), а
+     их кэш остался в localStorage и занимает квоту, нужную отзывам:
+     страницы lumen_kp_<КОЛЛЕКЦИЯ>_<страница> и постеры плиток
+     lumen_kpp_<КОЛЛЕКЦИЯ> — до 60 записей по индексу lumen_sources_index,
+     плюс отметки неудач на 10 минут, которые в индекс не попадали (их
+     находит перебор localStorage). Коллекция КП в имени — заглавными
+     ([A-Z0-9_], как TOP_250_MOVIES), поэтому ключ API lumen_kp_key и
+     lumen_kp_hint под шаблон не подпадают, откуда бы имя ни пришло — из
+     индекса или из перебора.
+     Удаление — как у кэшей плагина (drop в src/60_reviews.js): значение
+     обнуляется через Lampa.Storage.set (её кэш readed в памяти), а сам ключ
+     убирается из localStorage. lumen_home_rows не переписывается: id
+     снятых подборок из него и так отбрасывает LC.rows.knownIds, а запись
+     сломала бы откат на 1.0.2. Повторный запуск ничего не пишет: индекса и
+     ключей под шаблон уже нет. */
+  var KP_CACHE = /^lumen_kpp?_[A-Z0-9_]+$/;
+  var KP_INDEX = 'lumen_sources_index';
+
+  function dropKpCache() {
+    var ls = null;
+    try { ls = window.localStorage || null; } catch (e) { ls = null; }
+    var keys = [];
+    function add(k) {
+      if (typeof k === 'string' && KP_CACHE.test(k) && keys.indexOf(k) === -1) keys.push(k);
+    }
+    var index = Lampa.Storage.get(KP_INDEX, '');
+    var i;
+    if (Array.isArray(index)) for (i = 0; i < index.length; i++) add(index[i]);
+    if (ls) {
+      try {
+        for (i = 0; i < ls.length; i++) add(ls.key(i));
+      } catch (eKeys) { warn('prefs migrate: kp cache scan failed', eKeys); }
+    }
+    if (index !== '' && index !== null && typeof index !== 'undefined') keys.push(KP_INDEX);
+    for (i = 0; i < keys.length; i++) {
+      try { Lampa.Storage.set(keys[i], '', true); } catch (eSet) { }
+      try { if (ls) ls.removeItem(keys[i]); } catch (eRemove) { }
+    }
+  }
 
   LC.motionModeFor = LC.prefs.motionModeFor;
 

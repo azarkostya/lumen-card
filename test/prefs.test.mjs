@@ -752,7 +752,9 @@ function withPrefs(opts, fn) {
   };
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
   const prev = globalThis.window;
-  globalThis.window = { Lampa };
+  /* После 1.0.2: миграция кэша Кинопоиска перебирает localStorage — тесты
+     кладут свой (fakeLocalStorage ниже); без него его нет вовсе. */
+  globalThis.window = opts.localStorage ? { Lampa, localStorage: opts.localStorage } : { Lampa };
   globalThis.Lampa = Lampa;
   try {
     const src = readFileSync(new URL('../src/81_prefs.js', import.meta.url), 'utf8');
@@ -1028,6 +1030,69 @@ test('1.0.2: сбой одного шага миграции не отменяе
   }
   assert.deepEqual(writes, [['lumen_badges', 'poster'], ['lumen_fx', 'seasonal']]);
   assert.equal(warns.length, 1);
+});
+
+/* ====================================================================== */
+/* После 1.0.2: кэш снятых подборок Кинопоиска.                            */
+/*                                                                         */
+/* Страницы lumen_kp_<КОЛЛЕКЦИЯ>_<страница>, постеры плиток                */
+/* lumen_kpp_<КОЛЛЕКЦИЯ> и их индекс lumen_sources_index занимают квоту    */
+/* localStorage, нужную отзывам. Миграция удаляет их один раз (второй      */
+/* запуск ничего не пишет), не трогая ключ API, подсказку, состав рядов    */
+/* главной и кэш отзывов.                                                  */
+/* ====================================================================== */
+
+function fakeLocalStorage(data) {
+  const removed = [];
+  return {
+    data, removed,
+    get length() { return Object.keys(data).length; },
+    key(i) { const k = Object.keys(data)[i]; return k === undefined ? null : k; },
+    getItem(k) { return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+    removeItem(k) { removed.push(k); delete data[k]; }
+  };
+}
+
+test('после 1.0.2: migratePrefs удаляет кэш подборок Кинопоиска и его индекс — один раз', () => {
+  const index = ['lumen_kp_TOP_250_MOVIES_1', 'lumen_kpp_TOP_250_MOVIES', 'lumen_kp_TOP_250_MOVIES_2'];
+  const store = { lumen_sources_index: index.slice(), lumen_kp_key: 'СЕКРЕТ', lumen_kp_hint: 'false', lumen_home_rows: 'kp-top250,star-wars' };
+  const ls = fakeLocalStorage({
+    lumen_kp_TOP_250_MOVIES_1: '{}', lumen_kpp_TOP_250_MOVIES: '{}', lumen_kp_TOP_250_MOVIES_2: '{}',
+    /* Отметка неудачи на 10 минут: в индекс она не попадала. */
+    lumen_kp_POPULAR_SERIES_1: '{}',
+    lumen_sources_index: '[]',
+    lumen_kp_key: 'СЕКРЕТ', lumen_kp_hint: 'false', lumen_home_rows: 'kp-top250,star-wars',
+    lumen_rv_tt0111161: '{}', lumen_rv_index: '[]', lumen_manifest: '{}'
+  });
+  const writes = [];
+  withPrefs({ store, writes, localStorage: ls }, (LC) => { LC.migratePrefs(); LC.migratePrefs(); });
+  const gone = index.concat(['lumen_kp_POPULAR_SERIES_1', 'lumen_sources_index']);
+  assert.deepEqual(writes.map((w) => w[0]).sort(), gone.slice().sort(), 'каждый ключ — одной записью, второй запуск молчит');
+  for (const w of writes) assert.equal(w[1], '', 'значение обнуляется через Lampa.Storage: ' + w[0]);
+  assert.deepEqual(ls.removed.slice().sort(), gone.slice().sort(), 'и ключ уходит из localStorage');
+  assert.deepEqual(Object.keys(ls.data).sort(),
+    ['lumen_home_rows', 'lumen_kp_hint', 'lumen_kp_key', 'lumen_manifest', 'lumen_rv_index', 'lumen_rv_tt0111161']);
+  assert.equal(store.lumen_kp_key, 'СЕКРЕТ', 'ключ API — отзывам');
+  assert.equal(store.lumen_kp_hint, 'false');
+  assert.equal(store.lumen_home_rows, 'kp-top250,star-wars', 'состав рядов не переписывается: откат на 1.0.2');
+});
+
+/* Имя из индекса — только вида кэша КП: мусор или чужой ключ в индексе
+   (хоть сам ключ API) не удаляется. localStorage недоступен — индекс
+   чистится через Lampa.Storage, как у прочих шагов. */
+test('после 1.0.2: миграция кэша Кинопоиска — только имена его вида, без localStorage — через Storage', () => {
+  const store = { lumen_sources_index: ['lumen_kp_key', 'lumen_kp_hint', 'lumen_rv_index', 'lumen_kpp_X', 5, null, 'lumen_kp_top_1'] };
+  const writes = [];
+  withPrefs({ store, writes }, (LC) => LC.migratePrefs());
+  assert.deepEqual(writes, [['lumen_kpp_X', ''], ['lumen_sources_index', '']]);
+});
+
+test('после 1.0.2: кэша Кинопоиска нет — миграция ничего не пишет и не удаляет', () => {
+  const ls = fakeLocalStorage({ lumen_kp_key: 'K', lumen_kp_hint: 'false', lumen_rv_tt1: '{}', lumen_home_rows: 'kp-top250' });
+  const writes = [];
+  withPrefs({ store: { lumen_kp_key: 'K' }, writes, localStorage: ls }, (LC) => LC.migratePrefs());
+  assert.deepEqual(writes, []);
+  assert.deepEqual(ls.removed, []);
 });
 
 /* Частичный выбор дочитывается местами чтения — сверка по исходникам:
