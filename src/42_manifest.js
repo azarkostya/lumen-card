@@ -1424,7 +1424,7 @@
           sources: { movie: { type: 'discover', params: { orig_lang: 'ko', sort_by: 'popularity.desc', filter: { with_origin_country: 'KR', 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'hongkong-china', title: 'Кино Китая и Гонконга', i18n: { en: 'Chinese & Hong Kong Cinema', uk: 'Кіно Китаю та Гонконгу' }, group: 'country', cover: '/9JZKUOQdQPTJ4OdYKttYOQCREdw.jpg',
+          id: 'hongkong-china', title: 'Кино Китая и Гонконга', i18n: { en: 'Chinese & Hong Kong Cinema', uk: 'Кіно Китаю та Гонконгу' }, group: 'country', cover: '/nSm9cij9VRrGDoZoS16CPnX0FqK.jpg',
           sources: { movie: { type: 'discover', params: { orig_lang: 'zh|cn', sort_by: 'popularity.desc', filter: { with_origin_country: 'CN|HK', 'vote_count.gte': 100 } } } }
         },
         {
@@ -1669,15 +1669,6 @@
           sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200, 'vote_average.gte': 8 } } } }
         },
 
-        /* Раунд r4 (2026-09-29): завершённые сериалы (with_status 3 —
-           «Ended»), по оценке, от 1000 голосов, без документальных и детских:
-           «Во все тяжкие», «Аватар: Легенда об Аанге», «Аркейн», «Чернобыль»,
-           «Лучше звоните Солу», «Сопрано», «Прослушка». */
-        {
-          id: 'ended-series', title: 'Завершённые сериалы', i18n: { en: 'Completed Series', uk: 'Завершені серіали' }, group: 'top', cover: '/wYisyC5IeuAN5WB5X81eMDcUdwu.jpg',
-          sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_status: 3, without_genres: '99,10762', 'vote_average.gte': 7.5, 'vote_count.gte': 1000 } } } }
-        },
-
         /* Замена «КП Популярные сериалы» (после 1.0.2) — сериальная половина
            «Популярного сейчас» (от 50 голосов, по популярности) без новостей
            (10763). Живой запрос TMDB через Lampa (ru-RU, 2026-09-29): ток-шоу
@@ -1690,6 +1681,15 @@
         {
           id: 'popular-series', title: 'Популярные сериалы', i18n: { en: 'Popular Series', uk: 'Популярні серіали' }, group: 'top', cover: '/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg',
           sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { without_genres: '10763', 'vote_count.gte': 50 } } } }
+        },
+
+        /* Раунд r4 (2026-09-29): завершённые сериалы (with_status 3 —
+           «Ended»), по оценке, от 1000 голосов, без документальных и детских:
+           «Во все тяжкие», «Аватар: Легенда об Аанге», «Аркейн», «Чернобыль»,
+           «Лучше звоните Солу», «Сопрано», «Прослушка». */
+        {
+          id: 'ended-series', title: 'Завершённые сериалы', i18n: { en: 'Completed Series', uk: 'Завершені серіали' }, group: 'top', cover: '/wYisyC5IeuAN5WB5X81eMDcUdwu.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_status: 3, without_genres: '99,10762', 'vote_average.gte': 7.5, 'vote_count.gte': 1000 } } } }
         }
 
       ], /* /collections */

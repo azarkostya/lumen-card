@@ -924,7 +924,7 @@ test('r4: 30 новых подборок — в своих группах, в к
     }
   }
   assert.equal(n, 30);
-  assert.equal(all.filter(c => c.sources.tv).length, 53, 'подборок с сериалами было 39');
+  assert.equal(all.filter(c => c.sources.tv).length, 54, 'подборок с сериалами было 39; +14 r4, +1 «Популярные сериалы» вместо КП');
   /* Детских сериалов не было ни одного: жанр TV 10762 — только в запретах. */
   const kidsTv = all.filter(c => c.sources.tv && String(c.sources.tv.params.genres || '').split(/[,|]/).indexOf('10762') !== -1);
   assert.deepEqual(kidsTv.map(c => c.id).sort(), ['kids-toons', 'toddlers']);
