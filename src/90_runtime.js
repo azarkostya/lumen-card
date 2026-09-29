@@ -1632,6 +1632,35 @@
     /* Ревью 1.0.2: «Назад» второго экрана настроек переживает
        Lampa.Settings.update() (src/80_settings.js, moreOpened). */
     if (LC.followMoreBack) LC.followMoreBack(true);
+    /* 1.2: окно «Что нового», если detect() в LC.init его ждёт; показ —
+       только поверх готовой главной (homeReady ниже). */
+    try {
+      if (LC.whatsnew && LC.whatsnew.schedule) LC.whatsnew.schedule(homeReady);
+    } catch (eNew) {
+      warn('whatsnew schedule failed', eNew);
+    }
+  }
+
+  /* 1.2: можно ли открыть окно «Что нового» прямо сейчас. Главная на
+     экране и уже построена с нашими рядами (LC.rows.served — иначе окно
+     задержало бы её пересборку после гонки первого экрана: refreshComponent
+     ждёт, пока есть .modal); фокус на её рядах (на главной контроллер —
+     'items_line' ряда, 'content' — пока фокуса в рядах ещё не было), а не
+     в шапке, меню, плеере или карточке; поверх ничего не открыто
+     (layerOpen — настройки, селект, .modal, меню), заставка не поднята
+     (LC.covered) и пересборка экрана не ждёт своей очереди. */
+  function homeReady() {
+    if (!activated) return false;
+    if (!LC.rows || typeof LC.rows.served !== 'function' || !LC.rows.served()) return false;
+    if (activeComponentName() !== 'main') return false;
+    if (pending_refresh) return false;
+    var cur = null;
+    try { cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { cur = null; }
+    var name = cur && cur.name;
+    if (name !== 'items_line' && name !== 'content') return false;
+    if (layerOpen()) return false;
+    if (LC.covered && LC.covered()) return false;
+    return true;
   }
 
   function deactivate() {
@@ -1731,6 +1760,9 @@
     try { if (LC.ambient && LC.ambient.uninstall) LC.ambient.uninstall(); } catch (eAmbientOff) {}
     /* Ревью 1.0.2: подписка на 'open' настроек — только у включённого. */
     if (LC.followMoreBack) LC.followMoreBack(false);
+    /* 1.2: выключенный плагин таймера «Что нового» не держит; окно,
+       которое ещё не показали, пропускается (как и по истечении минуты). */
+    try { if (LC.whatsnew) LC.whatsnew.cancel(); } catch (eNewOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -2344,6 +2376,11 @@
          подписки: запись поднимает то самое событие, и своей же миграции
          мы бы ответили лишним применением настройки. */
       LC.migratePrefs();
+
+      /* 1.2: «Что нового» — ДО activate(): план главной при активации
+         пишет свою эпоху, и после неё первая установка неотличима от
+         обновления (src/82_whatsnew.js, detect). Показ — из activate(). */
+      try { if (LC.whatsnew) LC.whatsnew.detect(); } catch (eNew) { warn('whatsnew detect failed', eNew); }
 
       LC.addSettings();
       LC.followStorage();

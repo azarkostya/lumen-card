@@ -223,7 +223,9 @@ test('правка 2026-09-23: двухуровневое название — �
    правило — один background-image, чужой разметке он ничего не меняет. */
 /* Полное ревью, D1: .lumen-screen — класс плагина на активности его
    экранов (хаб, сетка, «Что посмотреть»), свой фон экрана. */
-const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-full', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
+/* 1.2: .lumen-whatsnew — содержимое окна «Что нового» (src/82_whatsnew.js)
+   в .modal Lampa, узел создаёт плагин. */
+const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-whatsnew', '.lumen-hub', '.lumen-grid', '.lumen-full', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -237,7 +239,7 @@ const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-b
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-whatsnew', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -6897,7 +6899,7 @@ test('фаза 3: плотность «Стопа» задаёт палитра,
 /* Герой в списке представлен текстовым блоком, а не корнем: высота самого
    .lumen-hero считается от экрана и от высоты ряда, и лишний кегль умножил бы
    те же em второй раз (живьём: «мельче» — кадр накрывал ряд на 35 px). */
-const SCALE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hero .lumen-hero__text', '.lumen-hub', '.lumen-grid', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette'];
+const SCALE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-whatsnew', '.lumen-hero .lumen-hero__text', '.lumen-hub', '.lumen-grid', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette'];
 
 test('фаза 3: масштаб — один коэффициент на корнях плагина', () => {
   for (const pair of [['small', '0.9'], ['large', '1.1'], ['huge', '1.2']]) {

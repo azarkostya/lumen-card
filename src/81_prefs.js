@@ -269,6 +269,10 @@
       /* Task 26: удержание OK — штатный жест Lampa, мы лишь дописываем в
          её меню свои пункты. */
       { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
+      /* 1.2: окно «Что нового» один раз после обновления плагина
+         (src/82_whatsnew.js). Читается при запуске и перед показом —
+         выключенный пункт гасит и уже ждущее окно. */
+      { name: 'lumen_whatsnew', type: 'trigger', 'default': true, label: 'lumen_whatsnew_name', descr: 'lumen_whatsnew_descr' },
       /* 1.0.2: мини-карта рядов и быстрое листание (src/64_nav.js) — одним
          выключателем; обычное нажатие не меняет ни то, ни другое. */
       { name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },

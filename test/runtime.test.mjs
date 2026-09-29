@@ -612,6 +612,8 @@ function initLC(opts) {
     onToggle: (name) => homeRow.log.push('toggle:' + name)
   };
 
+  /* 1.2: свои заглушки модулей до LC.init (окно «Что нового»). */
+  if (opts.setup) opts.setup(LC);
   LC.init();
   return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav, accent, homeRow };
 }
@@ -2913,4 +2915,75 @@ test('этап 2б: category_full из плагина — body.lumen-screen-on �
   assert.equal(bodyEl.hasClass('lumen-screen-on'), false, '«Выкл»: кадра нет — фон Lampa не гасим');
   LC.motionMode = was;
   assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* 1.2: окно «Что нового» — склейка с рантаймом (сам модуль —              */
+/* test/whatsnew.test.mjs).                                                */
+/* ====================================================================== */
+
+function whatsnewLC(storage) {
+  const log = [];
+  let ready = null;
+  const env = initLC({
+    storage: storage || {},
+    setup: (LC) => {
+      LC.whatsnew = {
+        detect: () => log.push('detect'),
+        schedule: (fn) => { ready = fn; log.push('schedule'); },
+        cancel: () => log.push('cancel')
+      };
+      LC.homeplan = { apply: (o) => log.push(o && o.start ? 'plan:start' : 'plan'), unregister: () => { } };
+    }
+  });
+  return Object.assign({ log, ready: () => ready }, env);
+}
+
+test('1.2: detect() — до активации (до эпохи плана главной), schedule() — в конце activate()', () => {
+  const { log, ready } = whatsnewLC();
+  assert.equal(log[0], 'detect', 'detect первым: ' + log.join(','));
+  assert.ok(log.indexOf('plan:start') > 0, 'план главной — после detect: ' + log.join(','));
+  assert.equal(log[log.length - 1], 'schedule');
+  assert.equal(typeof ready(), 'function', 'schedule получил проверку готовности главной');
+});
+
+test('1.2: готовность главной — без построенных рядов, не на главной и под слоем окно не открывается', () => {
+  const { LC, ready } = whatsnewLC();
+  const isReady = ready();
+  let served = false;
+  let component = 'main';
+  let ctrl = 'items_line';
+  LC.rows = { served: () => served };
+  LC.covered = () => false;
+  globalThis.Lampa.Activity = { active: () => ({ component: component }) };
+  globalThis.Lampa.Controller.enabled = () => ({ name: ctrl });
+  globalThis.$ = () => EMPTY;
+  assert.equal(isReady(), false, 'главная ещё не строилась с нашими рядами');
+  served = true;
+  assert.equal(isReady(), true, 'главная, фокус в ряду, слоёв нет');
+  ctrl = 'content';
+  assert.equal(isReady(), true, 'фокуса в рядах ещё не было — тоже главная');
+  for (const other of ['player', 'head', 'menu', 'modal', 'settings']) {
+    ctrl = other;
+    assert.equal(isReady(), false, 'контроллер ' + other);
+  }
+  ctrl = 'items_line';
+  component = 'full';
+  assert.equal(isReady(), false, 'открыта карточка');
+  component = 'main';
+  LC.covered = () => true;
+  assert.equal(isReady(), false, 'поднята заставка');
+  LC.covered = () => false;
+  globalThis.$ = (sel) => (sel === '.modal' ? { length: 1 } : EMPTY);
+  assert.equal(isReady(), false, 'открыто чужое окно');
+  globalThis.$ = () => EMPTY;
+  assert.equal(isReady(), true);
+});
+
+test('1.2: выключение плагина снимает ожидание окна «Что нового»', () => {
+  const { LC, log } = whatsnewLC();
+  globalThis.Lampa.Storage.field = (name) => (name === 'lumen_enabled' ? 'false' : undefined);
+  globalThis.Lampa.Storage.get = (name, def) => (name === 'lumen_enabled' ? 'false' : def);
+  LC.applyEnabledPref();
+  assert.equal(log[log.length - 1], 'cancel');
 });

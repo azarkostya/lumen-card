@@ -167,6 +167,8 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     /* пульт и окна */
     'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
     'lumen_ambient_delay',
+    /* 1.2: окно «Что нового» после обновления */
+    'lumen_whatsnew',
     /* для разработчика */
     'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem', 'lumen_rowmem_bytes',
     'lumen_netmem', 'lumen_prefill'
@@ -233,7 +235,8 @@ const MORE_GROUPS = [
   ['lumen_group_screens', ['lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
     'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start',
     'lumen_rows_dedupe', 'lumen_hide_watched']],
-  ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
+  /* 1.2: «Что нового после обновления» — сразу за меню по удержанию OK. */
+  ['lumen_group_remote', ['lumen_context_menu', 'lumen_whatsnew', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
     'lumen_ambient_source', 'lumen_ambient_delay']],
   /* «Для разработчика» — в самом низу второго экрана. */
   ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem',

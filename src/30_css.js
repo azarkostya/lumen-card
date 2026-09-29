@@ -2028,7 +2028,7 @@
      «крупнее» между ними зияла полоса в 40 px). Всё, что в герое читают —
      логотип, название, мета, описание, чипы и профили настроения, — лежит
      внутри .lumen-hero__text и масштабируется вместе с ним. */
-  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
+  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-whatsnew,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 
   function scaleFactor() {
     return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -3734,6 +3734,21 @@
        раскрытие читалось продолжением, а не другим экраном. */
     css.push('.lumen-descr-modal{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;border-radius:.61em;background:' + P.gradPanel + ';border:.04em solid ' + P.line + ';color:' + P.text + '}');
     css.push('.lumen-descr-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.24;color:' + P.text + '}');
+    /* 1.2: окно «Что нового» (src/82_whatsnew.js) — та же панель, что у
+       окна описания. Кегль пунктов меньше, чем у описания (1.14em против
+       1.27em): пять пунктов и подсказка вместе с кнопкой «Понятно» обязаны
+       встать в окно ТВ 960×540 без прокрутки — кнопка лежит в прокрутке
+       окна (buttons inside), и фокус на ней сдвинул бы начало списка за
+       верхний край. Маркер — точка акцентного цвета (своя, а не штатная:
+       list-style у старых WebView ставит маркер по базовой линии шрифта
+       по-разному). Подсказка про выключатель — приглушённая, кегль не
+       мельче 1.01em (правило проекта для muted, Task 63). */
+    css.push('.lumen-whatsnew{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.4em 1.75em;border-radius:.61em;background:' + P.gradPanel + ';border:.04em solid ' + P.line + ';color:' + P.text + '}');
+    css.push('.lumen-whatsnew__list{list-style:none;margin:0;padding:0}');
+    css.push('.lumen-whatsnew__item{position:relative;padding-left:1.1em;font-family:' + FB + ';font-weight:500;font-size:1.14em;line-height:1.3;color:' + P.text + '}');
+    css.push('.lumen-whatsnew__item+.lumen-whatsnew__item{margin-top:.55em}');
+    css.push('.lumen-whatsnew__item:before{content:"";position:absolute;left:0;top:.48em;width:.4em;height:.4em;border-radius:50%;background:' + A + '}');
+    css.push('.lumen-whatsnew__hint{margin-top:1.1em;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + '}');
 
     /* --- Task 28 (фаза 3): отзывы без спойлеров. --- */
 
