@@ -2,3 +2,4 @@ vendor/
 dist/chunks/
 design/.thumbnail
 .claude/
+dist/lumen_card.pretty.js

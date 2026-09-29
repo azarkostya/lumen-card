@@ -111,6 +111,7 @@ test('голый DOM-узел: решает classList ближайшей акт�
 test('в собранном плагине класс активной активности назван ровно в одном месте', () => {
   const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
   const hits = dist.split(/\r?\n/).filter((l) => l.indexOf('activity--active') !== -1);
-  assert.deepEqual(hits.map((l) => l.trim()), ["var ON_SCREEN = 'activity--active';"],
-    'проверка «на экране» записана в обход LC.util.onScreen');
+  // dist сжат (1.1): пробелов вокруг «=» в нём нет, в раскладке src/ — есть.
+  assert.equal(hits.length, 1, 'проверка «на экране» записана в обход LC.util.onScreen: ' + hits.join(' | '));
+  assert.match(hits[0], /^\s*var\s+ON_SCREEN\s*=\s*'activity--active';\s*$/);
 });

@@ -1,10 +1,17 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as acorn from '../scripts/lib/acorn.mjs';
 import { toSourceLocation } from '../scripts/es5check.mjs';
+import { compose } from '../scripts/lib/bundle.mjs';
+import { tokenStream, firstMismatch } from '../scripts/lib/minify.mjs';
+import { buildStamp, stampLoader } from '../scripts/build.mjs';
 
-/* Сборка вычищает из dist/lumen_card.js комментарии и ведущие отступы
-   (scripts/build.mjs). Здесь проверяется сам артефакт, который коммитится и
+/* Сборка сжимает dist/lumen_card.js: без комментариев, отступов, пустых
+   строк и лишних пробелов (scripts/build.mjs). Здесь проверяется сам артефакт, который коммитится и
    уезжает на ТВ: комментариев нет, файл компилируется, строковые литералы не
    повреждены (в них есть «/*» заголовков CSS, data-URI с «//» и регэкспы —
    именно на них ломается вырезание регулярками).
@@ -73,36 +80,85 @@ test('шапка плагина и маркеры файлов на месте',
   assert.ok(dist.startsWith('// Lumen Card for Lampa v'), 'баннер первой строкой');
 });
 
-/* Нумерация строк — единственная «карта» между dist и src: комментарий
-   заменяется на столько же пустых строк, сколько занимал, поэтому строка K
-   модуля лежит в dist на K-й строке после своего маркера. На этом держится
-   es5check.toSourceLocation, и об этом написано в README. */
-test('строки dist совпадают со строками src (нумерация не разъехалась)', () => {
-  const distLines = dist.split('\n');
-  for (const f of srcFiles) {
-    const at = distLines.indexOf('/* ---- ' + f + ' ---- */');
-    assert.ok(at >= 0, 'маркер ' + f + ' должен занимать строку целиком');
-    const srcLines = readSrc(f).split('\n');
-    for (let i = 0; i < srcLines.length; i++) {
-      const got = distLines[at + 1 + i];
-      const want = srcLines[i];
-      assert.ok(got !== undefined, f + ':' + (i + 1) + ' — в dist строк меньше, чем в src');
-      // Строки, из которых что-то вырезано, сравнивать посимвольно нельзя;
-      // пустой got — это строка, целиком занятая комментарием.
-      if (/\/\/|\/\*|\*\//.test(want)) continue;
-      assert.ok(got === '' || got === want.trim() || got === want,
-        f + ':' + (i + 1) + ' — строка dist «' + got + '» не соответствует src «' + want + '»');
-    }
-  }
+/* С 1.1 dist сжат (scripts/lib/minify.mjs): строки src/ в нём больше не
+   совпадают построчно. Вместо нумерации строк сверяется сам код: поток
+   токенов dist — ровно поток токенов раскладки src/ (тип, дословный текст и
+   «перед токеном был перевод строки», от которого зависит ASI). Ту же сверку
+   build.mjs делает перед записью; здесь — на закоммиченном артефакте. */
+test('код dist токен в токен совпадает с src/ (сжатие ничего не поменяло)', () => {
+  const { raw } = compose(fileURLToPath(srcDir));
+  assert.equal(firstMismatch(tokenStream(raw), tokenStream(dist)), null);
 });
 
-test('es5check.toSourceLocation по dist даёт координату в src', () => {
+test('dist сжат: ни пустых строк, ни отступов, ни пробелов вокруг «=»', () => {
+  const lines = dist.split('\n');
+  assert.equal(lines[lines.length - 1], '', 'файл кончается переводом строки');
+  const body = lines.slice(0, -1);
+  assert.deepEqual(body.filter(l => l === ''), [], 'пустые строки');
+  // Строки, начатые с пробела, бывают только внутри уцелевшей шапки «/*!».
+  const indented = body.filter(l => /^[ \t]/.test(l) && !/^ \*/.test(l));
+  assert.deepEqual(indented.slice(0, 5), [], 'строки с отступом');
+  assert.ok(dist.indexOf("LC.VERSION='") >= 0, 'пробелы вокруг «=» не сжаты');
+});
+
+/* Координаты es5check: сжатый dist номера строк src/ не хранит, поэтому
+   es5check без аргумента проверяет ещё и раскладку src/ (scripts/lib/bundle.mjs),
+   где строка K модуля — K-я после маркера. */
+test('es5check.toSourceLocation по раскладке src/ даёт координату в src', () => {
+  const { raw } = compose(fileURLToPath(srcDir));
   const needle = 'LC.VERSION =';
-  const distLine = dist.split('\n').findIndex(l => l.indexOf(needle) === 0) + 1;
-  assert.ok(distLine > 0, 'якорь ' + needle + ' не найден в dist');
-  const loc = toSourceLocation(dist, distLine);
+  const rawLine = raw.split('\n').findIndex(l => l.indexOf(needle) >= 0) + 1;
+  assert.ok(rawLine > 0, 'якорь ' + needle + ' не найден в раскладке');
+  const loc = toSourceLocation(raw, rawLine);
   const srcLine = readSrc('00_head.js').split('\n').findIndex(l => l.indexOf(needle) >= 0) + 1;
   assert.deepEqual(loc, { file: '00_head.js', line: srcLine });
+});
+
+/* Метка сборки в загрузчике — sha256 содержимого dist, а не время: та же
+   сборка — тот же адрес (кэш браузера и кэш компиляции V8 живут), новая —
+   новый адрес. */
+test('метка BUILD в lumen.js — первые 10 hex sha256 от dist', () => {
+  const loader = readFileSync(new URL('../lumen.js', import.meta.url), 'utf8');
+  const m = /var BUILD = '([0-9a-f]+)';/.exec(loader);
+  assert.ok(m, 'в lumen.js нет строки var BUILD');
+  assert.equal(m[1], buildStamp(dist));
+  assert.equal(m[1].length, 10);
+  assert.equal(loader.indexOf('Date.now'), -1, 'метка больше не зависит от времени');
+});
+
+test('stampLoader вписывает метку и отказывается от загрузчика без var BUILD', () => {
+  assert.equal(stampLoader("a;\n  var BUILD = '0123456789';\nb;", 'abcdef0123'), "a;\n  var BUILD = 'abcdef0123';\nb;");
+  assert.equal(stampLoader('var stamp = 1;', 'abcdef0123'), null);
+});
+
+/* build.mjs --check на копии репозитория (src/, scripts/, dist/, lumen.js,
+   manifest.json): чистая копия проходит, подменённая метка в lumen.js и
+   подменённый dist — ловятся. Сам репозиторий не трогается. */
+test('build.mjs --check ловит рассинхрон lumen.js и dist', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'lumen-build-'));
+  try {
+    const repo = fileURLToPath(new URL('..', import.meta.url));
+    for (const d of ['src', 'scripts', 'dist']) cpSync(join(repo, d), join(tmp, d), { recursive: true });
+    for (const f of ['lumen.js', 'manifest.json']) cpSync(join(repo, f), join(tmp, f));
+    const run = () => spawnSync(process.execPath, [join(tmp, 'scripts', 'build.mjs'), '--check'], { encoding: 'utf8' });
+
+    let r = run();
+    assert.equal(r.status, 0, 'чистая копия: ' + r.stderr);
+
+    const loader = readFileSync(join(tmp, 'lumen.js'), 'utf8');
+    writeFileSync(join(tmp, 'lumen.js'), stampLoader(loader, '0000000000'));
+    r = run();
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /lumen\.js: метка сборки не совпадает/);
+
+    writeFileSync(join(tmp, 'lumen.js'), loader);
+    writeFileSync(join(tmp, 'dist', 'lumen_card.js'), dist.replace("LC.VERSION='", "LC.VERSION ='"));
+    r = run();
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /dist is stale/);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('dist компилируется', () => {

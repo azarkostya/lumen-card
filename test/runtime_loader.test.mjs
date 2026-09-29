@@ -21,7 +21,7 @@ function load(src) {
   };
   new Function('document', SRC)(doc);
   assert.equal(added.length, 1, 'сборка подключается ровно одним <script>');
-  return added[0].src.replace(/\?v=\d+$/, '');
+  return added[0].src.replace(/\?v=[0-9a-f]{10}$/, '');
 }
 
 test('ревью S5: http: у GitHub Pages и jsDelivr — сборка по https:', () => {
@@ -65,7 +65,7 @@ function loadWithErrors(src) {
   return added;
 }
 
-const bare = (s) => s.src.replace(/\?v=\d+$/, '');
+const bare = (s) => s.src.replace(/\?v=[0-9a-f]{10}$/, '');
 
 test('SEC-2: http: у GitHub Pages и jsDelivr — ровно один <script> по https:, без отката на http:', () => {
   for (const [src, want] of [
@@ -86,6 +86,27 @@ test('SEC-2: https: набран руками, свой сервер, запас
     assert.equal(added.length, 1, 'лишняя попытка для ' + src);
     assert.equal(added[0].onerror, undefined);
   }
+});
+
+/* 1.1: метка в адресе сборки — хэш её содержимого (var BUILD, вписывает
+   scripts/build.mjs), а не время. Адрес не зависит от часов: два запуска
+   Lampa с одной сборкой просят один и тот же URL — кэш браузера и кэш
+   компиляции V8 работают; сверку метки с dist держит test/build.test.mjs. */
+test('1.1: адрес сборки — ?v=<метка BUILD>, одинаковый в любое время', () => {
+  const build = /var BUILD = '([0-9a-f]{10})';/.exec(SRC);
+  assert.ok(build, 'в загрузчике нет var BUILD');
+  const realNow = Date.now;
+  const urls = [];
+  try {
+    for (const t of [0, 599999, 600000, 86400000 * 7]) {
+      Date.now = () => 1790000000000 + t;
+      urls.push(loadWithErrors('https://azarkostya.github.io/lumen-card/lumen.js?logged=false&reset=0.5')[0].src);
+    }
+  } finally {
+    Date.now = realNow;
+  }
+  assert.equal(urls[0], 'https://azarkostya.github.io/lumen-card/dist/lumen_card.js?v=' + build[1]);
+  assert.deepEqual(urls, [urls[0], urls[0], urls[0], urls[0]]);
 });
 
 test('ревью S5: загрузчик — строгий ES5, комментарий о цене метки свежести — с настоящим размером сборки', () => {

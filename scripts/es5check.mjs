@@ -1,4 +1,5 @@
-// scripts/es5check.mjs — ES5-линт поверх собранного dist/lumen_card.js на базе acorn.
+// scripts/es5check.mjs — ES5-линт сборки на базе acorn: без аргумента —
+// раскладка src/ и dist/lumen_card.js (см. main), с аргументом — один файл.
 //
 // Два независимых прохода:
 //  1) acorn.parse(src, { ecmaVersion: 5 }) — если в файле есть синтаксис ES2015+
@@ -13,8 +14,10 @@
 //
 // CLI — тонкая обёртка над check(src): печатает находки и код возврата.
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as acorn from './lib/acorn.mjs';
+import { compose } from './lib/bundle.mjs';
 
 /* ---------------------------------------------------------------------- */
 /* Правила по последовательностям токенов.                                 */
@@ -151,11 +154,7 @@ export function toSourceLocation(src, globalLine) {
 /* CLI.                                                                     */
 /* ---------------------------------------------------------------------- */
 
-function main() {
-  var file = process.argv[2] || 'dist/lumen_card.js';
-  var src = readFileSync(file, 'utf8');
-  var findings = check(src);
-
+function report(src, findings) {
   for (var i = 0; i < findings.length; i++) {
     var f = findings[i];
     var loc = toSourceLocation(src, f.line);
@@ -165,9 +164,38 @@ function main() {
       console.log(f.rule + ' at ' + loc.file + ':' + loc.line);
     }
   }
+}
 
-  if (findings.length) {
-    console.log('ES5 check: ' + findings.length + ' findings');
+/* Без аргумента проверяются оба: раскладка src/ (с 1.1 dist сжат и номера
+   его строк уже не совпадают со строками src/, поэтому точные координаты
+   даёт раскладка) и сам dist/lumen_card.js — то, что уезжает на ТВ. Поток
+   токенов у них один (самопроверка build.mjs), так что находки dist сверх
+   находок раскладки значат несобранный dist. С аргументом — один файл;
+   координаты по маркерам модулей (у сжатого файла строка — строка dist). */
+function main() {
+  var file = process.argv[2];
+  var total = 0;
+  if (file) {
+    var one = readFileSync(file, 'utf8');
+    var found = check(one);
+    report(one, found);
+    total = found.length;
+  } else {
+    var root = fileURLToPath(new URL('..', import.meta.url));
+    var raw = compose(join(root, 'src')).raw;
+    var inSrc = check(raw);
+    report(raw, inSrc);
+    var dist = readFileSync(join(root, 'dist', 'lumen_card.js'), 'utf8');
+    var inDist = check(dist);
+    if (inDist.length !== inSrc.length) {
+      console.log('dist/lumen_card.js: ' + inDist.length + ' findings против ' + inSrc.length + ' в src/ — пересоберите (node scripts/build.mjs)');
+      report(dist, inDist);
+    }
+    total = Math.max(inSrc.length, inDist.length);
+  }
+
+  if (total) {
+    console.log('ES5 check: ' + total + ' findings');
     process.exit(1);
   } else {
     console.log('ES5 check: ok');

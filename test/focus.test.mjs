@@ -136,12 +136,12 @@ test('LC.focus.capture/release: узел без addEventListener не роняе
    модуле и здесь же и упадёт.
 
    Смотрим в dist, а не в src: сборка вычищает комментарии (scripts/build.mjs
-   -> stripComments), а про hover:focus и hover:hover в src/ много написано
+   -> minify), а про hover:focus и hover:hover в src/ много написано
    текстом — запрещать упоминание в комментарии смысла нет. Отдельный файл
    src/*.js сам по себе не парсится: модули — куски тела общей IIFE, которую
    открывает 00_head.js и закрывает 99_tail.js. Срез по маркерам — тот же
    приём, что в test/build.test.mjs; расхождение dist и src ловят
-   «строки dist совпадают со строками src» там же и `build.mjs --check`. */
+   «код dist токен в токен совпадает с src/» там же и `build.mjs --check`. */
 const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
 const FOCUS_NAME_RE = /hover:(?:focus|hover)/g;
 
