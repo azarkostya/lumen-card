@@ -4237,6 +4237,11 @@
        чипа) отделяет его от сегмент-контрола, не создавая прыжка фокуса
        через пустоту. */
     css.push('.lumen-grid .lumen-grid__roulette{margin-left:.91em}');
+    /* Решение пользователя 2026-09-29: переключатель «Всё / Фильмы /
+       Сериалы» — те же чипы .lumen-grid .lumen-chip первым сегментом строки
+       сортировки; от сортировки его отделяет тот же зазор .91em, что
+       отделяет кнопку рулетки. */
+    css.push('.lumen-grid__media{display:-webkit-box;display:-webkit-flex;display:flex;margin-right:.91em}');
     css.push('.lumen-grid .lumen-grid__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
     css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     /* Карточка сетки — штатная разметка Lampa ('card'), поэтому правила

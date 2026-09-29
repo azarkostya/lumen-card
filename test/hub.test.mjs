@@ -185,7 +185,8 @@ test('titleOf: пустой объект не роняет', function () {
 
 // --- groupsWithCounts ---
 test('groupsWithCounts: только непустые чипы, count по объединению групп', function () {
-  var g = H.groupsWithCounts(MANIFEST, 'ru');
+  /* Сквозные срезы (virtual, 2026-09-29) — свои тесты ниже. */
+  var g = H.groupsWithCounts(MANIFEST, 'ru').filter(function (x) { return !x.virtual; });
   assert.equal(g.length, 2, 'чип "Эпохи" пуст и не показывается');
   assert.deepEqual(g.map(function (x) { return x.id; }), ['franchises', 'studios']);
   assert.equal(g[0].count, 2);
@@ -193,7 +194,7 @@ test('groupsWithCounts: только непустые чипы, count по об�
   assert.equal(g[0].title, 'Франшизы');
 });
 test('groupsWithCounts: подборки групп вне hubGroups (top/mood) не попадают ни в один чип', function () {
-  var g = H.groupsWithCounts(MANIFEST, 'ru');
+  var g = H.groupsWithCounts(MANIFEST, 'ru').filter(function (x) { return !x.virtual; });
   var total = 0;
   for (var i = 0; i < g.length; i++) total += g[i].count;
   assert.equal(total, 4, 'top-grossing и mood-x в чипы не входят');
@@ -900,7 +901,9 @@ test('lumen_hub: create строит чипы групп и плитки пер�
   var s = openHub();
   assert.ok(s.root.hasClass('lumen-hub'));
   assert.ok(s.root.hasClass('lumen-motion-full'), 'режим анимаций зеркалится на корень экрана');
-  assert.equal(s.root.all('lumen-chip').length, 2, 'пустой чип «Эпохи» не показывается');
+  /* Франшизы, срез «Сериалы» (star-wars и apple-tv), Студии и сервисы;
+     среза «Мультфильмы» нет — тега animation в тестовом каталоге нет. */
+  assert.equal(s.root.all('lumen-chip').length, 3, 'пустой чип «Эпохи» не показывается');
   assert.equal(s.root.all('lumen-tile').length, 2, 'плитки первой группы (Франшизы)');
   assert.deepEqual(s.comp.activity.states, [true, false], 'лоадер включился и погас');
   assert.deepEqual(warnLog, []);
@@ -1188,7 +1191,9 @@ test('lumen_hub: пульт двигает фокус штатным Navigator',
 /* ---------------------------------------------------------------------- */
 
 test('Task 33: шаг по экрану — один проход Navigator: canmove нашёл узел, focus его ставит', function () {
-  var s = openHub();
+  /* Линейная модель Navigator: поиск, три чипа, плитки — «вниз» с первого
+     чипа на плитку при строке в три узла. */
+  var s = openHub({ cols: 3 });
   s.comp.start();
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
@@ -1227,7 +1232,7 @@ test('Task 33: окно, которое ничего не режет, колле
 });
 
 test('Task 33: сборка Lampa без Navigator.focus — шаг делает move (страховка)', function () {
-  var s = openHub();
+  var s = openHub({ cols: 3 });
   s.comp.start();
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
@@ -1344,8 +1349,8 @@ test('lumen_hub: штатная сетка не открылась (push бро�
     if (o.component === 'category_full') throw new Error('category_full: TypeError');
     push(o);
   };
-  var chips = s.root.all('lumen-chip');
-  fire(chips[1], 'hover:enter'); /* «Студии и сервисы»: pixar — только discover */
+  var chips = s.root.all('lumen-chip').filter(function (c) { return c.lumen_group === 'studios'; });
+  fire(chips[0], 'hover:enter'); /* «Студии и сервисы»: pixar — только discover */
   var tiles = s.root.all('lumen-tile');
   fire(tiles[0], 'hover:enter');
   assert.equal(s.env.log.pushes.length, 1, 'после отказа штатной сетки открыта своя');
@@ -2919,12 +2924,12 @@ test('настроения: в хабе чип «Настроение» — пл
   var s = openHub({ manifest: MOOD_MANIFEST });
   s.comp.start();
   var chips = s.root.all('lumen-chip');
-  assert.equal(chips.length, 3, 'два чипа подборок и «Настроение»');
-  assert.equal(chips[2].lumen_group, H.MOOD_HUB, '«Настроение» — последним чипом');
-  fire(chips[2], 'hover:enter');
+  assert.equal(chips.length, 4, 'два чипа подборок, срез «Сериалы» и «Настроение»');
+  assert.equal(chips[3].lumen_group, H.MOOD_HUB, '«Настроение» — последним чипом');
+  fire(chips[3], 'hover:enter');
   var tiles = s.root.all('lumen-tile');
   assert.equal(tiles.length, 2);
-  assert.ok(chips[2].hasClass('lumen-chip--on'), 'чип группы не отмечен');
+  assert.ok(chips[3].hasClass('lumen-chip--on'), 'чип группы не отмечен');
   s.env.log.pushes.length = 0;
   fire(tiles[1], 'hover:enter');
   assert.equal(s.env.log.pushes.length, 1);
@@ -3376,4 +3381,258 @@ test('Background.change Lampa: пока на body метка экрана с н�
   } finally {
     if (had) globalThis.document = prevDoc; else delete globalThis.document;
   }
+});
+
+/* ====================================================================== */
+/* Решение пользователя 2026-09-29: «фильмы/сериалы/мульты».               */
+/*                                                                        */
+/* Хаб: два сквозных чипа сразу за первым — «Сериалы» (у подборки есть     */
+/* sources.tv) и «Мультфильмы» (тег animation: true). Пустой не            */
+/* показывается, число подборок в шапке они не меняют. Сетка подборки с    */
+/* обоими источниками: переключатель «Всё / Фильмы / Сериалы»; из среза    */
+/* «Сериалы» она открывается сразу на сериалах.                            */
+/* ====================================================================== */
+
+var SLICE_MANIFEST = Object.assign({}, MANIFEST, {
+  collections: MANIFEST.collections.concat([
+    { id: 'shrek', title: 'Шрек', group: 'franchise', animation: true, sources: { movie: { type: 'collection', id: 2150 } } },
+    { id: 'anime', title: 'Аниме', group: 'service', animation: true, sources: { tv: { type: 'discover', params: { genres: 16, orig_lang: 'ja' } } } },
+    /* Тег не boolean (каталог без validate) — в срез не идёт. */
+    { id: 'fake-anim', title: 'Не мульт', group: 'studio', animation: 'yes', sources: { movie: { type: 'discover', params: { companies: 1 } } } }
+  ])
+});
+
+test('срезы: «Сериалы» и «Мультфильмы» — сразу за первым чипом, virtual, счёт по признаку', function () {
+  var g = H.groupsWithCounts(SLICE_MANIFEST, 'ru');
+  assert.deepEqual(g.map(function (x) { return x.id; }), ['franchises', H.SERIES_HUB, H.ANIMATION_HUB, 'studios']);
+  assert.equal(g[1].title, 'lumen_hub_series');
+  assert.equal(g[1].count, 3, 'star-wars, apple-tv, anime');
+  assert.equal(g[2].title, 'lumen_hub_animation');
+  assert.equal(g[2].count, 2, 'shrek и anime; animation: "yes" — не тег');
+  assert.ok(g[1].virtual && g[2].virtual, 'шапка не должна считать срезы в число подборок');
+  assert.ok(!g[0].virtual && !g[3].virtual);
+});
+
+test('срезы: пустой не показывается — без тегов нет «Мультфильмов», без сериалов нет «Сериалов»', function () {
+  var ids = H.groupsWithCounts(MANIFEST, 'ru').map(function (x) { return x.id; });
+  assert.deepEqual(ids, ['franchises', H.SERIES_HUB, 'studios']);
+  var noTv = Object.assign({}, MANIFEST, { collections: MANIFEST.collections.filter(function (c) { return !c.sources.tv; }) });
+  ids = H.groupsWithCounts(noTv, 'ru').map(function (x) { return x.id; });
+  assert.equal(ids.indexOf(H.SERIES_HUB), -1);
+  assert.equal(ids.indexOf(H.ANIMATION_HUB), -1);
+  /* Первый чип и выбор по умолчанию — прежние. */
+  assert.equal(ids[0], 'franchises');
+});
+
+test('срезы: tilesFor — подборки каталога в его порядке, сами собой (группа прежняя)', function () {
+  assert.deepEqual(H.tilesFor(SLICE_MANIFEST, H.SERIES_HUB).map(function (t) { return t.id; }), ['star-wars', 'apple-tv', 'anime']);
+  var anim = H.tilesFor(SLICE_MANIFEST, H.ANIMATION_HUB);
+  assert.deepEqual(anim.map(function (t) { return t.id; }), ['shrek', 'anime']);
+  assert.equal(anim[1], SLICE_MANIFEST.collections[7], 'не копия: подпись плитки — настоящая группа');
+});
+
+test('срезы: в хабе — чипы за первым, первый выбран; OK по плитке «Сериалов» открывает смешанную подборку на сериалах', function () {
+  var s = openHub({ manifest: SLICE_MANIFEST });
+  s.comp.start();
+  s.env.log.controllers.content.toggle();
+  var chips = s.root.all('lumen-chip');
+  assert.deepEqual(chips.map(function (c) { return c.lumen_group; }), ['franchises', H.SERIES_HUB, H.ANIMATION_HUB, 'studios']);
+  assert.ok(chips[0].hasClass('lumen-chip--on'), 'по умолчанию выбран первый чип, как раньше');
+  assert.ok(s.env.nav.collection.indexOf(chips[1]) !== -1 && s.env.nav.collection.indexOf(chips[2]) !== -1, 'срезы в коллекции пульта');
+  fire(chips[1], 'hover:enter');
+  assert.ok(chips[1].hasClass('lumen-chip--on') && !chips[0].hasClass('lumen-chip--on'));
+  var tiles = s.root.all('lumen-tile');
+  assert.equal(tiles.length, 3);
+  s.env.log.pushes.length = 0;
+  fire(tiles[0], 'hover:enter'); /* star-wars: коллекция + discover/tv */
+  assert.equal(s.env.log.pushes[0].component, 'lumen_grid');
+  assert.equal(s.env.log.pushes[0].lumen.id, 'star-wars', 'в сетку едет подборка каталога, а не копия');
+  assert.equal(s.env.log.pushes[0].lumen_media, 'tv');
+  /* Подборка с одним источником — как прежде (штатная сетка по discover). */
+  fire(tiles[1], 'hover:enter');
+  assert.equal(s.env.log.pushes[1].component, 'category_full');
+  assert.equal(s.env.log.pushes[1].lumen_media, undefined);
+  /* Из «Мультфильмов» и прочих чипов — «Всё». */
+  fire(chips[0], 'hover:enter');
+  fire(s.root.all('lumen-tile')[0], 'hover:enter');
+  assert.equal(s.env.log.pushes[2].lumen.id, 'star-wars');
+  assert.equal(s.env.log.pushes[2].lumen_media, undefined);
+});
+
+test('forMedia: копия с одним источником и id~медиа; одиночная подборка и «Всё» — как есть', function () {
+  var sw = MANIFEST.collections[0];
+  var tv = H.forMedia(sw, 'tv');
+  assert.equal(tv.id, 'star-wars~tv');
+  assert.deepEqual(Object.keys(tv.sources), ['tv']);
+  assert.equal(tv.sources.tv, sw.sources.tv);
+  assert.equal(tv.title, sw.title);
+  assert.equal(sw.id, 'star-wars', 'оригинал не мутирован');
+  assert.ok(sw.sources.movie);
+  assert.equal(H.forMedia(sw, 'all'), sw);
+  assert.equal(H.forMedia(DISCOVER, 'movie'), DISCOVER, 'у одиночной подборки переключателя нет');
+  assert.equal(H.mediaModes(sw), true);
+  assert.equal(H.mediaModes(DISCOVER), false);
+});
+
+/* Ключ дедупликации LC.sources.fetch — id:страница:подпись сортировки. У
+   «коллекция + discover» подпись целой подборки и её сериальной половины
+   одна ('tv=…'), и без суффикса id сериальная сетка подписалась бы на
+   летящий СМЕШАННЫЙ ответ. */
+test('forMedia: суффикс id разводит смешанный и сериальный запросы в кэше дедупликации', function () {
+  var calls = [];
+  var hadL = Object.prototype.hasOwnProperty.call(globalThis, 'Lampa');
+  var prevL = globalThis.Lampa;
+  var hadW = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  var prevW = globalThis.window;
+  globalThis.Lampa = {
+    Storage: { get: function (k, d) { return d; }, set: function () {} },
+    Api: { sources: { tmdb: { get: function (url, params, ok) { calls.push({ url: url, ok: ok }); } } } }
+  };
+  globalThis.window = { localStorage: null };
+  try {
+    var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+    var sw = MANIFEST.collections[0];
+    var tv = H.forMedia(sw, 'tv');
+    assert.equal(S.sortSignature(sw), S.sortSignature(tv), 'подписи совпадают — различает только id');
+    var mixed = [];
+    var only = [];
+    S['fetch'](sw, 1, function (j) { mixed.push(j); }, function () {}, null);
+    var before = calls.length;
+    S['fetch'](tv, 1, function (j) { only.push(j); }, function () {}, null);
+    assert.equal(calls.length, before + 1, 'сериальная половина — свой запрос, а не подписка на смешанный');
+    assert.ok(/^discover\/tv/.test(calls[calls.length - 1].url), 'и только сериальный источник: ' + calls[calls.length - 1].url);
+    /* Ответы: смешанный — фильм и сериал; сериальный — только сериал. */
+    calls.forEach(function (c) {
+      if (/^collection/.test(c.url)) c.ok({ id: 10, parts: [{ id: 1, title: 'Фильм', release_date: '1977-05-25' }] });
+      else c.ok({ page: 1, total_pages: 1, total_results: 1, results: [{ id: 2, name: 'Сериал', first_air_date: '2019-11-12' }] });
+    });
+    assert.equal(only.length, 1);
+    assert.deepEqual(only[0].results.map(function (r) { return r.name || r.title; }), ['Сериал']);
+    assert.equal(mixed.length, 1);
+    assert.equal(mixed[0].results.length, 2);
+  } finally {
+    if (hadL) globalThis.Lampa = prevL; else delete globalThis.Lampa;
+    if (hadW) globalThis.window = prevW; else delete globalThis.window;
+  }
+});
+
+function openGridObj(object, opts) {
+  opts = opts || {};
+  if (!opts.cols) opts.cols = 6;
+  var env = setupLampa(opts);
+  var h = loadHub(opts);
+  h.api.install();
+  var comp = makeComponent('lumen_grid', object, env);
+  comp.create();
+  return { env: env, h: h, comp: comp, root: env.log.scrolls[0].body()._children[0] };
+}
+
+function mediaChips(g) {
+  var wrap = g.root.all('lumen-grid__media')[0];
+  return wrap ? wrap._children : [];
+}
+
+function sortOn(g) {
+  var on = g.root.all('lumen-chip--on').filter(function (c) { return c.lumen_sort; });
+  return on.length === 1 ? on[0].lumen_sort : on.length;
+}
+
+test('переключатель медиа: у подборки с фильмами и сериалами — «Всё / Фильмы / Сериалы» перед сортировкой; у одиночной нет', function () {
+  var g = openGridObj({ lumen: MANIFEST.collections[0], title: 'x' });
+  var row = g.root.all('lumen-grid__sorts')[0];
+  assert.ok(row._children[0].hasClass('lumen-grid__media'), 'сегмент — первым в строке сортировки');
+  var chips = mediaChips(g);
+  assert.deepEqual(chips.map(function (c) { return c.lumen_media; }), ['all', 'movie', 'tv']);
+  assert.ok(chips.every(function (c) { return c.hasClass('lumen-chip') && c.hasClass('selector'); }), 'вид и фокус — общие чипы');
+  assert.ok(chips[0].hasClass('lumen-chip--on'), 'по умолчанию «Всё»');
+  assert.equal(g.h.fetchCalls[0].item.id, 'star-wars');
+  assert.ok(g.h.fetchCalls[0].item.sources.movie && g.h.fetchCalls[0].item.sources.tv);
+  var one = openGridObj({ lumen: DISCOVER, title: 'x', lumen_media: 'tv' });
+  assert.equal(one.root.all('lumen-grid__media').length, 0);
+  assert.equal(one.h.fetchCalls[0].item.id, 'pixar', 'одиночная подборка — без изменений');
+});
+
+test('переключатель медиа: открытие из «Сериалов» — сразу «Сериалы», запрос одного сериального источника', function () {
+  var g = openGridObj({ lumen: MANIFEST.collections[0], title: 'x', lumen_media: 'tv' });
+  var chips = mediaChips(g);
+  assert.ok(chips[2].hasClass('lumen-chip--on'));
+  assert.ok(!chips[0].hasClass('lumen-chip--on'));
+  assert.equal(g.h.fetchCalls.length, 1);
+  var req = g.h.fetchCalls[0].item;
+  assert.equal(req.id, 'star-wars~tv');
+  assert.deepEqual(Object.keys(req.sources), ['tv']);
+  /* Вход пультом — на выбранном «Сериалы», а не на «Всё»: случайный OK
+     не должен сбрасывать выбор. */
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var f = g.env.log.focuses;
+  assert.equal(f[f.length - 1], chips[2]);
+});
+
+test('переключатель медиа: смена гасит летящий запрос, сбрасывает страницы и тянет один источник', function () {
+  var g = openGridObj({ lumen: MANIFEST.collections[0], title: 'x' }, { roulette: fakeRoulette() });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 30 });
+  assert.equal(g.root.all('card').length, 12);
+  var chips = mediaChips(g);
+  var col = g.env.nav.collection;
+  assert.ok(col.indexOf(chips[0]) !== -1 && col.indexOf(chips[2]) !== -1, 'сегмент в коллекции пульта');
+  fire(chips[2], 'hover:enter');
+  assert.equal(g.h.fetchCalls.length, 2, 'ровно один новый запрос');
+  var call = g.h.fetchCalls[1];
+  assert.equal(call.page, 1, 'страницы сброшены');
+  assert.equal(call.item.id, 'star-wars~tv');
+  assert.deepEqual(Object.keys(call.item.sources), ['tv'], 'фильмовый источник не тянется');
+  assert.ok(chips[2].hasClass('lumen-chip--on') && !chips[0].hasClass('lumen-chip--on'));
+  call.ok({ results: [{ id: 501, name: 'Сериал', first_air_date: '2020-01-01' }], page: 1, total_pages: 1, total_results: 1 });
+  var cards = g.root.all('card');
+  assert.equal(cards.length, 1, 'карточки «Всего» заменены, а не дописаны');
+  assert.equal(cards[0].card_data.name, 'Сериал');
+  /* Повторное нажатие на выбранный — ничего не грузит. */
+  fire(chips[2], 'hover:enter');
+  assert.equal(g.h.fetchCalls.length, 2);
+  /* Летящий запрос прежнего режима погашен. */
+  fire(chips[0], 'hover:enter');
+  var pending = g.h.fetchCalls[2];
+  assert.equal(pending.item.id, 'star-wars');
+  fire(chips[1], 'hover:enter');
+  assert.ok(pending.cleared, 'ответ «Всего» не должен дорисоваться в «Фильмы»');
+  assert.equal(g.h.fetchCalls[3].item.id, 'star-wars~movie');
+  assert.equal(g.h.fetchCalls[3].page, 1);
+});
+
+test('переключатель медиа: чипы сортировки пересобираются — у фильмов франшизы (коллекция) первым «По годам»', function () {
+  var g = openGridObj({ lumen: MANIFEST.collections[0], title: 'x' });
+  function sortIds() {
+    return g.root.all('lumen-chip').filter(function (c) { return c.lumen_sort; }).map(function (c) { return c.lumen_sort; });
+  }
+  assert.deepEqual(sortIds(), ['popular', 'rating', 'new'], '«Всё»: коллекция + discover — три чипа');
+  fire(mediaChips(g)[1], 'hover:enter');
+  assert.deepEqual(sortIds(), ['years', 'popular', 'rating', 'new']);
+  assert.equal(sortOn(g), 'years', 'стояла сортировка по умолчанию — берём умолчание фильмов');
+  fire(mediaChips(g)[2], 'hover:enter');
+  assert.deepEqual(sortIds(), ['popular', 'rating', 'new']);
+  assert.equal(sortOn(g), 'popular');
+  /* Выбранная руками сортировка переживает смену, если она есть. */
+  fire(g.root.all('lumen-chip').filter(function (c) { return c.lumen_sort === 'rating'; })[0], 'hover:enter');
+  var last = g.h.fetchCalls[g.h.fetchCalls.length - 1].item;
+  assert.equal(last.id, 'star-wars~tv');
+  assert.equal(last.sources.tv.params.sort_by, 'vote_average.desc', 'сериалы (discover) сортирует TMDB');
+  fire(mediaChips(g)[0], 'hover:enter');
+  assert.equal(sortOn(g), 'rating');
+});
+
+test('переключатель медиа: рулетка — того же медиа, preselect — id каталога', function () {
+  var r = fakeRoulette();
+  var g = openGridObj({ lumen: MANIFEST.collections[0], title: 'x', lumen_media: 'tv' }, { roulette: r });
+  fire(g.root.all('lumen-grid__roulette')[0], 'hover:enter');
+  assert.deepEqual(r.opened, [{ media: 'tv', preselect: 'star-wars' }]);
+  fire(mediaChips(g)[0], 'hover:enter');
+  var btn = g.root.all('lumen-grid__roulette');
+  assert.equal(btn.length, 1, 'кнопка пересобрана, а не задвоена');
+  var row = g.root.all('lumen-grid__sorts')[0];
+  assert.equal(row._children[row._children.length - 1], btn[0], 'по-прежнему последним узлом строки');
+  fire(btn[0], 'hover:enter');
+  assert.deepEqual(r.opened[1], { media: 'movie', preselect: 'star-wars' }, '«Всё» — фильмы первыми, как раньше');
 });

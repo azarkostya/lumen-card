@@ -5,7 +5,9 @@
   /*   titleOf(obj, lang) → заголовок с учётом i18n манифеста               */
   /*   groupsWithCounts(manifest, lang) → [{id, title, count, groups}]      */
   /*   tilesFor(manifest, hubGroupId) → [подборка, …]                       */
-  /*   openTarget(item) → объект для Lampa.Activity.push                    */
+  /*   openTarget(item, media) → объект для Lampa.Activity.push             */
+  /*   seriesItems / animationItems — срезы «Сериалы» и «Мультфильмы»       */
+  /*   mediaModes(item) / forMedia(item, media) — переключатель медиа сетки */
   /*   open(item) — открыть подборку (фолбэк на свою сетку; «Ещё» рядов)    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
   /*   sortModes(item) / defaultSort(item) / applySort / sortLocal         */
@@ -167,6 +169,22 @@
         if (!list.length) continue;
         out.push({ id: g.id, title: titleOf(g, lang), count: list.length, groups: g.groups });
       }
+      /* Решение пользователя 2026-09-29 («фильмы/сериалы/мульты»): два
+         сквозных чипа — срезы того же каталога по признаку подборки, а не
+         по группе. «Сериалы» — у подборки есть сериальный источник,
+         «Мультфильмы» — ручной тег animation (жанр 16 в запросе не признак:
+         он стоит и у «Звёздных войн», и у «Летнего кино»). Место — сразу за
+         первым чипом: выбранный при входе чип прежний, а оба среза видны
+         без прокрутки ряда. virtual: true — шапка хаба не считает их в число
+         подборок (они уже посчитаны в своих группах). Пустой срез не
+         показывается, как и пустая группа. */
+      var extra = [];
+      var series = seriesItems(manifest);
+      if (series.length) extra.push({ id: SERIES_HUB, title: LC.lang('lumen_hub_series'), count: series.length, groups: [], virtual: true });
+      var cartoons = animationItems(manifest);
+      if (cartoons.length) extra.push({ id: ANIMATION_HUB, title: LC.lang('lumen_hub_animation'), count: cartoons.length, groups: [], virtual: true });
+      var at = out.length ? 1 : 0;
+      for (var e = 0; e < extra.length; e++) out.splice(at + e, 0, extra[e]);
       /* Решение пользователя 2026-09-26: профили настроения — последним
          чипом (moodItems ниже). moods: true — шапка хаба не считает их в
          число подборок каталога. */
@@ -203,18 +221,69 @@
        на третьем экране прокрутки. Без month порядок остаётся манифестным. */
     function tilesFor(manifest, hubGroupId, month) {
       if (hubGroupId === MOOD_HUB) return moodItems(manifest);
-      if (!manifest || !Array.isArray(manifest.hubGroups)) return [];
-      for (var i = 0; i < manifest.hubGroups.length; i++) {
-        var g = manifest.hubGroups[i];
-        if (g && g.id === hubGroupId) {
-          var list = collectionsIn(manifest, g.groups);
-          if (month && LC.manifest && typeof LC.manifest.orderForMonth === 'function') {
-            return LC.manifest.orderForMonth(list, month);
-          }
-          return list;
+      var list = null;
+      if (hubGroupId === SERIES_HUB) list = seriesItems(manifest);
+      else if (hubGroupId === ANIMATION_HUB) list = animationItems(manifest);
+      else if (manifest && Array.isArray(manifest.hubGroups)) {
+        for (var i = 0; i < manifest.hubGroups.length; i++) {
+          var g = manifest.hubGroups[i];
+          if (g && g.id === hubGroupId) { list = collectionsIn(manifest, g.groups); break; }
         }
       }
-      return [];
+      if (!list) return [];
+      if (month && LC.manifest && typeof LC.manifest.orderForMonth === 'function') {
+        return LC.manifest.orderForMonth(list, month);
+      }
+      return list;
+    }
+
+    /* Сквозные срезы каталога (groupsWithCounts выше). Порядок — как в
+       манифесте; подборка остаётся собой, и подпись плитки — её настоящая
+       группа. */
+    var SERIES_HUB = 'lumen-series';
+    var ANIMATION_HUB = 'lumen-animation';
+
+    function catalogWhere(manifest, test) {
+      var out = [];
+      var list = manifest && Array.isArray(manifest.collections) ? manifest.collections : [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].sources && test(list[i])) out.push(list[i]);
+      }
+      return out;
+    }
+
+    function seriesItems(manifest) {
+      return catalogWhere(manifest, function (c) { return !!c.sources.tv; });
+    }
+
+    function animationItems(manifest) {
+      return catalogWhere(manifest, function (c) { return c.animation === true; });
+    }
+
+    /* Сетка подборки с обоими источниками — переключатель «Всё / Фильмы /
+       Сериалы» (GridComponent). Режим '' — переключателя нет: у подборки
+       один источник. */
+    function mediaModes(item) {
+      var src = (item && item.sources) || {};
+      return !!(src.movie && src.tv);
+    }
+
+    /* Копия подборки с одним источником — как applySort, оригинал не
+       мутируется. id с суффиксом: по id:страница:подпись сортировки
+       LC.sources.fetch сводит одинаковые запросы в один, а подпись у
+       «коллекция + discover» («Гарри Поттер») одна и та же для всей
+       подборки и для её сериальной половины — без суффикса отфильтрованная
+       сетка подписалась бы на летящий смешанный ответ. */
+    function forMedia(item, media) {
+      if ((media !== 'movie' && media !== 'tv') || !mediaModes(item)) return item;
+      var out = {};
+      for (var k in item) {
+        if (item.hasOwnProperty(k)) out[k] = item[k];
+      }
+      out.id = item.id + '~' + media;
+      out.sources = {};
+      out.sources[media] = item.sources[media];
+      return out;
     }
 
     /* Подборка сезонная прямо сейчас? Плитка получает по этому признаку
@@ -254,13 +323,15 @@
        col-NNN, в каталоге её нет) и подборки, которых нет в загруженном
        каталоге. Фильмы — первыми, как и пункт меню; сериалы — если
        фильмового источника у подборки нет. */
-    function rouletteMedia(item, manifest) {
+    function rouletteMedia(item, manifest, only) {
       if (!item || !item.id) return null;
       if (!LC.roulette || typeof LC.roulette.collectionsFor !== 'function' || typeof LC.roulette.open !== 'function') return null;
       if (manifest === undefined) {
         try { manifest = LC.manifest && LC.manifest.get ? LC.manifest.get() : null; } catch (e) { manifest = null; }
       }
-      var order = ['movie', 'tv'];
+      /* only — сетка переключена на «Фильмы» или «Сериалы»: рулетка того
+         же медиа или никакой. */
+      var order = only ? [only] : ['movie', 'tv'];
       for (var m = 0; m < order.length; m++) {
         var list = LC.roulette.collectionsFor(manifest, order[m]);
         for (var i = 0; i < list.length; i++) {
@@ -273,8 +344,11 @@
     /* Куда открывать подборку: штатная сетка Lampa, если она это умеет,
        иначе свой компонент. Возвращает объект для Lampa.Activity.push.
        Полное ревью, C4: title — на языке интерфейса (titleOf), как у чипов
-       и поиска. */
-    function openTarget(item) {
+       и поиска.
+       media ('tv' из чипа «Сериалы») — с каким положением переключателя
+       «Всё / Фильмы / Сериалы» открыть свою сетку; у подборки с одним
+       источником переключателя нет, и media ничего не меняет. */
+    function openTarget(item, media0) {
       var media = singleDiscover(item);
       if (media && fullGridReady()) {
         /* Сверка 2026-09-26 (план фазы 2, риски: «при ошибке
@@ -297,11 +371,13 @@
           return target;
         }
       }
-      return gridTarget(item);
+      return gridTarget(item, media0);
     }
 
-    function gridTarget(item) {
-      return { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
+    function gridTarget(item, media) {
+      var target = { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
+      if ((media === 'movie' || media === 'tv') && mediaModes(item)) target.lumen_media = media;
+      return target;
     }
 
     /* Штатная сетка в этой Lampa есть. Lampa.Component.get
@@ -1014,15 +1090,15 @@
     /* Открыть подборку (из плитки хаба или кнопки «Франшиза»).
        Сверка 2026-09-26: штатная сетка не открылась (push бросил) — та же
        подборка своей сеткой, вторым и последним шагом. */
-    function openCollection(item) {
+    function openCollection(item, media) {
       var target = null;
       try {
-        target = openTarget(item);
+        target = openTarget(item, media);
         Lampa.Activity.push(target);
       } catch (e) {
         warn('hub: open collection failed', e);
         if (!target || target.component !== 'category_full') return;
-        try { Lampa.Activity.push(gridTarget(item)); } catch (e2) { warn('hub: open grid fallback failed', e2); }
+        try { Lampa.Activity.push(gridTarget(item, media)); } catch (e2) { warn('hub: open grid fallback failed', e2); }
       }
     }
 
@@ -1691,7 +1767,7 @@
         try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
       }
 
-      function tileNode(item) {
+      function tileNode(item, media) {
         var group = null;
         var i;
         for (i = 0; manifest && manifest.groups && i < manifest.groups.length; i++) {
@@ -1727,7 +1803,7 @@
           loadVisibleBanners();
         });
         node.on('hover:enter', function () {
-          openCollection(item);
+          openCollection(item, media);
         });
         return node[0];
       }
@@ -1740,8 +1816,11 @@
         var list = tilesFor(manifest, groupId, month());
         tilesRow.empty();
         tileNodes = [];
+        /* Из среза «Сериалы» смешанная подборка открывается сразу на
+           сериалах (переключатель сетки, GridComponent). */
+        var media = groupId === SERIES_HUB ? 'tv' : '';
         for (var i = 0; i < list.length; i++) {
-          var node = tileNode(list[i]);
+          var node = tileNode(list[i], media);
           tilesRow.append(node);
           tileNodes.push(node);
         }
@@ -1829,7 +1908,7 @@
 
       function buildHead() {
         var total = 0;
-        for (var i = 0; i < groups.length; i++) if (!groups[i].moods) total += groups[i].count;
+        for (var i = 0; i < groups.length; i++) if (!groups[i].moods && !groups[i].virtual) total += groups[i].count;
         head.empty();
         head.append($('<div class="lumen-hub__title">' + esc(LC.lang('lumen_hub_title')) + '</div>'));
         head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collectionsWord(total)) + '</div>'));
@@ -1988,7 +2067,15 @@
 
     function GridComponent(object) {
       var self = this;
-      var item = (object && object.lumen) || { id: 'unknown', title: (object && object.title) || '', sources: {} };
+      /* base — подборка как в каталоге, item — то, что сетка грузит: у
+         подборки с обоими источниками это копия с одним из них, когда
+         переключатель «Всё / Фильмы / Сериалы» (решение пользователя
+         2026-09-29) стоит не на «Всё» (forMedia). mediaMode '' —
+         переключателя нет, источник один. */
+      var base = (object && object.lumen) || { id: 'unknown', title: (object && object.title) || '', sources: {} };
+      var mediaMode = '';
+      if (mediaModes(base)) mediaMode = (object.lumen_media === 'movie' || object.lumen_media === 'tv') ? object.lumen_media : 'all';
+      var item = forMedia(base, mediaMode);
       var scroll = new Lampa.Scroll({ mask: true, over: true, step: 250 });
       var root = $('<div class="lumen-grid"></div>');
       var head = $('<div class="lumen-grid__head"></div>');
@@ -2012,6 +2099,9 @@
       var raw = [];
       var cardNodes = [];
       var sortNodes = [];
+      /* Переключатель медиа (пусто у подборки с одним источником) — как и
+         чипы сортировки, в коллекции всегда и первым. */
+      var mediaNodes = [];
       /* Кнопки пустой сетки («Назад», «Скрыть подсказку»). Карточками они не
          являются, а в коллекции Navigator быть обязаны: окно строится по
          cardNodes, и без этого списка недостижимой стала бы кнопка «Назад».
@@ -2103,7 +2193,7 @@
         for (var i = 0; i < cardNodes.length; i++) {
           if (cardNodes[i] === target) { active = i; break; }
         }
-        var fixed = sortNodes.concat(emptyNodes);
+        var fixed = mediaNodes.concat(sortNodes, emptyNodes);
         if (rouletteNode) fixed.push(rouletteNode);
         limitCollection(fixed, cardNodes, active);
       }
@@ -2534,16 +2624,18 @@
         return node[0];
       }
 
-      this.create = function () {
-        motionClass(root);
-        screenBg(self.activity);
-        stage = ScreenStage(self.activity);
-        /* C4: заголовок — на языке интерфейса. */
-        head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
-        head.append(subtitle);
-        root.append(head);
+      /* Чипы сортировки и кнопка рулетки — для текущего item. Смена медиа
+         пересобирает их: у «Гарри Поттера» на «Фильмах» источник — одна
+         коллекция, и первым встаёт «По годам» (byYears); рулетка — того же
+         медиа, что выбран (rouletteMedia, only). */
+      function buildSorts() {
+        var i;
+        for (i = 0; i < sortNodes.length; i++) $(sortNodes[i]).remove();
+        if (rouletteNode) $(rouletteNode).remove();
+        sortNodes = [];
+        rouletteNode = null;
         var modes = sortModes(item);
-        for (var i = 0; i < modes.length; i++) {
+        for (i = 0; i < modes.length; i++) {
           var node = sortNode(modes[i]);
           sortsRow.append(node);
           sortNodes.push(node);
@@ -2555,15 +2647,97 @@
            сортировки, а не в шапке рядом с заголовком: так «вправо» с
            последнего чипа сортировки доводит до неё одним шагом, а «вниз»
            с неё уходит в сетку, как с чипов. Отдельной строки ей не дано —
-           строка стоила бы высоты первого ряда карточек. */
-        var rmedia = rouletteMedia(item);
+           строка стоила бы высоты первого ряда карточек.
+           preselect — id подборки каталога (base), а не копии с суффиксом:
+           рулетка знает только каталожные. */
+        var rmedia = rouletteMedia(base, undefined, mediaMode === 'movie' || mediaMode === 'tv' ? mediaMode : null);
         if (rmedia) {
           var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
           LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; dim(false); });
-          roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
+          roulette.on('hover:enter', function () { LC.roulette.open(rmedia, base.id); });
           sortsRow.append(roulette);
           rouletteNode = roulette[0];
         }
+      }
+
+      /* Решение пользователя 2026-09-29: переключатель «Всё / Фильмы /
+         Сериалы» — только у подборки с обоими источниками, первым в строке
+         сортировки (вид и кольцо фокуса — общие .lumen-grid .lumen-chip,
+         выбранное — lumen-chip--on, как у сортировки). */
+      var MEDIA_KEYS = [['all', 'lumen_grid_all'], ['movie', 'lumen_grid_movies'], ['tv', 'lumen_grid_series']];
+
+      function highlightMedia() {
+        for (var i = 0; i < mediaNodes.length; i++) {
+          $(mediaNodes[i]).toggleClass('lumen-chip--on', mediaNodes[i].lumen_media === mediaMode);
+        }
+      }
+
+      function buildMedia() {
+        if (!mediaMode) return;
+        var wrap = $('<div class="lumen-grid__media"></div>');
+        for (var i = 0; i < MEDIA_KEYS.length; i++) {
+          var node = mediaNode(MEDIA_KEYS[i][0], MEDIA_KEYS[i][1]);
+          wrap.append(node);
+          mediaNodes.push(node);
+        }
+        sortsRow.append(wrap);
+        highlightMedia();
+        /* Открыли из «Сериалов» — вход в экран на выбранном «Сериалы», а не
+           на первом узле строки («Всё»): случайный OK не сбросит выбор. */
+        if (mediaMode !== 'all') {
+          for (var j = 0; j < mediaNodes.length; j++) if (mediaNodes[j].lumen_media === mediaMode) lastFocus = mediaNodes[j];
+        }
+      }
+
+      function mediaNode(value, key) {
+        var node = $('<div class="lumen-chip selector">' + esc(LC.lang(key)) + '</div>');
+        node[0].lumen_media = value;
+        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; dim(false); });
+        node.on('hover:enter', function () { setMedia(value, node[0]); });
+        return node[0];
+      }
+
+      /* Смена медиа — другая выдача: летящий запрос (и его постеры) гасим,
+         страницы и накопленные карточки сбрасываем, сетку грузим с первой
+         страницы уже одним источником (forMedia) — второй TMDB не трогаем.
+         Сортировка: стояла сортировка по умолчанию — берём умолчание нового
+         набора («По годам» у фильмов франшизы), выбранную руками —
+         сохраняем, если она у нового набора есть. */
+      function setMedia(value, focusNode) {
+        if (!mediaMode || mediaMode === value) return;
+        var prev = item;
+        bump();
+        loading = false;
+        pending = null;
+        try { self.activity.loader(false); } catch (eL) {}
+        mediaMode = value;
+        item = forMedia(base, value);
+        var modes = sortModes(item);
+        var keep = sortMode !== defaultSort(prev);
+        var has = false;
+        for (var i = 0; i < modes.length; i++) if (modes[i].id === sortMode) has = true;
+        if (!keep || !has) sortMode = defaultSort(item);
+        highlightMedia();
+        buildSorts();
+        raw = [];
+        page = 1;
+        totalPages = 1;
+        totalResults = 0;
+        lastCardId = null;
+        loadPage(1, true);
+        recollect(focusNode);
+      }
+
+      this.create = function () {
+        motionClass(root);
+        screenBg(self.activity);
+        stage = ScreenStage(self.activity);
+        /* C4: заголовок — на языке интерфейса. */
+        head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
+        head.append(subtitle);
+        root.append(head);
+        buildMedia();
+        buildSorts();
         root.append(sortsRow);
         root.append(itemsRow);
         scroll.append(root);
@@ -2628,6 +2802,7 @@
         stage = null;
         cardNodes = [];
         sortNodes = [];
+        mediaNodes = [];
         emptyNodes = [];
         rouletteNode = null;
         lastFocus = null;
@@ -2776,6 +2951,14 @@
       FULL_MARK: FULL_MARK,
       fullStage: { start: fullStart, destroy: fullDestroy, clear: fullClear, count: function () { return fulls.length; } },
       moodItems: moodItems,
+      /* Решение пользователя 2026-09-29: срезы «Сериалы» и «Мультфильмы»,
+         переключатель медиа сетки. */
+      SERIES_HUB: SERIES_HUB,
+      ANIMATION_HUB: ANIMATION_HUB,
+      seriesItems: seriesItems,
+      animationItems: animationItems,
+      mediaModes: mediaModes,
+      forMedia: forMedia,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
          «Ещё» рядов главной (src/44_rows.js). */
       open: openCollection,
