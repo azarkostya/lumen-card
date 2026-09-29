@@ -5074,9 +5074,6 @@ css.push('.lumen-hub .lumen-tile__text{position:absolute;left:.88em;right:.88em;
 
 css.push('.lumen-hub .lumen-tile__title{font-family:' + FB + ';font-weight:700;font-size:1.15em;line-height:1.2;color:' + P.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
 css.push('.lumen-hub .lumen-tile__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';margin-top:.29em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
-css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.49em;right:.49em;font-family:' + FB + ';font-weight:500;font-size:1.01em;letter-spacing:.03em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.04em solid rgba(' + P.textRgb + ',.3);border-radius:.14em;padding:.17em .31em}');
-css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
-
 
 
 
@@ -5272,8 +5269,6 @@ css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1
 css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;color:' + P.text + '}');
 
 css.push('.lumen-grid .lumen-grid__back.focus{background:' + P.text + ';color:' + P.bg + '}');
-
-css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
 
 
@@ -8539,6 +8534,7 @@ version: 1,
 
 
 
+
 groups: [
 { id: 'franchise', title: 'Франшизы',    i18n: { en: 'Franchises',  uk: 'Франшизи' } },
 { id: 'studio',    title: 'Студии',       i18n: { en: 'Studios',     uk: 'Студії' } },
@@ -8548,7 +8544,6 @@ groups: [
 { id: 'era',       title: 'Эпохи',        i18n: { en: 'Eras',        uk: 'Епохи' } },
 { id: 'people',    title: 'Режиссёры',    i18n: { en: 'People',      uk: 'Режисери' } },
 { id: 'top',       title: 'Топ',          i18n: { en: 'Top',         uk: 'Топ' } },
-{ id: 'kp',        title: 'Кинопоиск',   i18n: { en: 'Kinopoisk',   uk: 'Кінопошук' } },
 { id: 'mood',      title: 'Настроение',   i18n: { en: 'Mood',        uk: 'Настрій' } }
 ],
 
@@ -8561,7 +8556,7 @@ hubGroups: [
 { id: 'countries',  title: 'Страны',            i18n: { en: 'Countries',          uk: 'Країни' },            groups: ['country'] },
 { id: 'eras',       title: 'Эпохи',             i18n: { en: 'Eras',               uk: 'Епохи' },             groups: ['era'] },
 { id: 'people',     title: 'Режиссёры',         i18n: { en: 'People',             uk: 'Режисери' },          groups: ['people'] },
-{ id: 'tops',       title: 'Топ и Кинопоиск',  i18n: { en: 'Top & Kinopoisk',    uk: 'Топ та Кінопошук' }, groups: ['top', 'kp'] }
+{ id: 'tops',       title: 'Топ',               i18n: { en: 'Top',                uk: 'Топ' },               groups: ['top'] }
 ],
 
 
@@ -8577,9 +8572,8 @@ moods: [
 home: [
 'continue', 'because', 'new-episodes', 'soon',
 'star-wars', 'xmas-comedy', 'netflix-comedy', 'apple-tv',
-'kdrama', 'anime', 'kp-top250'
+'kdrama', 'anime', 'top-rated'
 ],
-
 
 
 
@@ -9586,6 +9580,7 @@ sources: { movie: { type: 'discover', params: { genres: 80, sort_by: 'vote_avera
 
 
 
+
 {
 id: 'action', title: 'Боевики', i18n: { en: 'Action', uk: 'Бойовики' }, group: 'theme', cover: '/3IzR3VhZAyhxVnuRRUHFLkfK4hT.jpg',
 sources: { movie: { type: 'discover', params: { genres: 28, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
@@ -9675,6 +9670,40 @@ sources: {
 movie: { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
 tv:    { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 500 } } }
 }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'family', title: 'Семейные', i18n: { en: 'Family Films', uk: 'Сімейні' }, group: 'theme', cover: '/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
+sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } }
+},
+{
+id: 'romance', title: 'Романтика', i18n: { en: 'Romance', uk: 'Романтика' }, group: 'theme', cover: '/9JZKUOQdQPTJ4OdYKttYOQCREdw.jpg',
+sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'vote_average.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 2000 } } } }
 },
 
 
@@ -9900,53 +9929,17 @@ sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filte
 },
 
 
+
+
+
+
+
+
+
+
 {
-id: 'kp-top250', title: 'КП Топ-250 фильмов', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } }
-},
-{
-id: 'kp-top250-tv', title: 'КП Топ-250 сериалов', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'TOP_250_TV_SHOWS' } }
-},
-{
-id: 'kp-popular-all', title: 'КП Популярное', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'TOP_POPULAR_ALL' } }
-},
-{
-id: 'kp-popular-series', title: 'КП Популярные сериалы', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'POPULAR_SERIES' } }
-},
-{
-id: 'kp-family', title: 'КП Семейные', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'FAMILY' } }
-},
-{
-id: 'kp-animation', title: 'КП Анимация', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'KIDS_ANIMATION_THEME' } }
-},
-{
-id: 'kp-comics', title: 'КП Комиксы', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'COMICS_THEME' } }
-},
-{
-id: 'kp-vampire', title: 'КП Вампиры', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'VAMPIRE_THEME' } }
-},
-{
-id: 'kp-zombie', title: 'КП Зомби', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'ZOMBIE_THEME' } }
-},
-{
-id: 'kp-love', title: 'КП Романтика', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'LOVE_THEME' } }
-},
-{
-id: 'kp-catastrophe', title: 'КП Катастрофы', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'CATASTROPHE_THEME' } }
-},
-{
-id: 'kp-oscars', title: 'КП Лауреаты Оскара', group: 'kp', badge: 'KINOPOISK',
-sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
+id: 'popular-series', title: 'Популярные сериалы', i18n: { en: 'Popular Series', uk: 'Популярні серіали' }, group: 'top', cover: '/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg',
+sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { without_genres: '10763', 'vote_count.gte': 50 } } } }
 }
 
 ],
@@ -10119,7 +10112,6 @@ ambient: [
 
 
 var ID_RE = /^[\w-]{1,64}$/;
-var KP_RE = /^[A-Z0-9_]{1,64}$/;
 var NUM_ID_RE = /^\d{1,12}$/;
 var THEME_RE = /^[a-z0-9-]{1,64}$/;
 var ACCENT_RE = /^#[0-9a-f]{6}$/i;
@@ -10198,7 +10190,6 @@ return true;
 
 function specOk(spec) {
 if (!spec || typeof spec !== 'object') return false;
-if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
 if (spec.type === 'collection') {
 if (!NUM_ID_RE.test(String(spec.id))) return false;
 if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;
@@ -10235,6 +10226,33 @@ return true;
 }
 
 
+
+
+
+
+
+
+
+
+
+
+var RETIRED = { kp: 1 };
+
+function retired(spec) {
+return !!(spec && typeof spec === 'object' && RETIRED.hasOwnProperty(spec.type));
+}
+
+
+
+function dropRetired(src) {
+if (!src || typeof src !== 'object') return false;
+var had = false;
+if (retired(src.movie)) { delete src.movie; had = true; }
+if (retired(src.tv)) { delete src.tv; had = true; }
+return had && !src.movie && !src.tv;
+}
+
+
 function labelsOk(list) {
 for (var i = 0; i < list.length; i++) {
 var g = list[i];
@@ -10243,6 +10261,8 @@ if (!labelOk(g)) return false;
 }
 return true;
 }
+
+
 
 
 
@@ -10285,6 +10305,7 @@ if (typeof hg[hj] !== 'string' || !ID_RE.test(hg[hj])) return { ok: false, reaso
 if (typeof m.moods !== 'undefined') {
 if (!Array.isArray(m.moods) || !labelsOk(m.moods)) return { ok: false, reason: 'bad_mood' };
 for (var mi = 0; mi < m.moods.length; mi++) {
+if (dropRetired(m.moods[mi].sources)) { m.moods.splice(mi, 1); mi--; continue; }
 if (!sourcesOk(m.moods[mi].sources)) return { ok: false, reason: 'bad_mood: ' + m.moods[mi].id };
 }
 }
@@ -10296,6 +10317,7 @@ var i, c;
 for (i = 0; i < m.collections.length; i++) {
 c = m.collections[i];
 if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+if (dropRetired(c.sources)) { m.collections.splice(i, 1); i--; continue; }
 if (typeof c.id !== 'string' || !ID_RE.test(c.id)) return { ok: false, reason: 'bad_id' };
 if (typeof c.title !== 'string' || !c.title) {
 return { ok: false, reason: 'collection_no_title: ' + c.id };
@@ -10473,72 +10495,11 @@ orig_lang: 'with_original_language'
 
 
 
-
-
 var LIFE_DISCOVER = 720;
 var LIFE_STATIC = 10080;
-var LIFE_KP = 43200;
-var LIFE_KP_EMPTY = 10;
 
 
 var FETCH_TIMEOUT = 15000;
-
-
-
-
-
-
-var INDEX_KEY = 'lumen_sources_index';
-var MAX_CACHED = 60;
-
-function storage() {
-try { return Lampa && Lampa.Storage; } catch (e) { return null; }
-}
-
-function readIndex(store) {
-var raw = null;
-try { raw = store.get(INDEX_KEY, null); } catch (e) {}
-return Array.isArray(raw) ? raw : [];
-}
-
-function drop(store, key) {
-try { store.set(key, '', { nolisten: true }); } catch (e) {}
-try {
-var ls = (typeof window !== 'undefined' && window.localStorage) ||
-(typeof localStorage !== 'undefined' ? localStorage : null);
-if (ls) ls.removeItem(key);
-} catch (e) {}
-}
-
-function stored(key, value) {
-try {
-var ls = (typeof window !== 'undefined' && window.localStorage) ||
-(typeof localStorage !== 'undefined' ? localStorage : null);
-if (!ls) return true;
-var s = JSON.stringify(value);
-ls.setItem(key, s);
-var got = ls.getItem(key);
-return got !== null && got.length >= s.length;
-} catch (e) { return false; }
-}
-
-function purge(store) {
-var idx = readIndex(store);
-LC.util.each(idx, function (k) { drop(store, k); });
-try { store.set(INDEX_KEY, [], { nolisten: true }); } catch (e) {}
-}
-
-function put(store, key, value) {
-var idx = readIndex(store);
-if (idx.indexOf(key) < 0) { idx.push(key); }
-while (idx.length > MAX_CACHED) { drop(store, idx.shift()); }
-try { store.set(INDEX_KEY, idx, { nolisten: true }); } catch (e) {}
-try { store.set(key, value, { nolisten: true }); } catch (e2) {}
-if (!stored(key, value)) {
-purge(store);
-try { store.set(key, value, { nolisten: true }); } catch (e3) {}
-}
-}
 
 
 
@@ -10629,7 +10590,6 @@ return data;
 
 var FILTER_KEY = /^[a-z_]{1,48}(\.(gte|lte))?$/;
 var SAFE_VALUE = /^[\w.,|:-]{1,256}$/;
-var KP_COLLECTION = /^[A-Z0-9_]{1,64}$/;
 
 function safeValue(v) {
 if (typeof v === 'number') return isFinite(v);
@@ -10645,11 +10605,6 @@ for (var k in f) {
 if (f.hasOwnProperty(k) && FILTER_KEY.test(k) && safeValue(f[k])) out[k] = f[k];
 }
 return out;
-}
-
-function kpCollection(spec) {
-var c = spec && spec.collection;
-return (typeof c === 'string' && KP_COLLECTION.test(c)) ? c : '';
 }
 
 
@@ -10901,22 +10856,6 @@ return 'discover/' + media + (q.length ? '?' + q.join('&') : '');
 
 
 
-
-var IMDB_RE = /^tt\d{1,10}$/;
-function kpToFinds(json, limit) {
-var ids = [];
-LC.util.each((json && json.items) || [], function (it) {
-if (it && typeof it.imdbId === 'string' && IMDB_RE.test(it.imdbId) && ids.length < limit) {
-ids.push(it.imdbId);
-}
-});
-return ids;
-}
-
-
-
-
-
 function mergeMedia(movies, tv) {
 var out = [];
 var seen = {};
@@ -10938,99 +10877,14 @@ return out;
 }
 
 
+var KNOWN = { discover: 1, collection: 1, list: 1 };
 
-
-
-
-
-
-
-function fetchKp(spec, page, ok, err, alive) {
-var gen = alive ? alive() : 0;
-function dead() { return alive && alive() !== gen; }
-
-var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
-if (!key) { err({ nokey: true }); return null; }
-var collection = kpCollection(spec);
-if (!collection) { err({ kp_failed: true }); return null; }
-
-var cacheKey = 'lumen_kp_' + collection + '_' + (page || 1);
-var store = storage();
-var cached = null;
-try {
-var raw = store ? store.get(cacheKey, null) : null;
-if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at) {
-cached = raw;
-}
-} catch (e) {}
-if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
-if (!dead()) ok(cached.data);
-return null;
+function known(spec) {
+return !!(spec && KNOWN.hasOwnProperty(spec.type));
 }
 
-var net = new Lampa.Reguest();
-net.silent(
-'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-encodeURIComponent(collection) + '&page=' + (page || 1),
-function (json) {
-if (dead()) return;
-var ids = kpToFinds(json, 20);
-var results = [];
-var i = 0;
-function next() {
-if (dead()) return;
-if (i >= ids.length) {
-var data = {
-results: results,
-page: page || 1,
-total_pages: (json && json.totalPages) || 1,
-total_results: (json && json.total) || results.length,
-title: ''
-};
-var s = storage();
-if (s) {
-if (results.length > 0) {
-put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: data });
-} else {
-try {
-s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: data }, { nolisten: true });
-} catch (e2) {}
-}
-}
-if (!dead()) ok(data);
-return;
-}
-var id = ids[i++];
-Lampa.Api.sources.tmdb.get(
-'find/' + id,
-{ filter: { external_source: 'imdb_id' } },
-function (f) {
-var m = (f.movie_results && f.movie_results[0]) ||
-(f.tv_results && f.tv_results[0]);
-if (m) results.push(m);
-next();
-},
-next,
-{ life: LIFE_KP }
-);
-}
-next();
-},
-function () {
-var s = storage();
-if (s) {
-try {
-var errData = { results: [], page: page || 1, total_pages: 1, total_results: 0, title: '' };
-s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: errData }, { nolisten: true });
-} catch (e2) {}
-}
-if (!dead()) err({ kp_failed: true });
-},
-false,
-{ headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
-);
-return net;
-}
+
+
 
 
 
@@ -11040,7 +10894,7 @@ return net;
 
 
 function fetchOne(spec, media, page, ok, err, alive) {
-if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
+if (!known(spec)) { err({ unknown_type: true }); return null; }
 if (isSet(spec)) { fetchSet(spec, ok, err, alive); return null; }
 var gen = alive ? alive() : 0;
 function dead() { return alive && alive() !== gen; }
@@ -11157,9 +11011,6 @@ var src = item.sources || {};
 var want = [];
 var got = {};
 
-
-var nets = [];
-
 if (src.movie) want.push('movie');
 if (src.tv) want.push('tv');
 if (!want.length) {
@@ -11196,24 +11047,12 @@ notifySubs('ok', r);
 });
 
 LC.util.each(want, function (media) {
-var n = fetchOne(
+fetchOne(
 src[media], media, page,
 function (json) { got[media] = json; gate.tick(); },
-function (e) {
-
-
-
-
-if (e && e.nokey) {
-if (!gate.cancel()) return;
-notifySubs('err', e);
-} else {
-gate.tick();
-}
-},
+function () { gate.tick(); },
 requestAlive
 );
-if (n) nets.push(n);
 });
 
 function cancelRequest() {
@@ -11223,9 +11062,6 @@ _reqAliveGen++;
 gate.cancel();
 
 if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
-LC.util.each(nets, function (n) {
-try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
-});
 }
 entry._cancel = cancelRequest;
 
@@ -11238,84 +11074,6 @@ if (!Object.keys(myEntry.subs).length) { cancelRequest(); }
 }
 };
 }
-
-
-
-
-
-
-
-function kpPosters(spec, limit, ok, err, alive) {
-var gen = alive ? alive() : 0;
-function dead() { return alive && alive() !== gen; }
-
-var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
-if (!key) { err({ nokey: true }); return null; }
-var collection = kpCollection(spec);
-if (!collection) { err({ kp_failed: true }); return null; }
-
-var cacheKey = 'lumen_kpp_' + collection;
-var store = storage();
-var cached = null;
-try {
-var raw = store ? store.get(cacheKey, null) : null;
-if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at && Array.isArray(raw.data)) cached = raw;
-} catch (e) {}
-if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
-if (!dead()) ok(cached.data.slice(0, limit));
-return null;
-}
-
-var net = new Lampa.Reguest();
-net.silent(
-'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-encodeURIComponent(collection) + '&page=1',
-function (json) {
-if (dead()) return;
-var urls = [];
-LC.util.each((json && json.items) || [], function (it) {
-var url = it && (it.posterUrlPreview || it.posterUrl);
-if (url && urls.length < 20) urls.push(url);
-});
-var s = storage();
-if (s) {
-if (urls.length) {
-put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: urls });
-} else {
-try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
-}
-}
-if (!dead()) ok(urls.slice(0, limit));
-},
-function () {
-
-
-
-
-
-
-
-
-
-var s = storage();
-if (s) {
-try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
-}
-if (!dead()) err({ kp_failed: true });
-},
-false,
-{ headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
-);
-return net;
-}
-
-
-
-
-
-
-
-
 
 
 
@@ -11340,17 +11098,6 @@ var src = (item && item.sources) || {};
 var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
 var spec = media ? src[media] : null;
 if (!spec) { err({ no_sources: true }); return { clear: function () {} }; }
-
-if (spec.type === 'kp') {
-var net = kpPosters(spec, 1, function (urls) {
-ok((urls && urls[0]) || '');
-}, err, alive);
-return {
-clear: function () {
-try { if (net && net.clear) net.clear(); } catch (e) {}
-}
-};
-}
 
 if (typeof item.cover === 'string' && COVER_PATH.test(item.cover)) {
 ok(item.cover);
@@ -11523,15 +11270,14 @@ return 'lampa';
 
 
 
-
 function originalPosters(item, cards, done, alive, page) {
 var gen = alive ? alive() : 0;
 function dead() { return alive && alive() !== gen; }
 
 var src = (item && item.sources) || {};
 var want = [];
-if (src.movie && src.movie.type !== 'kp') want.push('movie');
-if (src.tv && src.tv.type !== 'kp') want.push('tv');
+if (known(src.movie)) want.push('movie');
+if (known(src.tv)) want.push('tv');
 if (!want.length) { done(0); return; }
 
 
@@ -11637,7 +11383,6 @@ var api = {
 buildRequest: buildRequest,
 normalize: normalize,
 discoverUrl: discoverUrl,
-kpToFinds: kpToFinds,
 mergeMedia: mergeMedia,
 sortSignature: sortSignature,
 fetchOne: fetchOne,
@@ -11646,7 +11391,6 @@ isSet: isSet,
 setRequests: setRequests,
 partOf: partOf,
 setParts: setParts,
-kpPosters: kpPosters,
 bannerPath: bannerPath,
 
 
@@ -12008,6 +11752,7 @@ return out;
 
 
 
+
 function cardKey(card) {
 if (!card || card.id === null || card.id === undefined || card.id === '') return null;
 var ns = (!card.source || card.source === 'cub') ? 'tmdb' : '' + card.source;
@@ -12110,7 +11855,6 @@ kept.push(copyRow(row, out));
 trimmed.push(out.length < row.results.length);
 before.push(row.results.length);
 }
-
 
 
 
@@ -14180,7 +13924,6 @@ var POSTER_AHEAD = 14;
 
 
 
-
 var BANNER_AHEAD = 8;
 
 
@@ -14605,12 +14348,6 @@ return LC.util.esc('' + (text == null ? '' : text));
 
 
 
-function kpHintEnabled() {
-try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
-}
-
-
-
 
 
 
@@ -14694,7 +14431,7 @@ try { return stageMotion() === 'full' && typeof LC.fxHeavy === 'function' && !!L
 function stageUrl(path) {
 path = '' + (path || '');
 if (!path) return '';
-return path.indexOf('http') === 0 ? path : imageUrl(path, STAGE_SIZE);
+return imageUrl(path, STAGE_SIZE);
 }
 
 function ScreenStage(activity) {
@@ -15662,17 +15399,13 @@ return LC.util.emPx(tileEm()) * 0.85 > 300 ? 'w780' : 'w300';
 
 
 
-
-
 function paintBanner(node, path, onFail) {
 var box = $(node).find('.lumen-tile__media');
 if (!box || !box.length) return;
 box.empty();
 path = '' + (path || '');
 if (!path) return;
-
-
-var url = path.indexOf('http') === 0 ? path : imageUrl(path, bannerSize());
+var url = imageUrl(path, bannerSize());
 if (!url) return;
 
 
@@ -15738,15 +15471,13 @@ var handle = LC.sources.bannerPath(src, function (path) {
 skeleton(false);
 if (gen !== captured) return;
 paintBanner(node, path, src.cover && path === src.cover ? toLive : null);
-}, function (err) {
+}, function () {
 skeleton(false);
 if (gen !== captured) return;
 
 
 
-
 node.lumen_banner = false;
-if (err && err.nokey) $(node).addClass('lumen-tile--nokey');
 }, alive(captured));
 if (handle) handles.push(handle);
 }
@@ -15814,7 +15545,6 @@ if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
 var sub = item.badge || titleOf(group, lang()) || (item.lumen_mood ? LC.lang('lumen_hub_moods') : '');
 
 
-
 var season = inSeason(item, month())
 ? '<div class="lumen-tile__season">' + esc(LC.lang('lumen_season_badge')) + '</div>'
 : '';
@@ -15827,7 +15557,6 @@ season +
 '<div class="lumen-tile__title">' + esc(titleOf(item, lang())) + '</div>' +
 '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
 '</div>' +
-'<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
 '</div>'
 );
 
@@ -16506,27 +16235,11 @@ if (mode) parts.push(LC.lang(mode.key));
 subtitle.html(esc(parts.join(' · ')));
 }
 
-function showEmpty(reason) {
+function showEmpty() {
 itemsRow.empty();
 cardNodes = [];
 emptyNodes = [];
-
-
-var nokey = reason === 'nokey' && kpHintEnabled();
-var text = nokey ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
-var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
-if (nokey) {
-
-
-
-var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; dim(false); });
-hide.on('hover:enter', function () {
-try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
-});
-box.append(hide);
-emptyNodes.push(hide[0]);
-}
+var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(LC.lang('lumen_hub_empty')) + '</div></div>');
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
 LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; dim(false); });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
@@ -16571,8 +16284,6 @@ raw = raw.concat(json.results || []);
 
 
 
-
-
 var localSort = needsLocalSort(item);
 var list = localSort ? sortLocal(raw, sortMode) : (json.results || []);
 if (reset || localSort) {
@@ -16580,7 +16291,7 @@ itemsRow.empty();
 cardNodes = [];
 emptyNodes = [];
 }
-if (!list.length && !cardNodes.length) showEmpty('');
+if (!list.length && !cardNodes.length) showEmpty();
 else appendCards(list);
 var from = focusedIndex();
 loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
@@ -16610,12 +16321,12 @@ LC.sources.posters(request, json.results || [], function () {
 if (gen !== captured) return;
 fill(json);
 }, alive(captured), nextPage);
-}, function (err) {
+}, function () {
 if (gen !== captured) return;
 loading = false;
 pending = null;
 try { self.activity.loader(false); } catch (e3) {}
-if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
+if (!cardNodes.length) showEmpty();
 renderSub();
 if (started && ownsRemote(self.activity)) recollect(null, byMouse);
 }, alive(captured));
@@ -17255,8 +16966,7 @@ function next() { if (--left <= 0) finish(); }
 try {
 LC.sources.bannerPath(found[k], function (path) {
 if (over) return;
-if (typeof path === 'string' && /^https?:\/\//.test(path)) card.img = path;
-else if (typeof path === 'string' && TMDB_PATH.test(path)) { card.backdrop_path = path; delete card.img; }
+if (typeof path === 'string' && TMDB_PATH.test(path)) { card.backdrop_path = path; delete card.img; }
 next();
 }, function () {
 if (!over) next();
@@ -17561,17 +17271,6 @@ return !!(month && item && item.season && item.season.length && !inSeason(item, 
 }
 
 
-function kpOnly(item) {
-if (!item) return false;
-if (item.group === 'kp') return true;
-var s = item.sources || {};
-var any = false;
-if (s.movie) { if (s.movie.type !== 'kp') return false; any = true; }
-if (s.tv) { if (s.tv.type !== 'kp') return false; any = true; }
-return any;
-}
-
-
 
 
 function weightedOrder(pool, weight, rand) {
@@ -17617,7 +17316,6 @@ for (i = 0; i < ids.length; i++) home[ids[i]] = 1;
 for (i = 0; i < manifest.collections.length; i++) {
 c = manifest.collections[i];
 if (!c || !c.id || off(c.id)) continue;
-if (!o.kpKey && kpOnly(c)) continue;
 if (offSeason(c, month)) continue;
 pool.push(c);
 weight.push(home[c.id] ? 2 : 1);
@@ -17638,12 +17336,9 @@ if (c && recent.indexOf(c.id) !== -1 && inSeason(c, month)) seasonLed = true;
 
 
 
-
-
 var lead = null;
 for (i = 0; i < order.length && !lead; i++) {
 if (recent.indexOf(order[i].id) !== -1) continue;
-if (!o.kpKey && kpOnly(order[i])) continue;
 if ((o.advent || seasonLed) && inSeason(order[i], month)) continue;
 lead = order[i];
 }
@@ -18025,7 +17720,6 @@ month: monthNow(),
 epoch: epoch.n,
 have: have,
 recentLeads: recentLeads(leads, epoch.n),
-kpKey: !!LC.pref('lumen_kp_key', ''),
 limit: limit,
 mode: mode,
 advent: !!advent,
@@ -29127,14 +28821,6 @@ return land(plan, n);
 }
 
 
-function kpKeySet() {
-try { return !!(typeof LC.pref === 'function' && LC.pref('lumen_kp_key', '')); } catch (e) { return false; }
-}
-
-
-
-
-
 
 
 
@@ -29142,7 +28828,6 @@ function collectionsFor(manifest, media) {
 var out = [];
 if (!manifest || !Array.isArray(manifest.collections)) return out;
 var want = normalizeMedia(media);
-var kp = kpKeySet();
 var home = {};
 var homeList = manifest.home || [];
 var i;
@@ -29152,7 +28837,6 @@ var rest = [];
 for (i = 0; i < manifest.collections.length; i++) {
 var c = manifest.collections[i];
 if (!c || !c.sources || !c.sources[want]) continue;
-if (!kp && c.sources[want].type === 'kp') continue;
 if (home[c.id]) first.push(c);
 else rest.push(c);
 }
@@ -46221,13 +45905,6 @@ en: 'No collection with that name',
 uk: 'Підбірки з такою назвою немає'
 },
 lumen_hub_empty: { ru: 'Здесь пока пусто', en: 'Nothing here yet', uk: 'Тут поки порожньо' },
-
-lumen_hub_nokey: { ru: 'НУЖЕН КЛЮЧ', en: 'KEY REQUIRED', uk: 'ПОТРІБЕН КЛЮЧ' },
-lumen_hub_nokey_text: {
-ru: 'Подборки Кинопоиска недоступны без ключа API. Настройки → Lumen Card → Ключ Kinopoisk API',
-en: 'Kinopoisk collections are unavailable without an API key. Settings → Lumen Card → Kinopoisk API key',
-uk: 'Підбірки Кінопошуку недоступні без ключа API. Налаштування → Lumen Card → Ключ Kinopoisk API'
-},
 lumen_grid_back: { ru: 'Назад', en: 'Back', uk: 'Назад' },
 
 lumen_grid_total: { ru: 'Всего', en: 'Total', uk: 'Усього' },
@@ -46487,10 +46164,8 @@ return true;
 
 
 
-
 if (name === 'lumen_kp_hint') {
 LC.applyReviewsPref();
-try { if (LC.applyKpHintPref) LC.applyKpHintPref(); } catch (eHint) {}
 return true;
 }
 
@@ -47674,6 +47349,8 @@ return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
 
 
 
+
+
 LC.migratePrefs = function () {
 if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
 if (typeof Lampa.Storage.get !== 'function') return;
@@ -47712,7 +47389,48 @@ if (off('lumen_franchise_button') && off('lumen_franchise_row') && !off('lumen_f
 step(function () {
 if (off('lumen_minimap') && off('lumen_fastscroll') && !off('lumen_remote_boost')) Lampa.Storage.set('lumen_remote_boost', 'false');
 });
+step(dropKpCache);
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var KP_CACHE = /^lumen_kpp?_[A-Z0-9_]+$/;
+var KP_INDEX = 'lumen_sources_index';
+
+function dropKpCache() {
+var ls = null;
+try { ls = window.localStorage || null; } catch (e) { ls = null; }
+var keys = [];
+function add(k) {
+if (typeof k === 'string' && KP_CACHE.test(k) && keys.indexOf(k) === -1) keys.push(k);
+}
+var index = Lampa.Storage.get(KP_INDEX, '');
+var i;
+if (Array.isArray(index)) for (i = 0; i < index.length; i++) add(index[i]);
+if (ls) {
+try {
+for (i = 0; i < ls.length; i++) add(ls.key(i));
+} catch (eKeys) { warn('prefs migrate: kp cache scan failed', eKeys); }
+}
+if (index !== '' && index !== null && typeof index !== 'undefined') keys.push(KP_INDEX);
+for (i = 0; i < keys.length; i++) {
+try { Lampa.Storage.set(keys[i], '', true); } catch (eSet) { }
+try { if (ls) ls.removeItem(keys[i]); } catch (eRemove) { }
+}
+}
 
 LC.motionModeFor = LC.prefs.motionModeFor;
 
@@ -52168,16 +51886,6 @@ if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
 } catch (e) {
 warn('ambient pref failed', e);
 }
-};
-
-
-
-
-
-LC.applyKpHintPref = function () {
-if (!activated) return;
-if (activeComponentName() !== 'lumen_grid') return;
-LC.refreshComponent('lumen_grid');
 };
 
 
