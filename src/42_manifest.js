@@ -88,7 +88,14 @@
          «Мстители» у «Супергероев») и у одной-двух плиток каждой группы
          совпадений; «владелец» кадра (Pixar — «История игрушек 5», Гибли —
          «Ходячий замок», Нолан — «Одиссея») остаётся живым. Плитка с cover
-         не делает запроса вовсе. */
+         не делает запроса вовсе.
+         animation (необязательное, правка 2026-09-29) — true у подборок
+         мультфильмов и аниме: по нему собирается чип хаба «Мультфильмы»
+         (LC.hub.animationItems). Тег ручной: жанр 16 в запросе подборки не
+         признак — он стоит и у «Звёздных войн» (сериалы Lucasfilm), и у
+         «Зимнего» и «Летнего кино». Не boolean — поле отбрасывается
+         (validate), подборка остаётся; прежние версии плагина поле не
+         читают вовсе. */
       collections: [
 
         /* === FRANCHISE (47 подборок) === */
@@ -557,15 +564,15 @@
            «Миньоны» (544669: 2015, 2022, 2026) — 7. «Мадагаскар» (ниже) — +
            «Пингвины Мадагаскара» (270946, 2014) — 4. Кадры — прежние. */
         {
-          id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film', cover: '/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
+          id: 'shrek', title: 'Шрек', group: 'franchise', animation: true, icon: 'film', cover: '/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
           sources: { movie: { type: 'collection', id: 2150, also: [94602] } }
         },
         {
-          id: 'toy-story', title: 'История игрушек', group: 'franchise', icon: 'film', cover: '/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
+          id: 'toy-story', title: 'История игрушек', group: 'franchise', animation: true, icon: 'film', cover: '/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
           sources: { movie: { type: 'collection', id: 10194, movies: [718789] } }
         },
         {
-          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film', cover: '/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
+          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', animation: true, icon: 'film', cover: '/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
           sources: { movie: { type: 'collection', id: 86066, also: [544669] } }
         },
         /* Правка 2026-09-27: «Человек-паук» — все игровые фильмы и
@@ -583,11 +590,11 @@
           sources: { movie: { type: 'collection', id: 531241, also: [556, 125574, 573436] } }
         },
         {
-          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film', cover: '/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
+          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', animation: true, icon: 'film', cover: '/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
           sources: { movie: { type: 'collection', id: 14740, movies: [270946] } }
         },
         {
-          id: 'ice-age', title: 'Ледниковый период', group: 'franchise', icon: 'film',
+          id: 'ice-age', title: 'Ледниковый период', group: 'franchise', animation: true, icon: 'film',
           sources: { movie: { type: 'collection', id: 8354 } }
         },
         {
@@ -599,11 +606,11 @@
 
         /* Существующие (6) */
         {
-          id: 'pixar', title: 'Pixar', group: 'studio',
+          id: 'pixar', title: 'Pixar', group: 'studio', animation: true,
           sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'ghibli', title: 'Студия Гибли', group: 'studio',
+          id: 'ghibli', title: 'Студия Гибли', group: 'studio', animation: true,
           sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
         },
         {
@@ -660,11 +667,11 @@
           sources: { movie: { type: 'discover', params: { companies: 5, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'dreamworks', title: 'DreamWorks Animation', group: 'studio',
+          id: 'dreamworks', title: 'DreamWorks Animation', group: 'studio', animation: true,
           sources: { movie: { type: 'discover', params: { companies: 521, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'illumination', title: 'Illumination', group: 'studio',
+          id: 'illumination', title: 'Illumination', group: 'studio', animation: true,
           sources: { movie: { type: 'discover', params: { companies: 6704, sort_by: 'popularity.desc' } } }
         },
         {
@@ -895,7 +902,7 @@
           sources: { movie: { type: 'discover', params: { keywords: 12565, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme', cover: '/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
+          id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme', animation: true, cover: '/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
           sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
         },
         {
@@ -1014,7 +1021,7 @@
           sources: { movie: { type: 'discover', params: { keywords: '13088|14714|5767', genres: '35|10751|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,18', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 150 } } } }
         },
         {
-          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', icon: 'star', aliases: ['Союзмультфильм', 'Мультики'], season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', animation: true, icon: 'star', aliases: ['Союзмультфильм', 'Мультики'], season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
           sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ru', sort_by: 'vote_count.desc', filter: { 'primary_release_date.lte': '1991-12-31', 'vote_count.gte': 20 } } } }
         },
         {
@@ -1096,11 +1103,11 @@
           sources: { movie: { type: 'discover', params: { genres: 28, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+          id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', animation: true, cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
           sources: { movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'adult-animation', title: 'Мультфильмы для взрослых', i18n: { en: 'Adult Animation', uk: 'Мультфільми для дорослих' }, group: 'theme', cover: '/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
+          id: 'adult-animation', title: 'Мультфильмы для взрослых', i18n: { en: 'Adult Animation', uk: 'Мультфільми для дорослих' }, group: 'theme', animation: true, cover: '/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
           sources: {
             movie: { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { without_keywords: '210024', 'vote_count.gte': 100 } } },
             tv:    { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
@@ -1333,7 +1340,7 @@
           sources: { tv: { type: 'discover', params: { genres: 18, sort_by: 'popularity.desc', filter: { with_origin_country: 'KR' } } } }
         },
         {
-          id: 'anime', title: 'Аниме', group: 'country',
+          id: 'anime', title: 'Аниме', group: 'country', animation: true,
           sources: { tv: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
         },
         {
@@ -1539,7 +1546,7 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 137427 } } } }
         },
         {
-          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
+          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', animation: true, cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 608 } } } }
         },
 
@@ -2084,6 +2091,10 @@
         if (typeof c.cover !== 'undefined' && (typeof c.cover !== 'string' || !COVER_RE.test(c.cover))) {
           return { ok: false, reason: 'bad_cover: ' + c.id };
         }
+        /* Правка 2026-09-29: тег чипа «Мультфильмы». Мусор в нём — не
+           повод терять подборку или весь каталог: поле снимается, и
+           подборка просто не попадает в чип. */
+        if (typeof c.animation !== 'undefined' && typeof c.animation !== 'boolean') delete c.animation;
       }
       var themes = m.themes || [];
       for (i = 0; i < themes.length; i++) {

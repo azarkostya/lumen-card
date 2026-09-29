@@ -997,3 +997,45 @@ test('r4: русские названия подборок в каталоге �
     seen[c.title] = c.id;
   }
 });
+
+/* Правка 2026-09-29: тег animation — чип хаба «Мультфильмы». */
+test('animation: boolean проходит validate, мусор снимается без потери подборки и каталога', () => {
+  function cat(extra) {
+    return {
+      version: 1, groups: [{ id: 'g', title: 'G' }], home: [],
+      collections: [
+        Object.assign({ id: 'a', title: 't', group: 'g', sources: { movie: { type: 'discover', params: {} } } }, extra),
+        { id: 'b', title: 'u', group: 'g', sources: { tv: { type: 'discover', params: {} } } }
+      ]
+    };
+  }
+  let m = cat({ animation: true });
+  assert.equal(M.validate(m).ok, true);
+  assert.equal(m.collections[0].animation, true);
+  m = cat({ animation: false });
+  assert.equal(M.validate(m).ok, true);
+  assert.equal(m.collections[0].animation, false);
+  for (const bad of ['yes', 1, null, {}, ['x']]) {
+    m = cat({ animation: bad });
+    assert.equal(M.validate(m).ok, true, 'мусор в теге не валит каталог: ' + JSON.stringify(bad));
+    assert.equal(m.collections.length, 2, 'и подборку не теряет');
+    assert.equal('animation' in m.collections[0], false, 'поле снято: ' + JSON.stringify(bad));
+  }
+  m = cat({});
+  assert.equal(M.validate(m).ok, true);
+  assert.equal('animation' in m.collections[0], false, 'нет поля — нет и после проверки');
+});
+
+test('animation: во встроенном каталоге тег у мультфильмов и аниме, у франшиз с жанром 16 в запросе — нет', () => {
+  const tagged = M.DEFAULT.collections.filter(function (c) { return c.animation === true; }).map(function (c) { return c.id; });
+  for (const id of ['shrek', 'toy-story', 'despicable-me', 'madagascar', 'ice-age', 'pixar', 'ghibli', 'dreamworks',
+    'illumination', 'anime-movies', 'soviet-cartoons', 'animation', 'adult-animation', 'anime', 'miyazaki']) {
+    assert.ok(tagged.indexOf(id) !== -1, 'нет тега у ' + id);
+  }
+  for (const id of ['star-wars', 'winter-movies', 'summer-movies']) {
+    assert.equal(tagged.indexOf(id), -1, 'жанр 16 в запросе — не мультфильм: ' + id);
+  }
+  for (const c of M.DEFAULT.collections) {
+    assert.ok(typeof c.animation === 'undefined' || c.animation === true, 'тег только true: ' + c.id);
+  }
+});
