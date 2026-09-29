@@ -23,7 +23,7 @@ CATALOG.collections.forEach(function (c) { byId[c.id] = c; });
 function plan(extra) {
   return H.planHome(Object.assign({
     manifest: CATALOG, picked: null, month: 9, epoch: 1, have: ALL,
-    recentLeads: [], kpKey: false, limit: 15, mode: 'rotate', advent: false
+    recentLeads: [], limit: 15, mode: 'rotate', advent: false
   }, extra || {}));
 }
 function at(p, place) {
@@ -170,7 +170,7 @@ test('planHome, history: «Досмотреть», «Потому что», «Н
   assert.equal(p.lead, null, 'в режиме истории лидера нет');
   var cols = collections(p);
   assert.equal(cols[0].place, 4);
-  assert.deepEqual(cols.map(function (s) { return s.id; }), ['star-wars', 'netflix-comedy', 'apple-tv', 'kdrama', 'anime', 'kp-top250'],
+  assert.deepEqual(cols.map(function (s) { return s.id; }), ['star-wars', 'netflix-comedy', 'apple-tv', 'kdrama', 'anime', 'top-rated'],
     'набор по умолчанию, без «Рождественских комедий» в сентябре');
   /* Нет «Досмотреть» — место 0 свободно, как было: туда встаёт ряд Lampa. */
   assert.equal(at(plan({ mode: 'history', have: { because: true, soon: true } }), 0), null);
@@ -243,17 +243,6 @@ test('planHome: из одной группы — не больше четвер�
   var c10 = {};
   cols.forEach(function (s) { c10[s.item.group] = (c10[s.item.group] || 0) + 1; });
   for (var k in c10) assert.ok(c10[k] <= 3, 'десять рядов: ' + c10[k] + ' из группы ' + k);
-});
-
-test('planHome: без ключа Кинопоиска подборок Кинопоиска нет, с ключом — могут быть', function () {
-  var withKey = 0;
-  for (var n = 1; n <= 40; n++) {
-    collections(plan({ epoch: n })).forEach(function (s) {
-      assert.notEqual(s.item.group, 'kp', 'эпоха ' + n + ': ' + s.id + ' без ключа');
-    });
-    withKey += collections(plan({ epoch: n, kpKey: true })).filter(function (s) { return s.item.group === 'kp'; }).length;
-  }
-  assert.ok(withKey > 0, 'с ключом подборки Кинопоиска в ротации есть');
 });
 
 test('planHome: сезонная не в свой месяц не показывается, в свой — ровно одна на местах 0–7', function () {
@@ -365,7 +354,7 @@ test('planHome: подборки из набора по умолчанию вы�
   CATALOG.home.forEach(function (id) { home[id] = 1; });
   var inHome = 0, other = 0, homeN = 0, otherN = 0;
   CATALOG.collections.forEach(function (c) {
-    if (c.group === 'kp' || (c.season && c.season.indexOf(9) === -1)) return;
+    if (c.season && c.season.indexOf(9) === -1) return;
     if (home[c.id]) homeN++; else otherN++;
   });
   for (var n = 1; n <= 400; n++) {
@@ -463,7 +452,7 @@ function setupApply(opts) {
   globalThis.window = { Lampa };
   globalThis.Lampa = Lampa;
   if (opts.lampaRows) opts.lampaRows(Lampa.ContentRows);
-  const prefs = Object.assign({ lumen_rows_limit: '15', lumen_home_rows: '', lumen_personal_rows: true, lumen_kp_key: '', lumen_home_start: 'rotate' }, opts.prefs || {});
+  const prefs = Object.assign({ lumen_rows_limit: '15', lumen_home_rows: '', lumen_personal_rows: true, lumen_home_start: 'rotate' }, opts.prefs || {});
   const LC = {
     pref: (k, d) => (k in prefs ? prefs[k] : d),
     lang: (k) => k,

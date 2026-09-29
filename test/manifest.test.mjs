@@ -21,11 +21,11 @@ test('DEFAULT валиден: >=40 подборок, уникальные id, у
   }
 });
 
-test('DEFAULT: groups имеет ровно 10 id, hubGroups имеет 7 групп', () => {
+test('DEFAULT: groups имеет ровно 9 id, hubGroups имеет 7 групп', () => {
   const d = M.DEFAULT;
-  assert.equal(d.groups.length, 10);
+  assert.equal(d.groups.length, 9);
   const gids = new Set(d.groups.map(function(g) { return g.id; }));
-  const expected = ['franchise', 'studio', 'service', 'theme', 'country', 'era', 'people', 'top', 'kp', 'mood'];
+  const expected = ['franchise', 'studio', 'service', 'theme', 'country', 'era', 'people', 'top', 'mood'];
   for (const id of expected) {
     assert.ok(gids.has(id), 'нет группы ' + id);
   }
@@ -60,14 +60,59 @@ test('DEFAULT: сезонные подборки имеют season-массив 
   }
 });
 
-test('DEFAULT: КП-подборки имеют тип kp и collection', () => {
+/* После 1.0.2: подборки Кинопоиска сняты — ряд стоил запрос к КП и до 20
+   запросов find/ к TMDB и тратил суточную квоту ключа, нужную отзывам. В
+   каталоге не осталось ни группы, ни чипа, ни источника этого типа, ни id
+   в наборе главной по умолчанию; «Топ» — один чип. */
+test('после 1.0.2: в каталоге нет Кинопоиска — ни группы, ни источника, ни ряда главной', () => {
   const d = M.DEFAULT;
-  const kpItems = d.collections.filter(function(c) { return c.group === 'kp'; });
-  assert.ok(kpItems.length >= 6, 'мало kp-подборок');
-  for (const c of kpItems) {
-    assert.ok(c.sources.movie && c.sources.movie.type === 'kp', 'kp-подборка без type:kp у ' + c.id);
-    assert.ok(c.sources.movie.collection, 'kp-подборка без collection у ' + c.id);
+  assert.ok(!d.groups.some((g) => g.id === 'kp'), 'группа kp');
+  for (const hg of d.hubGroups) assert.equal(hg.groups.indexOf('kp'), -1, 'чип ' + hg.id);
+  const tops = d.hubGroups.filter((g) => g.id === 'tops')[0];
+  assert.deepEqual(tops, { id: 'tops', title: 'Топ', i18n: { en: 'Top', uk: 'Топ' }, groups: ['top'] });
+  for (const c of d.collections.concat(d.moods)) {
+    assert.ok(!/^kp-/.test(c.id), 'id ' + c.id);
+    assert.notEqual(c.badge, 'KINOPOISK', c.id);
+    for (const media of ['movie', 'tv']) {
+      if (c.sources[media]) assert.notEqual(c.sources[media].type, 'kp', c.id + '/' + media);
+    }
   }
+  assert.equal(d.home.indexOf('kp-top250'), -1);
+  assert.equal(d.home[d.home.length - 1], 'top-rated', 'место «КП Топ-250» в наборе главной занял «Высокий рейтинг»');
+});
+
+/* Три замены на TMDB discover: семейные и романтика — темы, популярные
+   сериалы — топ. У каждой перевод и кадр (разбор — в src/42_manifest.js). */
+test('после 1.0.2: замены подборок Кинопоиска — «Семейные», «Романтика», «Популярные сериалы»', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  const want = { family: ['theme', 'movie'], romance: ['theme', 'movie'], 'popular-series': ['top', 'tv'] };
+  for (const id in want) {
+    const c = byId[id];
+    assert.ok(c, 'нет подборки ' + id);
+    assert.equal(c.group, want[id][0], id);
+    assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'нет перевода у ' + id);
+    assert.ok(typeof c.cover === 'string', 'нет кадра у ' + id);
+    assert.deepEqual(Object.keys(c.sources), [want[id][1]], id);
+    assert.equal(c.sources[want[id][1]].type, 'discover', id);
+  }
+  /* «Семейные» — те же параметры, что у настроения «Семейный просмотр». */
+  const mood = M.DEFAULT.moods.filter((m) => m.id === 'family')[0];
+  assert.deepEqual(byId.family.sources, mood.sources);
+  /* «Романтика» — отбор «Кино о любви», но круглый год и по оценке: с теми
+     же параметрами хаб показывал бы две одинаковые плитки. */
+  const love = byId['love-feb'].sources.movie.params;
+  const rom = byId.romance.sources.movie.params;
+  assert.equal(byId.romance.season, undefined);
+  assert.equal(rom.genres, love.genres);
+  assert.equal(rom.filter.without_genres, love.filter.without_genres);
+  assert.equal(rom.sort_by, 'vote_average.desc');
+  assert.notDeepEqual(rom, love);
+  assert.notDeepEqual(rom, byId.romcom.sources.movie.params);
+  /* «Популярные сериалы» — сериальная половина «Популярного сейчас» без новостей. */
+  const tv = byId['popular-series'].sources.tv.params;
+  assert.deepEqual(tv, { sort_by: 'popularity.desc', filter: { without_genres: '10763', 'vote_count.gte': 50 } });
+  assert.equal(byId['popular-all'].sources.tv.params.filter['vote_count.gte'], tv.filter['vote_count.gte']);
 });
 
 test('orderForMonth: сезонные наверх в свой месяц, остальные в исходном порядке', () => {
@@ -379,15 +424,14 @@ test('темы: 15 новых, у каждой перевод, кадр и то�
       assert.ok(s.params.keywords || s.params.genres, id + '/' + media + ': ни ключевого слова, ни жанра');
     }
   }
-  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 52, 'раунд holB: +5 сезонных');
-  assert.equal(M.DEFAULT.collections.length, 183, '+4 франшизы 2026-09-27, +9 вторым проходом');
+  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 54, 'раунд holB: +5 сезонных; после 1.0.2 +2 замены КП');
+  assert.equal(M.DEFAULT.collections.length, 174, '183 − 12 подборок Кинопоиска + 3 замены');
 });
 
 /* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
-   заставки и не у Кинопоиска (плитка КП без ключа обязана сказать «нужен
-   ключ»). У каждой темы он есть — тема абстрактна, лидер её выдачи
+   заставки. У каждой темы он есть — тема абстрактна, лидер её выдачи
    случаен (разбор у поля cover в src/42_manifest.js). */
-test('cover: формат пути, без повторов, не из ambient, у всех тем, не у Кинопоиска', () => {
+test('cover: формат пути, без повторов, не из ambient, у всех тем', () => {
   const seen = new Set();
   const ambient = new Set(M.DEFAULT.ambient.map(f => f.path));
   let n = 0;
@@ -399,7 +443,6 @@ test('cover: формат пути, без повторов, не из ambient, 
     assert.ok(!seen.has(c.cover), 'кадр повторяется: ' + c.id);
     seen.add(c.cover);
     assert.ok(!ambient.has(c.cover), 'кадр заставки на плитке: ' + c.id);
-    assert.notEqual(c.group, 'kp', 'у подборки Кинопоиска кадра быть не должно: ' + c.id);
   }
   assert.ok(n >= 59, 'кадров меньше, чем требуют группы совпадений: ' + n);
 });
@@ -419,7 +462,7 @@ function okCatalog() {
     moods: [{ id: 'friday', title: 'Пятница', i18n: { en: 'Friday' }, sources: { movie: { type: 'discover', params: { genres: '28|12', filter: { 'vote_average.gte': 6.5 } } } } }],
     collections: [
       { id: 'horror_top-1', title: 'Хоррор', i18n: { en: 'Horror' }, group: 'theme', badge: 'HBO', sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300, 'primary_release_date.gte': '1970-01-01' } } } } },
-      { id: 'kp-top', title: 'КП', group: 'theme', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+      { id: 'top-list', title: 'Список', group: 'theme', sources: { movie: { type: 'list', id: 10 } } },
       { id: 'col', title: 'Коллекция', group: 'theme', sources: { movie: { type: 'collection', id: 10 }, tv: { type: 'list', id: '8123' } } }
     ],
     home: ['horror_top-1'],
@@ -451,7 +494,7 @@ test('S1: validate — разметка в названиях и подпися�
   });
 });
 
-test('S1: validate — идентификаторы, коллекции КП, id тем и акцент — только по формату', () => {
+test('S1: validate — идентификаторы, id тем и акцент — только по формату', () => {
   const cases = [
     (m) => { m.collections[0].id = 'a b'; },
     (m) => { m.collections[0].id = 'x"onmouseover="1'; },
@@ -460,9 +503,7 @@ test('S1: validate — идентификаторы, коллекции КП, id
     (m) => { m.groups[0].id = '<g>'; },
     (m) => { m.hubGroups[0].id = 'a/b'; },
     (m) => { m.moods[0].id = 'a&b'; },
-    (m) => { m.collections[1].sources.movie.collection = 'top_250'; },
-    (m) => { m.collections[1].sources.movie.collection = 'TOP&api_key=1'; },
-    (m) => { m.collections[1].sources.movie.collection = ''; },
+    (m) => { m.collections[1].sources.movie.id = '10&api_key=1'; },
     (m) => { m.collections[2].sources.movie.id = '10/../x'; },
     (m) => { m.collections[2].sources.movie.type = 'eval'; },
     (m) => { m.collections[0].sources.movie.params.evil = '1'; },
@@ -481,6 +522,59 @@ test('S1: validate — идентификаторы, коллекции КП, id
     fn(m);
     assert.equal(M.validate(m).ok, false, 'случай ' + i);
   });
+});
+
+/* После 1.0.2: подборки Кинопоиска сняты, а каталог с ними ещё приходит —
+   кэш lumen_manifest (12 ч) и свой каталог пользователя. Отвергать его
+   целиком нельзя (load() откатился бы на встроенный и потерял бы чужие
+   подборки): источник типа kp убирается, подборка и настроение, у которых
+   ничего больше не было, — тоже, остальное проходит как было. */
+test('после 1.0.2: validate — источник Кинопоиска снят, каталог принят', () => {
+  const m = okCatalog();
+  m.groups.push({ id: 'kp', title: 'Кинопоиск' });
+  m.hubGroups.push({ id: 'tops', title: 'Топ и Кинопоиск', groups: ['top', 'kp'] });
+  m.home.push('kp-top250');
+  m.moods.push({ id: 'kp-mood', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } });
+  m.collections.splice(1, 0,
+    { id: 'kp-top250', title: 'КП Топ-250 фильмов', group: 'kp', badge: 'KINOPOISK', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+    { id: 'kp-mix', title: 'Смесь', group: 'theme', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' }, tv: { type: 'discover', params: { networks: 213 } } } },
+    /* Формат снятого источника не важен: он в сеть не идёт никогда. */
+    { id: 'kp-bad', title: 'КП', group: 'kp', sources: { movie: { type: 'kp', collection: 'TOP&api_key=1' }, tv: { type: 'kp' } } });
+  m.collections.push({ id: 'kp-last', title: 'КП', group: 'kp', sources: { tv: { type: 'kp', collection: 'POPULAR_SERIES' } } });
+  assert.deepEqual(M.validate(m), { ok: true });
+  assert.deepEqual(m.collections.map((c) => c.id), ['horror_top-1', 'kp-mix', 'top-list', 'col'],
+    'подборки только из Кинопоиска сняты, порядок прочих прежний');
+  assert.deepEqual(m.collections[1].sources, { tv: { type: 'discover', params: { networks: 213 } } }, 'у смешанной осталась половина TMDB');
+  assert.deepEqual(m.moods.map((x) => x.id), ['friday']);
+  /* Второй прогон (тот же объект — кэш, проверенный повторно) ничего не меняет. */
+  assert.deepEqual(M.validate(m), { ok: true });
+  assert.equal(m.collections.length, 4);
+  /* Каталог из одних подборок Кинопоиска — пустой, но корректный: главная
+     и хаб живут наборами по умолчанию, как с пустым каталогом. */
+  const only = { version: 1, groups: [{ id: 'kp' }], home: ['kp-top250'],
+    collections: [{ id: 'kp-top250', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } }] };
+  assert.deepEqual(M.validate(only), { ok: true });
+  assert.deepEqual(only.collections, []);
+  /* Прочие типы по-прежнему не проходят — снят только kp. */
+  const other = okCatalog();
+  other.collections[1].sources.movie.type = 'eval';
+  assert.equal(M.validate(other).ok, false);
+});
+
+/* Тот же случай на полном каталоге: кэш lumen_manifest, записанный 1.0.2
+   (двенадцать подборок КП, группа kp, чип «Топ и Кинопоиск», «КП Топ-250»
+   в наборе главной), проходит проверку и отдаёт каталог без них. */
+test('после 1.0.2: кэш каталога 1.0.2 с подборками Кинопоиска проходит проверку', () => {
+  const old = JSON.parse(JSON.stringify(M.DEFAULT));
+  old.groups.splice(8, 0, { id: 'kp', title: 'Кинопоиск', i18n: { en: 'Kinopoisk', uk: 'Кінопошук' } });
+  old.hubGroups[6] = { id: 'tops', title: 'Топ и Кинопоиск', i18n: { en: 'Top & Kinopoisk', uk: 'Топ та Кінопошук' }, groups: ['top', 'kp'] };
+  old.home[old.home.length - 1] = 'kp-top250';
+  const kinds = ['TOP_250_MOVIES', 'TOP_250_TV_SHOWS', 'TOP_POPULAR_ALL', 'POPULAR_SERIES', 'FAMILY', 'KIDS_ANIMATION_THEME',
+    'COMICS_THEME', 'VAMPIRE_THEME', 'ZOMBIE_THEME', 'LOVE_THEME', 'CATASTROPHE_THEME', 'OSKAR_WINNERS_2021'];
+  kinds.forEach((k, i) => old.collections.push({ id: 'kp-' + i, title: 'КП ' + k, group: 'kp', badge: 'KINOPOISK', sources: { movie: { type: 'kp', collection: k } } }));
+  assert.equal(old.collections.length, M.DEFAULT.collections.length + 12);
+  assert.deepEqual(M.validate(old), { ok: true });
+  assert.deepEqual(old.collections.map((c) => c.id), M.DEFAULT.collections.map((c) => c.id));
 });
 
 /* Финальная проверка, L3: необязательные поля подборки season / aliases /

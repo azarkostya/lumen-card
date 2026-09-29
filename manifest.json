@@ -66,14 +66,6 @@
       }
     },
     {
-      "id": "kp",
-      "title": "Кинопоиск",
-      "i18n": {
-        "en": "Kinopoisk",
-        "uk": "Кінопошук"
-      }
-    },
-    {
       "id": "mood",
       "title": "Настроение",
       "i18n": {
@@ -152,14 +144,13 @@
     },
     {
       "id": "tops",
-      "title": "Топ и Кинопоиск",
+      "title": "Топ",
       "i18n": {
-        "en": "Top & Kinopoisk",
-        "uk": "Топ та Кінопошук"
+        "en": "Top",
+        "uk": "Топ"
       },
       "groups": [
-        "top",
-        "kp"
+        "top"
       ]
     }
   ],
@@ -258,7 +249,7 @@
     "apple-tv",
     "kdrama",
     "anime",
-    "kp-top250"
+    "top-rated"
   ],
   "collections": [
     {
@@ -2826,6 +2817,52 @@
       }
     },
     {
+      "id": "family",
+      "title": "Семейные",
+      "i18n": {
+        "en": "Family Films",
+        "uk": "Сімейні"
+      },
+      "group": "theme",
+      "cover": "/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "genres": "10751|16",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "certification_country": "US",
+              "certification.lte": "PG"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "romance",
+      "title": "Романтика",
+      "i18n": {
+        "en": "Romance",
+        "uk": "Романтика"
+      },
+      "group": "theme",
+      "cover": "/9JZKUOQdQPTJ4OdYKttYOQCREdw.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "genres": "10749,18",
+            "sort_by": "vote_average.desc",
+            "filter": {
+              "without_genres": "99,16,27",
+              "vote_count.gte": 2000
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "kdrama",
       "title": "Корейские дорамы",
       "group": "country",
@@ -3640,146 +3677,24 @@
       }
     },
     {
-      "id": "kp-top250",
-      "title": "КП Топ-250 фильмов",
-      "group": "kp",
-      "badge": "KINOPOISK",
+      "id": "popular-series",
+      "title": "Популярные сериалы",
+      "i18n": {
+        "en": "Popular Series",
+        "uk": "Популярні серіали"
+      },
+      "group": "top",
+      "cover": "/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg",
       "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "TOP_250_MOVIES"
-        }
-      }
-    },
-    {
-      "id": "kp-top250-tv",
-      "title": "КП Топ-250 сериалов",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "TOP_250_TV_SHOWS"
-        }
-      }
-    },
-    {
-      "id": "kp-popular-all",
-      "title": "КП Популярное",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "TOP_POPULAR_ALL"
-        }
-      }
-    },
-    {
-      "id": "kp-popular-series",
-      "title": "КП Популярные сериалы",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "POPULAR_SERIES"
-        }
-      }
-    },
-    {
-      "id": "kp-family",
-      "title": "КП Семейные",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "FAMILY"
-        }
-      }
-    },
-    {
-      "id": "kp-animation",
-      "title": "КП Анимация",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "KIDS_ANIMATION_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-comics",
-      "title": "КП Комиксы",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "COMICS_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-vampire",
-      "title": "КП Вампиры",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "VAMPIRE_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-zombie",
-      "title": "КП Зомби",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "ZOMBIE_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-love",
-      "title": "КП Романтика",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "LOVE_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-catastrophe",
-      "title": "КП Катастрофы",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "CATASTROPHE_THEME"
-        }
-      }
-    },
-    {
-      "id": "kp-oscars",
-      "title": "КП Лауреаты Оскара",
-      "group": "kp",
-      "badge": "KINOPOISK",
-      "sources": {
-        "movie": {
-          "type": "kp",
-          "collection": "OSKAR_WINNERS_2021"
+        "tv": {
+          "type": "discover",
+          "params": {
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "10763",
+              "vote_count.gte": 50
+            }
+          }
         }
       }
     }

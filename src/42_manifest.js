@@ -24,7 +24,8 @@
     var DEFAULT = {
       version: 1,
 
-      /* 10 групп — фиксированный набор (поправки контроллера Task 14).
+      /* 9 групп — фиксированный набор (поправки контроллера Task 14; группа
+         Кинопоиска снята вместе с его подборками после 1.0.2).
          title — русский по умолчанию; i18n содержит en/uk. */
       groups: [
         { id: 'franchise', title: 'Франшизы',    i18n: { en: 'Franchises',  uk: 'Франшизи' } },
@@ -35,7 +36,6 @@
         { id: 'era',       title: 'Эпохи',        i18n: { en: 'Eras',        uk: 'Епохи' } },
         { id: 'people',    title: 'Режиссёры',    i18n: { en: 'People',      uk: 'Режисери' } },
         { id: 'top',       title: 'Топ',          i18n: { en: 'Top',         uk: 'Топ' } },
-        { id: 'kp',        title: 'Кинопоиск',   i18n: { en: 'Kinopoisk',   uk: 'Кінопошук' } },
         { id: 'mood',      title: 'Настроение',   i18n: { en: 'Mood',        uk: 'Настрій' } }
       ],
 
@@ -48,7 +48,7 @@
         { id: 'countries',  title: 'Страны',            i18n: { en: 'Countries',          uk: 'Країни' },            groups: ['country'] },
         { id: 'eras',       title: 'Эпохи',             i18n: { en: 'Eras',               uk: 'Епохи' },             groups: ['era'] },
         { id: 'people',     title: 'Режиссёры',         i18n: { en: 'People',             uk: 'Режисери' },          groups: ['people'] },
-        { id: 'tops',       title: 'Топ и Кинопоиск',  i18n: { en: 'Top & Kinopoisk',    uk: 'Топ та Кінопошук' }, groups: ['top', 'kp'] }
+        { id: 'tops',       title: 'Топ',               i18n: { en: 'Top',                uk: 'Топ' },               groups: ['top'] }
       ],
 
       /* 4 чипа настроения (ровно 4, поправки Task 19).
@@ -64,10 +64,10 @@
       home: [
         'continue', 'because', 'new-episodes', 'soon',
         'star-wars', 'xmas-comedy', 'netflix-comedy', 'apple-tv',
-        'kdrama', 'anime', 'kp-top250'
+        'kdrama', 'anime', 'top-rated'
       ],
 
-      /* ---- 170 подборок ------------------------------------------------ */
+      /* ---- 174 подборки ------------------------------------------------ */
       /* cover (необязательное, правка 2026-09-25) — путь кадра TMDB для
          плитки хаба. Без него кадр берётся из первой страницы подборки
          (LC.sources.bannerPath: backdrop_path первой карточки), и у
@@ -88,8 +88,7 @@
          «Мстители» у «Супергероев») и у одной-двух плиток каждой группы
          совпадений; «владелец» кадра (Pixar — «История игрушек 5», Гибли —
          «Ходячий замок», Нолан — «Одиссея») остаётся живым. Плитка с cover
-         не делает запроса вовсе. Подборке Кинопоиска cover не задаётся:
-         без ключа плитка обязана сказать «нужен ключ». */
+         не делает запроса вовсе. */
       collections: [
 
         /* === FRANCHISE (47 подборок) === */
@@ -726,7 +725,7 @@
           sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularity.desc' } } }
         },
 
-        /* === THEME (52 подборки) === */
+        /* === THEME (54 подборки) === */
 
         /* Раунд C, C2: у сезонных подборок (season) — синонимы для поиска
            Lampa (aliases, src/46_search.js): так, как их ищут, а не как они
@@ -1017,7 +1016,8 @@
            Netflix, Apple TV и Кинопоиска («Боевики», «Мультфильмы», «По
            реальным событиям», «Про маньяков», «Про мафию», «Про тюрьму»,
            «Катастрофы» — последние у нас были только подборками КП, которые
-           без ключа не открываются). Каждая проверена живым запросом (прокси
+           без ключа не открывались; после 1.0.2 подборки КП сняты вовсе).
+           Каждая проверена живым запросом (прокси
            Lampa, ru-RU, 2026-09-25), первые 20 позиций:
            - Боевики (жанр 28): «Человек-паук: Новый день», «Одиссея»,
              «Мстители: Финал», «Тёмный рыцарь», «Начало».
@@ -1162,6 +1162,40 @@
             movie: { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
             tv:    { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 500 } } }
           }
+        },
+
+        /* Замены подборок Кинопоиска (сняты после 1.0.2: ряд КП стоил запрос
+           к КП и до 20 запросов find/ к TMDB подряд и тратил суточную квоту
+           ключа, нужную отзывам). Живые запросы TMDB через Lampa (ru-RU,
+           2026-09-29), первые 20 позиций:
+           - «Семейные» — параметры настроения «Семейный просмотр» (moods
+             выше): семейное ИЛИ анимация, сертификат US не выше PG: «Хитрый
+             Койот», «История игрушек 5», «Моана», «Зверополис 2»,
+             «Головоломка», «Дикий робот», «Ходячий замок», «Тайна Коко». С
+             «Мультфильмами» (семейная анимация от 300 голосов) совпадают 11
+             из 20: здесь есть и игровое семейное кино. id не спорит с
+             настроением family: настроения — свой список, в хабе их id —
+             'mood-' + id (moodItems, src/46_hub.js).
+           - «Романтика» — отбор «Кино о любви» (романтика И драма, без
+             документального, анимации и ужасов), но круглый год и по
+             оценке от 2000 голосов. С параметрами love-feb один в один
+             плитка повторяла бы её выдачу: хаб показывает сезонные подборки
+             весь год. По оценке — классика жанра: «Форрест Гамп», «Новый
+             кинотеатр „Парадизо“», «Огни большого города», «Касабланка»,
+             «Любовное настроение», «Вечное сияние чистого разума», «Перед
+             рассветом». С «Кино о любви» совпадают 5 из 20, с
+             «Романтическими комедиями» — одна («Форрест Гамп»). Порог 2000,
+             а не 500: при 500 и 1000 верх выдачи занимали три части
+             «Инферно Габриэля» с оценкой от фанатов.
+           Кадры — не основные, без текста: «Тайна Коко», «Любовное
+           настроение». «Лауреаты Оскара» замены не получили. */
+        {
+          id: 'family', title: 'Семейные', i18n: { en: 'Family Films', uk: 'Сімейні' }, group: 'theme', cover: '/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
+          sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } }
+        },
+        {
+          id: 'romance', title: 'Романтика', i18n: { en: 'Romance', uk: 'Романтика' }, group: 'theme', cover: '/9JZKUOQdQPTJ4OdYKttYOQCREdw.jpg',
+          sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'vote_average.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 2000 } } } }
         },
 
         /* === COUNTRY (14 подборок) === */
@@ -1361,7 +1395,7 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 500 } } } }
         },
 
-        /* === TOP (4 подборки) === */
+        /* === TOP (5 подборок) === */
 
         /* Существующие (3) */
         {
@@ -1386,54 +1420,18 @@
           sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200, 'vote_average.gte': 8 } } } }
         },
 
-        /* === KP (12 типов Кинопоиска) === */
+        /* Замена «КП Популярные сериалы» (после 1.0.2) — сериальная половина
+           «Популярного сейчас» (от 50 голосов, по популярности) без новостей
+           (10763). Живой запрос TMDB через Lampa (ru-RU, 2026-09-29): ток-шоу
+           в верхних 20 отсекает dropTalk (src/43_sources.js), а новости
+           остаются — Tagesschau и «Дневное шоу» (10763), их снимает запрет.
+           Итог: «Ричер», «Офис», «Закон и порядок», «Менталист», «Симпсоны»,
+           «Анатомия страсти», «Сверхъестественное», «Игра престолов». Кадр
+           задан (не основной, без текста, «Игра престолов»): лидер выдачи
+           «Ричер» — он же лидер плитки Amazon Prime. */
         {
-          id: 'kp-top250', title: 'КП Топ-250 фильмов', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } }
-        },
-        {
-          id: 'kp-top250-tv', title: 'КП Топ-250 сериалов', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'TOP_250_TV_SHOWS' } }
-        },
-        {
-          id: 'kp-popular-all', title: 'КП Популярное', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'TOP_POPULAR_ALL' } }
-        },
-        {
-          id: 'kp-popular-series', title: 'КП Популярные сериалы', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'POPULAR_SERIES' } }
-        },
-        {
-          id: 'kp-family', title: 'КП Семейные', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'FAMILY' } }
-        },
-        {
-          id: 'kp-animation', title: 'КП Анимация', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'KIDS_ANIMATION_THEME' } }
-        },
-        {
-          id: 'kp-comics', title: 'КП Комиксы', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'COMICS_THEME' } }
-        },
-        {
-          id: 'kp-vampire', title: 'КП Вампиры', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'VAMPIRE_THEME' } }
-        },
-        {
-          id: 'kp-zombie', title: 'КП Зомби', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'ZOMBIE_THEME' } }
-        },
-        {
-          id: 'kp-love', title: 'КП Романтика', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'LOVE_THEME' } }
-        },
-        {
-          id: 'kp-catastrophe', title: 'КП Катастрофы', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'CATASTROPHE_THEME' } }
-        },
-        {
-          id: 'kp-oscars', title: 'КП Лауреаты Оскара', group: 'kp', badge: 'KINOPOISK',
-          sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
+          id: 'popular-series', title: 'Популярные сериалы', i18n: { en: 'Popular Series', uk: 'Популярні серіали' }, group: 'top', cover: '/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { without_genres: '10763', 'vote_count.gte': 50 } } } }
         }
 
       ], /* /collections */
@@ -1587,8 +1585,8 @@
     /* ---- Проверка формата (полное ревью, S1) --------------------------
        Каталог может прийти внешним (lumen_manifest_url), а его строки
        попадают в разметку Lampa (Lampa.Select вставляет заголовки сырыми),
-       в имена классов (lumen-theme--<id>), в адреса запросов TMDB и
-       Кинопоиска и в ключи localStorage. Поэтому каждое поле, которым
+       в имена классов (lumen-theme--<id>), в адреса запросов TMDB и в
+       ключи localStorage. Поэтому каждое поле, которым
        плагин пользуется, принимается только в формате встроенного каталога:
        - подписи (title, i18n.*, badge) — строки без «<» и «>»;
        - id подборок, групп, настроений, групп хаба и group — [\w-]{1,64};
@@ -1596,8 +1594,8 @@
          filter — вида with_runtime.lte, значения — числа или строки из
          [\w.,|:-]), collection/list (числовой id; у collection ещё
          необязательные also и movies — непустые массивы до 24 числовых id,
-         а с базовой коллекцией вместе — не больше SET_TOTAL запросов),
-         kp (collection — [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
+         а с базовой коллекцией вместе — не больше SET_TOTAL запросов);
+         снятый тип (RETIRED ниже) не проверяется, а убирается;
        - темы: id и preset — [a-z0-9-], accent — #rrggbb;
        - необязательные поля подборки (финальная проверка, L3): season —
          месяц 1–12 или массив месяцев, aliases — массив подписей (как
@@ -1606,7 +1604,6 @@
        Не прошло что-то одно — отвергается каталог целиком, и load() берёт
        встроенный (или прежний кэш, если он проходит эту же проверку). */
     var ID_RE = /^[\w-]{1,64}$/;
-    var KP_RE = /^[A-Z0-9_]{1,64}$/;
     var NUM_ID_RE = /^\d{1,12}$/;
     var THEME_RE = /^[a-z0-9-]{1,64}$/;
     var ACCENT_RE = /^#[0-9a-f]{6}$/i;
@@ -1685,7 +1682,6 @@
 
     function specOk(spec) {
       if (!spec || typeof spec !== 'object') return false;
-      if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
       if (spec.type === 'collection') {
         if (!NUM_ID_RE.test(String(spec.id))) return false;
         if (typeof spec.also !== 'undefined' && !idsOk(spec.also)) return false;
@@ -1721,6 +1717,33 @@
       return true;
     }
 
+    /* Снятые типы источников. Подборки Кинопоиска (тип kp) убраны после
+       1.0.2: ряд стоил запрос к КП и до 20 запросов find/ к TMDB подряд и
+       тратил суточную квоту ключа, нужную отзывам. Но каталог с ними ещё
+       приходит — кэш lumen_manifest (12 ч) и свой каталог пользователя, —
+       и отвергать его целиком за это нельзя: load() откатился бы на
+       встроенный, и пользователь потерял бы свои подборки. Поэтому
+       источник снятого типа не проверяется, а убирается из подборки, а
+       подборка, у которой после этого не осталось источников, — из
+       каталога (молча: её id в home и lumen_home_rows потребители и так
+       пропускают, LC.rows.knownIds). Содержимое снятого источника в сеть не
+       идёт никогда, поэтому и формат его не важен. */
+    var RETIRED = { kp: 1 };
+
+    function retired(spec) {
+      return !!(spec && typeof spec === 'object' && RETIRED.hasOwnProperty(spec.type));
+    }
+
+    /* Убирает из sources снятые источники (на месте). true — у подборки
+       были только они, и она снимается целиком. */
+    function dropRetired(src) {
+      if (!src || typeof src !== 'object') return false;
+      var had = false;
+      if (retired(src.movie)) { delete src.movie; had = true; }
+      if (retired(src.tv)) { delete src.tv; had = true; }
+      return had && !src.movie && !src.tv;
+    }
+
     /* Записи {id, title, i18n}: groups, hubGroups, moods. */
     function labelsOk(list) {
       for (var i = 0; i < list.length; i++) {
@@ -1735,8 +1758,10 @@
        Проверяет: не null, есть version; collections — массив без дублей id,
        у каждой подборки есть id, title (строка непустая) и sources (movie или tv);
        groups — непустой массив; home — массив (может быть пустым).
-       Формат полей — по правилам выше (S1). Единственная правка каталога
-       здесь: season голым числом становится массивом из одного месяца. */
+       Формат полей — по правилам выше (S1). Правки каталога здесь две:
+       season голым числом становится массивом из одного месяца, а
+       источники снятого типа убираются вместе с подборками и настроениями,
+       у которых кроме них ничего не было (RETIRED выше). */
     function validate(m) {
       if (!m || typeof m !== 'object' || Array.isArray(m)) {
         return { ok: false, reason: 'not_object' };
@@ -1772,6 +1797,7 @@
       if (typeof m.moods !== 'undefined') {
         if (!Array.isArray(m.moods) || !labelsOk(m.moods)) return { ok: false, reason: 'bad_mood' };
         for (var mi = 0; mi < m.moods.length; mi++) {
+          if (dropRetired(m.moods[mi].sources)) { m.moods.splice(mi, 1); mi--; continue; }
           if (!sourcesOk(m.moods[mi].sources)) return { ok: false, reason: 'bad_mood: ' + m.moods[mi].id };
         }
       }
@@ -1783,6 +1809,7 @@
       for (i = 0; i < m.collections.length; i++) {
         c = m.collections[i];
         if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+        if (dropRetired(c.sources)) { m.collections.splice(i, 1); i--; continue; }
         if (typeof c.id !== 'string' || !ID_RE.test(c.id)) return { ok: false, reason: 'bad_id' };
         if (typeof c.title !== 'string' || !c.title) {
           return { ok: false, reason: 'collection_no_title: ' + c.id };
@@ -1858,7 +1885,7 @@
 
     /* Загружает манифест с хостинга; при ошибке или отсутствии URL → DEFAULT.
        Кэш 12 часов в Lampa.Storage ('lumen_manifest').
-       Lampa.Reguest — штатный XHR (аналогично fetchKp в 43_sources.js). */
+       Lampa.Reguest — штатный XHR Lampa. */
     function load(cb) {
       var url = '';
       try {
