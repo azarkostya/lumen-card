@@ -141,3 +141,143 @@ test('person: «английские» постеры — та же фильмо
   assert.deepEqual(done, [1]);
   assert.equal(cards[1].poster_path, '/en-gb.jpg');
 });
+
+/* План 1.2, фича 4: подборка из нескольких людей (person + also). «Братья
+   Коэн» — Джоэл (1223) режиссёр всех общих фильмов, сольные работы Итана
+   (1224) есть только в его фильмографии. Числа ответов — упрощённые живые
+   (2026-09-29). */
+const JOEL = {
+  id: 1223,
+  crew: [
+    { id: 275, title: 'Фарго', poster_path: '/fargo.jpg', backdrop_path: '/fargo-b.jpg', popularity: 9, job: 'Director', credit_id: 'j1', release_date: '1996-03-08' },
+    { id: 115, title: 'Большой Лебовски', poster_path: '/leb.jpg', popularity: 15, job: 'Director', credit_id: 'j2', release_date: '1998-03-06' },
+    { id: 6977, title: 'Старикам тут не место', poster_path: '/nc.jpg', popularity: 12, job: 'Director', credit_id: 'j3', release_date: '2007-11-08' },
+    { id: 602734, title: 'Трагедия Макбета', poster_path: '/mac.jpg', popularity: 5, job: 'Director', credit_id: 'j4' }
+  ]
+};
+const ETHAN = {
+  id: 1224,
+  crew: [
+    { id: 275, title: 'Фарго', poster_path: '/fargo.jpg', popularity: 9, job: 'Director', credit_id: 'e1' },
+    { id: 957304, title: 'Красотки в бегах', poster_path: '/drive.jpg', popularity: 12, job: 'Director', credit_id: 'e2', release_date: '2024-02-22' },
+    { id: 1149504, title: 'Хани, не надо!', poster_path: '/honey.jpg', popularity: 7, job: 'Director', credit_id: 'e3' },
+    { id: 962537, title: 'Jerry Lee Lewis: Trouble in Mind', poster_path: null, popularity: 3, job: 'Director', credit_id: 'e4' },
+    { id: 115, title: 'Большой Лебовски', poster_path: '/leb.jpg', popularity: 15, job: 'Writer', credit_id: 'e5' }
+  ]
+};
+const COEN = { id: 'coen-brothers', title: 'Братья Коэн', sources: { movie: { type: 'person', id: 1223, also: [1224], job: 'Director' } } };
+
+test('person+also: personIds — базовый первым, без повторов и мусора, also не больше 3', () => {
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1223 }), ['1223']);
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1223, also: [1224] }), ['1223', '1224']);
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1223, also: [1223, '1224', 1224, 'x', 0, '01', -3, 5.5, null] }), ['1223', '1224'],
+    'повтор базового и also, строки не из цифр, 0 и дроби — мимо');
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1, also: [2, 3, 4, 5, 6] }), ['1', '2', '3', '4'], 'не больше 1 + 3 запросов');
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1, also: [1, 1, 1, 2, 3, 4] }), ['1', '2', '3', '4'], 'повторы в предел не идут');
+  assert.deepEqual(S0.personIds({ type: 'person', id: 1, also: 2 }), ['1'], 'не массив — нет добавок');
+  assert.equal(S0.isPersonSet({ type: 'person', id: 1223, also: [1224] }), true);
+  assert.equal(S0.isPersonSet({ type: 'person', id: 1223 }), false);
+  assert.equal(S0.isPersonSet({ type: 'person', id: 1223, also: [1223, 'x'] }), false, 'добавок не осталось — одиночный запрос');
+  assert.equal(S0.isPersonSet({ type: 'collection', id: 1, also: [2] }), false);
+  assert.equal(S0.isSet({ type: 'person', id: 1223, also: [1224] }), false, 'набор коллекций его не забирает');
+});
+
+test('person+also: personRequests — по фильмографии на человека, кэш неделя, должность с собой', () => {
+  const spec = COEN.sources.movie;
+  assert.deepEqual(S0.personRequests(spec, 'movie'), [
+    { url: 'person/1223/movie_credits', params: {}, life: 10080, kind: 'person', job: 'Director' },
+    { url: 'person/1224/movie_credits', params: {}, life: 10080, kind: 'person', job: 'Director' }
+  ]);
+  assert.deepEqual(S0.personRequests({ type: 'person', id: 1, also: [2] }, 'tv').map((r) => r.url),
+    ['person/1/tv_credits', 'person/2/tv_credits'], 'сериальный источник — tv_credits');
+  assert.deepEqual(S0.buildRequest(spec, 'movie', 1),
+    { url: 'person/1223/movie_credits', params: {}, life: 10080 }, 'одиночный buildRequest не меняется (1.1.0 так и спросит)');
+});
+
+test('person+also: mergeCredits — одна фильмография: без повторов, без чужих должностей и без постера, по популярности', () => {
+  const r = S0.mergeCredits([JOEL, ETHAN], 'Director');
+  assert.deepEqual(r.results.map((c) => c.id), [115, 6977, 957304, 275, 1149504, 602734],
+    'равная популярность (12) — в порядке ответов: сначала Джоэл');
+  assert.equal(r.results.filter((c) => c.id === 275).length, 1, '«Фарго» один раз');
+  assert.equal(r.results[3].backdrop_path, '/fargo-b.jpg', 'повтор — первая встреченная запись (базового человека)');
+  assert.equal(r.total_pages, 1);
+  assert.equal(r.total_results, 6);
+  assert.deepEqual(S0.mergeCredits([null, ETHAN], 'Director').results.map((c) => c.id), [957304, 275, 1149504], 'пропуск — мимо');
+  assert.deepEqual(S0.mergeCredits([JOEL, ETHAN], 'Writer').results.map((c) => c.id), [115]);
+  assert.deepEqual(S0.mergeCredits([], 'Director').results, []);
+});
+
+test('person+also: fetch — два запроса сразу, объединение в любом порядке ответов, дедупликация in-flight', () => {
+  const s = setup();
+  const got = [];
+  s.S['fetch'](COEN, 1, (j) => got.push(j), (e) => got.push({ err: e }), null);
+  assert.deepEqual(s.calls.map((c) => c.url), ['person/1223/movie_credits', 'person/1224/movie_credits']);
+  assert.deepEqual(s.calls.map((c) => c.cache.life), [10080, 10080]);
+  assert.deepEqual(s.calls[1].params, {});
+  s.S['fetch'](COEN, 1, (j) => got.push(j), (e) => got.push({ err: e }), null);
+  assert.equal(s.calls.length, 2, 'та же подборка, пока летит, — подписка, а не новые запросы');
+  s.calls[1].ok(ETHAN);
+  assert.equal(got.length, 0, 'ждёт второго');
+  s.calls[0].ok(JOEL);
+  assert.equal(got.length, 2);
+  assert.deepEqual(got[0].results.map((c) => c.id), [115, 6977, 957304, 275, 1149504, 602734],
+    'порядок ответов не важен: склейка — по порядку запросов');
+  assert.equal(got[0].title, 'Братья Коэн');
+  assert.equal(got[0].total_pages, 1);
+});
+
+test('person+also: один запрос упал — подборка из второго; оба — ошибка подборки', () => {
+  let s = setup();
+  let got = [];
+  s.S['fetch'](COEN, 1, (j) => got.push(j), (e) => got.push({ err: e }), null);
+  s.calls[0].err();
+  s.calls[1].ok(ETHAN);
+  assert.deepEqual(got[0].results.map((c) => c.id), [957304, 275, 1149504]);
+  s = setup();
+  got = [];
+  s.S['fetch'](COEN, 1, (j) => got.push(j), (e) => got.push({ err: e }), null);
+  s.calls[0].err();
+  s.calls[1].err();
+  assert.equal(got.length, 1);
+  assert.ok(got[0].err && got[0].err.all_failed, 'не пустой список, а ошибка');
+});
+
+test('person+also: отмена — поздние ответы подписчику не доходят', () => {
+  const s = setup();
+  const got = [];
+  const h = s.S['fetch'](COEN, 1, (j) => got.push(j), (e) => got.push({ err: e }), null);
+  h.clear();
+  s.calls[0].ok(JOEL);
+  s.calls[1].ok(ETHAN);
+  assert.equal(got.length, 0);
+});
+
+test('person+also: bannerPath — кадр первого по популярности из объединения', () => {
+  const s = setup();
+  let got = null;
+  s.S.bannerPath(COEN, (p) => { got = p; }, (e) => { throw new Error(JSON.stringify(e)); }, null);
+  assert.equal(s.calls.length, 2);
+  s.calls[0].ok({ crew: [{ id: 275, title: 'Фарго', poster_path: '/f.jpg', backdrop_path: '/fb.jpg', popularity: 9, job: 'Director' }] });
+  s.calls[1].ok({ crew: [{ id: 957304, title: 'Красотки в бегах', poster_path: '/d.jpg', backdrop_path: '/db.jpg', popularity: 12, job: 'Director' }] });
+  assert.equal(got, '/db.jpg', 'сольный фильм Итана популярнее — его кадр');
+});
+
+test('person+also: «английские» постеры — по запросу на человека с langs=en и той же должностью', () => {
+  const s = setup('original');
+  const cards = S0.mergeCredits([JOEL, ETHAN], 'Director').results;
+  const done = [];
+  s.S.posters(COEN, cards, (n) => done.push(n), null, 1);
+  assert.deepEqual(s.calls.map((c) => c.url), ['person/1223/movie_credits', 'person/1224/movie_credits']);
+  assert.deepEqual(s.calls.map((c) => c.params.langs), ['en', 'en']);
+  s.calls[0].ok({ crew: [{ id: 275, title: 'Fargo', poster_path: '/en-fargo.jpg', job: 'Director' }] });
+  s.calls[1].ok({ crew: [
+    { id: 957304, title: 'Drive-Away Dolls', poster_path: '/en-drive.jpg', job: 'Director' },
+    { id: 115, title: 'The Big Lebowski', poster_path: '/en-leb.jpg', job: 'Writer' }
+  ] });
+  assert.deepEqual(done, [2], 'Лебовски у Итана — сценарий: не его режиссёрская запись');
+  const byId = {};
+  for (const c of cards) byId[c.id] = c.poster_path;
+  assert.equal(byId[275], '/en-fargo.jpg');
+  assert.equal(byId[957304], '/en-drive.jpg');
+  assert.equal(byId[115], '/leb.jpg');
+});

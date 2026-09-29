@@ -1519,9 +1519,11 @@
            и «Кунг-фу Панда 2»; Уэс Андерсон 4 из 5 — «Трудности перевода»
            Копполы; Финчер 3 из 5 — «ВАЛЛ·И», «Орудия»). Костыли по языку у
            Куросавы и Тарковского сняты — фильмография их не требует. Братья
-           Коэн — фильмография Джоэла (1223): у TMDB он режиссёр всех общих
-           фильмов; сольных фильмов Итана («Красотки в бегах», «Милая Хани»)
-           в подборке нет. Таблица — r4/person/check.md в заметках раунда.
+           Коэн — фильмография Джоэла (1223) и, через also, Итана (1224): у
+           TMDB Джоэл режиссёр всех общих фильмов, а сольные работы Итана
+           («Красотки в бегах», «Хани, не надо!») есть только у Итана (1.2;
+           1.1.0 поле also не смотрит и показывает Джоэла). Таблица —
+           r4/person/check.md в заметках раунда.
            У актёров with_cast против with_people:
            Де Ниро теряет «Богемскую рапсодию», Брэд Питт — «Миазму»
            (продюсер), первая десятка остальных та же.
@@ -1583,7 +1585,7 @@
         },
         {
           id: 'coen-brothers', title: 'Братья Коэн', group: 'people',
-          sources: { movie: { type: 'person', id: 1223, job: 'Director' } }
+          sources: { movie: { type: 'person', id: 1223, also: [1224], job: 'Director' } }
         },
         {
           id: 'tom-hanks', title: 'Том Хэнкс', group: 'people', cover: '/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
@@ -1864,7 +1866,8 @@
          [\w.,|:-]), collection/list (числовой id; у collection ещё
          необязательные also и movies — непустые массивы до 24 числовых id,
          а с базовой коллекцией вместе — не больше SET_TOTAL запросов),
-         person (id человека — положительное целое, job — из PERSON_JOBS);
+         person (id человека — положительное целое, job — из PERSON_JOBS,
+         необязательное also — непустой массив до PERSON_ALSO_MAX id людей);
          снятый тип (RETIRED ниже) не проверяется, а убирается;
        - темы: id и preset — [a-z0-9-], accent — #rrggbb;
        - необязательные поля подборки (финальная проверка, L3): season —
@@ -1954,15 +1957,29 @@
        человека TMDB, положительное целое (числом или строкой цифр); job —
        должность в crew, по умолчанию Director. Должности — из списка:
        значение в адрес запроса не уходит, но опечатка («director») дала бы
-       пустую подборку без всякой ошибки. */
+       пустую подборку без всякой ошибки.
+       also (1.2) — ещё люди той же подборки («Братья Коэн»: 1223 + 1224):
+       непустой массив, не длиннее PERSON_ALSO_MAX — столько же запрашивает
+       LC.sources. Базовая id прежняя: 1.1.0 also не проверяет и не
+       запрашивает — каталог принимает и показывает базового человека. */
     var PERSON_ID_RE = /^[1-9]\d{0,11}$/;
     var PERSON_JOBS = {
       Director: 1, Writer: 1, Screenplay: 1, Producer: 1,
       'Executive Producer': 1, 'Director of Photography': 1, 'Original Music Composer': 1, Editor: 1
     };
 
+    var PERSON_ALSO_MAX = 3;
+
+    function personIdOk(v) {
+      return (typeof v === 'number' || typeof v === 'string') && PERSON_ID_RE.test(String(v));
+    }
+
     function personOk(spec) {
-      if ((typeof spec.id !== 'number' && typeof spec.id !== 'string') || !PERSON_ID_RE.test(String(spec.id))) return false;
+      if (!personIdOk(spec.id)) return false;
+      if (typeof spec.also !== 'undefined') {
+        if (!Array.isArray(spec.also) || !spec.also.length || spec.also.length > PERSON_ALSO_MAX) return false;
+        for (var i = 0; i < spec.also.length; i++) if (!personIdOk(spec.also[i])) return false;
+      }
       if (typeof spec.job === 'undefined') return true;
       return typeof spec.job === 'string' && PERSON_JOBS.hasOwnProperty(spec.job);
     }

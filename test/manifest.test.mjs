@@ -992,7 +992,7 @@ test('r4: «Режиссёры и актёры» — режиссёры по ф�
       continue;
     }
     directors.push(c.id);
-    assert.deepEqual(Object.keys(spec).sort(), ['id', 'job', 'type'], c.id + ': ' + JSON.stringify(spec));
+    assert.deepEqual(Object.keys(spec).sort(), c.id === 'coen-brothers' ? ['also', 'id', 'job', 'type'] : ['id', 'job', 'type'], c.id + ': ' + JSON.stringify(spec));
     assert.equal(spec.type, 'person', c.id);
     assert.equal(spec.job, 'Director', c.id);
     assert.ok(Number.isInteger(spec.id) && spec.id > 0, c.id + ': id человека TMDB');
@@ -1004,6 +1004,7 @@ test('r4: «Режиссёры и актёры» — режиссёры по ф�
   assert.equal(byId['kurosawa'].sources.movie.id, 5026);
   assert.equal(byId['tarkovsky'].sources.movie.id, 8452);
   assert.equal(byId['coen-brothers'].sources.movie.id, 1223, 'Джоэл Коэн — в титрах режиссёром у всех общих фильмов братьев');
+  assert.deepEqual(byId['coen-brothers'].sources.movie.also, [1224], 'и Итан (1.2) — его сольные «Красотки в бегах», «Хани, не надо!»');
   assert.equal(byId['miyazaki'].animation, true, 'тег «Мультфильмы» у Миядзаки остался');
 });
 
@@ -1041,6 +1042,33 @@ test('person: validate — id положительное целое, job — и�
   const tv = okCatalog();
   tv.collections[0].sources = { tv: { type: 'person', id: 66633, job: 'Director' } };
   assert.deepEqual(M.validate(tv), { ok: true }, 'сериальная фильмография — tv_credits');
+});
+
+/* План 1.2, фича 4: подборка из нескольких людей — also у person (как у
+   collection). Мусор в also отвергает каталог, как у коллекций: формат наш. */
+test('person: validate — also непустой массив до 3 id людей, иначе каталог отвергается', () => {
+  function cat(spec) {
+    const m = okCatalog();
+    m.collections[0].sources = { movie: spec };
+    return M.validate(m);
+  }
+  for (const ok of [
+    { type: 'person', id: 1223, also: [1224], job: 'Director' },
+    { type: 'person', id: 1223, also: ['1224'] },
+    { type: 'person', id: 1, also: [2, 3, 4] },
+    { type: 'person', id: 1223, also: [1223] }
+  ]) assert.deepEqual(cat(ok), { ok: true }, JSON.stringify(ok));
+  for (const bad of [
+    { type: 'person', id: 1223, also: [] },
+    { type: 'person', id: 1223, also: ['x'] },
+    { type: 'person', id: 1223, also: [0] },
+    { type: 'person', id: 1223, also: ['01224'] },
+    { type: 'person', id: 1223, also: [1224.5] },
+    { type: 'person', id: 1223, also: [1, 2, 3, 4] },
+    { type: 'person', id: 1223, also: 1224 },
+    { type: 'person', id: 1223, also: null },
+    { type: 'person', id: 1223, also: [[1224]] }
+  ]) assert.deepEqual(cat(bad), { ok: false, reason: 'bad_sources: ' + okCatalog().collections[0].id }, JSON.stringify(bad));
 });
 
 test('r4: русские названия подборок в каталоге не повторяются', () => {

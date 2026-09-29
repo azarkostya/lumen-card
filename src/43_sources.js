@@ -7,6 +7,7 @@
   /*   discoverUrl(spec, media) → строка для category_full                  */
   /*   mergeMedia(movies, tv) → [card, ...]                                 */
   /*   isSet / setRequests / partOf / setParts — коллекция с also/movies    */
+  /*   personIds / personRequests / mergeCredits — person с also (люди)     */
   /*   fetchOne(spec, media, page, ok, err, alive) — runtime, требует Lampa */
   /*   fetch(item, page, ok, err, alive) → {clear} — runtime, требует Lampa */
   /*                                                                        */
@@ -387,14 +388,81 @@
       return parts;
     }
 
-    /* Набор целиком: ok(ответ вида normalize('collection')) — если пришёл
-       хоть один ответ; err — если не пришло ничего. Запросы — не больше
-       SET_PARALLEL одновременно: следующий уходит, когда ответил (или
-       упал) один из летящих; подборку закрыли — новые не уходят. */
-    function fetchSet(spec, ok, err, alive) {
+    /* ------------------------------------------------------------------ */
+    /* Подборка из нескольких людей (person + also, план 1.2, фича 4).     */
+    /*                                                                     */
+    /* «Братья Коэн» — фильмография Джоэла (1223): у TMDB он режиссёр всех */
+    /* общих фильмов, но сольные работы Итана (1224) — «Красотки в бегах»  */
+    /* (957304), «Хани, не надо!» (1149504) — есть только у Итана. Поэтому */
+    /* у person, как у collection, необязательное also — ещё люди: по      */
+    /* запросу фильмографии на человека, параллельно, кэш неделя; работы   */
+    /* в должности job склеиваются без повторов (первым — базовый          */
+    /* человек) и идут по популярности, как у одного человека (credits).   */
+    /* Базовая id прежняя: 1.1.0 поле also не смотрит (personOk в          */
+    /* src/42_manifest.js), каталог принимает и показывает базового        */
+    /* человека. Людей в also — не больше PERSON_ALSO_MAX (столько же      */
+    /* пропускает проверка каталога): каталог без проверки не устроит      */
+    /* десятки запросов на плитку.                                         */
+    /* ------------------------------------------------------------------ */
+    var PERSON_ALSO_MAX = 3;
+    var PERSON_ID = /^[1-9]\d{0,11}$/;
+
+    /* Базовый человек и also: без повторов и мусора, also — не больше
+       PERSON_ALSO_MAX. Базовый id не проверяется: его берёт buildRequest
+       и для одиночного источника. */
+    function personIds(spec) {
+      var out = [String(spec && spec.id)];
+      var seen = {};
+      seen[out[0]] = 1;
+      var v = spec && spec.also;
+      if (!Array.isArray(v)) return out;
+      for (var i = 0; i < v.length && out.length <= PERSON_ALSO_MAX; i++) {
+        var id = String(v[i]);
+        if (PERSON_ID.test(id) && !seen[id]) { seen[id] = 1; out.push(id); }
+      }
+      return out;
+    }
+
+    /* Источник-человек с добавками (also)? */
+    function isPersonSet(spec) {
+      return !!(spec && spec.type === 'person' && personIds(spec).length > 1);
+    }
+
+    /* Запросы набора людей: по фильмографии на человека. */
+    function personRequests(spec, media) {
+      var ids = personIds(spec);
+      var out = [];
+      for (var i = 0; i < ids.length; i++) {
+        out.push({
+          url: 'person/' + encodeURIComponent(ids[i]) + '/' + (media === 'tv' ? 'tv' : 'movie') + '_credits',
+          params: {},
+          life: LIFE_STATIC,
+          kind: 'person',
+          job: spec.job
+        });
+      }
+      return out;
+    }
+
+    /* Ответы набора людей (по порядку запросов, пропуски — мимо) → ответ
+       вида normalize('person'): одна фильмография из всех crew. */
+    function mergeCredits(answers, job) {
+      var crew = [];
+      for (var i = 0; i < (answers || []).length; i++) {
+        var list = answers[i] && answers[i].crew;
+        if (Array.isArray(list)) crew = crew.concat(list);
+      }
+      return normalize('person', { crew: crew }, job);
+    }
+
+    /* Набор целиком: ok(build(answers)) — если пришёл хоть один ответ;
+       err — если не пришло ничего. Запросы — не больше SET_PARALLEL
+       одновременно: следующий уходит, когда ответил (или упал) один из
+       летящих; подборку закрыли — новые не уходят. Общий для коллекций с
+       also/movies и для людей с also. */
+    function fetchSet(reqs, build, ok, err, alive) {
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
-      var reqs = setRequests(spec);
       var answers = [];
       var got = 0;
       var next = 0;
@@ -402,7 +470,7 @@
       var gate = LC.util.gate(reqs.length, SET_TIMEOUT, function () {
         if (dead()) return;
         if (!got) { err({ set_failed: true }); return; }
-        ok(normalize('collection', { parts: setParts(reqs, answers) }));
+        ok(build(answers));
       });
       function send(i) {
         var r = reqs[i];
@@ -499,7 +567,19 @@
        случайное «популярное» под её названием. */
     function fetchOne(spec, media, page, ok, err, alive) {
       if (!known(spec)) { err({ unknown_type: true }); return null; }
-      if (isSet(spec)) { fetchSet(spec, ok, err, alive); return null; }
+      if (isSet(spec)) {
+        var reqs = setRequests(spec);
+        fetchSet(reqs, function (answers) {
+          return normalize('collection', { parts: setParts(reqs, answers) });
+        }, ok, err, alive);
+        return null;
+      }
+      if (isPersonSet(spec)) {
+        fetchSet(personRequests(spec, media), function (answers) {
+          return mergeCredits(answers, spec.job);
+        }, ok, err, alive);
+        return null;
+      }
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
       var r = buildRequest(spec, media, page);
@@ -894,6 +974,11 @@
           LC.util.each(setRequests(spec), function (r) { jobs.push(r); });
           return;
         }
+        /* Люди с also — так же: английская фильмография каждого. */
+        if (isPersonSet(spec)) {
+          LC.util.each(personRequests(spec, media), function (r) { jobs.push(r); });
+          return;
+        }
         var one = buildRequest(spec, media, page || 1);
         one.kind = spec.type;
         one.job = spec.job;
@@ -996,6 +1081,11 @@
       setRequests: setRequests,
       partOf: partOf,
       setParts: setParts,
+      /* Люди с also — тоже ради тестов. */
+      personIds: personIds,
+      isPersonSet: isPersonSet,
+      personRequests: personRequests,
+      mergeCredits: mergeCredits,
       bannerPath: bannerPath,
       /* Постеры: чистые части наружу ради тестов, posters — ради рядов
          главной (src/44_rows.js) и сетки подборки (src/46_hub.js). */

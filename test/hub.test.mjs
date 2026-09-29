@@ -383,6 +383,19 @@ test('openTarget: режиссёр открывается своей сетко�
   assert.equal(t.lumen.id, 'wes-anderson');
 });
 
+/* План 1.2, фича 4: люди с also («Братья Коэн») — та же фильмография одной
+   «страницей»: своя сетка, сортировка на месте, «По годам» последним. */
+test('person+also: «Братья Коэн» — своя сетка, «По годам» последним, сортировка на месте', function () {
+  var coen = { id: 'coen-brothers', title: 'Братья Коэн', sources: { movie: { type: 'person', id: 1223, also: [1224], job: 'Director' } } };
+  assert.deepEqual(H.sortModes(coen).map(function (x) { return x.id; }), ['popular', 'rating', 'new', 'years']);
+  assert.equal(H.defaultSort(coen), 'popular');
+  assert.equal(H.needsLocalSort(coen), true);
+  assert.deepEqual(H.applySort(coen, 'years').sources.movie, coen.sources.movie, 'also не теряется');
+  var t = H.openTarget(coen);
+  assert.equal(t.component, 'lumen_grid');
+  assert.equal(t.lumen.id, 'coen-brothers');
+});
+
 test('sortLocal: years — старые первыми, анонс без даты в конце', function () {
   var list = [
     { id: 1, release_date: '2017-07-05' }, { id: 2, release_date: '' },
