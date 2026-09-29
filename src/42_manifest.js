@@ -1506,9 +1506,23 @@
            в будущее», «Шрек»), дель Торо 3 из 10 («Хоббит» — сценарий,
            «Кунг-фу Панда 2» — консультант), Финчер 6 из 10 («ВАЛЛ·И» и
            «Гравитация» — Thanks, «Возвращение джедая» — ассистент оператора).
-           Отсечь «не режиссёр» discover не умеет; точный путь — источник по
-           фильмографии (person/{id}/movie_credits, job = Director), это новый
-           тип в src/43_sources.js. У актёров with_cast против with_people:
+           Отсечь «не режиссёр» discover не умеет, поэтому режиссёры — на
+           источнике person (src/43_sources.js): его фильмография
+           person/{id}/movie_credits, из crew только job = Director, без
+           повторов, adult и записей без постера, по популярности; в сетке —
+           сортировка на месте и чип «По годам». Живая сверка на стенде
+           (2026-09-29, ru-RU, первые пять по популярности, каждый проверен
+           запросом movie/{id}/credits): своих режиссёрских — 100 из 100 у
+           двадцати режиссёров; у with_crew в те же сутки было 83 из 100
+           (Спилберг 1 из 5: «Мир Юрского периода: Возрождение», «Живая
+           сталь», «Назад в будущее» 1 и 2; дель Торо 1 из 5 — три «Хоббита»
+           и «Кунг-фу Панда 2»; Уэс Андерсон 4 из 5 — «Трудности перевода»
+           Копполы; Финчер 3 из 5 — «ВАЛЛ·И», «Орудия»). Костыли по языку у
+           Куросавы и Тарковского сняты — фильмография их не требует. Братья
+           Коэн — фильмография Джоэла (1223): у TMDB он режиссёр всех общих
+           фильмов; сольных фильмов Итана («Красотки в бегах», «Милая Хани»)
+           в подборке нет. Таблица — r4/person/check.md в заметках раунда.
+           У актёров with_cast против with_people:
            Де Ниро теряет «Богемскую рапсодию», Брэд Питт — «Миазму»
            (продюсер), первая десятка остальных та же.
            Кадры: прогон bannerPath всех плиток хаба на стенде (2026-09-29)
@@ -1519,11 +1533,11 @@
         /* Существующие (8) */
         {
           id: 'nolan', title: 'Кристофер Нолан', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 525 } } } }
+          sources: { movie: { type: 'person', id: 525, job: 'Director' } }
         },
         {
           id: 'tarantino', title: 'Квентин Тарантино', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 138 } } } }
+          sources: { movie: { type: 'person', id: 138, job: 'Director' } }
         },
         {
           id: 'dicaprio', title: 'Леонардо ДиКаприо', group: 'people',
@@ -1531,45 +1545,45 @@
         },
         {
           id: 'spielberg', title: 'Стивен Спилберг', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 488 } } } }
+          sources: { movie: { type: 'person', id: 488, job: 'Director' } }
         },
         {
           id: 'fincher', title: 'Дэвид Финчер', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 7467 } } } }
+          sources: { movie: { type: 'person', id: 7467, job: 'Director' } }
         },
         {
           id: 'scorsese', title: 'Мартин Скорсезе', group: 'people', cover: '/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 1032 } } } }
+          sources: { movie: { type: 'person', id: 1032, job: 'Director' } }
         },
         {
           id: 'villeneuve', title: 'Дени Вильнёв', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 137427 } } } }
+          sources: { movie: { type: 'person', id: 137427, job: 'Director' } }
         },
         {
           id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', animation: true, cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 608 } } } }
+          sources: { movie: { type: 'person', id: 608, job: 'Director' } }
         },
 
         /* Новые (13), person ID проверены live */
         {
           id: 'ridley-scott', title: 'Ридли Скотт', group: 'people', cover: '/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 578 } } } }
+          sources: { movie: { type: 'person', id: 578, job: 'Director' } }
         },
         {
           id: 'cameron', title: 'Джеймс Кэмерон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 2710 } } } }
+          sources: { movie: { type: 'person', id: 2710, job: 'Director' } }
         },
         {
           id: 'del-toro', title: 'Гильермо дель Торо', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 10828 } } } }
+          sources: { movie: { type: 'person', id: 10828, job: 'Director' } }
         },
         {
           id: 'wes-anderson', title: 'Уэс Андерсон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 5655 } } } }
+          sources: { movie: { type: 'person', id: 5655, job: 'Director' } }
         },
         {
           id: 'coen-brothers', title: 'Братья Коэн', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: '1223|1224' } } } }
+          sources: { movie: { type: 'person', id: 1223, job: 'Director' } }
         },
         {
           id: 'tom-hanks', title: 'Том Хэнкс', group: 'people', cover: '/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
@@ -1593,7 +1607,7 @@
         },
         {
           id: 'kubrick', title: 'Стэнли Кубрик', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 240 } } } }
+          sources: { movie: { type: 'person', id: 240, job: 'Director' } }
         },
         {
           id: 'de-niro', title: 'Роберт Де Ниро', group: 'people',
@@ -1604,44 +1618,41 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 500 } } } }
         },
 
-        /* Раунд r4 (2026-09-29): режиссёры пакетом. with_crew, как у всей
-           группы (разбор выше); у Куросавы — И язык ja (иначе его сценарии:
-           «Великолепная семёрка» 1960 и 2016, «За пригоршню долларов»,
-           «Сверху вниз»), у Тарковского — И языки его фильмов ru|it|sv (иначе
-           первыми «Нимфоманка. Часть 2», «Антихрист» и «Небо над Берлином» —
-           у TMDB он там в титрах: «Thanks», «In Memory Of»). Первая десятка
-           (живые запросы на стенде): Хичкок, Линч, Ричи, Куросава — 10 из 10
-           своих режиссёрских; Пон Джун Хо — 9 («Морской туман» — его
-           сценарий); Бёртон — 8 («Кошмар перед Рождеством» и «Алиса в
-           Зазеркалье» — продюсер); Тарковский — 9 из 10 (10-й — «Первый
-           учитель», где он у TMDB «Writers' Assistant»), всего у него 16. */
+        /* Раунд r4 (2026-09-29): режиссёры пакетом — сначала с with_crew, и
+           Куросаве с Тарковским приходилось добавлять язык (иначе первыми
+           шли сценарии Куросавы к «Великолепной семёрке» и «За пригоршню
+           долларов», у Тарковского — «Нимфоманка» и «Антихрист», где он у
+           TMDB в титрах «Thanks»). Теперь — фильмография (person, Director,
+           разбор выше), без языка. Фильмов с постером (стенд, ru-RU):
+           Линч 65 и Хичкок 64 (с короткометражками), Бёртон 34, Куросава 32,
+           Ричи 20, Пон Джун Хо 18, Тарковский 11; первые пять у всех свои. */
         {
           id: 'hitchcock', title: 'Альфред Хичкок', i18n: { en: 'Alfred Hitchcock', uk: 'Альфред Гічкок' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 2636 } } } }
+          sources: { movie: { type: 'person', id: 2636, job: 'Director' } }
         },
         {
           id: 'kurosawa', title: 'Акира Куросава', i18n: { en: 'Akira Kurosawa', uk: 'Акіра Куросава' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { orig_lang: 'ja', sort_by: 'popularity.desc', filter: { with_crew: 5026 } } } }
+          sources: { movie: { type: 'person', id: 5026, job: 'Director' } }
         },
         {
           id: 'tarkovsky', title: 'Андрей Тарковский', i18n: { en: 'Andrei Tarkovsky', uk: 'Андрій Тарковський' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { orig_lang: 'ru|it|sv', sort_by: 'popularity.desc', filter: { with_crew: 8452 } } } }
+          sources: { movie: { type: 'person', id: 8452, job: 'Director' } }
         },
         {
           id: 'lynch', title: 'Дэвид Линч', i18n: { en: 'David Lynch', uk: 'Девід Лінч' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 5602 } } } }
+          sources: { movie: { type: 'person', id: 5602, job: 'Director' } }
         },
         {
           id: 'burton', title: 'Тим Бёртон', i18n: { en: 'Tim Burton', uk: 'Тім Бертон' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 510 } } } }
+          sources: { movie: { type: 'person', id: 510, job: 'Director' } }
         },
         {
           id: 'ritchie', title: 'Гай Ричи', i18n: { en: 'Guy Ritchie', uk: 'Гай Річі' }, group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 956 } } } }
+          sources: { movie: { type: 'person', id: 956, job: 'Director' } }
         },
         {
           id: 'bong-joon-ho', title: 'Пон Джун Хо', i18n: { en: 'Bong Joon Ho', uk: 'Пон Джун Хо' }, group: 'people', cover: '/8eihUxjQsJ7WvGySkVMC0EwbPAD.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 21684 } } } }
+          sources: { movie: { type: 'person', id: 21684, job: 'Director' } }
         },
 
         /* === TOP (6 подборок) === */

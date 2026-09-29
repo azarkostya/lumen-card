@@ -904,7 +904,7 @@ const R4 = {
 };
 const R4_ANIMATION = ['disney-animation', 'laika-aardman', 'kids-toons', 'toddlers', 'family-toons'];
 
-test('r4: 30 новых подборок — в своих группах, в конце группы, перевод, только discover, кадр у всех, кроме людей', () => {
+test('r4: 30 новых подборок — в своих группах, в конце группы, перевод, discover (режиссёры — person), кадр у всех, кроме людей', () => {
   const all = M.DEFAULT.collections;
   const byId = {};
   for (const c of all) byId[c.id] = c;
@@ -918,7 +918,7 @@ test('r4: 30 новых подборок — в своих группах, в к
       assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'перевод ' + id);
       if (g !== 'people') assert.ok(typeof c.cover === 'string', 'кадр ' + id + ': плитка без запроса и без общего лидера');
       for (const media of ['movie', 'tv']) {
-        if (c.sources[media]) assert.equal(c.sources[media].type, 'discover', id + '/' + media);
+        if (c.sources[media]) assert.equal(c.sources[media].type, g === 'people' ? 'person' : 'discover', id + '/' + media);
       }
       assert.equal(!!c.animation, R4_ANIMATION.indexOf(id) !== -1, id + ': animation — только у анимационных');
     }
@@ -964,9 +964,12 @@ test('r4: ключи фильтра сериалов и людей проход�
 });
 
 /* Раунд r4 (2026-09-29): with_people — человек в любой роли («Зверопой» у Уэса
-   Андерсона, «Мандалорец и Грогу» у Скорсезе). Разбор и живые данные — в
-   комментарии к группе в src/42_manifest.js. */
-test('r4: «Режиссёры и актёры» — режиссёры по съёмочной группе, актёры по актёрскому составу, with_people нет', () => {
+   Андерсона, «Мандалорец и Грогу» у Скорсезе), with_crew — любая роль в
+   съёмочной группе («Трудности перевода» у Андерсона, «Шрек» у Спилберга).
+   Режиссёр — его фильмография в должности Director (источник person), без
+   костылей по языку. Разбор и живые данные — в комментарии к группе в
+   src/42_manifest.js. */
+test('r4: «Режиссёры и актёры» — режиссёры по фильмографии (person, Director), актёры по актёрскому составу', () => {
   const d = M.DEFAULT;
   const g = d.groups.filter(x => x.id === 'people')[0];
   assert.equal(g.title, 'Режиссёры и актёры');
@@ -978,16 +981,66 @@ test('r4: «Режиссёры и актёры» — режиссёры по с�
   const actors = ['dicaprio', 'tom-hanks', 'keanu-reeves', 'denzel', 'brad-pitt', 'scarlett', 'de-niro', 'tom-cruise'];
   const people = d.collections.filter(c => c.group === 'people');
   assert.equal(people.length, 28);
+  const directors = [];
   for (const c of people) {
-    const f = c.sources.movie.params.filter;
-    assert.equal(f.with_people, undefined, c.id + ': with_people — любая роль («Зверопой» у Уэса Андерсона)');
-    if (actors.indexOf(c.id) !== -1) assert.ok(f.with_cast && !f.with_crew, c.id + ': актёр — with_cast');
-    else assert.ok(f.with_crew && !f.with_cast, c.id + ': режиссёр — with_crew');
+    const spec = c.sources.movie;
+    assert.equal(c.sources.tv, undefined, c.id + ': только фильмы');
+    if (actors.indexOf(c.id) !== -1) {
+      const f = spec.params.filter;
+      assert.equal(f.with_people, undefined, c.id + ': with_people — любая роль («Зверопой» у Уэса Андерсона)');
+      assert.ok(f.with_cast && !f.with_crew, c.id + ': актёр — with_cast');
+      continue;
+    }
+    directors.push(c.id);
+    assert.deepEqual(Object.keys(spec).sort(), ['id', 'job', 'type'], c.id + ': ' + JSON.stringify(spec));
+    assert.equal(spec.type, 'person', c.id);
+    assert.equal(spec.job, 'Director', c.id);
+    assert.ok(Number.isInteger(spec.id) && spec.id > 0, c.id + ': id человека TMDB');
   }
+  assert.equal(directors.length, 20);
   const byId = {};
   for (const c of people) byId[c.id] = c;
-  assert.equal(byId['kurosawa'].sources.movie.params.orig_lang, 'ja', 'без его сценариев к «Великолепной семёрке»');
-  assert.equal(byId['tarkovsky'].sources.movie.params.orig_lang, 'ru|it|sv', 'без «Нимфоманки» и «Антихриста»');
+  assert.equal(byId['wes-anderson'].sources.movie.id, 5655);
+  assert.equal(byId['kurosawa'].sources.movie.id, 5026);
+  assert.equal(byId['tarkovsky'].sources.movie.id, 8452);
+  assert.equal(byId['coen-brothers'].sources.movie.id, 1223, 'Джоэл Коэн — в титрах режиссёром у всех общих фильмов братьев');
+  assert.equal(byId['miyazaki'].animation, true, 'тег «Мультфильмы» у Миядзаки остался');
+});
+
+/* Раунд r4: источник person в каталоге. Каталог может прийти внешним — id
+   человека и должность проверяются так же строго, как id коллекции. */
+test('person: validate — id положительное целое, job — из допустимых, иначе каталог отвергается', () => {
+  function cat(spec) {
+    const m = okCatalog();
+    m.collections[0].sources = { movie: spec };
+    return M.validate(m);
+  }
+  for (const ok of [
+    { type: 'person', id: 5655, job: 'Director' },
+    { type: 'person', id: 5655 },
+    { type: 'person', id: '240', job: 'Director' },
+    { type: 'person', id: 1, job: 'Writer' },
+    { type: 'person', id: 999999999999, job: 'Screenplay' }
+  ]) assert.deepEqual(cat(ok), { ok: true }, JSON.stringify(ok));
+  for (const bad of [
+    { type: 'person' },
+    { type: 'person', id: 0 },
+    { type: 'person', id: -5 },
+    { type: 'person', id: 5655.5 },
+    { type: 'person', id: '05655' },
+    { type: 'person', id: '5655/../x' },
+    { type: 'person', id: 1e20 },
+    { type: 'person', id: true },
+    { type: 'person', id: [5655] },
+    { type: 'person', id: 5655, job: 'director' },
+    { type: 'person', id: 5655, job: 'Thanks' },
+    { type: 'person', id: 5655, job: '' },
+    { type: 'person', id: 5655, job: 1 },
+    { type: 'person', id: 5655, job: null }
+  ]) assert.equal(cat(bad).ok, false, JSON.stringify(bad));
+  const tv = okCatalog();
+  tv.collections[0].sources = { tv: { type: 'person', id: 66633, job: 'Director' } };
+  assert.deepEqual(M.validate(tv), { ok: true }, 'сериальная фильмография — tv_credits');
 });
 
 test('r4: русские названия подборок в каталоге не повторяются', () => {
