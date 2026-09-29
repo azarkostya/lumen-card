@@ -34,7 +34,7 @@
         { id: 'theme',     title: 'Темы',         i18n: { en: 'Themes',      uk: 'Теми' } },
         { id: 'country',   title: 'Страны',       i18n: { en: 'Countries',   uk: 'Країни' } },
         { id: 'era',       title: 'Эпохи',        i18n: { en: 'Eras',        uk: 'Епохи' } },
-        { id: 'people',    title: 'Режиссёры',    i18n: { en: 'People',      uk: 'Режисери' } },
+        { id: 'people',    title: 'Режиссёры и актёры', i18n: { en: 'Directors & Actors', uk: 'Режисери та актори' } },
         { id: 'top',       title: 'Топ',          i18n: { en: 'Top',         uk: 'Топ' } },
         { id: 'mood',      title: 'Настроение',   i18n: { en: 'Mood',        uk: 'Настрій' } }
       ],
@@ -47,7 +47,7 @@
         { id: 'themes',     title: 'Темы',              i18n: { en: 'Themes',             uk: 'Теми' },              groups: ['theme'] },
         { id: 'countries',  title: 'Страны',            i18n: { en: 'Countries',          uk: 'Країни' },            groups: ['country'] },
         { id: 'eras',       title: 'Эпохи',             i18n: { en: 'Eras',               uk: 'Епохи' },             groups: ['era'] },
-        { id: 'people',     title: 'Режиссёры',         i18n: { en: 'People',             uk: 'Режисери' },          groups: ['people'] },
+        { id: 'people',     title: 'Режиссёры и актёры', i18n: { en: 'Directors & Actors', uk: 'Режисери та актори' }, groups: ['people'] },
         { id: 'tops',       title: 'Топ',               i18n: { en: 'Top',                uk: 'Топ' },               groups: ['top'] }
       ],
 
@@ -1307,92 +1307,113 @@
 
         /* === PEOPLE (21 подборка) === */
 
+        /* Раунд r4 (2026-09-29): режиссёры — with_crew, актёры — with_cast.
+           Прежний with_people — человек в ЛЮБОЙ роли, в том числе в актёрском
+           составе: у Уэса Андерсона вторым и четвёртым шли «Зверопой» 2 и 1 (он
+           там озвучивал), у Скорсезе первым — «Мандалорец и Грогу», у Линча —
+           «Фабельманы» (играл Джона Форда). Первая десятка по популярности
+           (живые запросы через Lampa, ru-RU), сколько в ней фильмов, которые
+           человек снял сам, with_people → with_crew: Скорсезе 7 → 9, Андерсон
+           7 → 9, Линч 9 → 10; у Нолана, Тарантино, Вильнёва, Кубрика, Миядзаки,
+           Ридли Скотта, Кэмерона без изменений (8, 8, 10, 9, 8, 8, 7). with_crew
+           — вся съёмочная группа, не только «Director»: продюсерское,
+           сценарное и даже «Thanks» (благодарность в титрах) остаётся, и у
+           троих его заметно — Спилберг 4 из 10 («Мир Юрского периода», «Назад
+           в будущее», «Шрек»), дель Торо 3 из 10 («Хоббит» — сценарий,
+           «Кунг-фу Панда 2» — консультант), Финчер 6 из 10 («ВАЛЛ·И» и
+           «Гравитация» — Thanks, «Возвращение джедая» — ассистент оператора).
+           Отсечь «не режиссёр» discover не умеет; точный путь — источник по
+           фильмографии (person/{id}/movie_credits, job = Director), это новый
+           тип в src/43_sources.js. У актёров with_cast против with_people:
+           Де Ниро теряет «Богемскую рапсодию», Брэд Питт — «Миазму»
+           (продюсер), первая десятка остальных та же. */
+
         /* Существующие (8) */
         {
           id: 'nolan', title: 'Кристофер Нолан', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 525 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 525 } } } }
         },
         {
           id: 'tarantino', title: 'Квентин Тарантино', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 138 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 138 } } } }
         },
         {
           id: 'dicaprio', title: 'Леонардо ДиКаприо', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6193 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 6193 } } } }
         },
         {
           id: 'spielberg', title: 'Стивен Спилберг', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 488 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 488 } } } }
         },
         {
           id: 'fincher', title: 'Дэвид Финчер', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 7467 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 7467 } } } }
         },
         {
           id: 'scorsese', title: 'Мартин Скорсезе', group: 'people', cover: '/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1032 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 1032 } } } }
         },
         {
           id: 'villeneuve', title: 'Дени Вильнёв', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 137427 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 137427 } } } }
         },
         {
           id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 608 } } } }
         },
 
         /* Новые (13), person ID проверены live */
         {
           id: 'ridley-scott', title: 'Ридли Скотт', group: 'people', cover: '/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 578 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 578 } } } }
         },
         {
           id: 'cameron', title: 'Джеймс Кэмерон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 2710 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 2710 } } } }
         },
         {
           id: 'del-toro', title: 'Гильермо дель Торо', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 10828 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 10828 } } } }
         },
         {
           id: 'wes-anderson', title: 'Уэс Андерсон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5655 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 5655 } } } }
         },
         {
           id: 'coen-brothers', title: 'Братья Коэн', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: '1223|1224' } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: '1223|1224' } } } }
         },
         {
           id: 'tom-hanks', title: 'Том Хэнкс', group: 'people', cover: '/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 31 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 31 } } } }
         },
         {
           id: 'keanu-reeves', title: 'Киану Ривз', group: 'people', cover: '/26OvB15pqk3eiKJG8LrXDVzO7Mw.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6384 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 6384 } } } }
         },
         {
           id: 'denzel', title: 'Дензел Вашингтон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5292 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 5292 } } } }
         },
         {
           id: 'brad-pitt', title: 'Брэд Питт', group: 'people', cover: '/hZkgoQYus5vegHoetLkCJzb17zJ.jpg',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 287 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 287 } } } }
         },
         {
           id: 'scarlett', title: 'Скарлетт Йоханссон', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1245 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 1245 } } } }
         },
         {
           id: 'kubrick', title: 'Стэнли Кубрик', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 240 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 240 } } } }
         },
         {
           id: 'de-niro', title: 'Роберт Де Ниро', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 380 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 380 } } } }
         },
         {
           id: 'tom-cruise', title: 'Том Круз', group: 'people',
-          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 500 } } } }
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 500 } } } }
         },
 
         /* === TOP (5 подборок) === */

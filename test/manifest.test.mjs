@@ -889,3 +889,26 @@ test('holB: пять сезонных подборок — месяц, пере�
   assert.equal(M.orderForMonth(theme, 4)[0].id, 'space-race');
   assert.equal(M.orderForMonth(theme, 6)[0].id, 'summer-movies');
 });
+
+/* Раунд r4 (2026-09-29): with_people — человек в любой роли («Зверопой» у Уэса
+   Андерсона, «Мандалорец и Грогу» у Скорсезе). Разбор и живые данные — в
+   комментарии к группе в src/42_manifest.js. */
+test('r4: «Режиссёры и актёры» — режиссёры по съёмочной группе, актёры по актёрскому составу, with_people нет', () => {
+  const d = M.DEFAULT;
+  const g = d.groups.filter(x => x.id === 'people')[0];
+  assert.equal(g.title, 'Режиссёры и актёры');
+  assert.deepEqual(g.i18n, { en: 'Directors & Actors', uk: 'Режисери та актори' });
+  const hg = d.hubGroups.filter(x => x.id === 'people')[0];
+  assert.equal(hg.title, 'Режиссёры и актёры');
+  assert.deepEqual(hg.i18n, { en: 'Directors & Actors', uk: 'Режисери та актори' });
+  assert.deepEqual(hg.groups, ['people']);
+  const actors = ['dicaprio', 'tom-hanks', 'keanu-reeves', 'denzel', 'brad-pitt', 'scarlett', 'de-niro', 'tom-cruise'];
+  const people = d.collections.filter(c => c.group === 'people');
+  assert.equal(people.length, 21);
+  for (const c of people) {
+    const f = c.sources.movie.params.filter;
+    assert.equal(f.with_people, undefined, c.id + ': with_people — любая роль («Зверопой» у Уэса Андерсона)');
+    if (actors.indexOf(c.id) !== -1) assert.ok(f.with_cast && !f.with_crew, c.id + ': актёр — with_cast');
+    else assert.ok(f.with_crew && !f.with_cast, c.id + ': режиссёр — with_crew');
+  }
+});
