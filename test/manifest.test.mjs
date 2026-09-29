@@ -424,8 +424,8 @@ test('темы: 15 новых, у каждой перевод, кадр и то�
       assert.ok(s.params.keywords || s.params.genres, id + '/' + media + ': ни ключевого слова, ни жанра');
     }
   }
-  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 54, 'раунд holB: +5 сезонных; после 1.0.2 +2 замены КП');
-  assert.equal(M.DEFAULT.collections.length, 174, '183 − 12 подборок Кинопоиска + 3 замены');
+  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 67, 'раунд holB: +5 сезонных; после 1.0.2 +2 замены КП; r4: +13 (сериалы и детское)');
+  assert.equal(M.DEFAULT.collections.length, 204, '183 − 12 подборок Кинопоиска + 3 замены; r4: +30');
 });
 
 /* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
@@ -890,6 +890,79 @@ test('holB: пять сезонных подборок — месяц, пере�
   assert.equal(M.orderForMonth(theme, 6)[0].id, 'summer-movies');
 });
 
+/* Раунд r4 (2026-09-29): каталог про сериалы и детское. Живые запросы TMDB
+   (через Lampa на стенде, первые страницы) — в комментариях у подборок в
+   src/42_manifest.js. Сторож держит состав, группы и форму запросов. */
+const R4 = {
+  studio: ['disney-animation', 'laika-aardman'],
+  theme: ['kids-toons', 'toddlers', 'family-toons', 'family-live', 'adventure', 'history', 'based-on-book', 'epics',
+    'crime-series', 'scifi-series', 'sitcoms', 'miniseries', 'doc-series'],
+  country: ['russian-series', 'soviet', 'korean-movies', 'hongkong-china', 'latin'],
+  era: ['tv-90s', 'tv-2000s'],
+  people: ['hitchcock', 'kurosawa', 'tarkovsky', 'lynch', 'burton', 'ritchie', 'bong-joon-ho'],
+  top: ['ended-series']
+};
+const R4_ANIMATION = ['disney-animation', 'laika-aardman', 'kids-toons', 'toddlers', 'family-toons'];
+
+test('r4: 30 новых подборок — в своих группах, в конце группы, перевод, только discover, кадр у всех, кроме людей', () => {
+  const all = M.DEFAULT.collections;
+  const byId = {};
+  for (const c of all) byId[c.id] = c;
+  let n = 0;
+  for (const g in R4) {
+    const inGroup = all.filter(c => c.group === g).map(c => c.id);
+    assert.deepEqual(inGroup.slice(-R4[g].length), R4[g], g + ': новые — в конце группы, в этом порядке');
+    for (const id of R4[g]) {
+      const c = byId[id];
+      n++;
+      assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'перевод ' + id);
+      if (g !== 'people') assert.ok(typeof c.cover === 'string', 'кадр ' + id + ': плитка без запроса и без общего лидера');
+      for (const media of ['movie', 'tv']) {
+        if (c.sources[media]) assert.equal(c.sources[media].type, 'discover', id + '/' + media);
+      }
+      assert.equal(!!c.animation, R4_ANIMATION.indexOf(id) !== -1, id + ': animation — только у анимационных');
+    }
+  }
+  assert.equal(n, 30);
+  assert.equal(all.filter(c => c.sources.tv).length, 53, 'подборок с сериалами было 39');
+  /* Детских сериалов не было ни одного: жанр TV 10762 — только в запретах. */
+  const kidsTv = all.filter(c => c.sources.tv && String(c.sources.tv.params.genres || '').split(/[,|]/).indexOf('10762') !== -1);
+  assert.deepEqual(kidsTv.map(c => c.id).sort(), ['kids-toons', 'toddlers']);
+});
+
+test('r4: детские подборки — без взрослого: рейтинг для самых маленьких, детский жанр, «для всей семьи» без 10762', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  const t = byId['toddlers'].sources;
+  assert.equal(t.movie.params.genres, '16,10751', 'анимация И семейное: одна анимация с рейтингом G пропускала «Призрака в доспехах»');
+  assert.equal(t.movie.params.filter.certification_country, 'US');
+  assert.equal(t.movie.params.filter['certification.lte'], 'G');
+  assert.equal(t.tv.params.genres, 10762);
+  assert.equal(t.tv.params.filter.certification, 'TV-Y');
+  assert.equal(byId['kids-toons'].sources.tv.params.genres, '16,10762', 'анимация И детское');
+  const ft = byId['family-toons'].sources.tv.params;
+  assert.equal(ft.genres, '16,10751');
+  assert.equal(ft.filter.without_genres, '10762');
+  assert.ok(('' + byId['family-live'].sources.movie.params.filter.without_genres).split(',').indexOf('16') !== -1, 'игровое — без анимации');
+});
+
+test('r4: ключи фильтра сериалов и людей проходят проверку каталога и уходят в запрос как есть', () => {
+  const S = load('43_sources.js');
+  const filter = {
+    with_type: 2, with_status: 3, with_crew: 525, with_cast: '31|500', without_genres: '16,10762',
+    with_origin_country: 'CN|HK', certification: 'TV-Y', certification_country: 'US', 'certification.lte': 'G',
+    'first_air_date.gte': '1990-01-01', 'first_air_date.lte': '1999-12-31', 'with_runtime.gte': 150
+  };
+  const spec = { type: 'discover', params: { orig_lang: 'zh|cn', sort_by: 'vote_count.desc', filter: filter } };
+  const m = okCatalog();
+  m.collections[0].sources = { tv: spec };
+  assert.deepEqual(M.validate(m), { ok: true });
+  const r = S.buildRequest(spec, 'tv', 1);
+  assert.equal(r.url, 'discover/tv');
+  assert.deepEqual(r.params.filter, filter, 'ни один ключ не отброшен');
+  assert.equal(r.params.orig_lang, 'zh|cn');
+});
+
 /* Раунд r4 (2026-09-29): with_people — человек в любой роли («Зверопой» у Уэса
    Андерсона, «Мандалорец и Грогу» у Скорсезе). Разбор и живые данные — в
    комментарии к группе в src/42_manifest.js. */
@@ -904,11 +977,23 @@ test('r4: «Режиссёры и актёры» — режиссёры по с�
   assert.deepEqual(hg.groups, ['people']);
   const actors = ['dicaprio', 'tom-hanks', 'keanu-reeves', 'denzel', 'brad-pitt', 'scarlett', 'de-niro', 'tom-cruise'];
   const people = d.collections.filter(c => c.group === 'people');
-  assert.equal(people.length, 21);
+  assert.equal(people.length, 28);
   for (const c of people) {
     const f = c.sources.movie.params.filter;
     assert.equal(f.with_people, undefined, c.id + ': with_people — любая роль («Зверопой» у Уэса Андерсона)');
     if (actors.indexOf(c.id) !== -1) assert.ok(f.with_cast && !f.with_crew, c.id + ': актёр — with_cast');
     else assert.ok(f.with_crew && !f.with_cast, c.id + ': режиссёр — with_crew');
+  }
+  const byId = {};
+  for (const c of people) byId[c.id] = c;
+  assert.equal(byId['kurosawa'].sources.movie.params.orig_lang, 'ja', 'без его сценариев к «Великолепной семёрке»');
+  assert.equal(byId['tarkovsky'].sources.movie.params.orig_lang, 'ru|it|sv', 'без «Нимфоманки» и «Антихриста»');
+});
+
+test('r4: русские названия подборок в каталоге не повторяются', () => {
+  const seen = {};
+  for (const c of M.DEFAULT.collections) {
+    assert.ok(!seen[c.title], 'повтор названия «' + c.title + '»: ' + seen[c.title] + ' и ' + c.id);
+    seen[c.title] = c.id;
   }
 });

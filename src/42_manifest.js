@@ -67,7 +67,7 @@
         'kdrama', 'anime', 'top-rated'
       ],
 
-      /* ---- 174 подборки ------------------------------------------------ */
+      /* ---- Подборки (число и состав групп — в заголовках групп ниже) --- */
       /* cover (необязательное, правка 2026-09-25) — путь кадра TMDB для
          плитки хаба. Без него кадр берётся из первой страницы подборки
          (LC.sources.bannerPath: backdrop_path первой карточки), и у
@@ -595,7 +595,7 @@
           sources: { movie: { type: 'collection', id: 391860 } }
         },
 
-        /* === STUDIO (16 подборок) === */
+        /* === STUDIO (18 подборок) === */
 
         /* Существующие (6) */
         {
@@ -684,6 +684,24 @@
           sources: { movie: { type: 'discover', params: { companies: 14, sort_by: 'popularity.desc' } } }
         },
 
+        /* Раунд r4 (2026-09-29): студии анимации — каталог был почти целиком
+           про игровое кино. Живые запросы TMDB через Lampa на стенде (ru-RU,
+           первая страница с сортировкой подборки):
+           - Walt Disney Animation Studios (company 6125) — 73: «Зверополис 2»,
+             «Моана 2», «Город героев», «Холодное сердце» 1–2, «Рапунцель»;
+           - LAIKA (11537) ИЛИ Aardman (297) — 125: «Коралина», «Труп невесты»,
+             «Побег из курятника», «Кубо», «Уоллес и Громит», «Барашек Шон».
+           animation: true — признак анимационной подборки (контракт с чипом
+           «Мультфильмы» хаба); проверка каталога поле не трогает. */
+        {
+          id: 'disney-animation', title: 'Walt Disney Animation', i18n: { en: 'Walt Disney Animation', uk: 'Walt Disney Animation' }, group: 'studio', animation: true, cover: '/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
+          sources: { movie: { type: 'discover', params: { companies: 6125, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'laika-aardman', title: 'LAIKA и Aardman', i18n: { en: 'LAIKA & Aardman', uk: 'LAIKA та Aardman' }, group: 'studio', animation: true, cover: '/svHDneADngRckbFMUcD0AR1KsSq.jpg',
+          sources: { movie: { type: 'discover', params: { companies: '11537|297', sort_by: 'popularity.desc' } } }
+        },
+
         /* === SERVICE (8 подборок) === */
 
         /* Существующие (6) */
@@ -725,7 +743,7 @@
           sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularity.desc' } } }
         },
 
-        /* === THEME (54 подборки) === */
+        /* === THEME (67 подборок) === */
 
         /* Раунд C, C2: у сезонных подборок (season) — синонимы для поиска
            Lampa (aliases, src/46_search.js): так, как их ищут, а не как они
@@ -1198,7 +1216,116 @@
           sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'vote_average.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 2000 } } } }
         },
 
-        /* === COUNTRY (14 подборок) === */
+        /* Раунд r4 (2026-09-29): сериалы и детское. До правки из 183 подборок
+           сериалы были у 39, детских сериалов не было ни одной (жанр TV 10762
+           не встречался в каталоге). Каждая проверена живым запросом TMDB через
+           Lampa на стенде (ru-RU, первая и вторая страницы, сортировка
+           подборки): всего ≥ 68 результатов, в первой десятке — не больше
+           одной-двух позиций мимо темы, у детских в первой двадцатке нет adult и
+           взрослых жанров. Что изменено против первого варианта:
+           - «Для самых маленьких»: одна анимация (16) с рейтингом G пропускала
+             «Призрака в доспехах» (20-й) и «Оглянись» — у них в данных TMDB
+             рейтинг G; теперь анимация И семейное (16,10751) до G, а сериалы —
+             детские (10762) с американским TV-Y (Lampa прокидывает
+             certification в discover/tv, TMDB его понимает): «Улица Сезам»,
+             «Щенячий патруль», «Свинка Пеппа», «Блуи», «Паровозик Томас».
+           - «Семейные мультсериалы» вместо «западных мультсериалов» (16,
+             США, без 10762): у того первая пятёрка — «Симпсоны», «Гриффины»,
+             «Американский папаша», «Рик и Морти», «Южный парк», то есть сериальная
+             половина «Мультфильмов для взрослых». Анимация И семейное без
+             детского: «Гравити Фолз», «Финес и Ферб», «Вселенная Стивена», «Дом
+             Совы», «Утиные истории».
+           - «Мультсериалы для детей»: от 20 голосов — без порога в первой
+             двадцатке стояли китайские дубли «Дораэмона» с одним голосом.
+           - «Семейное игровое кино» — семейное (10751) без анимации; параллельно
+             в каталог приходят «Семейные» подборки с анимацией (10751|16) —
+             эта их не повторяет: «Нарния», «Мост в Терабитию», «Один дома 2».
+           - «Приключения» (12) без анимации, ужасов, фантастики, триллеров,
+             фэнтези и комедий: без запретов первыми шли «Человек-паук», «Обитель
+             зла» и семь «Гарри Поттеров»; теперь «Гладиатор», «Троя»,
+             «Индиана Джонс», «Выживший».
+           - «Исторические драмы»: фильмы — жанр 36; сериалы — не жанр 10768
+             («War & Politics»: «Спецназ», «Родина» — это не история), а ключевые
+             слова «period drama» (15060) | «historical drama» (192772): «Викинги»,
+             «Корона», «Безумцы», «Аббатство Даунтон», «Сёгун».
+           - «Эпическое кино» — от 150 минут, по оценке (по популярности это
+             была бы копия «Популярного сейчас»): «Крёстный отец» 1–2, «Список
+             Шиндлера», «Властелин колец», «Семь самураев».
+           - «Фантастические сериалы» (10765) без анимации и детского — иначе
+             треть первой двадцатки — аниме-исекаи и «Дораэмон».
+           - «Ситкомы» — ключевое слово «sitcom» (193171) И комедия: with_type 4
+             у TMDB — «Scripted» (любой игровой), он приносил «Новичка» и
+             «Бесстыжих». Теперь «Офис», «Друзья», «Сайнфелд», «Фрейзер».
+           - «Мини-сериалы» (with_type 2) без анимации, детского и фантастики:
+             иначе в первой двадцатке восемь сериалов Marvel/«Звёздных войн» и
+             аниме «Гарем рабов в лабиринте другого мира».
+           - «Документальные сериалы» (99) без комедий, новостей и реалити:
+             иначе «Dateline», «48 Hours», «Кафе, закусочные и забегаловки».
+             Остаются «Студия Marvel: Легенды» и «Общий сбор» (4-я и 8-я) — это
+             документальные выпуски, признака отсечь их нет. */
+        {
+          id: 'kids-toons', title: 'Мультсериалы для детей', i18n: { en: 'Cartoons for Kids', uk: 'Мультсеріали для дітей' }, group: 'theme', animation: true, cover: '/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+          sources: { tv: { type: 'discover', params: { genres: '16,10762', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 20 } } } }
+        },
+        {
+          id: 'toddlers', title: 'Для самых маленьких', i18n: { en: 'For Little Ones', uk: 'Для найменших' }, group: 'theme', animation: true, cover: '/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+          sources: {
+            movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'G', 'vote_count.gte': 50 } } },
+            tv:    { type: 'discover', params: { genres: 10762, sort_by: 'popularity.desc', filter: { certification_country: 'US', certification: 'TV-Y', 'vote_count.gte': 20 } } }
+          }
+        },
+        {
+          id: 'family-toons', title: 'Семейные мультсериалы', i18n: { en: 'Family Animated Series', uk: 'Сімейні мультсеріали' }, group: 'theme', animation: true, cover: '/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
+          sources: { tv: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { without_genres: '10762', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'family-live', title: 'Семейное игровое кино', i18n: { en: 'Live-Action Family Films', uk: 'Сімейне ігрове кіно' }, group: 'theme', cover: '/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
+          sources: { movie: { type: 'discover', params: { genres: 10751, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'adventure', title: 'Приключения', i18n: { en: 'Adventure', uk: 'Пригоди' }, group: 'theme', cover: '/jhk6D8pim3yaByu1801kMoxXFaX.jpg',
+          sources: { movie: { type: 'discover', params: { genres: 12, sort_by: 'popularity.desc', filter: { without_genres: '16,27,878,53,14,35', 'vote_count.gte': 500 } } } }
+        },
+        {
+          id: 'history', title: 'Исторические драмы', i18n: { en: 'Historical Dramas', uk: 'Історичні драми' }, group: 'theme', cover: '/loRmRzQXZeqG78TqZuyvSlEQfZb.jpg',
+          sources: {
+            movie: { type: 'discover', params: { genres: 36, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+            tv:    { type: 'discover', params: { keywords: '15060|192772', sort_by: 'popularity.desc', filter: { without_genres: '16,99', 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'based-on-book', title: 'По книгам', i18n: { en: 'Based on Books', uk: 'За книгами' }, group: 'theme', cover: '/v8xVDqt8uCul3c3mgx4VpGCwxJC.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 818, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: 818, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'epics', title: 'Эпическое кино', i18n: { en: 'Epic Films', uk: 'Епічне кіно' }, group: 'theme', cover: '/5XNQBqnBwPA9yT0jZ0p3s8bbLh0.jpg',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'with_runtime.gte': 150, 'vote_count.gte': 1000 } } } }
+        },
+        {
+          id: 'crime-series', title: 'Криминальные сериалы', i18n: { en: 'Crime Series', uk: 'Кримінальні серіали' }, group: 'theme', cover: '/q3pCsNvJ7CmdJUz2sJEEUY3pOPC.jpg',
+          sources: { tv: { type: 'discover', params: { genres: 80, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'scifi-series', title: 'Фантастические сериалы', i18n: { en: 'Sci-Fi & Fantasy Series', uk: 'Фантастичні серіали' }, group: 'theme', cover: '/wXSnajAZ5ppTKa8Z5zzWGOK85YH.jpg',
+          sources: { tv: { type: 'discover', params: { genres: 10765, sort_by: 'popularity.desc', filter: { without_genres: '16,10762', 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'sitcoms', title: 'Ситкомы', i18n: { en: 'Sitcoms', uk: 'Ситкоми' }, group: 'theme', cover: '/ykDYy50mHU52PqYEu4xiFFOw5mw.jpg',
+          sources: { tv: { type: 'discover', params: { keywords: 193171, genres: 35, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'miniseries', title: 'Мини-сериалы', i18n: { en: 'Miniseries', uk: 'Мінісеріали' }, group: 'theme', cover: '/uL6Ad12W09L1sfuOE2pcTeak7bt.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_type: 2, without_genres: '16,10762,10765', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'doc-series', title: 'Документальные сериалы', i18n: { en: 'Docuseries', uk: 'Документальні серіали' }, group: 'theme', cover: '/eV6Qh2MljQHMMwN9vIAtnXnz2ya.jpg',
+          sources: { tv: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { without_genres: '35,10763,10764', 'vote_count.gte': 200 } } } }
+        },
+
+        /* === COUNTRY (19 подборок) === */
 
         /* Существующие (7) */
         {
@@ -1263,7 +1390,42 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'AU', 'vote_count.gte': 50 } } } }
         },
 
-        /* === ERA (9 подборок) === */
+        /* Раунд r4 (2026-09-29), живые запросы TMDB через Lampa на стенде:
+           - «Российские сериалы» (RU) от 20 голосов: без порога первыми шли
+             записи без единого голоса («Ефросинья», «Наши соседи»).
+           - «Советское кино» — страна SU (TMDB её хранит): «Иди и смотри»,
+             «Сталкер», «Цвет граната», «Зеркало», «Солярис» — 149. Без анимации
+             (она — в «Советских мультфильмах») и от 50 голосов (иначе записи с
+             одним голосом). Совместные постановки («Подсолнухи», «Ватерлоо»)
+             остаются — это и есть советское кино.
+           - «Корейское кино» — KR И язык ko: без языка — «Ниндзя-убийца» и
+             «Реальная белка 2» (совместные с Кореей).
+           - «Кино Китая и Гонконга» — CN|HK (черта — ИЛИ, проверено) И язык
+             zh|cn (cn — кантонский у TMDB): без языка — пять американских
+             фильмов с китайскими деньгами («Иностранец», «Робин Гуд»).
+           - «Кино на испанском» — ES|MX|AR И язык es, от 300 голосов. */
+        {
+          id: 'russian-series', title: 'Российские сериалы', i18n: { en: 'Russian Series', uk: 'Російські серіали' }, group: 'country', cover: '/6IFfaeXokyo5j55az1wIpM1HugE.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'RU', 'vote_count.gte': 20 } } } }
+        },
+        {
+          id: 'soviet', title: 'Советское кино', i18n: { en: 'Soviet Cinema', uk: 'Радянське кіно' }, group: 'country', cover: '/mm3aNTjFvuo0jeitneRDc1ZUNjI.jpg',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'SU', without_genres: '16', 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'korean-movies', title: 'Корейское кино', i18n: { en: 'Korean Cinema', uk: 'Корейське кіно' }, group: 'country', cover: '/tBIRtMCELcA5PxO7z7OiuCHJdFO.jpg',
+          sources: { movie: { type: 'discover', params: { orig_lang: 'ko', sort_by: 'popularity.desc', filter: { with_origin_country: 'KR', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'hongkong-china', title: 'Кино Китая и Гонконга', i18n: { en: 'Chinese & Hong Kong Cinema', uk: 'Кіно Китаю та Гонконгу' }, group: 'country', cover: '/9JZKUOQdQPTJ4OdYKttYOQCREdw.jpg',
+          sources: { movie: { type: 'discover', params: { orig_lang: 'zh|cn', sort_by: 'popularity.desc', filter: { with_origin_country: 'CN|HK', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'latin', title: 'Кино на испанском', i18n: { en: 'Spanish-Language Cinema', uk: 'Кіно іспанською' }, group: 'country', cover: '/o0IWa75BXyXryNDVqw0xoXZzy1J.jpg',
+          sources: { movie: { type: 'discover', params: { orig_lang: 'es', sort_by: 'popularity.desc', filter: { with_origin_country: 'ES|MX|AR', 'vote_count.gte': 300 } } } }
+        },
+
+        /* === ERA (11 подборок) === */
 
         /* Существующие (5) */
         {
@@ -1305,7 +1467,22 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.lte': '1949-12-31', 'vote_count.gte': 100 } } } }
         },
 
-        /* === PEOPLE (21 подборка) === */
+        /* Раунд r4 (2026-09-29): эпохи были только про кино. Сериалы по числу
+           оценок, а не по оценке: по оценке первыми — аниме (14 из 20 у 90-х) и
+           детские ситкомы, а с порогом 1000 голосов у 90-х остаётся 37
+           сериалов. По числу оценок: «Друзья», «Ван-Пис», «Южный парк»,
+           «Секретные материалы», «Сопрано»; у 2000-х — «Во все тяжкие»,
+           «Теория большого взрыва», «Анатомия страсти», «Доктор Хаус». */
+        {
+          id: 'tv-90s', title: 'Сериалы 90-х', i18n: { en: '90s TV Series', uk: 'Серіали 90-х' }, group: 'era', cover: '/4Mt7WHox67uJ1yErwTBFcV8KWgG.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'vote_count.desc', filter: { 'first_air_date.gte': '1990-01-01', 'first_air_date.lte': '1999-12-31', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'tv-2000s', title: 'Сериалы 2000-х', i18n: { en: '2000s TV Series', uk: 'Серіали 2000-х' }, group: 'era', cover: '/7RySzFeK3LPVMXcPtqfZnl6u4p1.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'vote_count.desc', filter: { 'first_air_date.gte': '2000-01-01', 'first_air_date.lte': '2009-12-31', 'vote_count.gte': 200 } } } }
+        },
+
+        /* === PEOPLE (28 подборок) === */
 
         /* Раунд r4 (2026-09-29): режиссёры — with_crew, актёры — with_cast.
            Прежний with_people — человек в ЛЮБОЙ роли, в том числе в актёрском
@@ -1326,7 +1503,11 @@
            фильмографии (person/{id}/movie_credits, job = Director), это новый
            тип в src/43_sources.js. У актёров with_cast против with_people:
            Де Ниро теряет «Богемскую рапсодию», Брэд Питт — «Миазму»
-           (продюсер), первая десятка остальных та же. */
+           (продюсер), первая десятка остальных та же.
+           Кадры: прогон bannerPath всех плиток хаба на стенде (2026-09-29)
+           нашёл у Тома Круза и Legendary общий лидер «Диггер», у Пон Джун Хо и
+           «Лучшего из 2010-х» — «Паразитов»; людям даны cover (не основные
+           кадры «Топ Гана: Мэверик» и «Паразитов»), студия и эпоха — живые. */
 
         /* Существующие (8) */
         {
@@ -1412,11 +1593,51 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 380 } } } }
         },
         {
-          id: 'tom-cruise', title: 'Том Круз', group: 'people',
+          id: 'tom-cruise', title: 'Том Круз', group: 'people', cover: '/kBSSbN1sOiJtXjAGVZXxHJR9Kox.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_cast: 500 } } } }
         },
 
-        /* === TOP (5 подборок) === */
+        /* Раунд r4 (2026-09-29): режиссёры пакетом. with_crew, как у всей
+           группы (разбор выше); у Куросавы — И язык ja (иначе его сценарии:
+           «Великолепная семёрка» 1960 и 2016, «За пригоршню долларов»,
+           «Сверху вниз»), у Тарковского — И языки его фильмов ru|it|sv (иначе
+           первыми «Нимфоманка. Часть 2», «Антихрист» и «Небо над Берлином» —
+           у TMDB он там в титрах: «Thanks», «In Memory Of»). Первая десятка
+           (живые запросы на стенде): Хичкок, Линч, Ричи, Куросава — 10 из 10
+           своих режиссёрских; Пон Джун Хо — 9 («Морской туман» — его
+           сценарий); Бёртон — 8 («Кошмар перед Рождеством» и «Алиса в
+           Зазеркалье» — продюсер); Тарковский — 9 из 10 (10-й — «Первый
+           учитель», где он у TMDB «Writers' Assistant»), всего у него 16. */
+        {
+          id: 'hitchcock', title: 'Альфред Хичкок', i18n: { en: 'Alfred Hitchcock', uk: 'Альфред Гічкок' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 2636 } } } }
+        },
+        {
+          id: 'kurosawa', title: 'Акира Куросава', i18n: { en: 'Akira Kurosawa', uk: 'Акіра Куросава' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { orig_lang: 'ja', sort_by: 'popularity.desc', filter: { with_crew: 5026 } } } }
+        },
+        {
+          id: 'tarkovsky', title: 'Андрей Тарковский', i18n: { en: 'Andrei Tarkovsky', uk: 'Андрій Тарковський' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { orig_lang: 'ru|it|sv', sort_by: 'popularity.desc', filter: { with_crew: 8452 } } } }
+        },
+        {
+          id: 'lynch', title: 'Дэвид Линч', i18n: { en: 'David Lynch', uk: 'Девід Лінч' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 5602 } } } }
+        },
+        {
+          id: 'burton', title: 'Тим Бёртон', i18n: { en: 'Tim Burton', uk: 'Тім Бертон' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 510 } } } }
+        },
+        {
+          id: 'ritchie', title: 'Гай Ричи', i18n: { en: 'Guy Ritchie', uk: 'Гай Річі' }, group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 956 } } } }
+        },
+        {
+          id: 'bong-joon-ho', title: 'Пон Джун Хо', i18n: { en: 'Bong Joon Ho', uk: 'Пон Джун Хо' }, group: 'people', cover: '/8eihUxjQsJ7WvGySkVMC0EwbPAD.jpg',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_crew: 21684 } } } }
+        },
+
+        /* === TOP (6 подборок) === */
 
         /* Существующие (3) */
         {
@@ -1439,6 +1660,15 @@
         {
           id: 'top-tv', title: 'Лучшие сериалы', group: 'top',
           sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200, 'vote_average.gte': 8 } } } }
+        },
+
+        /* Раунд r4 (2026-09-29): завершённые сериалы (with_status 3 —
+           «Ended»), по оценке, от 1000 голосов, без документальных и детских:
+           «Во все тяжкие», «Аватар: Легенда об Аанге», «Аркейн», «Чернобыль»,
+           «Лучше звоните Солу», «Сопрано», «Прослушка». */
+        {
+          id: 'ended-series', title: 'Завершённые сериалы', i18n: { en: 'Completed Series', uk: 'Завершені серіали' }, group: 'top', cover: '/wYisyC5IeuAN5WB5X81eMDcUdwu.jpg',
+          sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_status: 3, without_genres: '99,10762', 'vote_average.gte': 7.5, 'vote_count.gte': 1000 } } } }
         },
 
         /* Замена «КП Популярные сериалы» (после 1.0.2) — сериальная половина
