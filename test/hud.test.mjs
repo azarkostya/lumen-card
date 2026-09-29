@@ -269,6 +269,9 @@ function env(opts) {
        opts.prefetch модуля нет вовсе. */
     prefetch: opts.prefetch ? { stats: () => opts.prefetch } : undefined,
     pref, motionMode: () => opts.mode || 'full',
+    /* 1.1: режим с причиной (LC.motionWhy, src/81_prefs.js). Без opts.why
+       функции нет вовсе — HUD берёт голый LC.motionMode. */
+    motionWhy: opts.why ? () => opts.why : undefined,
     /* LC.enabled() — гейт «выключенный плагин снял свой CSS, HUD поднимать
        нельзя» (sync(), src/69_hud.js). По умолчанию true, как у соседних
        тестов (test/fx.test.mjs и т.п.). */
@@ -1321,4 +1324,19 @@ test('телеметрия в HUD: вторая строка — строка г
   e.LC.pref = () => false;
   e.api.sync();
   assert.deepEqual([e.rootListeners(), e.counts.keyRemove], [0, 1], 'выключение HUD снимает зонд');
+});
+
+/* 1.1: HUD показывает не только режим, но и почему «Авто» его выбрал. */
+test('1.1: в строке HUD — режим с причиной выбора «Авто», если LC.motionWhy есть', () => {
+  const why = 'auto:lite (weak 4c/n/a tvbox, cards 2/5)';
+  const e = env({ store: { lumen_debug_hud: true }, mode: 'lite', why });
+  e.api.sync();
+  e.tick(100);
+  e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · ' + why + ' · hw ') !== -1, e.bodyChildren[0].textContent);
+  const bare = env({ store: { lumen_debug_hud: true }, mode: 'lite' });
+  bare.api.sync();
+  bare.tick(100);
+  bare.tick(1000);
+  assert.ok(bare.bodyChildren[0].textContent.indexOf(' · lite · hw ') !== -1, 'без LC.motionWhy — голый режим');
 });

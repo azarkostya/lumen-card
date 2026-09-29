@@ -36,6 +36,16 @@
   /* Task 40: до всякого замера есть ещё одно правило — weakHardware():    */
   /* двухъядерная android-приставка получает 'lite' сразу.                 */
   /*                                                                       */
+  /* 1.1: класс «слабая приставка» шире — Android/ТВ-приставка с 2 ГБ      */
+  /* памяти и меньше или, если память браузер не сообщает, с 4 ядрами и    */
+  /* меньше (weakInfo ниже). Замер ТВ пользователя (Philips 50PUS8057,     */
+  /* 4 ядра, 2 ГБ, deviceMemory не отдан): удержание стрелки на главной —  */
+  /* «Полные» 23–24 fps (p95 ~99 мс), «Лёгкие» 30–49 fps; прежнее правило  */
+  /* («два ядра») его не ловило, и «Авто» держал «Полные». Такой приставке */
+  /* «Авто» теперь даёт 'lite' сразу, а «Полные» возвращает только своя    */
+  /* лестница по замерам открытия карточки (WEAK_* ниже, Storage           */
+  /* 'lumen_motion_weak').                                                 */
+  /*                                                                       */
   /* Приоритет пользователя. Меряем ТОЛЬКО когда режим анимаций стоит на   */
   /* «Авто»: выбранные руками full/lite/off измерение не трогает никогда   */
   /* (LC.prefs.motionModeFor: не 'auto' — возвращается как есть).          */
@@ -90,6 +100,42 @@
        главная ↔ карточка. */
     var MAIN_LIMIT = 1;
 
+    /* 1.1: лестница слабой приставки (weakInfo ниже). Её значение в Storage —
+       {cards, full, stuck}: последние замеры ОТКРЫТИЯ КАРТОЧКИ (главная
+       меряется на монтировании героя, когда ряды ещё не построены, — она
+       легче и тянула бы вердикт в «тянет»; см. MAIN_LIMIT), признак «полные
+       заслужены» и признак «полные пробовали — не вышло». */
+    var WEAK_KEY = 'lumen_motion_weak';
+    /* Повышение до «Полных»: не меньше пяти карточек и p75 ниже 150 мс.
+       Почему так:
+       - замеры идут в «Лёгких» (в них приставка и работает до повышения), а
+         «Полные» дороже: на ТВ пользователя кадр удержания стрелки — 42 мс
+         против 20–33 мс, то есть в 1.3–2 раза. Чтобы и в «Полных» остаться
+         ниже FAST_MS (250 мс, «точно тянет» общей лестницы), в «Лёгких» надо
+         уложиться примерно в 250 / 1.6 ≈ 150 мс — WEAK_FAST_MS = 0.6 × FAST_MS;
+       - p75, а не медиана: на слабой приставке мешают именно хвосты (худший
+         кадр самотеста в «Полных» — 178–275 мс), и одна-две удачные
+         карточки не должны перевешивать;
+       - пять карточек, а не три (SAMPLES): замеров за запуск не больше трёх,
+         и с главной среди них обычно один, поэтому пять карточек — это
+         минимум два-три запуска: «один удачный вечер» (шапка модуля) полные
+         не возвращает. Окно — последние десять карточек. */
+    var WEAK_MIN = 5;
+    var WEAK_FAST_MS = 150;
+    var WEAK_KEEP = 10;
+    /* Обратный путь: после повышения окно начинается заново, и если уже
+       три карточки в «Полных» дают p75 от FAST_MS (250 мс, граница «точно
+       тянет») — приставка возвращается в «Лёгкие» насовсем (stuck): иначе
+       замеры в «Лёгких» снова выглядели бы быстрыми, и режим качался бы
+       туда-обратно. Вернуть «Полные» после этого — ручной выбор в
+       настройках. */
+    var WEAK_BACK = 3;
+    /* Правило класса (weakInfo): память известна — слабая при ≤ 2 ГБ (или
+       ≤ 2 ядрах, прежнее правило Task 40); памяти нет — слабая при ≤ 4 ядрах. */
+    var WEAK_GB = 2;
+    var WEAK_CORES = 4;
+    var HARD_CORES = 2;
+
     /* Замеры ТЕКУЩЕЙ сессии (window.lumen_card.perf.samples() в живой
        проверке). Между запусками не хранятся: между ними хранится вердикт. */
     var samples = [];
@@ -109,6 +155,12 @@
        с подменёнными режимами, и первый кадр экрана в это время — замер
        теста, а не устройства. Пока held, shouldMeasure отвечает «нет». */
     var held = false;
+    /* Прочитанное значение лестницы слабой приставки (как cached выше). */
+    var weakCached;
+    /* Класс устройства за сессию: железо и платформа за сессию не меняются,
+       а LC.motionMode зовётся на каждой сборке CSS. undefined — «ещё не
+       определяли»; null — «не слабое». */
+    var weakClass;
 
     /* ------------------------------------------------------------------ */
     /* Чистая часть                                                        */
@@ -117,6 +169,85 @@
     function median(list) {
       var sorted = list.slice().sort(function (a, b) { return a - b; });
       return sorted[Math.floor(sorted.length / 2)];
+    }
+
+    /* 75-й перцентиль по ближайшему рангу: из пяти — четвёртый по росту,
+       из десяти — восьмой. */
+    function p75(list) {
+      var sorted = list.slice().sort(function (a, b) { return a - b; });
+      return sorted[Math.max(0, Math.ceil(sorted.length * 0.75) - 1)];
+    }
+
+    /* Значение лестницы слабой приставки к виду {cards, full, stuck}.
+       Терпит объект, JSON-строку и мусор; замеры — только положительные
+       числа не больше MAX_SAMPLE, и не больше WEAK_KEEP последних. */
+    function weakNormalize(raw) {
+      var value = raw;
+      if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch (e) { value = null; }
+      }
+      var out = { cards: [], full: false, stuck: false };
+      if (!value || typeof value !== 'object') return out;
+      var list = value.cards && value.cards.length ? value.cards : [];
+      for (var i = 0; i < list.length; i++) {
+        var ms = Number(list[i]);
+        if (ms > 0 && ms <= MAX_SAMPLE) out.cards.push(Math.round(ms));
+      }
+      out.cards = out.cards.slice(-WEAK_KEEP);
+      out.full = value.full === true;
+      out.stuck = !out.full && value.stuck === true;
+      return out;
+    }
+
+    /* Лестница слабой приставки: сохранённое значение + замер открытия
+       карточки + режим, в котором он снят ('lite'|'full') -> новое значение.
+       Замер, снятый не в том режиме, о котором лестница спрашивает (до
+       повышения — в «Лёгких», после — в «Полных»), не считается: например,
+       общая лестница успела понизить повышенную приставку (mode() ниже). */
+    function weakStep(stored, ms, running) {
+      var cur = weakNormalize(stored);
+      if (!(ms > 0 && ms <= MAX_SAMPLE)) return cur;
+      if (!cur.full) {
+        if (cur.stuck || running !== 'lite') return cur;
+        var cards = cur.cards.concat([Math.round(ms)]).slice(-WEAK_KEEP);
+        if (cards.length >= WEAK_MIN && p75(cards) < WEAK_FAST_MS) return { cards: [], full: true, stuck: false };
+        return { cards: cards, full: false, stuck: false };
+      }
+      if (running !== 'full') return cur;
+      var inFull = cur.cards.concat([Math.round(ms)]).slice(-WEAK_KEEP);
+      if (inFull.length >= WEAK_BACK && p75(inFull) >= FAST_MS) return { cards: [], full: false, stuck: true };
+      return { cards: inFull, full: true, stuck: false };
+    }
+
+    /* Правило класса «слабая приставка» — чистая часть weakInfo.
+       kind — '' (не приставка: компьютер, телефон, Tizen/webOS), 'android'
+       (Lampa для Android), 'philips' (браузер телевизора Philips) или 'tvbox'
+       (Android-приставка в браузере); cores и gb — 0, если браузер их не
+       сообщил. Возвращает {kind, cores, gb} для слабой, иначе null.
+
+       Почему так:
+       - нужна и платформа: четыре ядра у компьютера — норма, и ни ядра, ни
+         память без неё о телевизоре ничего не говорят;
+       - память, если есть, решает первой: 2 ГБ на приставке — это нижний
+         класс железа (у ТВ пользователя именно 2 ГБ), а deviceMemory
+         Chromium округляет до ступеней 0.25/0.5/1/2/4/8, так что «≤ 2» —
+         ровно «2 ГБ и меньше». Прежнее правило Task 40 (≤ 2 ядер) остаётся;
+       - памяти нет (свойство есть не во всех движках, и на ТВ пользователя
+         его нет — HUD 2026-09-21: «4c/n/a») — решают ядра, консервативно:
+         ≤ 4 ядер на приставке считаем слабой. Промах в эту сторону стоит
+         пару запусков в «Лёгких» до повышения по замерам, промах в другую —
+         рывки на каждом экране;
+       - ни ядер, ни памяти — не знаем ничего и остаёмся на общей лестнице. */
+    function weakRule(kind, cores, gb) {
+      if (!kind) return null;
+      var weak = gb > 0 ? (gb <= WEAK_GB || (cores > 0 && cores <= HARD_CORES)) : (cores > 0 && cores <= WEAK_CORES);
+      return weak ? { kind: kind, cores: cores, gb: gb } : null;
+    }
+
+    /* «4c/2gb android», «4c/n/a tvbox» — тем же письмом, что строка hw HUD. */
+    function weakLabel(info) {
+      if (!info) return '';
+      return (info.cores > 0 ? info.cores + 'c' : 'n/a') + '/' + (info.gb > 0 ? info.gb + 'gb' : 'n/a') + ' ' + info.kind;
     }
 
     /* Вердикт по замерам: 'lite' (понизить), 'full' (тянет), null (не
@@ -188,9 +319,57 @@
       try { st.set(KEY, value); } catch (e) { warn('perf: storage write failed', e); }
     }
 
-    /* Вердикт для LC.motionMode (src/81_prefs.js). */
+    function readWeak() {
+      if (typeof weakCached !== 'undefined') return weakCached;
+      var st = storage();
+      if (!st) return weakNormalize(null);
+      var value = weakNormalize(null);
+      try { value = weakNormalize(st.get(WEAK_KEY, '')); } catch (e) { warn('perf: storage read failed', e); }
+      weakCached = value;
+      return value;
+    }
+
+    function writeWeak(value) {
+      weakCached = value;
+      var st = storage();
+      if (!st) return;
+      try { st.set(WEAK_KEY, value); } catch (e) { warn('perf: storage write failed', e); }
+    }
+
+    /* Вердикт для LC.motionMode (src/81_prefs.js). На слабой приставке —
+       вердикт её лестницы: 'full' только заслуженный по замерам карточки
+       (и если общая лестница не понизила устройство), иначе 'lite'.
+       LC.prefs.motionModeFor для platform.weak читает его именно так. */
     function mode() {
-      return readStored().mode;
+      var stored = readStored().mode;
+      if (!weakInfo()) return stored;
+      if (stored === 'lite') return 'lite';
+      return readWeak().full ? 'full' : 'lite';
+    }
+
+    /* Почему «Авто» выбрал то, что выбрал, — короткой строкой для HUD
+       (LC.motionWhy, src/81_prefs.js):
+         «weak 4c/n/a tvbox, cards 2/5» — слабая приставка, копит карточки;
+         «weak …, earned» — полные заслужены замерами;
+         «weak …, held» — полные пробовали, не потянула;
+         «weak …, slow» / «slow» — общая лестница: медиана от SLOW_MS
+           (у «slow» — ещё и хорошие запуски к снятию, «slow 2/5»);
+         «fast» — общая лестница: медиана ниже FAST_MS;
+         «no verdict» — замеров ещё не было или они в серой зоне. */
+    function why() {
+      var stored = readStored();
+      var info = weakInfo();
+      if (info) {
+        var head = 'weak ' + weakLabel(info) + ', ';
+        if (stored.mode === 'lite') return head + 'slow';
+        var w = readWeak();
+        if (w.full) return head + 'earned';
+        if (w.stuck) return head + 'held';
+        return head + 'cards ' + w.cards.length + '/' + WEAK_MIN;
+      }
+      if (stored.mode === 'lite') return 'slow' + (stored.good ? ' ' + stored.good + '/' + GOOD_RUNS : '');
+      if (stored.mode === 'full') return 'fast';
+      return 'no verdict';
     }
 
     function now() {
@@ -244,44 +423,68 @@
       return platformIs('tizen') || platformIs('webos');
     }
 
-    /* Task 40: «железо заведомо слабое» — вердикт без единого замера.
-       Замер честнее, но он приходит только после трёх тяжёлых экранов, и
-       все три на таком устройстве успевают подтормозить. Порог намеренно
-       низкий:
-       - hardwareConcurrency <= 2 — двухъядерная приставка;
-       - deviceMemory <= 1 — гигабайт оперативной памяти и меньше.
-       Четырёхъядерный ТВ пользователя (Philips 50PUS8057, MediaTek) под
-       правило по спецификации НЕ попадает — там решает замер. Именно «по
-       спецификации»: hardwareConcurrency в Android WebView на части прошивок
-       отражает не физические ядра, а доступные потоку, поэтому фактическое
-       число надо увидеть на самом телевизоре — его показывает HUD отладки
-       (src/69_hud.js).
+    /* Приставка ли это (kind для weakRule). Три признака, все — Lampa:
+       - Platform.is('android') — Lampa для Android (userAgent с lampa_client);
+       - Platform.is('philips') — браузер телевизора Philips (whaletv/nettv);
+       - Platform.tv() при слове android в userAgent — Android-приставка в
+         браузере: tv() у Lampa для Android — это tvbox() (googletv, mibox,
+         «android tv» в userAgent или Android без сенсорного экрана), так что
+         телефон и планшет сюда не попадают.
+       Tizen/webOS сюда не идут: «Авто» там и так 'lite' от платформы. */
+    function tvKind() {
+      if (platformIs('android')) return 'android';
+      if (platformIs('philips')) return 'philips';
+      try {
+        var nav = window.navigator;
+        var ua = nav && nav.userAgent ? String(nav.userAgent) : '';
+        if (/android/i.test(ua) && window.Lampa && Lampa.Platform && typeof Lampa.Platform.tv === 'function' && Lampa.Platform.tv()) return 'tvbox';
+      } catch (e) { }
+      return '';
+    }
+
+    /* Task 40 / 1.1: «слабая приставка» — вердикт без единого замера (правило
+       и его обоснование — weakRule выше). Замер честнее, но он приходит
+       только после трёх тяжёлых экранов, и все три на таком устройстве
+       успевают подтормозить. hardwareConcurrency в Android WebView на части
+       прошивок отражает не физические ядра, а доступные потоку, поэтому
+       фактические числа видно в HUD отладки (src/69_hud.js, строка hw и
+       причина режима).
 
        deviceMemory отсутствует у большинства движков (свойство есть только
        в Chromium) — тогда признак не учитывается вовсе, а не считается
        нулём. То же с hardwareConcurrency: Number(undefined) даёт NaN, и
        сравнение cores > 0 отсекает его первым.
 
-       Правило работает только на android: Tizen/webOS и так получают 'lite'
-       от платформы (LC.prefs.motionModeFor), а в браузере на компьютере
-       двухъядерность ничего не говорит о том, потянет ли он анимации. */
-    function weakHardware() {
-      if (!platformIs('android')) return false;
+       Кэш на сессию — только после window.appready: платформу Lampa
+       записывает в Storage на своём init, и ответ «не приставка», данный до
+       него, мог бы оказаться преждевременным (как у readStored). */
+    function weakInfo() {
+      if (typeof weakClass !== 'undefined') return weakClass;
+      var info = null;
       try {
         /* navigator берётся с window, как и всё остальное окружение этого
            модуля: так его подменяют тесты, а в браузере window.navigator —
            тот же самый объект. */
         var nav = window.navigator;
-        if (!nav) return false;
-        var cores = Number(nav.hardwareConcurrency);
-        if (cores > 0 && cores <= 2) return true;
-        var mem = nav.deviceMemory;
-        if (typeof mem !== 'undefined' && mem !== null) {
-          var gb = Number(mem);
-          if (gb > 0 && gb <= 1) return true;
+        if (nav) {
+          var cores = Number(nav.hardwareConcurrency);
+          if (!(cores > 0)) cores = 0;
+          var gb = 0;
+          if (typeof nav.deviceMemory !== 'undefined' && nav.deviceMemory !== null) {
+            gb = Number(nav.deviceMemory);
+            if (!(gb > 0)) gb = 0;
+          }
+          info = weakRule(tvKind(), Math.round(cores), gb);
         }
-      } catch (e) { }
-      return false;
+      } catch (e) { info = null; }
+      try {
+        if (window.appready && window.Lampa && Lampa.Platform) weakClass = info;
+      } catch (e2) { }
+      return info;
+    }
+
+    function weakHardware() {
+      return !!weakInfo();
     }
 
     /* ------------------------------------------------------------------ */
@@ -365,6 +568,23 @@
       }
     }
 
+    /* 1.1: шаг лестницы слабой приставки. Повышение молчит (как и у общей
+       лестницы), понижение из заслуженных «Полных» объясняется тем же
+       однократным уведомлением. */
+    function weakCommit(ms, running) {
+      var prev = readWeak();
+      var next = weakStep(prev, ms, running);
+      if (next.full === prev.full && next.stuck === prev.stuck && next.cards.join(',') === prev.cards.join(',')) return;
+      writeWeak(next);
+      if (next.full === prev.full) return;
+      if (!next.full) notyOnce();
+      try {
+        if (typeof LC.applyMotionMode === 'function') LC.applyMotionMode();
+      } catch (e) {
+        warn('perf: apply failed', e);
+      }
+    }
+
     /* Точки вызова — 'full':complite (src/90_runtime.js), монтирование
        героя на главной (src/48_hero.js) и сборка экрана подборок
        (src/46_hub.js). Замер начинается в момент вызова и заканчивается на
@@ -384,6 +604,10 @@
          одного замера до перезагрузки Lampa. Проверки дешёвые — чтение двух
          значений Storage и признака платформы. */
       if (!shouldMeasure(src)) return;
+      /* 1.1: режим, в котором снимается замер карточки на слабой приставке, —
+         лестнице (weakStep) он нужен, чтобы не считать замер «Лёгких» за
+         замер «Полных» и наоборот. На остальных устройствах — null. */
+      var running = src === 'card' && weakInfo() ? mode() : null;
       var started = now();
       frame = raf(function () {
         frame = raf(function () {
@@ -395,6 +619,9 @@
           if (ms > MAX_SAMPLE) return;
           samples.push(ms);
           if (src === 'main') fromMain++;
+          if (running) {
+            try { weakCommit(ms, running); } catch (eW) { warn('perf: weak commit failed', eW); }
+          }
           if (samples.length < SAMPLES) return;
           done = true;
           try { commit(); } catch (e) { warn('perf: commit failed', e); }
@@ -425,6 +652,12 @@
       /* Task 40: «слабое железо без замеров» — читает LC.platformInfo
          (src/81_prefs.js) и отдаёт признак в motionModeFor. */
       weakHardware: weakHardware,
+      /* 1.1: класс слабой приставки — правило чистой функцией (тесты),
+         ответ для этого устройства, его лестница (чистый шаг и значение из
+         Storage — window.lumen_card.perf.weak() в консоли) и причина
+         выбора «Авто» для HUD. */
+      weakRule: weakRule, weakInfo: weakInfo, weakStep: weakStep,
+      weak: function () { return readWeak(); }, why: why,
       track: track,
       stop: stop,
       hold: hold,

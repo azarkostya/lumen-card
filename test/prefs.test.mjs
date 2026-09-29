@@ -36,15 +36,27 @@ test('motionModeFor: auto на прочих платформах -> full', () =>
 });
 
 /* Task 40 (фаза 4): platform.weak — «железо заведомо слабое» без замеров
-   (LC.perf.weakHardware). Работает так же, как tizen/webos: понижает 'auto'
-   до 'lite', а выбранный руками режим не трогает. */
-test('motionModeFor: auto на заведомо слабом железе -> lite, выбранный руками режим не трогает', () => {
+   (LC.perf.weakHardware): понижает 'auto' до 'lite', а выбранный руками
+   режим не трогает. 1.1: для слабой приставки auto — вердикт её строгой
+   лестницы (LC.perf.mode), и 'full' оттуда означает «полные заслужены». */
+test('motionModeFor: auto на слабой приставке -> lite, full только по вердикту её лестницы', () => {
   assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }), 'lite');
-  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }, 'full'), 'lite',
-    'даже быстрый замер не поднимает выше платформенного вердикта');
-  assert.equal(prefs.motionModeFor('full', { android: true, weak: true }), 'full');
-  assert.equal(prefs.motionModeFor('auto', { android: true, weak: false }), 'full',
-    'четырёхъядерный ТВ под правило не попадает — решает замер');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }, null), 'lite', 'вердикта нет — лёгкие');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }, 'lite'), 'lite');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }, 'full'), 'full',
+    'полные заслужены замерами карточки');
+  assert.equal(prefs.motionModeFor('auto', { tizen: true, weak: true }, 'full'), 'lite', 'Tizen/webOS — всё равно lite');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: false }), 'full', 'не слабое — как раньше');
+});
+
+/* 1.1: явный выбор пользователя ничем не перебивается — ни слабым железом,
+   ни каким угодно вердиктом замеров. */
+test('motionModeFor: выбранный руками режим на слабой приставке остаётся как есть', () => {
+  for (const mode of ['full', 'lite', 'off']) {
+    for (const auto of [null, 'lite', 'full']) {
+      assert.equal(prefs.motionModeFor(mode, { android: true, weak: true }, auto), mode, mode + '/' + auto);
+    }
+  }
 });
 
 /* Task 40: значение по умолчанию тумблера тяжёлых эффектов — платформенное. */

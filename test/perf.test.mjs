@@ -116,7 +116,7 @@ function env(opts) {
       set: (name, value) => { store[name] = value; }
     },
     Noty: { show: (text) => noty.push(text) },
-    Platform: { is: (name) => !!(opts.platform && opts.platform[name]) }
+    Platform: { is: (name) => !!(opts.platform && opts.platform[name]), tv: () => !!opts.tv }
   };
 
   globalThis.Lampa = Lampa;
@@ -136,7 +136,7 @@ function env(opts) {
   };
 
   const applied = [];
-  const { api } = fresh({ enabled: () => opts.enabled !== false, applyMotionMode: () => applied.push(1) });
+  const { api, LC } = fresh({ enabled: () => opts.enabled !== false, applyMotionMode: () => applied.push(1) });
 
   /* Прокрутить оба отложенных кадра одного замера, добавив ms на каждом. */
   function run(ms) {
@@ -149,7 +149,7 @@ function env(opts) {
     return true;
   }
 
-  return { api, store, noty, frames, applied, cancelled, run, advance: (ms) => { nowMs += ms; } };
+  return { api, LC, store, noty, frames, applied, cancelled, run, advance: (ms) => { nowMs += ms; } };
 }
 
 test('track: пользовательский выбор приоритетнее — при lumen_motion full/lite/off кадры не запрашиваются', () => {
@@ -330,11 +330,12 @@ test('weakHardware: на android два ядра или гигабайт пам�
   assert.equal(weak({ hardwareConcurrency: 4, deviceMemory: 0.5 }), true);
 });
 
-/* Четырёхъядерный ТВ пользователя (Philips 50PUS8057) под правило не
-   попадает — там решает замер. */
-test('weakHardware: четыре ядра — не слабое, вердикт остаётся за замером', () => {
+/* 1.1: четырёхъядерный ТВ пользователя (Philips 50PUS8057, deviceMemory не
+   отдан) — теперь слабая приставка; замер на нём по-прежнему делается — он
+   нужен лестнице повышения. */
+test('weakHardware: четыре ядра без deviceMemory на android — слабое, замер идёт', () => {
   const e = env({ platform: { android: true }, hardware: { hardwareConcurrency: 4 } });
-  assert.equal(e.api.weakHardware(), false);
+  assert.equal(e.api.weakHardware(), true);
   e.api.track();
   assert.equal(e.frames.length, 1, 'замер на таком железе по-прежнему делается');
 });
@@ -421,4 +422,216 @@ test('track: пока замер не доехал, второй вызов ка
   assert.equal(e.frames.length, 1);
   e.api.track('card');
   assert.equal(e.frames.length, 1, 'экран сменился на середине замера — второго замера не начинаем');
+});
+
+/* ====================================================================== */
+/* 1.1: слабая приставка — «Авто» стартует в «Лёгких»                     */
+/* ====================================================================== */
+
+const UA_TV = 'Mozilla/5.0 (Linux; Android 11; 50PUS8057/12; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/153.0.0.0 Mobile Safari/537.36';
+const UA_PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36';
+/* ТВ пользователя: Lampa для Android, 4 ядра, 2 ГБ. */
+const WEAK = { platform: { android: true }, hardware: { hardwareConcurrency: 4, deviceMemory: 2, userAgent: UA_TV } };
+/* Прокрутить сессию: каждый элемент — [источник, мс]. */
+function session(e, list) {
+  for (const [src, ms] of list) { e.api.track(src); e.run(ms); }
+}
+/* Следующий запуск — новый модуль на том же Storage. */
+function relaunch(e, extra) {
+  return env(Object.assign({}, WEAK, { store: e.store }, extra || {}));
+}
+
+test('1.1 weakRule: платформа И слабое железо; память решает первой, без неё — ядра', () => {
+  const r = P.weakRule;
+  assert.deepEqual(r('android', 4, 2), { kind: 'android', cores: 4, gb: 2 }, 'ТВ пользователя: 4 ядра, 2 ГБ');
+  assert.deepEqual(r('android', 4, 0), { kind: 'android', cores: 4, gb: 0 }, 'deviceMemory нет — 4 ядра считаем слабыми');
+  assert.ok(r('tvbox', 8, 2), '2 ГБ при восьми ядрах — всё равно слабая');
+  assert.ok(r('android', 8, 1));
+  assert.ok(r('android', 2, 4), 'правило Task 40 (два ядра) осталось');
+  assert.ok(r('philips', 4, 0));
+  assert.equal(r('android', 8, 4), null, 'сильная приставка — как раньше');
+  assert.equal(r('android', 4, 4), null, '4 ГБ известны — решает замер, как раньше');
+  assert.equal(r('android', 6, 0), null, 'шесть ядер без памяти — не слабая');
+  assert.equal(r('android', 0, 0), null, 'ничего не известно — как раньше');
+  assert.equal(r('', 4, 2), null, 'компьютер: 4 ядра и 2 ГБ сами по себе ничего не значат');
+  assert.equal(r('', 2, 1), null);
+});
+
+test('1.1 weakInfo: Lampa для Android, Android-приставка в браузере, Philips — да; ПК и телефон — нет', () => {
+  assert.deepEqual(env(WEAK).api.weakInfo(), { kind: 'android', cores: 4, gb: 2 });
+  assert.deepEqual(env({ platform: { browser: true }, tv: true, hardware: { hardwareConcurrency: 4, userAgent: UA_TV } }).api.weakInfo(),
+    { kind: 'tvbox', cores: 4, gb: 0 }, 'приставка в браузере: Platform.tv() и Android в userAgent');
+  assert.equal(env({ platform: { browser: true }, tv: false, hardware: { hardwareConcurrency: 4, deviceMemory: 2, userAgent: UA_TV } }).api.weakInfo(), null,
+    'Android с сенсорным экраном (Platform.tv() ложно) — телефон, не приставка');
+  assert.deepEqual(env({ platform: { philips: true }, hardware: { hardwareConcurrency: 4 } }).api.weakInfo(), { kind: 'philips', cores: 4, gb: 0 });
+  assert.equal(env({ platform: { browser: true }, tv: false, hardware: { hardwareConcurrency: 4, deviceMemory: 8, userAgent: UA_PC } }).api.weakInfo(), null, 'ПК 4 ядра');
+  assert.equal(env({ platform: { browser: true }, tv: false, hardware: { hardwareConcurrency: 4, userAgent: UA_PC } }).api.weakInfo(), null, 'ПК 4 ядра без deviceMemory');
+  assert.equal(env({ platform: { browser: true }, tv: true, hardware: { hardwareConcurrency: 4, userAgent: UA_PC } }).api.weakInfo(), null,
+    'Platform.tv() без Android в userAgent (Tizen/webOS, Apple TV) — не наше правило');
+  assert.equal(env({ platform: { android: true }, hardware: { hardwareConcurrency: 8, deviceMemory: 4, userAgent: UA_TV } }).api.weakInfo(), null, 'сильная приставка');
+});
+
+test('1.1 mode: слабая приставка без замеров — lite, даже при старом вердикте full общей лестницы', () => {
+  assert.equal(env(WEAK).api.mode(), 'lite', 'чистый профиль');
+  assert.equal(env(Object.assign({}, WEAK, { store: { lumen_motion_auto: { mode: 'full', good: 0 } } })).api.mode(), 'lite',
+    'старый full (медиана трёх первых экранов < 250 мс) полных на слабой приставке не оправдывает');
+  assert.equal(env(Object.assign({}, WEAK, { store: { lumen_motion_weak: { cards: [], full: true } } })).api.mode(), 'full', 'заслуженные полные');
+  assert.equal(env(Object.assign({}, WEAK, { store: { lumen_motion_weak: '{"cards":[],"full":true}' } })).api.mode(), 'full', 'JSON-строкой — тоже');
+  assert.equal(env(Object.assign({}, WEAK, { store: { lumen_motion_weak: { full: true }, lumen_motion_auto: { mode: 'lite', good: 0 } } })).api.mode(), 'lite',
+    'общая лестница понизила — лёгкие');
+});
+
+test('1.1 mode: сильная приставка и ПК — вердикт общей лестницы, как раньше', () => {
+  const strong = { platform: { android: true }, hardware: { hardwareConcurrency: 8, deviceMemory: 4, userAgent: UA_TV } };
+  const pc = { platform: { browser: true }, hardware: { hardwareConcurrency: 4, userAgent: UA_PC } };
+  for (const base of [strong, pc]) {
+    assert.equal(env(base).api.mode(), null);
+    assert.equal(env(Object.assign({}, base, { store: { lumen_motion_auto: { mode: 'full', good: 0 } } })).api.mode(), 'full');
+    assert.equal(env(Object.assign({}, base, { store: { lumen_motion_auto: { mode: 'lite', good: 0 } } })).api.mode(), 'lite');
+  }
+});
+
+test('1.1 track: на сильной приставке и ПК лестница слабой приставки не ведётся', () => {
+  const e = env({ platform: { android: true }, hardware: { hardwareConcurrency: 8, deviceMemory: 4, userAgent: UA_TV } });
+  session(e, [['card', 80], ['card', 80], ['card', 80]]);
+  assert.equal(Object.prototype.hasOwnProperty.call(e.store, 'lumen_motion_weak'), false);
+  assert.deepEqual(e.store.lumen_motion_auto, { mode: 'full', good: 0 }, 'общая лестница — как раньше');
+});
+
+test('1.1 weakStep: p75 пяти карточек ниже 150 мс — повышение; иначе копим', () => {
+  let cur = null;
+  for (let i = 0; i < 4; i++) {
+    cur = P.weakStep(cur, 100, 'lite');
+    assert.equal(cur.full, false, 'карточка ' + (i + 1) + ' — ещё лёгкие');
+  }
+  assert.deepEqual(P.weakStep(cur, 100, 'lite'), { cards: [], full: true, stuck: false }, 'пятая — полные');
+  /* p75 из пяти — четвёртая по росту: две медленные из пяти держат lite. */
+  const slow = { cards: [100, 100, 100, 200], full: false, stuck: false };
+  assert.equal(P.weakStep(slow, 200, 'lite').full, false, 'p75 = 200 мс — не повышаем');
+  assert.equal(P.weakStep({ cards: [100, 100, 100, 149], full: false }, 149, 'lite').full, true, 'p75 149 — ниже порога');
+  assert.equal(P.weakStep({ cards: [100, 100, 100, 150], full: false }, 150, 'lite').full, false, 'ровно 150 — не «заметно ниже»');
+  /* Окно — последние десять: старые медленные карточки вытесняются. */
+  let win = { cards: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400], full: false };
+  for (let i = 0; i < 7; i++) win = P.weakStep(win, 90, 'lite');
+  assert.equal(win.full, false, 'в окне 7 быстрых и 3 медленных — p75 медленный');
+  win = P.weakStep(win, 90, 'lite');
+  assert.equal(win.full, true, '8 быстрых из 10 — p75 быстрый');
+});
+
+test('1.1 weakStep: замер не в том режиме не считается, stuck — навсегда', () => {
+  assert.deepEqual(P.weakStep(null, 100, 'full'), { cards: [], full: false, stuck: false }, 'до повышения мерим только «Лёгкие»');
+  assert.deepEqual(P.weakStep({ full: true }, 900, 'lite'), { cards: [], full: true, stuck: false }, 'после — только «Полные»');
+  assert.deepEqual(P.weakStep({ stuck: true }, 50, 'lite'), { cards: [], full: false, stuck: true });
+  assert.deepEqual(P.weakStep({ cards: [100] }, 42000, 'lite'), { cards: [100], full: false, stuck: false }, 'время в фоне — не замер');
+});
+
+test('1.1 weakStep: в «Полных» три карточки с p75 от 250 мс — назад в «Лёгкие» насовсем', () => {
+  let cur = { cards: [], full: true, stuck: false };
+  cur = P.weakStep(cur, 300, 'full');
+  cur = P.weakStep(cur, 300, 'full');
+  assert.equal(cur.full, true, 'двух мало');
+  assert.deepEqual(P.weakStep(cur, 300, 'full'), { cards: [], full: false, stuck: true });
+  assert.equal(P.weakStep({ cards: [200, 240], full: true }, 240, 'full').full, true, 'p75 240 — остаёмся в полных');
+});
+
+test('1.1 track: слабая приставка копит только замеры карточки, повышение — на пятой, через запуски', () => {
+  let e = env(WEAK);
+  session(e, [['main', 60], ['card', 100], ['card', 110]]);
+  assert.deepEqual(e.store.lumen_motion_weak, { cards: [100, 110], full: false, stuck: false }, 'главная в лестницу не идёт');
+  assert.equal(e.api.mode(), 'lite');
+  assert.equal(e.applied.length, 0);
+
+  e = relaunch(e);
+  session(e, [['card', 120], ['hub', 90], ['card', 100]]);
+  assert.deepEqual(e.store.lumen_motion_weak.cards, [100, 110, 120, 100], 'хаб тоже не идёт');
+  assert.equal(e.api.mode(), 'lite', 'четыре карточки — ещё лёгкие');
+
+  e = relaunch(e);
+  session(e, [['card', 90]]);
+  assert.deepEqual(e.store.lumen_motion_weak, { cards: [], full: true, stuck: false });
+  assert.equal(e.api.mode(), 'full', 'пятая быстрая карточка — полные');
+  assert.equal(e.applied.length, 1, 'режим перечитан на открытом экране');
+  assert.equal(e.noty.length, 0, 'повышение молчит');
+  assert.equal(e.api.why(), 'weak 4c/2gb android, earned');
+});
+
+test('1.1 track: слабая приставка на медленных карточках остаётся в «Лёгких»', () => {
+  let e = env(WEAK);
+  for (let run = 0; run < 4; run++) {
+    session(e, [['card', 180], ['card', 200], ['card', 190]]);
+    e = relaunch(e);
+  }
+  assert.equal(e.api.mode(), 'lite');
+  assert.equal(e.store.lumen_motion_weak.full, false);
+  assert.equal(e.store.lumen_motion_weak.cards.length, 10, 'окно — последние десять');
+  assert.equal(e.api.why(), 'weak 4c/2gb android, cards 10/5');
+});
+
+test('1.1 track: заслуженные полные не тянет — назад в «Лёгкие» с уведомлением, и больше не повышается', () => {
+  let e = env(Object.assign({}, WEAK, { store: { lumen_motion_weak: { cards: [], full: true, stuck: false } } }));
+  assert.equal(e.api.mode(), 'full');
+  session(e, [['card', 320], ['card', 300], ['card', 280]]);
+  assert.deepEqual(e.store.lumen_motion_weak, { cards: [], full: false, stuck: true });
+  assert.equal(e.api.mode(), 'lite');
+  assert.equal(e.noty.length, 1);
+  assert.ok(e.applied.length >= 1);
+  e = relaunch(e);
+  session(e, [['card', 50], ['card', 50], ['card', 50]]);
+  e = relaunch(e);
+  session(e, [['card', 50], ['card', 50], ['card', 50]]);
+  assert.equal(e.api.mode(), 'lite', 'быстрые замеры в «Лёгких» после неудачи не повышают');
+  assert.equal(e.api.why(), 'weak 4c/2gb android, held');
+});
+
+test('1.1 track: явный выбор на слабой приставке — замеров нет, лестница не двигается', () => {
+  for (const mode of ['full', 'lite', 'off']) {
+    const e = env(Object.assign({}, WEAK, { store: { lumen_motion: mode } }));
+    session(e, [['card', 50], ['card', 50], ['card', 50]]);
+    assert.equal(e.api.samples().length, 0, mode);
+    assert.equal(Object.prototype.hasOwnProperty.call(e.store, 'lumen_motion_weak'), false, mode);
+  }
+});
+
+/* Сквозная проверка с настоящим src/81_prefs.js: LC.motionMode и причина
+   для HUD (LC.motionWhy) на слабой приставке, сильной, ПК и при явном
+   выборе. */
+function withPrefsLC(e) {
+  new Function('LC', 'module', readFileSync(new URL('../src/81_prefs.js', import.meta.url), 'utf8'))(e.LC, { exports: null, lumen: false });
+  e.LC.perf = e.api;
+  return e.LC;
+}
+
+test('1.1 LC.motionMode/motionWhy: слабая приставка — auto:lite с причиной; явный выбор не перебивается', () => {
+  let LC = withPrefsLC(env(WEAK));
+  assert.equal(LC.motionMode(), 'lite');
+  assert.equal(LC.motionWhy(), 'auto:lite (weak 4c/2gb android, cards 0/5)');
+
+  LC = withPrefsLC(env({ platform: { browser: true }, tv: true, hardware: { hardwareConcurrency: 4, userAgent: UA_TV } }));
+  assert.equal(LC.motionWhy(), 'auto:lite (weak 4c/n/a tvbox, cards 0/5)', 'без deviceMemory');
+
+  for (const mode of ['full', 'lite', 'off']) {
+    LC = withPrefsLC(env(Object.assign({}, WEAK, { store: { lumen_motion: mode } })));
+    assert.equal(LC.motionMode(), mode, 'явный выбор на слабой приставке: ' + mode);
+    assert.equal(LC.motionWhy(), 'set:' + mode);
+  }
+
+  LC = withPrefsLC(env(Object.assign({}, WEAK, { store: { lumen_motion_weak: { full: true } } })));
+  assert.equal(LC.motionMode(), 'full');
+  assert.equal(LC.motionWhy(), 'auto:full (weak 4c/2gb android, earned)');
+});
+
+test('1.1 LC.motionMode/motionWhy: сильная приставка и ПК — как раньше', () => {
+  let LC = withPrefsLC(env({ platform: { android: true }, hardware: { hardwareConcurrency: 8, deviceMemory: 4, userAgent: UA_TV } }));
+  assert.equal(LC.motionMode(), 'full');
+  assert.equal(LC.motionWhy(), 'auto:full (no verdict)');
+
+  LC = withPrefsLC(env({ platform: { browser: true }, hardware: { hardwareConcurrency: 4, userAgent: UA_PC } }));
+  assert.equal(LC.motionMode(), 'full', 'ПК 4 ядра — полные, как раньше');
+
+  LC = withPrefsLC(env({ platform: { browser: true }, hardware: { hardwareConcurrency: 4, userAgent: UA_PC }, store: { lumen_motion_auto: { mode: 'lite', good: 2 } } }));
+  assert.equal(LC.motionMode(), 'lite', 'ПК, понижённый замерами, — как раньше');
+  assert.equal(LC.motionWhy(), 'auto:lite (slow 2/5)');
+
+  LC = withPrefsLC(env({ platform: { webos: true }, hardware: { hardwareConcurrency: 4 } }));
+  assert.equal(LC.motionWhy(), 'auto:lite (webos)');
 });

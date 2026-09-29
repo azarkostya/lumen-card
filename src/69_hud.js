@@ -233,8 +233,9 @@
     }
 
     /* Ревью Task 40 (п.6): железо строкой «ядра/память». По этим числам
-       LC.perf.weakHardware понижает режим до lite ещё до замеров, и решение
-       это необратимо для сессии — значит их надо видеть на самом
+       LC.perf.weakHardware понижает режим до lite ещё до замеров (1.1:
+       «Полные» потом возвращает только лестница замеров карточки, см.
+       src/68_perf.js) — значит их надо видеть на самом
        телевизоре, а не полагаться на спецификацию (в Android WebView
        hardwareConcurrency на части прошивок отражает не физические ядра).
        navigator.deviceMemory есть только в Chromium — где его нет (а на
@@ -804,7 +805,9 @@
       var elapsed = t - state.last;
       if (elapsed >= 1000) {
         var mode = 'n/a';
-        try { mode = LC.motionMode(); } catch (e) { }
+        /* 1.1: режим с причиной («auto:lite (weak 4c/n/a tvbox, cards 2/5)»,
+           LC.motionWhy, src/81_prefs.js); без неё — голый режим. */
+        try { mode = typeof LC.motionWhy === 'function' ? LC.motionWhy() : LC.motionMode(); } catch (e) { }
         /* fps — кадры В СЕКУНДУ, а не «кадры за истёкшее окно»: окно редко
            ровно 1000мс (следующий rAF приходит уже ПОСЛЕ порога), и при
            долгой задаче может растянуться до 1300+ мс — то самое искажение,

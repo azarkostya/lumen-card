@@ -62,13 +62,20 @@
        Task 40 (фаза 4): platform.weak — «железо заведомо слабое» по числу
        ядер и объёму памяти (LC.perf.weakHardware). Такому устройству 'auto'
        отдаёт 'lite' сразу, не дожидаясь трёх замеров: они придут только
-       после трёх тяжёлых экранов, которые на нём и тормозят. Четырёхъядерный
-       ТВ под это правило НЕ попадает — там решает замер. */
+       после трёх тяжёлых экранов, которые на нём и тормозят.
+
+       1.1: слабая приставка — это и четырёхъядерный ТВ с 2 ГБ (правило —
+       LC.perf.weakInfo), и для неё 'auto' по умолчанию 'lite', а 'full' —
+       только когда auto === 'full'. Для слабой приставки LC.perf.mode()
+       отдаёт вердикт её собственной, более строгой лестницы (замеры
+       открытия карточки), а не общий: общий 'full' («медиана трёх первых
+       экранов ниже 250 мс») на таком железе полных не оправдывает. */
     function motionModeFor(stored, platform, auto) {
       if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
       if (stored !== 'auto') return stored;
       platform = platform || {};
-      if (platform.tizen || platform.webos || platform.weak) return 'lite';
+      if (platform.tizen || platform.webos) return 'lite';
+      if (platform.weak) return auto === 'full' ? 'full' : 'lite';
       if (auto === 'lite') return 'lite';
       return 'full';
     }
@@ -680,6 +687,25 @@
       if (LC.perf && typeof LC.perf.mode === 'function') auto = LC.perf.mode();
     } catch (e3) { }
     return LC.prefs.motionModeFor(stored, platform, auto);
+  };
+
+  /* 1.1: режим анимаций с причиной — строкой для HUD (src/69_hud.js):
+       «set:lite» — выбран руками, «Авто» не участвует;
+       «auto:lite (webos)» / «auto:lite (tizen)» — платформа;
+       «auto:lite (weak 4c/n/a tvbox, cards 2/5)» — слабая приставка и
+         ход её лестницы, прочие причины — LC.perf.why (src/68_perf.js). */
+  LC.motionWhy = function () {
+    var mode = LC.motionMode();
+    var stored = LC.pref('lumen_motion', 'auto');
+    if (stored === 'full' || stored === 'lite' || stored === 'off') return 'set:' + mode;
+    var platform = LC.platformInfo();
+    var reason = platform.tizen ? 'tizen' : (platform.webos ? 'webos' : '');
+    if (!reason) {
+      try {
+        if (LC.perf && typeof LC.perf.why === 'function') reason = LC.perf.why();
+      } catch (e) { }
+    }
+    return 'auto:' + mode + (reason ? ' (' + reason + ')' : '');
   };
 
   /* Task 40: можно ли сейчас показывать тяжёлые «украшения» — частицы,

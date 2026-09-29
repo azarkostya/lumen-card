@@ -324,9 +324,9 @@
     lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
     lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
     lumen_card_motion_descr: {
-      ru: '«Авто» подбирает режим под устройство. «Лёгкие» — без плавных переходов, для слабых телевизоров. «Выкл» — без движения: кадры не сменяются, трейлеров нет.',
-      en: '"Auto" picks the mode for the device. "Light" drops smooth transitions, for weak TVs. "Off" stops all motion: stills do not change and no trailers play.',
-      uk: '«Авто» добирає режим під пристрій. «Легкі» — без плавних переходів, для слабких телевізорів. «Викл» — без руху: кадри не змінюються, трейлерів немає.'
+      ru: '«Авто» подбирает режим под устройство: на слабых приставках начинает с лёгких анимаций и включает полные, если приставка справляется. «Лёгкие» — без плавных переходов. «Выкл» — без движения: кадры не сменяются, трейлеров нет.',
+      en: '"Auto" picks the mode for the device: on weak TV boxes it starts with light animations and turns on full ones if the box keeps up. "Light" drops smooth transitions. "Off" stops all motion: stills do not change and no trailers play.',
+      uk: '«Авто» добирає режим під пристрій: на слабких приставках починає з легких анімацій і вмикає повні, якщо приставка справляється. «Легкі» — без плавних переходів. «Викл» — без руху: кадри не змінюються, трейлерів немає.'
     },
     lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
