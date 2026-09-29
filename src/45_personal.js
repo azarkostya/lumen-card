@@ -1,12 +1,13 @@
 /* -------------------------------------------------------------------- */
   /* LC.personal — персональные ряды на главной:                            */
   /*   «Досмотреть», «Потому что вы смотрели «X»»,                          */
-  /*   «Новые серии ваших сериалов», «Скоро на экранах»                     */
+  /*   «Новые серии ваших сериалов», «Скоро на экранах», «Вышло в цифре»    */
   /*                                                                       */
   /* Публичное API (чистые функции):                                        */
   /*   pickBecause(history, n) → [{id, media, title}]                       */
   /*   newEpisodes(shows, today) → [{…show, lumen_badge}]                    */
   /*   soonRange(today) → {gte, lte}                                        */
+  /*   digitalRange(today) → {gte, lte}                                     */
   /*   dropFinished(items, percentOf) → items[] — без досмотренных фильмов  */
   /*                                                                       */
   /* Публичное API (runtime, требуют Lampa):                                */
@@ -40,10 +41,12 @@
   /* главной, а её Lampa отдаёт целиком (parts_limit, шапка src/44_rows.js).*/
   /* Кэш рекомендаций: life 1440 мин; деталей TV: life 720 мин.            */
   /* «Скоро» — discover/movie + discover/tv: life 360 мин.                 */
+  /* «Вышло в цифре» — один discover/movie: life 720 мин.                  */
   /*                                                                       */
   /* Безопасность при отсутствии данных: каждый ряд проверяет наличие      */
   /* источника (Favorite, история) и не регистрируется, если данных нет.   */
-  /* «Скоро» регистрируется всегда — данные пользователя не нужны.         */
+  /* «Скоро» и «Вышло в цифре» регистрируются всегда — данные              */
+  /* пользователя им не нужны.                                             */
   /*                                                                       */
   /* Task 57: каждый ряд помечает свой ответ полем lumen_personal. Для     */
   /* дедупликации рядов главной (LC.rows.dedupeAcross) это значит «состав  */
@@ -80,6 +83,24 @@
 
     /* Окно «скоро» — 30 дней вперёд. */
     var SOON_DAYS = 30;
+
+    /* «Вышло в цифре» (план 1.2, фича 1): фильмы, у которых за последние
+       DIGITAL_DAYS дней был цифровой (release_type 4) или физический (5)
+       релиз хоть в одной стране, — то есть есть в хорошем качестве.
+       Замер 2026-09-29 (прокси Lampa, discover/movie, популярность):
+       with_release_type=4|5 без region — 408 фильмов, у первых двадцати
+       цифровой/физический релиз в окне действительно есть; с region=US
+       TMDB подменяет release_date датой региона (не всегда 4/5), с
+       region=RU набирается 11 — ряд не собрать. Поэтому региона нет:
+       «где-то вышло в цифре» и есть признак. Порог DIGITAL_VOTES: при 50
+       из первой двадцатки выпадал фильм недельной давности с 37 голосами.
+       release_date в карточке остаётся кинотеатральной — подпись штатная,
+       без своей метки (дату цифрового релиза без запроса на карточку не
+       узнать). Окно относительное, поэтому это системный ряд, как «Скоро»,
+       а не подборка каталога: каталог статичен, а даты вида «today-45d»
+       1.1.0 отправила бы в TMDB как есть. */
+    var DIGITAL_DAYS = 45;
+    var DIGITAL_VOTES = 20;
 
     /* Новая серия: вышла не более RECENT_DAYS назад. */
     var RECENT_DAYS = 14;
@@ -245,16 +266,28 @@
        gte = today, lte = today + SOON_DAYS.
        today — Date, строка 'YYYY-MM-DD' или null (текущая дата UTC). */
     function soonRange(today) {
-      var d0;
-      if (today instanceof Date) {
-        d0 = today;
-      } else if (today && typeof today === 'string') {
-        var parts = today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        d0 = parts ? new Date(Date.UTC(+parts[1], +parts[2] - 1, +parts[3])) : new Date();
-      } else {
-        d0 = new Date();
-      }
+      var d0 = dayOf(today);
       var d1 = new Date(d0.getTime() + SOON_DAYS * 86400000);
+      return { gte: dateFmt(d0), lte: dateFmt(d1) };
+    }
+
+    /* today — Date, строка 'YYYY-MM-DD' или null (текущая дата UTC). */
+    function dayOf(today) {
+      if (today instanceof Date) return today;
+      if (today && typeof today === 'string') {
+        var parts = today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (parts) return new Date(Date.UTC(+parts[1], +parts[2] - 1, +parts[3]));
+      }
+      return new Date();
+    }
+
+    /* Возвращает {gte, lte} — окно «Вышло в цифре»:
+       gte = today − DIGITAL_DAYS, lte = today (сегодня включительно).
+       Со «Скоро» (премьеры от сегодня вперёд) почти не пересекается:
+       цифровой релиз идёт после кинотеатрального. */
+    function digitalRange(today) {
+      var d1 = dayOf(today);
+      var d0 = new Date(d1.getTime() - DIGITAL_DAYS * 86400000);
       return { gte: dateFmt(d0), lte: dateFmt(d1) };
     }
 
@@ -738,16 +771,81 @@
       };
     }
 
+    /* «Вышло в цифре»: один discover/movie — релизы типов 4|5 (цифра,
+       носители) в окне digitalRange, от DIGITAL_VOTES голосов, по
+       популярности. Кэш Lampa 12 ч; адрес меняется раз в сутки вместе с
+       датами. lumen_personal: состав окно дедупликации не трогает (иначе
+       ряд на месте 10 терял бы новинки, уже стоящие в «В тренде» Lampa, и
+       уходил «огрызком»), а его карточки кладёт в окно — ряды ниже их не
+       повторяют. lumen_own нет: подборки выше он не чистит. */
+    function makeDigitalCall() {
+      return function (params, screen) {
+        return function (call) {
+          var gen = _gen;
+          function alive() { return _gen === gen; }
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
+          if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
+
+          var range = digitalRange(null);
+          var list = [];
+          var cancelled = false;
+
+          var gate = LC.util.gate(1, ROW_TIMEOUT, function () {
+            if (cancelled || !alive()) return;
+            resolve({ results: list, title: LC.lang ? LC.lang('lumen_row_digital') : 'New on digital', lumen_personal: true });
+          });
+
+          try {
+            Lampa.Api.sources.tmdb.get(
+              'discover/movie',
+              {
+                sort_by: 'popularity.desc',
+                filter: {
+                  with_release_type: '4|5',
+                  'release_date.gte': range.gte,
+                  'release_date.lte': range.lte,
+                  'vote_count.gte': DIGITAL_VOTES
+                }
+              },
+              function (json) {
+                if (!alive()) return;
+                var arr = (json && json.results) ? json.results : [];
+                for (var k = 0; k < arr.length; k++) list.push(arr[k]);
+                gate.tick();
+              },
+              function () {
+                if (!alive()) return;
+                gate.tick();
+              },
+              { life: 720 }
+            );
+          } catch (e) {
+            gate.tick();
+          }
+
+          /* Отмена — только сборщик (как у «Скоро»). */
+          return {
+            cancel: function () {
+              cancelled = true;
+              gate.cancel();
+            }
+          };
+        };
+      };
+    }
+
     /* ------------------------------------------------------------------ */
     /* describe() — описания рядов, для которых есть данные.              */
     /* ------------------------------------------------------------------ */
 
     /* Описания личных рядов главной — {id, name, title, screen, call} без
-       index, в порядке «Досмотреть», «Потому что», «Новые серии», «Скоро».
+       index, в порядке «Досмотреть», «Потому что», «Новые серии», «Скоро»,
+       «Вышло в цифре».
        Волна 4: места назначает и ряды регистрирует план главной
        (src/47_homeplan.js) — при ротации «Досмотреть» стоит вторым, и
        закреплённые индексы 0–3 больше не годятся.
-       Ряда нет, если нет его данных; «Скоро» — всегда. Настройка
+       Ряда нет, если нет его данных; «Скоро» и «Вышло в цифре» — всегда. Настройка
        lumen_personal_rows=false — ни одного ряда.
        opts.anchor(history) — исходный фильм «Потому что вы смотрели» (план
        крутит его по эпохе); без него — самый свежий. */
@@ -812,6 +910,15 @@
         screen: 'main',
         call: makeSoonCall()
       });
+
+      /* «Вышло в цифре»: тоже без данных пользователя. */
+      out.push({
+        id: 'digital',
+        name: 'lumen_digital',
+        title: LC.lang ? LC.lang('lumen_row_digital') : 'New on digital',
+        screen: 'main',
+        call: makeDigitalCall()
+      });
       return out;
     }
 
@@ -819,6 +926,7 @@
       pickBecause: pickBecause,
       newEpisodes: newEpisodes,
       soonRange: soonRange,
+      digitalRange: digitalRange,
       /* Task 58: чистая часть фильтра «Продолжить» наружу ради тестов. */
       dropFinished: dropFinished,
       bumpGen: bumpGen,

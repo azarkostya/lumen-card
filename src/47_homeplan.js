@@ -64,15 +64,17 @@
 
     /* Места личных рядов при ротации. Место 2 не занимаем: туда встаёт
        первый ряд Lampa («Сейчас смотрят»). Личные ряды не на месте 0 и не
-       подряд; «Досмотреть» — всегда вторым. */
-    var PLACES = { 'continue': 1, new_episodes: 3, because: 5, soon: 8 };
+       подряд; «Досмотреть» — всегда вторым. «Вышло в цифре» (1.2) —
+       десятым, во второй пачке Lampa: между ним и «Скоро» место 9 —
+       подборке. */
+    var PLACES = { 'continue': 1, new_episodes: 3, because: 5, soon: 8, digital: 10 };
     var LAMPA_PLACE = 2;
 
     /* Режим «Сначала «Досмотреть»» — как до волны 4: личные ряды сверху,
-       подборки с места 4. */
-    var HISTORY_PLACES = { 'continue': 0, because: 1, new_episodes: 2, soon: 3 };
-    var HISTORY_ROWS_FROM = 4;
-    var PERSONAL_ORDER = ['continue', 'because', 'new_episodes', 'soon'];
+       подборки с места 5 (1.2: пятым личным — «Вышло в цифре»). */
+    var HISTORY_PLACES = { 'continue': 0, because: 1, new_episodes: 2, soon: 3, digital: 4 };
+    var HISTORY_ROWS_FROM = 5;
+    var PERSONAL_ORDER = ['continue', 'because', 'new_episodes', 'soon', 'digital'];
 
     /* Сезонная подборка в свой месяц — одна, на местах 0…SEASON_TOP; не
        лидер — на свободном месте SEASON_FROM…SEASON_TOP по зерну эпохи.
@@ -409,7 +411,7 @@
        opts: manifest — каталог (null — ещё не загружен: только личные
                ряды); picked — состав, выбранный вручную (lumen_home_rows),
                или null; month — 1…12; epoch — номер эпохи; have —
-               {continue, because, new_episodes, soon}: какие личные ряды
+               {continue, because, new_episodes, soon, digital}: какие личные ряды
                есть; recentLeads — лидеры двух прошлых эпох; limit — число
                подборок; mode — 'rotate' или 'history'; advent — есть ли
                ряд адвента (декабрь);

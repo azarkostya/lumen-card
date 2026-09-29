@@ -16,7 +16,7 @@ function planModule(extra) {
 }
 const H = planModule();
 
-const ALL = { continue: true, because: true, new_episodes: true, soon: true };
+const ALL = { continue: true, because: true, new_episodes: true, soon: true, digital: true };
 const byId = {};
 CATALOG.collections.forEach(function (c) { byId[c.id] = c; });
 
@@ -152,7 +152,8 @@ test('planHome, rotate: подборка-лидер на месте 0, «Дос�
   assert.equal(at(p, 0).id, p.lead);
   assert.deepEqual([at(p, 1).kind, at(p, 1).id], ['personal', 'continue']);
   assert.equal(at(p, 2), null, 'место 2 не занимаем — туда встаёт первый ряд Lampa');
-  assert.deepEqual([at(p, 3).id, at(p, 5).id, at(p, 8).id], ['new_episodes', 'because', 'soon']);
+  assert.deepEqual([at(p, 3).id, at(p, 5).id, at(p, 8).id, at(p, 10).id], ['new_episodes', 'because', 'soon', 'digital']);
+  assert.equal(at(p, 9).kind, 'collection', '1.2: между «Скоро» и «Вышло в цифре» — подборка');
   assert.equal(collections(p).length, 15, 'подборок — сколько задано «Количеством рядов»');
 });
 
@@ -163,13 +164,13 @@ test('planHome, rotate: нет личного ряда — его место з�
   assert.equal(at(p, 2), null);
 });
 
-test('planHome, history: «Досмотреть», «Потому что», «Новые серии», «Скоро» сверху, подборки с места 4', function () {
+test('planHome, history: «Досмотреть», «Потому что», «Новые серии», «Скоро», «Вышло в цифре» сверху, подборки с места 5', function () {
   var p = plan({ mode: 'history' });
-  assert.deepEqual(p.slots.slice(0, 4).map(function (s) { return s.place + ':' + s.id; }),
-    ['0:continue', '1:because', '2:new_episodes', '3:soon']);
+  assert.deepEqual(p.slots.slice(0, 5).map(function (s) { return s.place + ':' + s.id; }),
+    ['0:continue', '1:because', '2:new_episodes', '3:soon', '4:digital']);
   assert.equal(p.lead, null, 'в режиме истории лидера нет');
   var cols = collections(p);
-  assert.equal(cols[0].place, 4);
+  assert.equal(cols[0].place, 5);
   assert.deepEqual(cols.map(function (s) { return s.id; }), ['star-wars', 'netflix-comedy', 'apple-tv', 'kdrama', 'anime', 'top-rated'],
     'набор по умолчанию, без «Рождественских комедий» в сентябре');
   /* Нет «Досмотреть» — место 0 свободно, как было: туда встаёт ряд Lampa. */
@@ -177,7 +178,8 @@ test('planHome, history: «Досмотреть», «Потому что», «Н
 });
 
 test('planHome, rotate: личные ряды не на месте 0 и не подряд', function () {
-  var haves = [ALL, { continue: true, soon: true }, { because: true, new_episodes: true, soon: true }, { continue: true, because: true }];
+  var haves = [ALL, { continue: true, soon: true }, { because: true, new_episodes: true, soon: true }, { continue: true, because: true },
+    { soon: true, digital: true }, { because: true, digital: true }];
   for (var h = 0; h < haves.length; h++) {
     for (var n = 1; n <= 20; n++) {
       var p = plan({ epoch: n, have: haves[h] });
@@ -331,8 +333,8 @@ test('planHome: в декабре адвент на месте 0, лидер —
       'эпоха ' + n + ': адвент уже сезонный ряд наверху — рождественская подборка там вторая');
   }
   var h = plan({ month: 12, advent: true, mode: 'history' });
-  assert.equal(at(h, 4).kind, 'advent', 'в режиме истории — как было: первым среди подборок');
-  assert.equal(collections(h)[0].place, 5);
+  assert.equal(at(h, 5).kind, 'advent', 'в режиме истории — как было: первым среди подборок');
+  assert.equal(collections(h)[0].place, 6);
 });
 
 test('planHome: состав, выбранный вручную, — крутится его порядок', function () {
@@ -366,7 +368,7 @@ test('planHome: подборки из набора по умолчанию вы�
 
 test('planHome: без каталога — только личные ряды, на своих местах', function () {
   var p = plan({ manifest: null });
-  assert.deepEqual(p.slots.map(function (s) { return s.place + ':' + s.id; }), ['1:continue', '3:new_episodes', '5:because', '8:soon']);
+  assert.deepEqual(p.slots.map(function (s) { return s.place + ':' + s.id; }), ['1:continue', '3:new_episodes', '5:because', '8:soon', '10:digital']);
   assert.equal(p.lead, null);
 });
 
@@ -478,6 +480,28 @@ test('apply: ряды регистрируются строго по возра�
   assert.equal(ours[1].name, 'lumen_continue');
   assert.equal(ours[1].index, 1);
   assert.equal(ours[0].name, 'lumen_' + p.lead);
+  const digital = ours.filter((r) => r.name === 'lumen_digital')[0];
+  assert.ok(digital, '1.2: «Вышло в цифре» зарегистрирован');
+  assert.equal(digital.index, 10);
+});
+
+/* План 1.2, фича 1: «Вышло в цифре» выключается в «Каналах» Lampa
+   (content_rows_lumen_digital) — в план не входит, но в «Каналах» остаётся. */
+test('apply: «Вышло в цифре» выключен в «Каналах» — не в плане, зарегистрирован после всех; включил — снова на месте 10', function () {
+  const s = setupApply({ storage: { content_rows_lumen_digital: false } });
+  const p = withRandom(0.25, () => s.H.apply({ start: true, manifest: CATALOG }));
+  assert.equal(p.slots.filter((x) => x.id === 'digital').length, 0, 'в плане его нет');
+  assert.equal(at(p, 10).kind, 'collection', 'его место — подборке');
+  const names = s.ours().map((r) => r.name);
+  assert.equal(names[names.length - 1], 'lumen_digital', 'после всех рядов плана — Lampa покажет его в «Каналах»');
+  assert.equal(names.filter((n) => n === 'lumen_digital').length, 1);
+  assert.equal(buildMain(s).indexOf('lumen_digital'), -1, 'на главной его нет');
+  s.store.content_rows_lumen_digital = true;
+  s.H.apply({ fresh: true });
+  assert.equal(buildMain(s)[10], 'lumen_digital', 'включили — на месте 10');
+  const off = setupApply({ prefs: { lumen_personal_rows: false } });
+  off.H.apply({ start: true, manifest: CATALOG });
+  assert.equal(off.ours().filter((r) => r.name === 'lumen_digital').length, 0, '«Персональные ряды: выкл» — ряда нет');
 });
 
 test('apply: повторный вызов снимает прошлый набор, unregister — всё', function () {
@@ -666,16 +690,17 @@ test('apply: «Сначала «Досмотреть»» — личные ряд
   const s = setupApply({ prefs: { lumen_home_start: 'history' } });
   s.H.apply({ start: true, manifest: CATALOG });
   assert.deepEqual(s.ours().slice(0, 5).map((r) => r.index + ':' + r.name),
-    ['0:lumen_continue', '1:lumen_because', '2:lumen_new_episodes', '3:lumen_soon', '4:lumen_star-wars']);
+    ['0:lumen_continue', '1:lumen_because', '2:lumen_new_episodes', '3:lumen_soon', '4:lumen_digital']);
+  assert.equal(s.ours()[5].index + ':' + s.ours()[5].name, '5:lumen_star-wars');
   assert.equal(s.store.lumen_home_leads, undefined, 'в режиме истории лидеров не пишем');
 });
 
 test('apply: «Количество рядов» — число подборок, личные ряды сверх него', function () {
   const s = setupApply({ prefs: { lumen_rows_limit: '10' } });
   s.H.apply({ start: true, manifest: CATALOG });
-  const personal = ['lumen_continue', 'lumen_because', 'lumen_new_episodes', 'lumen_soon'];
+  const personal = ['lumen_continue', 'lumen_because', 'lumen_new_episodes', 'lumen_soon', 'lumen_digital'];
   assert.equal(s.ours().filter((r) => personal.indexOf(r.name) === -1).length, 10);
-  assert.equal(s.ours().length, 14);
+  assert.equal(s.ours().length, 15);
 });
 
 /* Решение пользователя 2026-09-26: по умолчанию на главной 10 рядов подборок
@@ -684,7 +709,7 @@ test('apply: без сохранённого «Количества рядов»
   const s = setupApply();
   delete s.prefs.lumen_rows_limit;
   s.H.apply({ start: true, manifest: CATALOG });
-  const personal = ['lumen_continue', 'lumen_because', 'lumen_new_episodes', 'lumen_soon'];
+  const personal = ['lumen_continue', 'lumen_because', 'lumen_new_episodes', 'lumen_soon', 'lumen_digital'];
   assert.equal(s.ours().filter((r) => personal.indexOf(r.name) === -1).length, 10, 'по умолчанию не 10 подборок');
   const kept = setupApply({ prefs: { lumen_rows_limit: '15' } });
   kept.H.apply({ start: true, manifest: CATALOG });
@@ -713,7 +738,7 @@ test('apply: ряды выбранного вручную состава дед�
   s.H.apply({ start: true, manifest: CATALOG });
   const pixar = s.ours().filter((r) => r.name === 'lumen_pixar')[0];
   assert.ok(pixar && s.ours().filter((r) => r.name === 'lumen_nolan').length === 1);
-  assert.equal(s.ours().length, 6, 'две подборки и четыре личных ряда');
+  assert.equal(s.ours().length, 7, 'две подборки и пять личных рядов');
   const fetched = [];
   s.LC.sources.fetch = (item, page, ok) => { fetched.push(ok); return { clear() {} }; };
   const got = [];

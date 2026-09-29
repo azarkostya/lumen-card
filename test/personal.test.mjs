@@ -39,8 +39,8 @@ function setupRuntime(opts) {
     Api: opts.noApi ? undefined : {
       sources: {
         tmdb: {
-          get: function (url, params, ok, err) {
-            tmdbCalls.push({ url: url, params: params, ok: ok, err: err });
+          get: function (url, params, ok, err, cache) {
+            tmdbCalls.push({ url: url, params: params, ok: ok, err: err, cache: cache });
           }
         }
       }
@@ -349,7 +349,7 @@ test('describe: описания рядов с данными, по порядк
   });
   var rows = s.api.describe();
   assert.deepEqual(rows.map(function (d) { return d.id + ':' + d.name; }),
-    ['continue:lumen_continue', 'because:lumen_because', 'new_episodes:lumen_new_episodes', 'soon:lumen_soon']);
+    ['continue:lumen_continue', 'because:lumen_because', 'new_episodes:lumen_new_episodes', 'soon:lumen_soon', 'digital:lumen_digital']);
   rows.forEach(function (d) {
     assert.equal(d.index, undefined, 'место назначает план главной');
     assert.equal(d.screen, 'main');
@@ -377,8 +377,8 @@ test('runtime: нет Lampa.Favorite → describe не падает, рядов 
   var s = setupRuntime({ noFavorite: true });
   var rows = null;
   assert.doesNotThrow(function () { rows = s.api.describe(); });
-  /* Без Favorite данных нет → только «Скоро». */
-  assert.deepEqual(rows.map(function (d) { return d.name; }), ['lumen_soon']);
+  /* Без Favorite данных нет → только «Скоро» и «Вышло в цифре». */
+  assert.deepEqual(rows.map(function (d) { return d.name; }), ['lumen_soon', 'lumen_digital']);
 });
 
 test('runtime: нет Lampa.Api → describe не падает', function () {
@@ -842,4 +842,114 @@ test('сверка: карточки «Досмотреть» — копии с 
   assert.equal(got.results[0].title, 'Аватар');
   assert.notEqual(got.results[0], src[0], 'помечен сам объект Favorite');
   assert.equal(JSON.stringify(src), snapshot, 'данные Favorite изменились');
+});
+
+/* ====================================================================== */
+/* План 1.2, фича 1: ряд «Вышло в цифре» — фильмы с цифровым (4) или      */
+/* физическим (5) релизом за 45 дней, один discover/movie.               */
+/* ====================================================================== */
+
+test('digitalRange: gte = сегодня − 45 дней, lte = сегодня, через границу месяца и года', function () {
+  assert.deepEqual(P.digitalRange('2026-09-29'), { gte: '2026-08-15', lte: '2026-09-29' });
+  assert.deepEqual(P.digitalRange(new Date(Date.UTC(2026, 0, 5))), { gte: '2025-11-21', lte: '2026-01-05' }, 'ведущие нули, прошлый год');
+  assert.deepEqual(P.digitalRange('2024-03-01'), { gte: '2024-01-16', lte: '2024-03-01' }, 'високосный февраль');
+  var now = new Date();
+  var r = P.digitalRange(null);
+  var lte = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  assert.equal(r.lte, new Date(lte).toISOString().slice(0, 10), 'null — сегодня (UTC)');
+  assert.equal((Date.parse(r.lte) - Date.parse(r.gte)) / 86400000, 45);
+  assert.deepEqual(P.digitalRange('мусор'), r, 'не дата — сегодня');
+});
+
+test('«Вышло в цифре»: есть всегда (после «Скоро»), без данных пользователя; выключенная настройка — нет', function () {
+  var s = setupRuntime();
+  var rows = s.api.describe();
+  assert.deepEqual(rows.map(function (d) { return d.id; }), ['soon', 'digital']);
+  var row = rows[1];
+  assert.equal(row.name, 'lumen_digital', 'выключатель в «Каналах» Lampa — content_rows_lumen_digital');
+  assert.equal(row.title, 'lumen_row_digital');
+  assert.equal(row.screen, 'main');
+  assert.equal(row.index, undefined, 'место назначает план главной');
+  var off = setupRuntime({ prefs: { lumen_personal_rows: false } });
+  assert.deepEqual(off.api.describe(), [], '«Персональные ряды: выкл» — и его нет');
+});
+
+test('«Вышло в цифре»: один discover/movie — типы 4|5, окно 45 дней, от 20 голосов, по популярности, кэш 12 ч', function () {
+  var s = setupRuntime();
+  s.addCalls = s.api.describe();
+  var row = rowByName(s, 'lumen_digital');
+  var got = [];
+  row.call({}, 'main')(function (data) { got.push(data); });
+  assert.equal(s.tmdbCalls.length, 1, 'один запрос на главную');
+  var c = s.tmdbCalls[0];
+  assert.equal(c.url, 'discover/movie');
+  assert.equal(c.params.sort_by, 'popularity.desc');
+  var r = P.digitalRange(null);
+  assert.deepEqual(c.params.filter, {
+    with_release_type: '4|5', 'release_date.gte': r.gte, 'release_date.lte': r.lte, 'vote_count.gte': 20
+  }, 'без region: «где-то вышло в цифре» и есть признак');
+  assert.deepEqual(Object.keys(c.params).sort(), ['filter', 'sort_by'], 'page не нужен — ряд берёт первую страницу');
+  assert.equal(c.cache.life, 720);
+  assert.equal(got.length, 0, 'ждёт ответа');
+  c.ok({ results: [{ id: 1, title: 'A', release_date: '2026-06-17' }, { id: 2, title: 'B' }] });
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results.map(function (x) { return x.id; }), [1, 2], 'порядок TMDB (популярность) не трогаем');
+  assert.equal(got[0].title, 'lumen_row_digital');
+  assert.equal(got[0].lumen_personal, true, 'состав окно дедупликации не трогает, карточки кладёт');
+  assert.equal(got[0].lumen_own, undefined, 'подборки выше ряда он не чистит');
+  s.api.bumpGen();
+  assert.equal(got.length, 1, 'call строго один раз');
+});
+
+test('«Вышло в цифре»: ошибка сети — пустой ряд, ровно один call', function () {
+  var s = setupRuntime();
+  s.addCalls = s.api.describe();
+  var got = [];
+  rowByName(s, 'lumen_digital').call({}, 'main')(function (data) { got.push(data); });
+  s.tmdbCalls[0].err();
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results, []);
+});
+
+test('дедлайн: «Вышло в цифре» молчащий запрос закрывает ряд пустым, поздний ответ не доходит', function () {
+  var s = setupRuntime();
+  s.addCalls = s.api.describe();
+  var row = rowByName(s, 'lumen_digital');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    row.call({}, {})(function (data) { got.push(data); });
+    assert.equal(ctl.timers[0].ms, 8000, 'тот же ROW_TIMEOUT, что у прочих личных рядов');
+    ctl.fire(0);
+    assert.equal(got.length, 1);
+    assert.deepEqual(got[0].results, []);
+    s.tmdbCalls[0].ok({ results: [{ id: 5 }] });
+    assert.equal(got.length, 1, 'call строго один раз');
+  });
+});
+
+test('отмена «Вышло в цифре» снимает таймер, поздний ответ до Lampa не доходит', function () {
+  var s = setupRuntime();
+  s.addCalls = s.api.describe();
+  var row = rowByName(s, 'lumen_digital');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    var handle = row.call({}, {})(function (data) { got.push(data); });
+    handle.cancel();
+    assert.equal(ctl.timers[0].cleared, true);
+    ctl.fire(0);
+    s.tmdbCalls[0].ok({ results: [{ id: 5 }] });
+    assert.equal(got.length, 0);
+  });
+});
+
+test('«Вышло в цифре»: bumpGen до ответа — пустой ряд, поздний ответ мимо', function () {
+  var s = setupRuntime();
+  s.addCalls = s.api.describe();
+  var got = [];
+  rowByName(s, 'lumen_digital').call({}, 'main')(function (data) { got.push(data); });
+  s.api.bumpGen();
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results, []);
+  s.tmdbCalls[0].ok({ results: [{ id: 5 }] });
+  assert.equal(got.length, 1);
 });
