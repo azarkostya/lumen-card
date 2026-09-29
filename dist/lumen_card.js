@@ -1577,6 +1577,7 @@ css.push('.lumen-grid__title{font-family:'+FB+';font-weight:700;font-size:2.10em
 css.push('.lumen-grid__sub{font-family:'+FB+';font-weight:500;font-size:1.01em;color:'+P.soft+';margin-top:.44em}');
 css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
 css.push('.lumen-grid .lumen-grid__roulette{margin-left:.91em}');
+css.push('.lumen-grid__media{display:-webkit-box;display:-webkit-flex;display:flex;margin-right:.91em}');
 css.push('.lumen-grid .lumen-grid__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
 css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 var gcardCols=GCARD_COLS+GCARD_COLS_TILE[tileKey()];
@@ -2525,7 +2526,7 @@ groups:[
 {id:'theme',title:'Темы',i18n:{en:'Themes',uk:'Теми'}},
 {id:'country',title:'Страны',i18n:{en:'Countries',uk:'Країни'}},
 {id:'era',title:'Эпохи',i18n:{en:'Eras',uk:'Епохи'}},
-{id:'people',title:'Режиссёры',i18n:{en:'People',uk:'Режисери'}},
+{id:'people',title:'Режиссёры и актёры',i18n:{en:'Directors & Actors',uk:'Режисери та актори'}},
 {id:'top',title:'Топ',i18n:{en:'Top',uk:'Топ'}},
 {id:'mood',title:'Настроение',i18n:{en:'Mood',uk:'Настрій'}}
 ],
@@ -2535,7 +2536,7 @@ hubGroups:[
 {id:'themes',title:'Темы',i18n:{en:'Themes',uk:'Теми'},groups:['theme']},
 {id:'countries',title:'Страны',i18n:{en:'Countries',uk:'Країни'},groups:['country']},
 {id:'eras',title:'Эпохи',i18n:{en:'Eras',uk:'Епохи'},groups:['era']},
-{id:'people',title:'Режиссёры',i18n:{en:'People',uk:'Режисери'},groups:['people']},
+{id:'people',title:'Режиссёры и актёры',i18n:{en:'Directors & Actors',uk:'Режисери та актори'},groups:['people']},
 {id:'tops',title:'Топ',i18n:{en:'Top',uk:'Топ'},groups:['top']}
 ],
 moods:[
@@ -2726,15 +2727,15 @@ id:'dune',title:'Дюна',group:'franchise',icon:'film',
 sources:{movie:{type:'collection',id:726871,movies:[841]}}
 },
 {
-id:'shrek',title:'Шрек',group:'franchise',icon:'film',cover:'/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
+id:'shrek',title:'Шрек',group:'franchise',animation:true,icon:'film',cover:'/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
 sources:{movie:{type:'collection',id:2150,also:[94602]}}
 },
 {
-id:'toy-story',title:'История игрушек',group:'franchise',icon:'film',cover:'/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
+id:'toy-story',title:'История игрушек',group:'franchise',animation:true,icon:'film',cover:'/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
 sources:{movie:{type:'collection',id:10194,movies:[718789]}}
 },
 {
-id:'despicable-me',title:'Гадкий я',group:'franchise',icon:'film',cover:'/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
+id:'despicable-me',title:'Гадкий я',group:'franchise',animation:true,icon:'film',cover:'/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
 sources:{movie:{type:'collection',id:86066,also:[544669]}}
 },
 {
@@ -2742,11 +2743,11 @@ id:'spiderman-mcu',title:'Человек-паук',i18n:{en:'Spider-Man',uk:'Л�
 sources:{movie:{type:'collection',id:531241,also:[556,125574,573436]}}
 },
 {
-id:'madagascar',title:'Мадагаскар',group:'franchise',icon:'film',cover:'/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
+id:'madagascar',title:'Мадагаскар',group:'franchise',animation:true,icon:'film',cover:'/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
 sources:{movie:{type:'collection',id:14740,movies:[270946]}}
 },
 {
-id:'ice-age',title:'Ледниковый период',group:'franchise',icon:'film',
+id:'ice-age',title:'Ледниковый период',group:'franchise',animation:true,icon:'film',
 sources:{movie:{type:'collection',id:8354}}
 },
 {
@@ -2754,11 +2755,11 @@ id:'kingsman',title:'Kingsman',group:'franchise',icon:'film',
 sources:{movie:{type:'collection',id:391860}}
 },
 {
-id:'pixar',title:'Pixar',group:'studio',
+id:'pixar',title:'Pixar',group:'studio',animation:true,
 sources:{movie:{type:'discover',params:{companies:3,sort_by:'popularity.desc'}}}
 },
 {
-id:'ghibli',title:'Студия Гибли',group:'studio',
+id:'ghibli',title:'Студия Гибли',group:'studio',animation:true,
 sources:{movie:{type:'discover',params:{companies:10342,sort_by:'popularity.desc'}}}
 },
 {
@@ -2800,11 +2801,11 @@ id:'sony-pictures',title:'Sony Pictures',group:'studio',cover:'/rz3TAyd5kmiJmozp
 sources:{movie:{type:'discover',params:{companies:5,sort_by:'popularity.desc'}}}
 },
 {
-id:'dreamworks',title:'DreamWorks Animation',group:'studio',
+id:'dreamworks',title:'DreamWorks Animation',group:'studio',animation:true,
 sources:{movie:{type:'discover',params:{companies:521,sort_by:'popularity.desc'}}}
 },
 {
-id:'illumination',title:'Illumination',group:'studio',
+id:'illumination',title:'Illumination',group:'studio',animation:true,
 sources:{movie:{type:'discover',params:{companies:6704,sort_by:'popularity.desc'}}}
 },
 {
@@ -2822,6 +2823,14 @@ sources:{movie:{type:'discover',params:{companies:25,sort_by:'popularity.desc'}}
 {
 id:'miramax',title:'Miramax',group:'studio',
 sources:{movie:{type:'discover',params:{companies:14,sort_by:'popularity.desc'}}}
+},
+{
+id:'disney-animation',title:'Walt Disney Animation',i18n:{en:'Walt Disney Animation',uk:'Walt Disney Animation'},group:'studio',animation:true,cover:'/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
+sources:{movie:{type:'discover',params:{companies:6125,sort_by:'popularity.desc'}}}
+},
+{
+id:'laika-aardman',title:'LAIKA и Aardman',i18n:{en:'LAIKA & Aardman',uk:'LAIKA та Aardman'},group:'studio',animation:true,cover:'/svHDneADngRckbFMUcD0AR1KsSq.jpg',
+sources:{movie:{type:'discover',params:{companies:'11537|297',sort_by:'popularity.desc'}}}
 },
 {
 id:'netflix-comedy',title:'Netflix: Комедии',group:'service',badge:'NETFLIX',
@@ -2962,7 +2971,7 @@ id:'psycho-thriller',title:'Психологические триллеры',gro
 sources:{movie:{type:'discover',params:{keywords:12565,sort_by:'vote_average.desc',filter:{'vote_count.gte':300}}}}
 },
 {
-id:'anime-movies',title:'Аниме-фильмы',group:'theme',cover:'/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
+id:'anime-movies',title:'Аниме-фильмы',group:'theme',animation:true,cover:'/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
 sources:{movie:{type:'discover',params:{genres:16,orig_lang:'ja',sort_by:'popularity.desc'}}}
 },
 {
@@ -3006,7 +3015,7 @@ id:'summer-movies',title:'Летнее кино',i18n:{en:'Summer Films',uk:'Л�
 sources:{movie:{type:'discover',params:{keywords:'13088|14714|5767',genres:'35|10751|16|12',sort_by:'popularity.desc',filter:{without_genres:'27,53,80,18',certification_country:'US','certification.lte':'PG-13','vote_count.gte':150}}}}
 },
 {
-id:'soviet-cartoons',title:'Советские мультфильмы',i18n:{en:'Soviet Animation',uk:'Радянські мультфільми'},group:'theme',icon:'star',aliases:['Союзмультфильм','Мультики'],season:[6],cover:'/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+id:'soviet-cartoons',title:'Советские мультфильмы',i18n:{en:'Soviet Animation',uk:'Радянські мультфільми'},group:'theme',animation:true,icon:'star',aliases:['Союзмультфильм','Мультики'],season:[6],cover:'/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
 sources:{movie:{type:'discover',params:{genres:16,orig_lang:'ru',sort_by:'vote_count.desc',filter:{'primary_release_date.lte':'1991-12-31','vote_count.gte':20}}}}
 },
 {
@@ -3026,11 +3035,11 @@ id:'action',title:'Боевики',i18n:{en:'Action',uk:'Бойовики'},grou
 sources:{movie:{type:'discover',params:{genres:28,sort_by:'popularity.desc',filter:{'vote_count.gte':300}}}}
 },
 {
-id:'animation',title:'Мультфильмы',i18n:{en:'Animated Films',uk:'Мультфільми'},group:'theme',cover:'/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+id:'animation',title:'Мультфильмы',i18n:{en:'Animated Films',uk:'Мультфільми'},group:'theme',animation:true,cover:'/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
 sources:{movie:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{'vote_count.gte':300}}}}
 },
 {
-id:'adult-animation',title:'Мультфильмы для взрослых',i18n:{en:'Adult Animation',uk:'Мультфільми для дорослих'},group:'theme',cover:'/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
+id:'adult-animation',title:'Мультфильмы для взрослых',i18n:{en:'Adult Animation',uk:'Мультфільми для дорослих'},group:'theme',animation:true,cover:'/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
 sources:{
 movie:{type:'discover',params:{keywords:161919,sort_by:'popularity.desc',filter:{without_keywords:'210024','vote_count.gte':100}}},
 tv:{type:'discover',params:{keywords:161919,sort_by:'popularity.desc',filter:{'vote_count.gte':100}}}
@@ -3120,11 +3129,72 @@ id:'romance',title:'Романтика',i18n:{en:'Romance',uk:'Романтик�
 sources:{movie:{type:'discover',params:{genres:'10749,18',sort_by:'vote_average.desc',filter:{without_genres:'99,16,27','vote_count.gte':2000}}}}
 },
 {
+id:'kids-toons',title:'Мультсериалы для детей',i18n:{en:'Cartoons for Kids',uk:'Мультсеріали для дітей'},group:'theme',animation:true,cover:'/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+sources:{tv:{type:'discover',params:{genres:'16,10762',sort_by:'popularity.desc',filter:{'vote_count.gte':20}}}}
+},
+{
+id:'toddlers',title:'Для самых маленьких',i18n:{en:'For Little Ones',uk:'Для найменших'},group:'theme',animation:true,cover:'/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+sources:{
+movie:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'G','vote_count.gte':50}}},
+tv:{type:'discover',params:{genres:10762,sort_by:'popularity.desc',filter:{certification_country:'US',certification:'TV-Y','vote_count.gte':20}}}
+}
+},
+{
+id:'family-toons',title:'Семейные мультсериалы',i18n:{en:'Family Animated Series',uk:'Сімейні мультсеріали'},group:'theme',animation:true,cover:'/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
+sources:{tv:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{without_genres:'10762','vote_count.gte':100}}}}
+},
+{
+id:'family-live',title:'Семейное игровое кино',i18n:{en:'Live-Action Family Films',uk:'Сімейне ігрове кіно'},group:'theme',cover:'/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
+sources:{movie:{type:'discover',params:{genres:10751,sort_by:'popularity.desc',filter:{without_genres:'16','vote_count.gte':200}}}}
+},
+{
+id:'adventure',title:'Приключения',i18n:{en:'Adventure',uk:'Пригоди'},group:'theme',cover:'/jhk6D8pim3yaByu1801kMoxXFaX.jpg',
+sources:{movie:{type:'discover',params:{genres:12,sort_by:'popularity.desc',filter:{without_genres:'16,27,878,53,14,35','vote_count.gte':500}}}}
+},
+{
+id:'history',title:'Исторические драмы',i18n:{en:'Historical Dramas',uk:'Історичні драми'},group:'theme',cover:'/loRmRzQXZeqG78TqZuyvSlEQfZb.jpg',
+sources:{
+movie:{type:'discover',params:{genres:36,sort_by:'popularity.desc',filter:{'vote_count.gte':200}}},
+tv:{type:'discover',params:{keywords:'15060|192772',sort_by:'popularity.desc',filter:{without_genres:'16,99','vote_count.gte':100}}}
+}
+},
+{
+id:'based-on-book',title:'По книгам',i18n:{en:'Based on Books',uk:'За книгами'},group:'theme',cover:'/v8xVDqt8uCul3c3mgx4VpGCwxJC.jpg',
+sources:{
+movie:{type:'discover',params:{keywords:818,sort_by:'popularity.desc',filter:{'vote_count.gte':300}}},
+tv:{type:'discover',params:{keywords:818,sort_by:'popularity.desc',filter:{'vote_count.gte':100}}}
+}
+},
+{
+id:'epics',title:'Эпическое кино',i18n:{en:'Epic Films',uk:'Епічне кіно'},group:'theme',cover:'/5XNQBqnBwPA9yT0jZ0p3s8bbLh0.jpg',
+sources:{movie:{type:'discover',params:{sort_by:'vote_average.desc',filter:{'with_runtime.gte':150,'vote_count.gte':1000}}}}
+},
+{
+id:'crime-series',title:'Криминальные сериалы',i18n:{en:'Crime Series',uk:'Кримінальні серіали'},group:'theme',cover:'/q3pCsNvJ7CmdJUz2sJEEUY3pOPC.jpg',
+sources:{tv:{type:'discover',params:{genres:80,sort_by:'popularity.desc',filter:{without_genres:'99','vote_count.gte':200}}}}
+},
+{
+id:'scifi-series',title:'Фантастические сериалы',i18n:{en:'Sci-Fi & Fantasy Series',uk:'Фантастичні серіали'},group:'theme',cover:'/wXSnajAZ5ppTKa8Z5zzWGOK85YH.jpg',
+sources:{tv:{type:'discover',params:{genres:10765,sort_by:'popularity.desc',filter:{without_genres:'16,10762','vote_count.gte':300}}}}
+},
+{
+id:'sitcoms',title:'Ситкомы',i18n:{en:'Sitcoms',uk:'Ситкоми'},group:'theme',cover:'/ykDYy50mHU52PqYEu4xiFFOw5mw.jpg',
+sources:{tv:{type:'discover',params:{keywords:193171,genres:35,sort_by:'popularity.desc',filter:{without_genres:'16','vote_count.gte':200}}}}
+},
+{
+id:'miniseries',title:'Мини-сериалы',i18n:{en:'Miniseries',uk:'Мінісеріали'},group:'theme',cover:'/uL6Ad12W09L1sfuOE2pcTeak7bt.jpg',
+sources:{tv:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_type:2,without_genres:'16,10762,10765','vote_count.gte':200}}}}
+},
+{
+id:'doc-series',title:'Документальные сериалы',i18n:{en:'Docuseries',uk:'Документальні серіали'},group:'theme',cover:'/eV6Qh2MljQHMMwN9vIAtnXnz2ya.jpg',
+sources:{tv:{type:'discover',params:{genres:99,sort_by:'popularity.desc',filter:{without_genres:'35,10763,10764','vote_count.gte':200}}}}
+},
+{
 id:'kdrama',title:'Корейские дорамы',group:'country',
 sources:{tv:{type:'discover',params:{genres:18,sort_by:'popularity.desc',filter:{with_origin_country:'KR'}}}}
 },
 {
-id:'anime',title:'Аниме',group:'country',
+id:'anime',title:'Аниме',group:'country',animation:true,
 sources:{tv:{type:'discover',params:{genres:16,orig_lang:'ja',sort_by:'popularity.desc'}}}
 },
 {
@@ -3179,6 +3249,26 @@ id:'australia',title:'Австралийское кино',group:'country',
 sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_origin_country:'AU','vote_count.gte':50}}}}
 },
 {
+id:'russian-series',title:'Российские сериалы',i18n:{en:'Russian Series',uk:'Російські серіали'},group:'country',cover:'/6IFfaeXokyo5j55az1wIpM1HugE.jpg',
+sources:{tv:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_origin_country:'RU','vote_count.gte':20}}}}
+},
+{
+id:'soviet',title:'Советское кино',i18n:{en:'Soviet Cinema',uk:'Радянське кіно'},group:'country',cover:'/mm3aNTjFvuo0jeitneRDc1ZUNjI.jpg',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_origin_country:'SU',without_genres:'16','vote_count.gte':50}}}}
+},
+{
+id:'korean-movies',title:'Корейское кино',i18n:{en:'Korean Cinema',uk:'Корейське кіно'},group:'country',cover:'/tBIRtMCELcA5PxO7z7OiuCHJdFO.jpg',
+sources:{movie:{type:'discover',params:{orig_lang:'ko',sort_by:'popularity.desc',filter:{with_origin_country:'KR','vote_count.gte':100}}}}
+},
+{
+id:'hongkong-china',title:'Кино Китая и Гонконга',i18n:{en:'Chinese & Hong Kong Cinema',uk:'Кіно Китаю та Гонконгу'},group:'country',cover:'/nSm9cij9VRrGDoZoS16CPnX0FqK.jpg',
+sources:{movie:{type:'discover',params:{orig_lang:'zh|cn',sort_by:'popularity.desc',filter:{with_origin_country:'CN|HK','vote_count.gte':100}}}}
+},
+{
+id:'latin',title:'Кино на испанском',i18n:{en:'Spanish-Language Cinema',uk:'Кіно іспанською'},group:'country',cover:'/o0IWa75BXyXryNDVqw0xoXZzy1J.jpg',
+sources:{movie:{type:'discover',params:{orig_lang:'es',sort_by:'popularity.desc',filter:{with_origin_country:'ES|MX|AR','vote_count.gte':300}}}}
+},
+{
 id:'best-70s',title:'Лучшее из 70-х',group:'era',
 sources:{movie:{type:'discover',params:{sort_by:'vote_average.desc',filter:{'primary_release_date.gte':'1970-01-01','primary_release_date.lte':'1979-12-31','vote_count.gte':300}}}}
 },
@@ -3215,88 +3305,124 @@ id:'best-classics',title:'Классика до 50-х',group:'era',
 sources:{movie:{type:'discover',params:{sort_by:'vote_average.desc',filter:{'primary_release_date.lte':'1949-12-31','vote_count.gte':100}}}}
 },
 {
+id:'tv-90s',title:'Сериалы 90-х',i18n:{en:'90s TV Series',uk:'Серіали 90-х'},group:'era',cover:'/4Mt7WHox67uJ1yErwTBFcV8KWgG.jpg',
+sources:{tv:{type:'discover',params:{sort_by:'vote_count.desc',filter:{'first_air_date.gte':'1990-01-01','first_air_date.lte':'1999-12-31','vote_count.gte':200}}}}
+},
+{
+id:'tv-2000s',title:'Сериалы 2000-х',i18n:{en:'2000s TV Series',uk:'Серіали 2000-х'},group:'era',cover:'/7RySzFeK3LPVMXcPtqfZnl6u4p1.jpg',
+sources:{tv:{type:'discover',params:{sort_by:'vote_count.desc',filter:{'first_air_date.gte':'2000-01-01','first_air_date.lte':'2009-12-31','vote_count.gte':200}}}}
+},
+{
 id:'nolan',title:'Кристофер Нолан',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:525}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:525}}}}
 },
 {
 id:'tarantino',title:'Квентин Тарантино',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:138}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:138}}}}
 },
 {
 id:'dicaprio',title:'Леонардо ДиКаприо',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:6193}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:6193}}}}
 },
 {
 id:'spielberg',title:'Стивен Спилберг',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:488}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:488}}}}
 },
 {
 id:'fincher',title:'Дэвид Финчер',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:7467}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:7467}}}}
 },
 {
 id:'scorsese',title:'Мартин Скорсезе',group:'people',cover:'/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:1032}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:1032}}}}
 },
 {
 id:'villeneuve',title:'Дени Вильнёв',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:137427}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:137427}}}}
 },
 {
-id:'miyazaki',title:'Хаяо Миядзаки',group:'people',cover:'/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:608}}}}
+id:'miyazaki',title:'Хаяо Миядзаки',group:'people',animation:true,cover:'/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:608}}}}
 },
 {
 id:'ridley-scott',title:'Ридли Скотт',group:'people',cover:'/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:578}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:578}}}}
 },
 {
 id:'cameron',title:'Джеймс Кэмерон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:2710}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:2710}}}}
 },
 {
 id:'del-toro',title:'Гильермо дель Торо',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:10828}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:10828}}}}
 },
 {
 id:'wes-anderson',title:'Уэс Андерсон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:5655}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:5655}}}}
 },
 {
 id:'coen-brothers',title:'Братья Коэн',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:'1223|1224'}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:'1223|1224'}}}}
 },
 {
 id:'tom-hanks',title:'Том Хэнкс',group:'people',cover:'/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:31}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:31}}}}
 },
 {
 id:'keanu-reeves',title:'Киану Ривз',group:'people',cover:'/26OvB15pqk3eiKJG8LrXDVzO7Mw.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:6384}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:6384}}}}
 },
 {
 id:'denzel',title:'Дензел Вашингтон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:5292}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:5292}}}}
 },
 {
 id:'brad-pitt',title:'Брэд Питт',group:'people',cover:'/hZkgoQYus5vegHoetLkCJzb17zJ.jpg',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:287}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:287}}}}
 },
 {
 id:'scarlett',title:'Скарлетт Йоханссон',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:1245}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:1245}}}}
 },
 {
 id:'kubrick',title:'Стэнли Кубрик',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:240}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:240}}}}
 },
 {
 id:'de-niro',title:'Роберт Де Ниро',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:380}}}}
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:380}}}}
 },
 {
-id:'tom-cruise',title:'Том Круз',group:'people',
-sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_people:500}}}}
+id:'tom-cruise',title:'Том Круз',group:'people',cover:'/kBSSbN1sOiJtXjAGVZXxHJR9Kox.jpg',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_cast:500}}}}
+},
+{
+id:'hitchcock',title:'Альфред Хичкок',i18n:{en:'Alfred Hitchcock',uk:'Альфред Гічкок'},group:'people',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:2636}}}}
+},
+{
+id:'kurosawa',title:'Акира Куросава',i18n:{en:'Akira Kurosawa',uk:'Акіра Куросава'},group:'people',
+sources:{movie:{type:'discover',params:{orig_lang:'ja',sort_by:'popularity.desc',filter:{with_crew:5026}}}}
+},
+{
+id:'tarkovsky',title:'Андрей Тарковский',i18n:{en:'Andrei Tarkovsky',uk:'Андрій Тарковський'},group:'people',
+sources:{movie:{type:'discover',params:{orig_lang:'ru|it|sv',sort_by:'popularity.desc',filter:{with_crew:8452}}}}
+},
+{
+id:'lynch',title:'Дэвид Линч',i18n:{en:'David Lynch',uk:'Девід Лінч'},group:'people',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:5602}}}}
+},
+{
+id:'burton',title:'Тим Бёртон',i18n:{en:'Tim Burton',uk:'Тім Бертон'},group:'people',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:510}}}}
+},
+{
+id:'ritchie',title:'Гай Ричи',i18n:{en:'Guy Ritchie',uk:'Гай Річі'},group:'people',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:956}}}}
+},
+{
+id:'bong-joon-ho',title:'Пон Джун Хо',i18n:{en:'Bong Joon Ho',uk:'Пон Джун Хо'},group:'people',cover:'/8eihUxjQsJ7WvGySkVMC0EwbPAD.jpg',
+sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{with_crew:21684}}}}
 },
 {
 id:'top-grossing',title:'Кассовые хиты',group:'top',
@@ -3320,6 +3446,10 @@ sources:{tv:{type:'discover',params:{sort_by:'vote_average.desc',filter:{'vote_c
 {
 id:'popular-series',title:'Популярные сериалы',i18n:{en:'Popular Series',uk:'Популярні серіали'},group:'top',cover:'/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg',
 sources:{tv:{type:'discover',params:{sort_by:'popularity.desc',filter:{without_genres:'10763','vote_count.gte':50}}}}
+},
+{
+id:'ended-series',title:'Завершённые сериалы',i18n:{en:'Completed Series',uk:'Завершені серіали'},group:'top',cover:'/wYisyC5IeuAN5WB5X81eMDcUdwu.jpg',
+sources:{tv:{type:'discover',params:{sort_by:'vote_average.desc',filter:{with_status:3,without_genres:'99,10762','vote_average.gte':7.5,'vote_count.gte':1000}}}}
 }
 ],
 themes:[
@@ -3589,6 +3719,7 @@ if(typeof c.aliases!=='undefined'&&!aliasesOk(c.aliases))return{ok:false,reason:
 if(typeof c.cover!=='undefined'&&(typeof c.cover!=='string'||!COVER_RE.test(c.cover))){
 return{ok:false,reason:'bad_cover: '+c.id};
 }
+if(typeof c.animation!=='undefined'&&typeof c.animation!=='boolean')delete c.animation;
 }
 var themes=m.themes||[];
 for(i=0;i<themes.length;i++){
@@ -5608,6 +5739,13 @@ var list=collectionsIn(manifest,g.groups);
 if(!list.length)continue;
 out.push({id:g.id,title:titleOf(g,lang),count:list.length,groups:g.groups});
 }
+var extra=[];
+var series=seriesItems(manifest);
+if(series.length)extra.push({id:SERIES_HUB,title:LC.lang('lumen_hub_series'),count:series.length,groups:[],virtual:true});
+var cartoons=animationItems(manifest);
+if(cartoons.length)extra.push({id:ANIMATION_HUB,title:LC.lang('lumen_hub_animation'),count:cartoons.length,groups:[],virtual:true});
+var at=out.length?1:0;
+for(var e=0;e<extra.length;e++)out.splice(at+e,0,extra[e]);
 var moods=moodItems(manifest);
 if(moods.length)out.push({id:MOOD_HUB,title:LC.lang('lumen_hub_moods'),count:moods.length,groups:[],moods:true});
 return out;
@@ -5625,18 +5763,51 @@ return out;
 }
 function tilesFor(manifest,hubGroupId,month){
 if(hubGroupId===MOOD_HUB)return moodItems(manifest);
-if(!manifest||!Array.isArray(manifest.hubGroups))return[];
+var list=null;
+if(hubGroupId===SERIES_HUB)list=seriesItems(manifest);
+else if(hubGroupId===ANIMATION_HUB)list=animationItems(manifest);
+else if(manifest&&Array.isArray(manifest.hubGroups)){
 for(var i=0;i<manifest.hubGroups.length;i++){
 var g=manifest.hubGroups[i];
-if(g&&g.id===hubGroupId){
-var list=collectionsIn(manifest,g.groups);
+if(g&&g.id===hubGroupId){list=collectionsIn(manifest,g.groups);break;}
+}
+}
+if(!list)return[];
 if(month&&LC.manifest&&typeof LC.manifest.orderForMonth==='function'){
 return LC.manifest.orderForMonth(list,month);
 }
 return list;
 }
+var SERIES_HUB='lumen-series';
+var ANIMATION_HUB='lumen-animation';
+function catalogWhere(manifest,test){
+var out=[];
+var list=manifest&&Array.isArray(manifest.collections)?manifest.collections:[];
+for(var i=0;i<list.length;i++){
+if(list[i]&&list[i].sources&&test(list[i]))out.push(list[i]);
 }
-return[];
+return out;
+}
+function seriesItems(manifest){
+return catalogWhere(manifest,function(c){return!!c.sources.tv;});
+}
+function animationItems(manifest){
+return catalogWhere(manifest,function(c){return c.animation===true;});
+}
+function mediaModes(item){
+var src=(item&&item.sources)||{};
+return!!(src.movie&&src.tv);
+}
+function forMedia(item,media){
+if((media!=='movie'&&media!=='tv')||!mediaModes(item))return item;
+var out={};
+for(var k in item){
+if(item.hasOwnProperty(k))out[k]=item[k];
+}
+out.id=item.id+'~'+media;
+out.sources={};
+out.sources[media]=item.sources[media];
+return out;
 }
 function inSeason(item,month){
 if(!item||!Array.isArray(item.season)||!month)return false;
@@ -5654,13 +5825,13 @@ if(!media)return null;
 if(src[media].type!=='discover')return null;
 return media;
 }
-function rouletteMedia(item,manifest){
+function rouletteMedia(item,manifest,only){
 if(!item||!item.id)return null;
 if(!LC.roulette||typeof LC.roulette.collectionsFor!=='function'||typeof LC.roulette.open!=='function')return null;
 if(manifest===undefined){
 try{manifest=LC.manifest&&LC.manifest.get?LC.manifest.get():null;}catch(e){manifest=null;}
 }
-var order=['movie','tv'];
+var order=only?[only]:['movie','tv'];
 for(var m=0;m<order.length;m++){
 var list=LC.roulette.collectionsFor(manifest,order[m]);
 for(var i=0;i<list.length;i++){
@@ -5669,7 +5840,7 @@ if(list[i]&&list[i].id===item.id)return order[m];
 }
 return null;
 }
-function openTarget(item){
+function openTarget(item,media0){
 var media=singleDiscover(item);
 if(media&&fullGridReady()){
 var url='';
@@ -5686,10 +5857,12 @@ target[FULL_MARK]=true;
 return target;
 }
 }
-return gridTarget(item);
+return gridTarget(item,media0);
 }
-function gridTarget(item){
-return{url:'',title:titleOf(item,lang()),component:'lumen_grid',lumen:item,page:1};
+function gridTarget(item,media){
+var target={url:'',title:titleOf(item,lang()),component:'lumen_grid',lumen:item,page:1};
+if((media==='movie'||media==='tv')&&mediaModes(item))target.lumen_media=media;
+return target;
 }
 function fullGridReady(){
 try{
@@ -6167,15 +6340,15 @@ source:'tmdb'
 warn('hub: open card failed',e);
 }
 }
-function openCollection(item){
+function openCollection(item,media){
 var target=null;
 try{
-target=openTarget(item);
+target=openTarget(item,media);
 Lampa.Activity.push(target);
 }catch(e){
 warn('hub: open collection failed',e);
 if(!target||target.component!=='category_full')return;
-try{Lampa.Activity.push(gridTarget(item));}catch(e2){warn('hub: open grid fallback failed',e2);}
+try{Lampa.Activity.push(gridTarget(item,media));}catch(e2){warn('hub: open grid fallback failed',e2);}
 }
 }
 function navMove(dir){
@@ -6508,7 +6681,7 @@ else byMouse=true;
 loadInView();
 try{Lampa.Layer.visible(scroll.render(true));}catch(e){}
 }
-function tileNode(item){
+function tileNode(item,media){
 var group=null;
 var i;
 for(i=0;manifest&&manifest.groups&&i<manifest.groups.length;i++){
@@ -6537,7 +6710,7 @@ stageFor(node[0]);
 loadVisibleBanners();
 });
 node.on('hover:enter',function(){
-openCollection(item);
+openCollection(item,media);
 });
 return node[0];
 }
@@ -6547,8 +6720,9 @@ activeGroup=groupId;
 var list=tilesFor(manifest,groupId,month());
 tilesRow.empty();
 tileNodes=[];
+var media=groupId===SERIES_HUB?'tv':'';
 for(var i=0;i<list.length;i++){
-var node=tileNode(list[i]);
+var node=tileNode(list[i],media);
 tilesRow.append(node);
 tileNodes.push(node);
 }
@@ -6607,7 +6781,7 @@ return true;
 }
 function buildHead(){
 var total=0;
-for(var i=0;i<groups.length;i++)if(!groups[i].moods)total+=groups[i].count;
+for(var i=0;i<groups.length;i++)if(!groups[i].moods&&!groups[i].virtual)total+=groups[i].count;
 head.empty();
 head.append($('<div class="lumen-hub__title">'+esc(LC.lang('lumen_hub_title'))+'</div>'));
 head.append($('<div class="lumen-hub__count">'+total+' '+esc(LC.collectionsWord(total))+'</div>'));
@@ -6703,7 +6877,10 @@ try{root.remove();}catch(e3){}
 }
 function GridComponent(object){
 var self=this;
-var item=(object&&object.lumen)||{id:'unknown',title:(object&&object.title)||'',sources:{}};
+var base=(object&&object.lumen)||{id:'unknown',title:(object&&object.title)||'',sources:{}};
+var mediaMode='';
+if(mediaModes(base))mediaMode=(object.lumen_media==='movie'||object.lumen_media==='tv')?object.lumen_media:'all';
+var item=forMedia(base,mediaMode);
 var scroll=new Lampa.Scroll({mask:true,over:true,step:250});
 var root=$('<div class="lumen-grid"></div>');
 var head=$('<div class="lumen-grid__head"></div>');
@@ -6722,6 +6899,7 @@ var resumeAfterStop=null;
 var raw=[];
 var cardNodes=[];
 var sortNodes=[];
+var mediaNodes=[];
 var emptyNodes=[];
 var rouletteNode=null;
 var lastFocus=null;
@@ -6771,7 +6949,7 @@ var active=-1;
 for(var i=0;i<cardNodes.length;i++){
 if(cardNodes[i]===target){active=i;break;}
 }
-var fixed=sortNodes.concat(emptyNodes);
+var fixed=mediaNodes.concat(sortNodes,emptyNodes);
 if(rouletteNode)fixed.push(rouletteNode);
 limitCollection(fixed,cardNodes,active);
 }
@@ -7048,6 +7226,79 @@ recollect(node[0]);
 });
 return node[0];
 }
+function buildSorts(){
+var i;
+for(i=0;i<sortNodes.length;i++)$(sortNodes[i]).remove();
+if(rouletteNode)$(rouletteNode).remove();
+sortNodes=[];
+rouletteNode=null;
+var modes=sortModes(item);
+for(i=0;i<modes.length;i++){
+var node=sortNode(modes[i]);
+sortsRow.append(node);
+sortNodes.push(node);
+}
+highlightSort();
+var rmedia=rouletteMedia(base,undefined,mediaMode==='movie'||mediaMode==='tv'?mediaMode:null);
+if(rmedia){
+var roulette=$('<div class="lumen-chip lumen-grid__roulette selector">'+LC.icons.get('star')+'<span>'+esc(LC.lang('lumen_grid_roulette'))+'</span></div>');
+LC.focus.on(roulette,function(e){keepVisible(roulette[0],e);lastFocus=roulette[0];dim(false);});
+roulette.on('hover:enter',function(){LC.roulette.open(rmedia,base.id);});
+sortsRow.append(roulette);
+rouletteNode=roulette[0];
+}
+}
+var MEDIA_KEYS=[['all','lumen_grid_all'],['movie','lumen_grid_movies'],['tv','lumen_grid_series']];
+function highlightMedia(){
+for(var i=0;i<mediaNodes.length;i++){
+$(mediaNodes[i]).toggleClass('lumen-chip--on',mediaNodes[i].lumen_media===mediaMode);
+}
+}
+function buildMedia(){
+if(!mediaMode)return;
+var wrap=$('<div class="lumen-grid__media"></div>');
+for(var i=0;i<MEDIA_KEYS.length;i++){
+var node=mediaNode(MEDIA_KEYS[i][0],MEDIA_KEYS[i][1]);
+wrap.append(node);
+mediaNodes.push(node);
+}
+sortsRow.append(wrap);
+highlightMedia();
+if(mediaMode!=='all'){
+for(var j=0;j<mediaNodes.length;j++)if(mediaNodes[j].lumen_media===mediaMode)lastFocus=mediaNodes[j];
+}
+}
+function mediaNode(value,key){
+var node=$('<div class="lumen-chip selector">'+esc(LC.lang(key))+'</div>');
+node[0].lumen_media=value;
+LC.focus.on(node,function(e){keepVisible(node[0],e);lastFocus=node[0];dim(false);});
+node.on('hover:enter',function(){setMedia(value,node[0]);});
+return node[0];
+}
+function setMedia(value,focusNode){
+if(!mediaMode||mediaMode===value)return;
+var prev=item;
+bump();
+loading=false;
+pending=null;
+try{self.activity.loader(false);}catch(eL){}
+mediaMode=value;
+item=forMedia(base,value);
+var modes=sortModes(item);
+var keep=sortMode!==defaultSort(prev);
+var has=false;
+for(var i=0;i<modes.length;i++)if(modes[i].id===sortMode)has=true;
+if(!keep||!has)sortMode=defaultSort(item);
+highlightMedia();
+buildSorts();
+raw=[];
+page=1;
+totalPages=1;
+totalResults=0;
+lastCardId=null;
+loadPage(1,true);
+recollect(focusNode);
+}
 this.create=function(){
 motionClass(root);
 screenBg(self.activity);
@@ -7055,21 +7306,8 @@ stage=ScreenStage(self.activity);
 head.append($('<div class="lumen-grid__title">'+esc(titleOf(item,lang()))+'</div>'));
 head.append(subtitle);
 root.append(head);
-var modes=sortModes(item);
-for(var i=0;i<modes.length;i++){
-var node=sortNode(modes[i]);
-sortsRow.append(node);
-sortNodes.push(node);
-}
-highlightSort();
-var rmedia=rouletteMedia(item);
-if(rmedia){
-var roulette=$('<div class="lumen-chip lumen-grid__roulette selector">'+LC.icons.get('star')+'<span>'+esc(LC.lang('lumen_grid_roulette'))+'</span></div>');
-LC.focus.on(roulette,function(e){keepVisible(roulette[0],e);lastFocus=roulette[0];dim(false);});
-roulette.on('hover:enter',function(){LC.roulette.open(rmedia,item.id);});
-sortsRow.append(roulette);
-rouletteNode=roulette[0];
-}
+buildMedia();
+buildSorts();
 root.append(sortsRow);
 root.append(itemsRow);
 scroll.append(root);
@@ -7115,6 +7353,7 @@ if(stage)stage.destroy();
 stage=null;
 cardNodes=[];
 sortNodes=[];
+mediaNodes=[];
 emptyNodes=[];
 rouletteNode=null;
 lastFocus=null;
@@ -7218,6 +7457,12 @@ STAGE_BODY:STAGE_BODY,
 FULL_MARK:FULL_MARK,
 fullStage:{start:fullStart,destroy:fullDestroy,clear:fullClear,count:function(){return fulls.length;}},
 moodItems:moodItems,
+SERIES_HUB:SERIES_HUB,
+ANIMATION_HUB:ANIMATION_HUB,
+seriesItems:seriesItems,
+animationItems:animationItems,
+mediaModes:mediaModes,
+forMedia:forMedia,
 open:openCollection,
 rouletteMedia:rouletteMedia,
 franchiseItem:franchiseItem,
@@ -24443,6 +24688,11 @@ uk:'Немає джерела'
 },
 lumen_hub_title:{ru:'Подборки',en:'Collections',uk:'Підбірки'},
 lumen_hub_moods:{ru:'Настроение',en:'Mood',uk:'Настрій'},
+lumen_hub_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
+lumen_hub_animation:{ru:'Мультфильмы',en:'Animation',uk:'Мультфільми'},
+lumen_grid_all:{ru:'Всё',en:'All',uk:'Усе'},
+lumen_grid_movies:{ru:'Фильмы',en:'Movies',uk:'Фільми'},
+lumen_grid_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
 lumen_search_source:{ru:'Подборки',en:'Collections',uk:'Підбірки'},
 lumen_search_gone:{ru:'Подборка больше недоступна',en:'This collection is no longer available',uk:'Підбірка більше недоступна'},
 lumen_hub_search:{ru:'ПОИСК ПО ПОДБОРКАМ',en:'SEARCH COLLECTIONS',uk:'ПОШУК ПО ПІДБІРКАХ'},
