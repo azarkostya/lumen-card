@@ -1,4 +1,4 @@
-// Lumen Card for Lampa v1.0.2
+// Lumen Card for Lampa v1.1.0
 /* ---- 00_head.js ---- */
 /*!
  * Lumen Card — плагин карточки фильма/сериала для Lampa. Строгий ES5.
@@ -9,7 +9,7 @@ if(typeof window!=='undefined'&&window.lumen_card_plugin)return;
 if(typeof window!=='undefined')window.lumen_card_plugin=true;
 var LC={};
 if(typeof window!=='undefined')window.lumen_card=LC;
-LC.VERSION='1.0.2';
+LC.VERSION='1.1.0';
 LC.MANIFEST_URL='https://azarkostya.github.io/lumen-card/manifest.json';
 var PLUGIN='lumen_card';
 function warn(msg,err){

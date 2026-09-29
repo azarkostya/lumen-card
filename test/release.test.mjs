@@ -8,9 +8,9 @@ import { localProblems } from '../scripts/release.mjs';
    main. Те же проверки гоняет scripts/release.mjs перед выпуском. */
 const read = (p) => { try { return readFileSync(new URL('../' + p, import.meta.url), 'utf8'); } catch (e) { return null; } };
 
-test('релиз: версия 1.0.2 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
+test('релиз: версия 1.1.0 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
   const r = localProblems(read);
-  assert.equal(r.version, '1.0.2');
+  assert.equal(r.version, '1.1.0');
   assert.deepEqual(r.problems, []);
 });
 
