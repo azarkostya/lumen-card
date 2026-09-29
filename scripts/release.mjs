@@ -4,12 +4,15 @@
 //   node scripts/release.mjs                 локально: LC.VERSION в src/00_head.js —
 //                                            x.y.z, баннер dist/lumen_card.js с той же
 //                                            версией, раздел «## x.y.z» в CHANGELOG.md,
-//                                            запасной адрес lumen.js — стабильная @main;
+//                                            запасной адрес lumen.js — стабильная @main,
+//                                            метка BUILD в lumen.js = хэш dist;
 //   node scripts/release.mjs --purge         сбросить кэш jsDelivr (lumen.js, dist,
 //                                            manifest.json) для ветки --ref;
 //   node scripts/release.mjs --remote        сверить, что GitHub Pages и jsDelivr @ref
 //                                            отдают ровно файлы коммита --sha (sha256)
-//                                            и баннер с его версией.
+//                                            и баннер с его версией — в том числе
+//                                            сборку по тому адресу, что просит ТВ:
+//                                            dist/lumen_card.js?v=<BUILD из lumen.js>.
 //   --ref <ветка>  ветка jsDelivr, по умолчанию main (бета — feat/lumen-v2);
 //   --sha <rev>    коммит, с которым сверяется хостинг, по умолчанию HEAD.
 //
@@ -21,6 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildStamp } from './build.mjs';
 
 const REPO = 'azarkostya/lumen-card';
 const PAGES = 'https://azarkostya.github.io/lumen-card/';
@@ -44,6 +48,22 @@ export function localProblems(read) {
   return { version, problems: out };
 }
 
+/* Метка сборки в загрузчике (var BUILD, вписывает scripts/build.mjs) обязана
+   быть хэшем dist: иначе ТВ попросит сборку по чужому адресу. Отдельно от
+   localProblems — у той фиксированный набор проверок (test/release.test.mjs). */
+export function loaderBuild(loader) {
+  const m = /var BUILD = '([0-9a-f]+)';/.exec(loader || '');
+  return m ? m[1] : '';
+}
+
+export function stampProblems(read) {
+  const build = loaderBuild(read('lumen.js'));
+  const dist = read('dist/lumen_card.js');
+  if (!build) return ["в lumen.js нет метки var BUILD = '…';"];
+  if (dist === null || build !== buildStamp(dist)) return ['метка BUILD в lumen.js (' + build + ') не хэш dist — нужна сборка'];
+  return [];
+}
+
 function arg(name, def) {
   const i = process.argv.indexOf(name);
   return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
@@ -57,7 +77,9 @@ async function main() {
   const rev = arg('--sha', 'HEAD');
   let failed = false;
 
-  const local = localProblems((p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return null; } });
+  const readLocal = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return null; } };
+  const local = localProblems(readLocal);
+  local.problems = local.problems.concat(stampProblems(readLocal));
   console.log('версия ' + (local.version || '?') + ', локальные проверки: ' + (local.problems.length ? 'ЕСТЬ РАСХОЖДЕНИЯ' : 'ok'));
   for (const p of local.problems) console.log('  - ' + p);
   failed = failed || local.problems.length > 0;
@@ -78,16 +100,24 @@ async function main() {
     const full = execFileSync('git', ['rev-parse', rev], { cwd: root, encoding: 'utf8' }).trim();
     console.log('сверка хостинга с ' + full.slice(0, 7) + ' (jsDelivr @' + ref + ')');
     const bases = [['pages', PAGES, '?release=' + Date.now()], ['jsdelivr', 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + ref + '/', '']];
-    for (const f of FILES) {
-      const want = execFileSync('git', ['show', full + ':' + f], { cwd: root, maxBuffer: 64 << 20 });
-      for (const [name, base, q] of bases) {
+    const show = (f) => execFileSync('git', ['show', full + ':' + f], { cwd: root, maxBuffer: 64 << 20 });
+    // Сборка по адресу с меткой — ровно тот запрос, что делает загрузчик на
+    // ТВ (без своего «?release=»: проверяется то, что лежит в кэше CDN под
+    // этим адресом).
+    const build = loaderBuild(show('lumen.js').toString('utf8'));
+    const checks = FILES.map((f) => [f, bases]);
+    if (build) checks.push(['dist/lumen_card.js', bases.map(([name, base]) => [name, base, '?v=' + build])]);
+    else console.log('  (в lumen.js коммита нет метки BUILD — сборка до 1.1)');
+    for (const [f, where] of checks) {
+      const want = show(f);
+      for (const [name, base, q] of where) {
         let line;
         try {
           const r = await fetch(base + f + q, { cache: 'no-store' });
           const got = Buffer.from(await r.arrayBuffer());
           const same = r.ok && sha256(got) === sha256(want);
           const tag = f === 'dist/lumen_card.js' ? ' «' + got.toString('utf8', 0, 60).split('\n')[0] + '»' : '';
-          line = (same ? 'ok  ' : 'DIFF') + ' ' + name + ' ' + f + ' HTTP ' + r.status + tag;
+          line = (same ? 'ok  ' : 'DIFF') + ' ' + name + ' ' + f + (q.indexOf('?v=') === 0 ? q : '') + ' HTTP ' + r.status + tag;
           if (!same) failed = true;
         } catch (e) { line = 'ERR  ' + name + ' ' + f + ': ' + e.message; failed = true; }
         console.log('  ' + line);
