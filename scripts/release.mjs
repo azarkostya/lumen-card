@@ -28,7 +28,11 @@ import { buildStamp } from './build.mjs';
 
 const REPO = 'azarkostya/lumen-card';
 const PAGES = 'https://azarkostya.github.io/lumen-card/';
-const FILES = ['lumen.js', 'dist/lumen_card.js', 'manifest.json'];
+/* Порядок значим для --purge: загрузчик — последним. lumen.js несёт метку
+   сборки (?v=BUILD); сбрось его раньше dist — и ТВ между двумя сбросами
+   попросит dist/lumen_card.js?v=<новая> и может получить из кэша jsDelivr
+   старую сборку, которую браузер запомнит под новым адресом (max-age 7 дней). */
+const FILES = ['dist/lumen_card.js', 'manifest.json', 'lumen.js'];
 
 /* Локальные проверки. read(path) → текст файла относительно корня или null. */
 export function localProblems(read) {
