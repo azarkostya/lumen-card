@@ -59,23 +59,20 @@
       '1.2.0': {
         ru: [
           'На главной — ряд «Вышло в цифре»: фильмы, которые только что стали доступны в хорошем качестве.',
-          'Детский режим в настройках: на главной и в подборках — только мультфильмы и семейное кино. В «Подборках» появился раздел «Детям».',
+          'Детский режим в настройках: на главной и в подборках — только мультфильмы и семейное кино.',
           'Подборка «Братья Коэн» теперь целиком — вместе с фильмами, которые Итан снял сам.',
-          'На медленном интернете ряды и постеры подгружаются быстрее.',
           'Такое окно будет появляться один раз после каждого обновления.'
         ],
         en: [
           'A new "New on digital" row on the home screen: films that have just become available in good quality.',
-          'Kids mode in the settings: only cartoons and family films on the home screen and in collections. Collections now have a "For kids" section.',
+          'Kids mode in the settings: only cartoons and family films on the home screen and in collections.',
           'The "Coen Brothers" collection is now complete, including the films Ethan made on his own.',
-          'Rows and posters load faster on a slow connection.',
           'This window will appear once after every update.'
         ],
         uk: [
           'На головній — ряд «Вийшло в цифрі»: фільми, які щойно стали доступні в добрій якості.',
-          'Дитячий режим у налаштуваннях: на головній і в підбірках — лише мультфільми та сімейне кіно. У «Підбірках» з’явився розділ «Дітям».',
+          'Дитячий режим у налаштуваннях: на головній і в підбірках — лише мультфільми та сімейне кіно.',
           'Підбірка «Брати Коен» тепер повна — разом із фільмами, які Ітан зняв сам.',
-          'На повільному інтернеті ряди й постери підвантажуються швидше.',
           'Таке вікно з’являтиметься один раз після кожного оновлення.'
         ]
       }

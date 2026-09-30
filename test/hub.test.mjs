@@ -3682,36 +3682,12 @@ test('переключатель медиа: рулетка — того же м
 });
 
 /* ====================================================================== */
-/* 1.2: детский режим (src/41_kids.js) и чип «Детям».                      */
+/* 1.2: детский режим (src/41_kids.js).                                   */
 /* ====================================================================== */
 
 function kidsMod(on) {
   return loadCtx('41_kids.js', { pref: function (k, d) { return k === 'lumen_kids' ? on : d; } }).api;
 }
-
-var KIDS_MANIFEST = Object.assign({}, SLICE_MANIFEST, {
-  collections: SLICE_MANIFEST.collections.map(function (c) {
-    return (c.id === 'shrek' || c.id === 'star-wars') ? Object.assign({}, c, { kids: true }) : c;
-  }).concat([{ id: 'fake-kids', title: 'Не детская', group: 'studio', kids: 'yes', sources: { movie: { type: 'discover', params: {} } } }])
-});
-
-test('kids: чип «Детям» — сразу за «Мультфильмами», virtual, счёт по тегу kids: true', function () {
-  var g = H.groupsWithCounts(KIDS_MANIFEST, 'ru');
-  assert.deepEqual(g.map(function (x) { return x.id; }), ['franchises', H.SERIES_HUB, H.ANIMATION_HUB, H.KIDS_HUB, 'studios']);
-  assert.equal(g[3].title, 'lumen_hub_kids');
-  assert.equal(g[3].count, 2, 'star-wars и shrek; kids: "yes" — не тег');
-  assert.ok(g[3].virtual, 'шапка не считает срез в число подборок');
-  assert.deepEqual(H.tilesFor(KIDS_MANIFEST, H.KIDS_HUB).map(function (t) { return t.id; }), ['star-wars', 'shrek']);
-});
-
-test('kids: чипа «Детям» нет без тегов и когда детские — весь каталог (детский режим)', function () {
-  var ids = H.groupsWithCounts(SLICE_MANIFEST, 'ru').map(function (x) { return x.id; });
-  assert.equal(ids.indexOf(H.KIDS_HUB), -1);
-  var all = Object.assign({}, KIDS_MANIFEST, { collections: H.kidsItems(KIDS_MANIFEST) });
-  ids = H.groupsWithCounts(all, 'ru').map(function (x) { return x.id; });
-  assert.equal(ids.indexOf(H.KIDS_HUB), -1, 'повторял бы «все подборки»');
-  assert.ok(ids.indexOf(H.ANIMATION_HUB) !== -1);
-});
 
 test('kids: openTarget — в детском режиме одиночный discover открывается своей сеткой', function () {
   var on = loadHub({ kids: kidsMod(true) }).api;

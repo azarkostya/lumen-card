@@ -992,8 +992,6 @@
        переключатель медиа в сетке подборки с фильмами и сериалами. */
     lumen_hub_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },
     lumen_hub_animation: { ru: 'Мультфильмы', en: 'Animation', uk: 'Мультфільми' },
-    /* 1.2: чип «Детям» — подборки с тегом kids (детский режим). */
-    lumen_hub_kids: { ru: 'Детям', en: 'For Kids', uk: 'Дітям' },
     lumen_grid_all: { ru: 'Всё', en: 'All', uk: 'Усе' },
     lumen_grid_movies: { ru: 'Фильмы', en: 'Movies', uk: 'Фільми' },
     lumen_grid_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },

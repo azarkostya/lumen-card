@@ -6,8 +6,7 @@
   /*   groupsWithCounts(manifest, lang) → [{id, title, count, groups}]      */
   /*   tilesFor(manifest, hubGroupId) → [подборка, …]                       */
   /*   openTarget(item, media) → объект для Lampa.Activity.push             */
-  /*   seriesItems / animationItems / kidsItems — срезы «Сериалы»,          */
-  /*     «Мультфильмы» и «Детям»                                           */
+  /*   seriesItems / animationItems — срезы «Сериалы» и «Мультфильмы»      */
   /*   mediaModes(item) / forMedia(item, media) — переключатель медиа сетки */
   /*   open(item) — открыть подборку (фолбэк на свою сетку; «Ещё» рядов)    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
@@ -184,12 +183,6 @@
       if (series.length) extra.push({ id: SERIES_HUB, title: LC.lang('lumen_hub_series'), count: series.length, groups: [], virtual: true });
       var cartoons = animationItems(manifest);
       if (cartoons.length) extra.push({ id: ANIMATION_HUB, title: LC.lang('lumen_hub_animation'), count: cartoons.length, groups: [], virtual: true });
-      /* 1.2 (решение пользователя 29.09): «Детям» — рядом с «Мультфильмами»,
-         подборки с тегом kids (то же, что показывает детский режим). Когда
-         детские — весь каталог (детский режим включён), чип повторял бы
-         «все подборки» и не показывается. */
-      var kids = kidsItems(manifest);
-      if (kids.length && kids.length < manifest.collections.length) extra.push({ id: KIDS_HUB, title: LC.lang('lumen_hub_kids'), count: kids.length, groups: [], virtual: true });
       var at = out.length ? 1 : 0;
       for (var e = 0; e < extra.length; e++) out.splice(at + e, 0, extra[e]);
       /* Решение пользователя 2026-09-26: профили настроения — последним
@@ -234,7 +227,6 @@
       var list = null;
       if (hubGroupId === SERIES_HUB) list = seriesItems(manifest);
       else if (hubGroupId === ANIMATION_HUB) list = animationItems(manifest);
-      else if (hubGroupId === KIDS_HUB) list = kidsItems(manifest);
       else if (manifest && Array.isArray(manifest.hubGroups)) {
         for (var i = 0; i < manifest.hubGroups.length; i++) {
           var g = manifest.hubGroups[i];
@@ -253,7 +245,6 @@
        группа. */
     var SERIES_HUB = 'lumen-series';
     var ANIMATION_HUB = 'lumen-animation';
-    var KIDS_HUB = 'lumen-kids';
 
     function catalogWhere(manifest, test) {
       var out = [];
@@ -270,10 +261,6 @@
 
     function animationItems(manifest) {
       return catalogWhere(manifest, function (c) { return c.animation === true; });
-    }
-
-    function kidsItems(manifest) {
-      return catalogWhere(manifest, function (c) { return c.kids === true; });
     }
 
     /* Сетка подборки с обоими источниками — переключатель «Всё / Фильмы /
@@ -2994,10 +2981,8 @@
          переключатель медиа сетки. */
       SERIES_HUB: SERIES_HUB,
       ANIMATION_HUB: ANIMATION_HUB,
-      KIDS_HUB: KIDS_HUB,
       seriesItems: seriesItems,
       animationItems: animationItems,
-      kidsItems: kidsItems,
       mediaModes: mediaModes,
       forMedia: forMedia,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
