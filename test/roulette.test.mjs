@@ -2562,3 +2562,129 @@ test('kids: пул рулетки в детском режиме — без уж
   flushTimers();
   assert.equal(env.count(), '3', 'выключен — как было');
 });
+
+/* Ревью детского режима, п.1: в детском режиме экран строит чипы по
+   детской копии каталога (LC.manifest.load), а набор в хранилище общий.
+   Касание чипа сохраняло только детские id — взрослый набор стирался.
+   Теперь id полного каталога (LC.manifest.raw), которых на экране нет,
+   при сохранении остаются. */
+test('kids: keepHidden — скрытые id полного каталога остаются, снятые из каталога уходят', () => {
+  const full = [{ id: 'a' }, { id: 'adult' }, { id: 'b' }];
+  const shown = [{ id: 'a' }, { id: 'b' }];
+  assert.deepEqual(R.keepHidden(['b'], ['adult', 'venom', 'a'], shown, full), ['b', 'adult']);
+  assert.deepEqual(R.keepHidden([], ['adult'], shown, full), ['adult']);
+  assert.deepEqual(R.keepHidden(['a'], ['adult'], shown, []), ['a'], 'без полного каталога — как было');
+  assert.deepEqual(R.keepHidden(['a'], ['a', 'b'], shown, full), ['a'], 'снятое на экране не возвращается');
+});
+
+test('kids: взрослый набор → детский режим → касание чипа → режим выключен — набор на месте', (t) => {
+  const FULL = {
+    version: 1,
+    home: ['col-a'],
+    collections: [
+      { id: 'col-a', title: 'Детская', kids: true, sources: { movie: { type: 'discover', params: {} } } },
+      { id: 'col-adult', title: 'Взрослая', sources: { movie: { type: 'discover', params: {} } } }
+    ]
+  };
+  const store = { lumen_roulette_movie: 'col-adult' };
+  /* Детский режим: load отдаёт детскую копию (MANIFEST34 — только col-a). */
+  let env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, null, null, store);
+  env.LC.kids = kidsLC(true);
+  env.LC.manifest.raw = function () { return FULL; };
+  let chips = env.chips();
+  assert.equal(chips[0].hasClass('lumen-chip--on'), true, 'в детском каталоге взрослой подборки нет — «Все подборки»');
+  fire(chips[1], 'hover:enter');
+  assert.equal(store.lumen_roulette_movie, 'col-a,col-adult', 'касание чипа стёрло взрослый выбор');
+  fire(chips[1], 'hover:enter');
+  assert.equal(store.lumen_roulette_movie, 'col-adult', 'снятие чипа стёрло взрослый выбор');
+  fire(chips[1], 'hover:enter');
+  fire(env.chips()[0], 'hover:enter');
+  assert.equal(store.lumen_roulette_movie, 'col-adult', '«Все подборки» стёрли взрослый выбор');
+
+  /* Режим выключен: load отдаёт полный каталог. */
+  const saved = MANIFEST34;
+  MANIFEST34 = FULL;
+  try {
+    env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, null, null, store);
+    env.LC.kids = kidsLC(false);
+    env.LC.manifest.raw = function () { return FULL; };
+    chips = env.chips();
+    assert.equal(chips[0].hasClass('lumen-chip--on'), false);
+    assert.equal(chips[1].hasClass('lumen-chip--on'), false, 'col-a не отмечали');
+    assert.equal(chips[2].hasClass('lumen-chip--on'), true, 'взрослая подборка не отмечена');
+    fire(chips[1], 'hover:enter');
+    assert.equal(store.lumen_roulette_movie, 'col-adult,col-a', 'во взрослом режиме набор пишется как прежде');
+  } finally {
+    MANIFEST34 = saved;
+  }
+});
+
+/* Ревью детского режима, п.4: пул, собранный до переключения режима (экран
+   рулетки лежал в истории Activity), после возврата не годится — признак
+   режима входит в ключ пула, и «Крутить» собирает его заново. */
+test('kids: смена режима при собранном пуле — пул собирается заново, уже с фильтром', (t) => {
+  const cards = [
+    Object.assign({}, R44, { genre_ids: [16, 10751] }),
+    Object.assign({}, NOFRAME44, { genre_ids: [27, 53] })
+  ];
+  const env = openRoulette34(cards, t, 1, 'lite');
+  let on = false;
+  env.LC.kids = kidsLC(false);
+  env.LC.kids.enabled = function () { return on; };
+  env.comp.start();
+  flushTimers();
+  assert.equal(env.count(), '2');
+  const before = fetchCalls34;
+  on = true;
+  const realRandom = Math.random;
+  try {
+    for (const r of [0, 0.999]) {
+      Math.random = function () { return r; };
+      spinAndFlush(env);
+      assert.equal(env.screen.find('.lumen-roulette__rtitle').text(), 'Фильм Р', 'из пула выпала карточка ужасов');
+    }
+  } finally {
+    Math.random = realRandom;
+  }
+  assert.ok(fetchCalls34 > before, 'пул взрослого режима пошёл в детский без пересборки');
+});
+
+/* Приёмка 2026-09-30: в детском режиме «Все подборки» крутили одни
+   «Звёздные войны» — home детской копии каталога — это пересечение, и от
+   главной по умолчанию в нём остаётся одна star-wars. В детском режиме
+   набор главной добирается до MAX_SOURCES случайными детскими подборками. */
+test('kids: sourcesFor(rnd) — набор главной добирается случайными подборками до предела', () => {
+  const list = [];
+  for (let i = 0; i < 8; i++) list.push({ id: 'k' + i, sources: { movie: {} } });
+  const m = { home: ['k3'] };
+  assert.deepEqual(R.sourcesFor(list, [], m).map((c) => c.id), ['k3'], 'без rnd — как было');
+  const zero = R.sourcesFor(list, [], m, () => 0).map((c) => c.id);
+  assert.deepEqual(zero, ['k3', 'k0', 'k1', 'k2', 'k4'], 'главная первой, затем добор без повторов');
+  const top = R.sourcesFor(list, [], m, () => 0.999).map((c) => c.id);
+  assert.deepEqual(top, ['k3', 'k7', 'k6', 'k5', 'k4']);
+  assert.deepEqual(R.sourcesFor(list, ['k5'], m, () => 0).map((c) => c.id), ['k5'], 'выбранное чипами не добирается');
+  assert.deepEqual(R.sourcesFor(list.slice(0, 2), [], { home: [] }, () => 0).map((c) => c.id), ['k0', 'k1'], 'подборок меньше предела — все');
+});
+
+test('kids: «Все подборки» в детском режиме — пул из MAX_SOURCES подборок, а не из одной главной', (t) => {
+  const KIDS = { version: 1, home: ['star-wars'], collections: [] };
+  KIDS.collections.push({ id: 'star-wars', title: 'Звёздные войны', kids: true, sources: { movie: { type: 'discover', params: {} } } });
+  for (let i = 0; i < 6; i++) KIDS.collections.push({ id: 'k' + i, title: 'Детская ' + i, kids: true, sources: { movie: { type: 'discover', params: {} } } });
+  const saved = MANIFEST34;
+  MANIFEST34 = KIDS;
+  try {
+    let env = openRoulette34([Object.assign({}, R44, { genre_ids: [16, 10751] })], t, 1, 'lite', { media: 'movie' });
+    env.LC.kids = kidsLC(true);
+    env.comp.start();
+    flushTimers();
+    assert.equal(env.chips()[0].hasClass('lumen-chip--on'), true, 'предпосылка: «Все подборки»');
+    assert.equal(poolSets34, R.MAX_SOURCES, 'в детском режиме «Все подборки» — одна подборка главной');
+    env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' });
+    env.LC.kids = kidsLC(false);
+    env.comp.start();
+    flushTimers();
+    assert.equal(poolSets34, 1, 'взрослый режим — набор главной, как было');
+  } finally {
+    MANIFEST34 = saved;
+  }
+});

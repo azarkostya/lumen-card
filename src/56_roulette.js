@@ -7,7 +7,7 @@
   /*   shortLimit(media) / fitsShort(details, media)                       */
   /*   pick(pool, rnd) → один кандидат или null                            */
   /*   spinPlan(total) → шаги барабана [{index, delay}]                    */
-  /*   collectionsFor(manifest, media) / sourcesFor(list, ids, manifest)   */
+  /*   collectionsFor(manifest, media) / sourcesFor(list, ids, manifest, rnd) */
   /*   parseIds(text) / joinIds(ids) / storageKey(media)                    */
   /*   normalizeMedia(value) / MAX_SOURCES                                  */
   /*   atvLook() → вид «как Apple TV» (настройка lumen_flat)                */
@@ -392,8 +392,14 @@
 
     /* Из чего собирать пул: выбранные чипами подборки, а если не выбрано
        ничего («Все») — набор главной. Полторы сотни подборок разом никто не
-       грузит: предел MAX_SOURCES. */
-    function sourcesFor(list, ids, manifest) {
+       грузит: предел MAX_SOURCES.
+       rnd (необязательный, 1.2 — детский режим): набор главной добирается
+       до MAX_SOURCES случайными подборками списка. У детской копии каталога
+       home — пересечение с детскими подборками, и от главной по умолчанию в
+       нём одни «Звёздные войны»: приёмка 2026-09-30 — «Все подборки»
+       крутили только их, 9 вращений из 9. Взрослый режим rnd не передаёт —
+       там всё как было. */
+    function sourcesFor(list, ids, manifest, rnd) {
       var out = [];
       if (!list || !list.length) return out;
       var picked = {};
@@ -409,6 +415,15 @@
       for (i = 0; i < list.length; i++) byId[list[i].id] = list[i];
       for (i = 0; i < home.length && out.length < MAX_SOURCES; i++) {
         if (byId[home[i]]) out.push(byId[home[i]]);
+      }
+      if (typeof rnd === 'function' && out.length < MAX_SOURCES) {
+        var rest = [];
+        for (i = 0; i < list.length; i++) if (out.indexOf(list[i]) < 0) rest.push(list[i]);
+        while (rest.length && out.length < MAX_SOURCES) {
+          var at = Math.floor(rnd() * rest.length);
+          if (at < 0 || at >= rest.length) at = rest.length - 1;
+          out.push(rest.splice(at, 1)[0]);
+        }
       }
       if (out.length) return out;
       /* У каталога без home (или без единой подборки этого медиа в нём)
@@ -431,6 +446,26 @@
       var i;
       for (i = 0; list && i < list.length; i++) if (list[i]) have[list[i].id] = 1;
       for (i = 0; ids && i < ids.length; i++) if (have[ids[i]]) out.push(ids[i]);
+      return out;
+    }
+
+    /* 1.2, ревью детского режима: экран показывает детскую копию каталога
+       (LC.manifest.get/load), а набор чипов в хранилище один на оба режима.
+       Сохраняя набор, оставляем id из прежнего (stored), которых нет среди
+       показанных подборок (shown), но которые есть в полном каталоге
+       (full — LC.manifest.raw): иначе первое же касание чипа в детском
+       режиме стирало взрослый выбор. Снятое из каталога вовсе (C5) уходит,
+       как и прежде. Порядок: сначала ids, затем скрытые в прежнем порядке. */
+    function keepHidden(ids, stored, shown, full) {
+      var out = ids ? ids.slice() : [];
+      var have = {};
+      var i;
+      for (i = 0; i < out.length; i++) have[out[i]] = 1;
+      for (i = 0; shown && i < shown.length; i++) if (shown[i]) have[shown[i].id] = 1;
+      var hidden = knownIds(stored, full);
+      for (i = 0; i < hidden.length; i++) {
+        if (!have[hidden[i]]) { have[hidden[i]] = 1; out.push(hidden[i]); }
+      }
       return out;
     }
 
@@ -1110,7 +1145,13 @@
         for (var i = 0; i < chosen.length; i++) {
           if (!like || chosen[i] !== like.id) ids.push(chosen[i]);
         }
-        saveIds(media, ids);
+        /* Детский режим: подборки полного каталога, которых на экране нет,
+           из набора не выпадают (keepHidden). */
+        var full = [];
+        try {
+          if (LC.manifest && typeof LC.manifest.raw === 'function') full = collectionsFor(LC.manifest.raw(), media);
+        } catch (eRaw) { }
+        saveIds(media, keepHidden(ids, storedIds(media), collections, full));
       }
 
       function chipNode(text, on) {
@@ -1185,9 +1226,14 @@
       /* ---------------------------------------------------------------- */
 
       /* Ключ состояния пула: медиа плюс набор подборок. Фильтры в него не
-         входят — они применяются к уже загруженному пулу на месте. */
+         входят — они применяются к уже загруженному пулу на месте.
+         1.2: и признак детского режима — пул чистится при сборе
+         (LC.kids.response), а собранный до переключения режима (экран
+         лежал в истории Activity) после «Назад» → «Крутить» не годится. */
       function keyOf() {
-        return media + '|' + joinIds(chosen);
+        var kids = false;
+        try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) { }
+        return (kids ? 'kids|' : '') + media + '|' + joinIds(chosen);
       }
 
       function seenIndex(cards) {
@@ -1242,7 +1288,11 @@
           poolWait.done.push(done);
           return;
         }
-        var list = sourcesFor(listFor(media), chosen, manifest);
+        /* Детский режим: «Все подборки» — набор главной, добранный
+           случайными детскими подборками (sourcesFor, rnd). */
+        var kidsMode = false;
+        try { kidsMode = !!(LC.kids && LC.kids.enabled()); } catch (eKidsMode) { }
+        var list = sourcesFor(listFor(media), chosen, manifest, kidsMode ? Math.random : null);
         if (!list.length) { pool = []; poolKey = key; done(); return; }
 
         var captured = gen;
@@ -2533,6 +2583,7 @@
       joinIds: joinIds,
       storageKey: storageKey,
       knownIds: knownIds,
+      keepHidden: keepHidden,
       normalizeMedia: normalizeMedia,
       atvLook: atvLook,
       shelfCards: shelfCards,
