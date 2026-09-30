@@ -24535,7 +24535,8 @@ tl_hash:tl?tl.hash:'',percent:tl?tl.percent:0,time:tl?tl.time:0,duration:tl?tl.d
 playlist:[],cur:-1,
 subtitles:[],
 torrent:(extra&&extra.torrent)||null,
-shown:false,settled:false,returned:false,hidden_at:0
+shown:false,settled:false,returned:false,hidden_at:0,
+ext_at:mode==='external'?now:0
 };
 var subs=Array.isArray(data.subtitles)?data.subtitles:[];
 for(var s=0;s<subs.length&&s<6&&!online;s++){
@@ -24573,7 +24574,7 @@ v:1,at:now,kind:'torrent-app',mode:'external',
 url:'',torrent_hash:'',index:-1,title:t.title,card:c,
 season:0,episode:0,tl_hash:'',percent:0,time:0,duration:0,
 playlist:[],cur:-1,subtitles:[],torrent:t,
-shown:false,settled:false,returned:false,hidden_at:0
+shown:false,settled:false,returned:false,hidden_at:0,ext_at:now
 };
 }
 function isTv(c){
@@ -24885,7 +24886,7 @@ if(!rec||(rec.mode!=='external'&&rec.kind!=='torrent-app'))return;
 if(hidden){
 rec.hidden_at=t;
 save(rec);
-}else if(num(rec.hidden_at)>=num(rec.at)&&!rec.returned){
+}else if(num(rec.hidden_at)>=num(rec.ext_at||rec.at)&&!rec.returned){
 rec.returned=true;
 save(rec);
 }
@@ -24973,12 +24974,15 @@ var rec=read(KEY);
 if(!rec)return false;
 var d=decide(rec,now(),opts());
 if(d==='expire'){save(null);return false;}
-_pending=d==='show';
+_pending=d==='show'&&pluginOn();
 }catch(e){
 _pending=false;
 warn('resume boot failed',e);
 }
 return _pending;
+}
+function pluginOn(){
+try{return typeof LC.enabled!=='function'||!!LC.enabled();}catch(e){return true;}
 }
 function stopTimer(){
 clearT(_timer);
@@ -25078,6 +25082,7 @@ if(rec.kind==='torrent-app'){
 var fresh=load();
 if(fresh){
 fresh.at=now();
+fresh.ext_at=fresh.at;
 fresh.shown=false;
 fresh.returned=false;
 fresh.hidden_at=0;
@@ -25141,7 +25146,15 @@ warn('resume show failed',err);
 return false;
 }
 }
+function selectGone(){
+try{
+return!!(window.Lampa&&Lampa.Select&&typeof Lampa.Select.opened==='function'&&!Lampa.Select.opened());
+}catch(e){
+return false;
+}
+}
 function busy(){
+if(_open&&selectGone())_open=false;
 return _pending||_open;
 }
 function alive(card){
