@@ -3971,6 +3971,9 @@
         "movie": {
           "type": "person",
           "id": 1223,
+          "also": [
+            1224
+          ],
           "job": "Director"
         }
       }

@@ -1041,7 +1041,7 @@ if(bad&&!run)run={lo:r,at:theirs};
 if(run)close(0);
 return out;
 }
-var SCALE_ROOTS='.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
+var SCALE_ROOTS='.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-whatsnew,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 function scaleFactor(){
 return SCALES[LC.pref('lumen_scale',SCALE_DEFAULT)]||SCALES[SCALE_DEFAULT];
 }
@@ -1447,6 +1447,12 @@ css.push('.lumen-review-modal__title{font-family:'+FB+';font-weight:700;font-siz
 css.push('.lumen-review-modal__text{font-family:'+FB+';font-weight:500;font-size:1.01em;line-height:1.4;color:'+P.soft+';max-height:50vh;overflow:auto}');
 css.push('.lumen-descr-modal{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;border-radius:.61em;background:'+P.gradPanel+';border:.04em solid '+P.line+';color:'+P.text+'}');
 css.push('.lumen-descr-modal__text{font-family:'+FB+';font-weight:500;font-size:1.27em;line-height:1.24;color:'+P.text+'}');
+css.push('.lumen-whatsnew{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.4em 1.75em;border-radius:.61em;background:'+P.gradPanel+';border:.04em solid '+P.line+';color:'+P.text+'}');
+css.push('.lumen-whatsnew__list{list-style:none;margin:0;padding:0}');
+css.push('.lumen-whatsnew__item{position:relative;padding-left:1.1em;font-family:'+FB+';font-weight:500;font-size:1.14em;line-height:1.3;color:'+P.text+'}');
+css.push('.lumen-whatsnew__item+.lumen-whatsnew__item{margin-top:.55em}');
+css.push('.lumen-whatsnew__item:before{content:"";position:absolute;left:0;top:.48em;width:.4em;height:.4em;border-radius:50%;background:'+A+'}');
+css.push('.lumen-whatsnew__hint{margin-top:1.1em;font-family:'+FB+';font-weight:500;font-size:1.01em;line-height:1.3;color:'+P.muted+'}');
 css.push('.lumen-descr-row .lumen-reviews__mode{display:inline-block;margin-left:.8em;padding:.34em .8em;border-radius:.5em;background:'+P.buttonBg+';font-family:'+FB+';font-weight:600;font-size:1.01em;line-height:1.2;color:'+P.soft+';white-space:nowrap}');
 css.push('.lumen-descr-row .lumen-reviews__mode--on{color:'+P.text+'}');
 css.push('.lumen-descr-row .lumen-reviews__mode--on:before{content:"";display:inline-block;vertical-align:-.14em;width:1em;height:1em;margin-right:.35em;background-color:currentColor;-webkit-mask-image:'+LC.icons.maskUrl('check')+';mask-image:'+LC.icons.maskUrl('check')+';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
@@ -3362,7 +3368,7 @@ sources:{movie:{type:'person',id:5655,job:'Director'}}
 },
 {
 id:'coen-brothers',title:'Братья Коэн',group:'people',
-sources:{movie:{type:'person',id:1223,job:'Director'}}
+sources:{movie:{type:'person',id:1223,also:[1224],job:'Director'}}
 },
 {
 id:'tom-hanks',title:'Том Хэнкс',group:'people',cover:'/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
@@ -3607,8 +3613,16 @@ var PERSON_JOBS={
 Director:1,Writer:1,Screenplay:1,Producer:1,
 'Executive Producer':1,'Director of Photography':1,'Original Music Composer':1,Editor:1
 };
+var PERSON_ALSO_MAX=3;
+function personIdOk(v){
+return(typeof v==='number'||typeof v==='string')&&PERSON_ID_RE.test(String(v));
+}
 function personOk(spec){
-if((typeof spec.id!=='number'&&typeof spec.id!=='string')||!PERSON_ID_RE.test(String(spec.id)))return false;
+if(!personIdOk(spec.id))return false;
+if(typeof spec.also!=='undefined'){
+if(!Array.isArray(spec.also)||!spec.also.length||spec.also.length>PERSON_ALSO_MAX)return false;
+for(var i=0;i<spec.also.length;i++)if(!personIdOk(spec.also[i]))return false;
+}
 if(typeof spec.job==='undefined')return true;
 return typeof spec.job==='string'&&PERSON_JOBS.hasOwnProperty(spec.job);
 }
@@ -4035,10 +4049,48 @@ parts.push(p);
 }
 return parts;
 }
-function fetchSet(spec,ok,err,alive){
+var PERSON_ALSO_MAX=3;
+var PERSON_ID=/^[1-9]\d{0,11}$/;
+function personIds(spec){
+var out=[String(spec&&spec.id)];
+var seen={};
+seen[out[0]]=1;
+var v=spec&&spec.also;
+if(!Array.isArray(v))return out;
+for(var i=0;i<v.length&&out.length<=PERSON_ALSO_MAX;i++){
+var id=String(v[i]);
+if(PERSON_ID.test(id)&&!seen[id]){seen[id]=1;out.push(id);}
+}
+return out;
+}
+function isPersonSet(spec){
+return!!(spec&&spec.type==='person'&&personIds(spec).length>1);
+}
+function personRequests(spec,media){
+var ids=personIds(spec);
+var out=[];
+for(var i=0;i<ids.length;i++){
+out.push({
+url:'person/'+encodeURIComponent(ids[i])+'/'+(media==='tv'?'tv':'movie')+'_credits',
+params:{},
+life:LIFE_STATIC,
+kind:'person',
+job:spec.job
+});
+}
+return out;
+}
+function mergeCredits(answers,job){
+var crew=[];
+for(var i=0;i<(answers||[]).length;i++){
+var list=answers[i]&&answers[i].crew;
+if(Array.isArray(list))crew=crew.concat(list);
+}
+return normalize('person',{crew:crew},job);
+}
+function fetchSet(reqs,build,ok,err,alive){
 var gen=alive?alive():0;
 function dead(){return alive&&alive()!==gen;}
-var reqs=setRequests(spec);
 var answers=[];
 var got=0;
 var next=0;
@@ -4046,7 +4098,7 @@ var flying=0;
 var gate=LC.util.gate(reqs.length,SET_TIMEOUT,function(){
 if(dead())return;
 if(!got){err({set_failed:true});return;}
-ok(normalize('collection',{parts:setParts(reqs,answers)}));
+ok(build(answers));
 });
 function send(i){
 var r=reqs[i];
@@ -4119,7 +4171,19 @@ return!!(spec&&KNOWN.hasOwnProperty(spec.type));
 }
 function fetchOne(spec,media,page,ok,err,alive){
 if(!known(spec)){err({unknown_type:true});return null;}
-if(isSet(spec)){fetchSet(spec,ok,err,alive);return null;}
+if(isSet(spec)){
+var reqs=setRequests(spec);
+fetchSet(reqs,function(answers){
+return normalize('collection',{parts:setParts(reqs,answers)});
+},ok,err,alive);
+return null;
+}
+if(isPersonSet(spec)){
+fetchSet(personRequests(spec,media),function(answers){
+return mergeCredits(answers,spec.job);
+},ok,err,alive);
+return null;
+}
 var gen=alive?alive():0;
 function dead(){return alive&&alive()!==gen;}
 var r=buildRequest(spec,media,page);
@@ -4325,6 +4389,10 @@ if(isSet(spec)){
 LC.util.each(setRequests(spec),function(r){jobs.push(r);});
 return;
 }
+if(isPersonSet(spec)){
+LC.util.each(personRequests(spec,media),function(r){jobs.push(r);});
+return;
+}
 var one=buildRequest(spec,media,page||1);
 one.kind=spec.type;
 one.job=spec.job;
@@ -4397,6 +4465,10 @@ isSet:isSet,
 setRequests:setRequests,
 partOf:partOf,
 setParts:setParts,
+personIds:personIds,
+isPersonSet:isPersonSet,
+personRequests:personRequests,
+mergeCredits:mergeCredits,
 bannerPath:bannerPath,
 posterFits:posterFits,
 cleanPoster:cleanPoster,
@@ -5284,6 +5356,8 @@ LC.personal=(function(){
 var SHOWS_LIMIT=6;
 var ROW_TIMEOUT=8000;
 var SOON_DAYS=30;
+var DIGITAL_DAYS=45;
+var DIGITAL_VOTES=20;
 var RECENT_DAYS=14;
 var UPCOMING_DAYS=7;
 var CONTINUE_DONE=90;
@@ -5329,16 +5403,21 @@ var day=d.getUTCDate();
 return y+'-'+(m<10?'0'+m:''+m)+'-'+(day<10?'0'+day:''+day);
 }
 function soonRange(today){
-var d0;
-if(today instanceof Date){
-d0=today;
-}else if(today&&typeof today==='string'){
-var parts=today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-d0=parts?new Date(Date.UTC(+parts[1],+parts[2]-1,+parts[3])):new Date();
-}else{
-d0=new Date();
-}
+var d0=dayOf(today);
 var d1=new Date(d0.getTime()+SOON_DAYS*86400000);
+return{gte:dateFmt(d0),lte:dateFmt(d1)};
+}
+function dayOf(today){
+if(today instanceof Date)return today;
+if(today&&typeof today==='string'){
+var parts=today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+if(parts)return new Date(Date.UTC(+parts[1],+parts[2]-1,+parts[3]));
+}
+return new Date();
+}
+function digitalRange(today){
+var d1=dayOf(today);
+var d0=new Date(d1.getTime()-DIGITAL_DAYS*86400000);
 return{gte:dateFmt(d0),lte:dateFmt(d1)};
 }
 function parseDate(s){
@@ -5683,6 +5762,56 @@ gate.cancel();
 };
 };
 }
+function makeDigitalCall(){
+return function(params,screen){
+return function(call){
+var gen=_gen;
+function alive(){return _gen===gen;}
+var resolve=makeResolver(call);
+if(!alive()){resolve({results:[]});return{cancel:function(){}};}
+var range=digitalRange(null);
+var list=[];
+var cancelled=false;
+var gate=LC.util.gate(1,ROW_TIMEOUT,function(){
+if(cancelled||!alive())return;
+resolve({results:list,title:LC.lang?LC.lang('lumen_row_digital'):'New on digital',lumen_personal:true});
+});
+try{
+Lampa.Api.sources.tmdb.get(
+'discover/movie',
+{
+sort_by:'popularity.desc',
+filter:{
+with_release_type:'4|5',
+'release_date.gte':range.gte,
+'release_date.lte':range.lte,
+'vote_count.gte':DIGITAL_VOTES
+}
+},
+function(json){
+if(!alive())return;
+var arr=(json&&json.results)?json.results:[];
+for(var k=0;k<arr.length;k++)list.push(arr[k]);
+gate.tick();
+},
+function(){
+if(!alive())return;
+gate.tick();
+},
+{life:720}
+);
+}catch(e){
+gate.tick();
+}
+return{
+cancel:function(){
+cancelled=true;
+gate.cancel();
+}
+};
+};
+};
+}
 function describe(opts){
 opts=opts||{};
 var out=[];
@@ -5732,12 +5861,20 @@ title:LC.lang?LC.lang('lumen_row_soon'):'Coming soon',
 screen:'main',
 call:makeSoonCall()
 });
+out.push({
+id:'digital',
+name:'lumen_digital',
+title:LC.lang?LC.lang('lumen_row_digital'):'New on digital',
+screen:'main',
+call:makeDigitalCall()
+});
 return out;
 }
 return{
 pickBecause:pickBecause,
 newEpisodes:newEpisodes,
 soonRange:soonRange,
+digitalRange:digitalRange,
 dropFinished:dropFinished,
 bumpGen:bumpGen,
 describe:describe
@@ -7853,11 +7990,11 @@ var ANCHOR_RECENT=5;
 var SALT_ROWS=1;
 var SALT_ANCHOR=2;
 var SALT_SEASON=3;
-var PLACES={'continue':1,new_episodes:3,because:5,soon:8};
+var PLACES={'continue':1,new_episodes:3,because:5,soon:8,digital:10};
 var LAMPA_PLACE=2;
-var HISTORY_PLACES={'continue':0,because:1,new_episodes:2,soon:3};
-var HISTORY_ROWS_FROM=4;
-var PERSONAL_ORDER=['continue','because','new_episodes','soon'];
+var HISTORY_PLACES={'continue':0,because:1,new_episodes:2,soon:3,digital:4};
+var HISTORY_ROWS_FROM=5;
+var PERSONAL_ORDER=['continue','because','new_episodes','soon','digital'];
 var SEASON_FROM=3;
 var SEASON_TOP=7;
 var GROUP_SHARE=4;
@@ -24593,6 +24730,11 @@ ru:'Скоро на экранах',
 en:'Coming soon',
 uk:'Незабаром на екранах'
 },
+lumen_row_digital:{
+ru:'Вышло в цифре',
+en:'New on digital',
+uk:'Вийшло в цифрі'
+},
 lumen_badge_new_episode:{
 ru:'Новая серия',
 en:'New episode',
@@ -24726,9 +24868,9 @@ en:'Personal rows',
 uk:'Персональні ряди'
 },
 lumen_personal_rows_descr:{
-ru:'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии» и «Скоро на экранах».',
-en:'Show "Continue watching", "Because you watched", "New episodes" and "Coming soon" rows.',
-uk:'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії» та «Незабаром».'
+ru:'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии», «Скоро на экранах» и «Вышло в цифре».',
+en:'Show "Continue watching", "Because you watched", "New episodes", "Coming soon" and "New on digital" rows.',
+uk:'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії», «Незабаром» та «Вийшло в цифрі».'
 },
 lumen_home_start_name:{ru:'Начало главной',en:'Top of the home screen',uk:'Початок головної'},
 lumen_home_start_rotate:{ru:'Подборки по очереди',en:'Rotating collections',uk:'Підбірки по черзі'},
@@ -24775,7 +24917,16 @@ lumen_fr_of:{ru:'из',en:'of',uk:'з'},
 lumen_fr_here:{ru:'Вы здесь',en:'You are here',uk:'Ви тут'},
 lumen_fr_next:{ru:'Дальше',en:'Up next',uk:'Далі'},
 lumen_fr_watched:{ru:'Просмотрено',en:'Watched',uk:'Переглянуто'},
-lumen_hero_airing:{ru:'Выходит',en:'Airing',uk:'Виходить'}
+lumen_hero_airing:{ru:'Выходит',en:'Airing',uk:'Виходить'},
+lumen_whatsnew_name:{ru:'Что нового после обновления',en:'What\'s new after an update',uk:'Що нового після оновлення'},
+lumen_whatsnew_descr:{
+ru:'Один раз после обновления плагина показывает, что изменилось.',
+en:'Shows what has changed, once after the plugin is updated.',
+uk:'Один раз після оновлення плагіна показує, що змінилося.'
+},
+lumen_whatsnew_title:{ru:'Что нового в Lumen Card',en:'What\'s new in Lumen Card',uk:'Що нового в Lumen Card'},
+lumen_whatsnew_ok:{ru:'Понятно',en:'Got it',uk:'Зрозуміло'},
+lumen_whatsnew_off:{ru:'Выключить это окно: Настройки',en:'To turn this window off: Settings',uk:'Вимкнути це вікно: Налаштування'}
 };
 function langCode(){
 var code='ru';
@@ -24930,6 +25081,7 @@ return true;
 if(name==='lumen_debug_bench'||name==='lumen_more')return true;
 if(name==='lumen_rowmem'||name==='lumen_rowmem_bytes'||name==='lumen_netmem'||name==='lumen_prefill')return true;
 if(name==='lumen_roulette_unseen')return true;
+if(name==='lumen_whatsnew')return true;
 if(name==='lumen_fx'){
 try{if(LC.applyFxPref)LC.applyFxPref();}catch(eFx){}
 return true;
@@ -25291,6 +25443,7 @@ var MORE=[
 {name:'lumen_hide_watched',type:'trigger','default':false,label:'lumen_hide_watched_name',descr:'lumen_hide_watched_descr'},
 {name:'lumen_group_remote',type:'title',label:'lumen_group_remote'},
 {name:'lumen_context_menu',type:'trigger','default':true,label:'lumen_context_menu_name',descr:'lumen_context_menu_descr'},
+{name:'lumen_whatsnew',type:'trigger','default':true,label:'lumen_whatsnew_name',descr:'lumen_whatsnew_descr'},
 {name:'lumen_remote_boost',type:'trigger','default':true,label:'lumen_remote_boost_name',descr:'lumen_remote_boost_descr'},
 {name:'lumen_menus',type:'select',values:['all','path','off'],vprefix:'lumen_card_menus_','default':'all',label:'lumen_card_menus',descr:'lumen_card_menus_descr'},
 {name:'lumen_torrents',type:'trigger','default':true,label:'lumen_card_torrents_name',descr:'lumen_card_torrents_descr'},
@@ -25523,6 +25676,217 @@ return false;
 }
 };
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.prefs;
+/* ---- 82_whatsnew.js ---- */
+LC.whatsnew=(function(){
+var KEY='lumen_seen_version';
+var INSTALLED_KEYS=['lumen_home_epoch','lumen_manifest'];
+var FIRST_DELAY=4000;
+var RETRY_DELAY=5000;
+var TRIES=12;
+var NOTES={
+'1.2.0':{
+ru:[
+'На главной — ряд «Вышло в цифре»: фильмы, которые только что стали доступны в хорошем качестве.',
+'Детский режим в настройках: на главной и в подборках — только мультфильмы и семейное кино. В «Подборках» появился раздел «Детям».',
+'Подборка «Братья Коэн» теперь целиком — вместе с фильмами, которые Итан снял сам.',
+'На медленном интернете ряды и постеры подгружаются быстрее.',
+'Такое окно будет появляться один раз после каждого обновления.'
+],
+en:[
+'A new "New on digital" row on the home screen: films that have just become available in good quality.',
+'Kids mode in the settings: only cartoons and family films on the home screen and in collections. Collections now have a "For kids" section.',
+'The "Coen Brothers" collection is now complete, including the films Ethan made on his own.',
+'Rows and posters load faster on a slow connection.',
+'This window will appear once after every update.'
+],
+uk:[
+'На головній — ряд «Вийшло в цифрі»: фільми, які щойно стали доступні в добрій якості.',
+'Дитячий режим у налаштуваннях: на головній і в підбірках — лише мультфільми та сімейне кіно. У «Підбірках» з’явився розділ «Дітям».',
+'Підбірка «Брати Коен» тепер повна — разом із фільмами, які Ітан зняв сам.',
+'На повільному інтернеті ряди й постери підвантажуються швидше.',
+'Таке вікно з’являтиметься один раз після кожного оновлення.'
+]
+}
+};
+function parseVersion(v){
+var m=/^(\d+)\.(\d+)\.(\d+)$/.exec(typeof v==='string'?v:'');
+return m?[+m[1],+m[2],+m[3]]:null;
+}
+function compare(a,b){
+var pa=parseVersion(a);
+var pb=parseVersion(b);
+if(!pa||!pb)return pa?1:(pb?-1:0);
+for(var i=0;i<3;i++){
+if(pa[i]!==pb[i])return pa[i]<pb[i]?-1:1;
+}
+return 0;
+}
+function pick(seen,version){
+if(!parseVersion(version))return null;
+var best=null;
+for(var key in NOTES){
+if(!Object.prototype.hasOwnProperty.call(NOTES,key)||!parseVersion(key))continue;
+if(compare(key,version)>0)continue;
+if(seen!==null&&compare(key,seen)<=0)continue;
+if(best===null||compare(key,best)>0)best=key;
+}
+return best;
+}
+function decide(seen,version,installed){
+var out={show:null,write:null};
+if(!parseVersion(version))return out;
+var raw=(seen===null||typeof seen==='undefined')?'':''+seen;
+if(raw!==version)out.write=version;
+if(raw===''){
+if(installed)out.show=pick(null,version);
+}else if(parseVersion(raw)){
+out.show=pick(raw,version);
+}
+return out;
+}
+function notesFor(version,lang){
+var pack=Object.prototype.hasOwnProperty.call(NOTES,version)?NOTES[version]:null;
+if(!pack)return null;
+var list=pack[lang]||pack.ru;
+return list&&list.length?list.slice():null;
+}
+var _pending=null;
+var _timer=null;
+var _tries=0;
+var _ready=null;
+function setT(fn,ms){
+var hook=api._timers;
+if(hook&&typeof hook.set==='function')return hook.set(fn,ms);
+return setTimeout(fn,ms);
+}
+function clearT(id){
+if(!id)return;
+var hook=api._timers;
+if(hook&&typeof hook.clear==='function'){hook.clear(id);return;}
+clearTimeout(id);
+}
+function storage(){
+try{
+if(window.Lampa&&Lampa.Storage&&typeof Lampa.Storage.get==='function')return Lampa.Storage;
+}catch(e){}
+return null;
+}
+function enabled(){
+return!!LC.pref('lumen_whatsnew',true);
+}
+function detect(){
+_pending=null;
+var st=storage();
+if(!st)return null;
+try{
+var installed=false;
+for(var i=0;i<INSTALLED_KEYS.length;i++){
+if(st.get(INSTALLED_KEYS[i],''))installed=true;
+}
+var d=decide(st.get(KEY,''),LC.VERSION,installed);
+if(d.write&&typeof st.set==='function')st.set(KEY,d.write,true);
+if(d.show&&enabled())_pending=d.show;
+}catch(e){
+_pending=null;
+warn('whatsnew detect failed',e);
+}
+return _pending;
+}
+function stopTimer(){
+clearT(_timer);
+_timer=null;
+}
+function schedule(ready){
+stopTimer();
+if(!_pending)return;
+_ready=typeof ready==='function'?ready:null;
+_tries=0;
+_timer=setT(tick,FIRST_DELAY);
+}
+function tick(){
+_timer=null;
+if(!_pending)return;
+if(!enabled()){_pending=null;return;}
+var ok=false;
+try{ok=!!(_ready&&_ready());}catch(e){ok=false;}
+if(ok){
+var version=_pending;
+_pending=null;
+open(version);
+return;
+}
+_tries++;
+if(_tries>=TRIES){_pending=null;return;}
+_timer=setT(tick,RETRY_DELAY);
+}
+function cancel(){
+stopTimer();
+_pending=null;
+}
+function lang(){
+try{if(typeof LC.langCode==='function')return LC.langCode();}catch(e){}
+return'ru';
+}
+function hintText(){
+var q=lang()==='en'?['"','"']:['«','»'];
+return LC.lang('lumen_whatsnew_off')+' → '+[LC.lang('lumen_card_title'),LC.lang('lumen_more_name'),
+LC.lang('lumen_group_remote'),q[0]+LC.lang('lumen_whatsnew_name')+q[1]].join(' → ');
+}
+function open(version){
+try{
+if(!window.Lampa||!Lampa.Modal||typeof Lampa.Modal.open!=='function')return false;
+var items=notesFor(version,lang());
+if(!items)return false;
+var back='content';
+try{
+var cur=Lampa.Controller&&typeof Lampa.Controller.enabled==='function'?Lampa.Controller.enabled():null;
+if(cur&&cur.name)back=cur.name;
+}catch(e){}
+var html='<div class="lumen-whatsnew"><ul class="lumen-whatsnew__list">';
+for(var i=0;i<items.length;i++)html+='<li class="lumen-whatsnew__item">'+LC.util.esc(items[i])+'</li>';
+html+='</ul><div class="lumen-whatsnew__hint">'+LC.util.esc(hintText())+'</div></div>';
+var closed=false;
+var close=function(){
+if(closed)return;
+closed=true;
+try{Lampa.Modal.close();}catch(e2){}
+try{if(Lampa.Controller&&typeof Lampa.Controller.toggle==='function')Lampa.Controller.toggle(back);}catch(e3){}
+};
+Lampa.Modal.open({
+title:LC.lang('lumen_whatsnew_title')+' '+version,
+html:$(html),
+size:'medium',
+buttons:[{name:LC.lang('lumen_whatsnew_ok'),onSelect:close}],
+onBack:close
+});
+return true;
+}catch(err){
+warn('whatsnew open failed',err);
+return false;
+}
+}
+var api={
+KEY:KEY,
+NOTES:NOTES,
+FIRST_DELAY:FIRST_DELAY,
+RETRY_DELAY:RETRY_DELAY,
+TRIES:TRIES,
+parseVersion:parseVersion,
+compare:compare,
+pick:pick,
+decide:decide,
+notesFor:notesFor,
+hintText:hintText,
+detect:detect,
+schedule:schedule,
+cancel:cancel,
+open:open,
+pending:function(){return _pending;},
+_timers:null
+};
+return api;
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.whatsnew;
 /* ---- 85_header.js ---- */
 var isSerial=LC.cardinfo.isSerial;
 function capitalize(str){
@@ -27460,6 +27824,24 @@ if(LC.ambient&&LC.ambient.apply)LC.ambient.apply();
 warn('ambient install failed',eAmbient);
 }
 if(LC.followMoreBack)LC.followMoreBack(true);
+try{
+if(LC.whatsnew&&LC.whatsnew.schedule)LC.whatsnew.schedule(homeReady);
+}catch(eNew){
+warn('whatsnew schedule failed',eNew);
+}
+}
+function homeReady(){
+if(!activated)return false;
+if(!LC.rows||typeof LC.rows.served!=='function'||!LC.rows.served())return false;
+if(activeComponentName()!=='main')return false;
+if(pending_refresh)return false;
+var cur=null;
+try{cur=Lampa.Controller&&typeof Lampa.Controller.enabled==='function'?Lampa.Controller.enabled():null;}catch(e){cur=null;}
+var name=cur&&cur.name;
+if(name!=='items_line'&&name!=='content')return false;
+if(layerOpen())return false;
+if(LC.covered&&LC.covered())return false;
+return true;
 }
 function deactivate(){
 if(!activated)return;
@@ -27508,6 +27890,7 @@ try{if(LC.nav&&LC.nav.uninstall)LC.nav.uninstall();}catch(eNavOff){}
 try{if(LC.roulette&&LC.roulette.uninstall)LC.roulette.uninstall();}catch(eRouletteOff){}
 try{if(LC.ambient&&LC.ambient.uninstall)LC.ambient.uninstall();}catch(eAmbientOff){}
 if(LC.followMoreBack)LC.followMoreBack(false);
+try{if(LC.whatsnew)LC.whatsnew.cancel();}catch(eNewOff){}
 }
 var pending_refresh=null;
 function activeComponentName(){
@@ -27832,6 +28215,7 @@ if(!window.Lampa||!Lampa.Template||!Lampa.Listener)return;
 inited=true;
 try{if(Lampa.Lang&&typeof Lampa.Lang.add==='function')Lampa.Lang.add(LC.STRINGS);}catch(e){}
 LC.migratePrefs();
+try{if(LC.whatsnew)LC.whatsnew.detect();}catch(eNew){warn('whatsnew detect failed',eNew);}
 LC.addSettings();
 LC.followStorage();
 if(!isWideLayout())return;
