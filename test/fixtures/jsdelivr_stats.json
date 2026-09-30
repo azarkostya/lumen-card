@@ -1,0 +1,25 @@
+{
+  "_": "Форма ответов data.jsdelivr.com (снята 2026-09-30 с azarkostya/lumen-card, числа тега придуманы): versions?period=week и @<версия>/files?period=week",
+  "versions": [
+    { "type": "branch", "version": "feat", "hits": { "total": 77, "dates": { "2026-09-22": 12, "2026-09-23": 12, "2026-09-24": 17, "2026-09-25": 8, "2026-09-26": 6, "2026-09-27": 20, "2026-09-28": 2 } },
+      "links": { "self": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@feat?period=week", "files": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@feat/files?period=week" } },
+    { "type": "version", "version": "1.3.0", "hits": { "total": 31, "dates": { "2026-09-22": 0, "2026-09-23": 0, "2026-09-24": 0, "2026-09-25": 0, "2026-09-26": 9, "2026-09-27": 14, "2026-09-28": 8 } },
+      "links": { "self": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@1.3.0?period=week", "files": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@1.3.0/files?period=week" } },
+    { "type": "branch", "version": "feat/lumen-v2", "hits": { "total": 1, "dates": { "2026-09-22": 0, "2026-09-23": 0, "2026-09-24": 0, "2026-09-25": 0, "2026-09-26": 0, "2026-09-27": 1, "2026-09-28": 0 } },
+      "links": { "files": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@feat%2Flumen-v2/files?period=week" } },
+    { "type": "version", "version": "1.2.0", "hits": { "total": 0, "dates": { "2026-09-22": 0, "2026-09-23": 0, "2026-09-24": 0, "2026-09-25": 0, "2026-09-26": 0, "2026-09-27": 0, "2026-09-28": 0 } },
+      "links": { "files": "https://data.jsdelivr.com/v1/stats/packages/gh/azarkostya/lumen-card@1.2.0/files?period=week" } }
+  ],
+  "files": {
+    "feat": [
+      { "name": "/lumen-v2/dist/lumen_card.js", "hits": { "total": 40, "dates": { "2026-09-22": 6, "2026-09-23": 6, "2026-09-24": 9, "2026-09-25": 4, "2026-09-26": 3, "2026-09-27": 11, "2026-09-28": 1 } } },
+      { "name": "/lumen-v2/lumen.js", "hits": { "total": 37, "dates": { "2026-09-22": 6, "2026-09-23": 6, "2026-09-24": 8, "2026-09-25": 4, "2026-09-26": 3, "2026-09-27": 9, "2026-09-28": 1 } } }
+    ],
+    "1.3.0": [
+      { "name": "/dist/lumen_card.js", "hits": { "total": 31, "dates": { "2026-09-22": 0, "2026-09-23": 0, "2026-09-24": 0, "2026-09-25": 0, "2026-09-26": 9, "2026-09-27": 14, "2026-09-28": 8 } } }
+    ],
+    "feat/lumen-v2": [
+      { "name": "/dist/lumen_card.js", "hits": { "total": 1, "dates": { "2026-09-22": 0, "2026-09-23": 0, "2026-09-24": 0, "2026-09-25": 0, "2026-09-26": 0, "2026-09-27": 1, "2026-09-28": 0 } } }
+    ]
+  }
+}
