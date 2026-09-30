@@ -7,7 +7,9 @@
 //                                            запасной адрес lumen.js — стабильная @main,
 //                                            метка BUILD в lumen.js = хэш dist, VERSION в
 //                                            нём = LC.VERSION; если тег v<VERSION> уже
-//                                            есть, его сборка — ровно этот dist;
+//                                            есть (на origin, а до push — локально),
+//                                            его сборка — ровно этот dist; origin
+//                                            недоступен — предупреждение;
 //   node scripts/release.mjs --purge         сбросить кэш jsDelivr (lumen.js, dist,
 //                                            manifest.json) для ветки --ref;
 //   node scripts/release.mjs --remote        сверить, что GitHub Pages и jsDelivr @ref
@@ -115,6 +117,49 @@ export function remoteTagCommit(out, tag) {
   return at;
 }
 
+/* Сборка тега v<версия> для tagProblems. Главный — тег на origin: его
+   jsDelivr разрешает через GitHub и отдаёт ТВ. Локальный тег — только если
+   на origin тега нет (ещё не запушен) или origin недоступен. git(args) →
+   stdout строкой или исключение. Коммита тега с origin локально нет —
+   git fetch --no-tags origin refs/tags/vX: приносит объекты и FETCH_HEAD,
+   ни тегов, ни веток не создаёт и не двигает. Возвращает { dist, problems,
+   warnings }: dist — сборка тега (null — тега нет или сверять не с чем). */
+export function tagDist(version, git) {
+  const tag = 'refs/tags/v' + version;
+  const out = { dist: null, problems: [], warnings: [] };
+  const short = (c) => c.slice(0, 7);
+  const why = (e) => String((e && (e.stderr || e.message)) || e).trim().split(/\r?\n/)[0];
+  let local = '';
+  try { local = String(git(['rev-parse', '-q', '--verify', tag + '^{commit}'])).trim(); } catch (e) { local = ''; }
+  let remote = '';
+  try {
+    remote = remoteTagCommit(String(git(['ls-remote', 'origin', tag])), tag);
+  } catch (e) {
+    out.warnings.push('origin недоступен (' + why(e) + ') — тег v' + version + ' на origin НЕ проверен' +
+      (local ? '; сверка только с локальным тегом ' + short(local) : '') + '; перед выпуском повтори с сетью');
+  }
+  let from = local;
+  if (remote) {
+    if (local && local !== remote) out.warnings.push('локальный тег v' + version + ' (' + short(local) + ') не тот, что на origin (' + short(remote) + ') — сверка с origin');
+    from = remote;
+    let have = true;
+    try { git(['cat-file', '-e', remote + '^{commit}']); } catch (e) { have = false; }
+    if (!have) {
+      try { git(['fetch', '--no-tags', 'origin', tag]); } catch (e) {
+        out.problems.push('тег v' + version + ' уже есть на origin (' + short(remote) + '), но его коммит не получить (' + why(e) + ') — сборку тега не сверить');
+        return out;
+      }
+    }
+  }
+  if (!from) return out;
+  try {
+    out.dist = String(git(['show', from + ':dist/lumen_card.js']));
+  } catch (e) {
+    out.problems.push('тег v' + version + ' (' + short(from) + '): не прочитать dist/lumen_card.js (' + why(e) + ')');
+  }
+  return out;
+}
+
 function arg(name, def) {
   const i = process.argv.indexOf(name);
   return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
@@ -131,16 +176,19 @@ async function main() {
   const readLocal = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return null; } };
   const local = localProblems(readLocal);
   local.problems = local.problems.concat(stampProblems(readLocal));
+  let warnings = [];
   if (local.version) {
-    let tagDist = null;
-    try {
-      execFileSync('git', ['rev-parse', '-q', '--verify', 'refs/tags/v' + local.version], { cwd: root, stdio: 'ignore' });
-      tagDist = execFileSync('git', ['show', 'v' + local.version + ':dist/lumen_card.js'], { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20 });
-    } catch (e) { /* тега нет (или нет git) — сверять не с чем */ }
-    local.problems = local.problems.concat(tagProblems(local.version, readLocal('dist/lumen_card.js'), tagDist));
+    // Без запроса пароля и не дольше 30 с: недоступный origin — предупреждение.
+    const git = (args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0' }) });
+    const t = tagDist(local.version, git);
+    warnings = t.warnings;
+    local.problems = local.problems.concat(t.problems, tagProblems(local.version, readLocal('dist/lumen_card.js'), t.dist));
   }
-  console.log('версия ' + (local.version || '?') + ', локальные проверки: ' + (local.problems.length ? 'ЕСТЬ РАСХОЖДЕНИЯ' : 'ok'));
+  console.log('версия ' + (local.version || '?') + ', локальные проверки: ' + (local.problems.length ? 'ЕСТЬ РАСХОЖДЕНИЯ' : 'ok') +
+    (warnings.length ? ' (есть предупреждения)' : ''));
   for (const p of local.problems) console.log('  - ' + p);
+  for (const w of warnings) console.log('  ! ' + w);
   failed = failed || local.problems.length > 0;
 
   if (process.argv.includes('--purge')) {
