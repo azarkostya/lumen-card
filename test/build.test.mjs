@@ -131,10 +131,25 @@ test('stampLoader вписывает метку и отказывается от
   assert.equal(stampLoader('var stamp = 1;', 'abcdef0123'), null);
 });
 
+/* Загрузчик с Pages просит сборку с jsDelivr по тегу v<VERSION>: версию в
+   lumen.js вписывает сборка из LC.VERSION, рядом с меткой. */
+test('stampLoader вписывает и версию; без var VERSION при переданной версии — null', () => {
+  assert.equal(stampLoader("var BUILD = '0123456789';\nvar VERSION = '1.0.0';", 'abcdef0123', '1.3.0'),
+    "var BUILD = 'abcdef0123';\nvar VERSION = '1.3.0';");
+  assert.equal(stampLoader("var BUILD = '0123456789';", 'abcdef0123', '1.3.0'), null);
+});
+
+test('VERSION в lumen.js = LC.VERSION из src/00_head.js', () => {
+  const loader = readFileSync(new URL('../lumen.js', import.meta.url), 'utf8');
+  const v = /var VERSION = '([^']+)';/.exec(loader);
+  assert.ok(v, 'в lumen.js нет строки var VERSION');
+  assert.equal(v[1], /LC\.VERSION = '([^']+)';/.exec(readSrc('00_head.js'))[1]);
+});
+
 /* build.mjs --check на копии репозитория (src/, scripts/, dist/, lumen.js,
    manifest.json): чистая копия проходит, подменённая метка в lumen.js и
    подменённый dist — ловятся. Сам репозиторий не трогается. */
-test('build.mjs --check ловит рассинхрон lumen.js и dist', () => {
+test('build.mjs --check ловит рассинхрон lumen.js и dist (метка и версия)', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'lumen-build-'));
   try {
     const repo = fileURLToPath(new URL('..', import.meta.url));
@@ -150,6 +165,11 @@ test('build.mjs --check ловит рассинхрон lumen.js и dist', () =>
     r = run();
     assert.equal(r.status, 1);
     assert.match(r.stderr, /lumen\.js: метка сборки не совпадает/);
+
+    writeFileSync(join(tmp, 'lumen.js'), loader.replace(/var VERSION = '[^']*';/, "var VERSION = '0.0.1';"));
+    r = run();
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /lumen\.js: версия не совпадает с LC\.VERSION/);
 
     writeFileSync(join(tmp, 'lumen.js'), loader);
     writeFileSync(join(tmp, 'dist', 'lumen_card.js'), dist.replace("LC.VERSION='", "LC.VERSION ='"));

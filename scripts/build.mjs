@@ -18,6 +18,9 @@
 // dist/lumen_card.js?v=<метка>. Новая сборка — новый адрес (обновление
 // доезжает с первым же свежим lumen.js), та же сборка — тот же адрес (кэш
 // браузера и кэш компиляции движка живут между запусками Lampa).
+// Рядом вписывается версия (var VERSION = '…' — LC.VERSION из 00_head.js):
+// загрузчик, взятый с GitHub Pages, просит сборку с jsDelivr по тегу
+// v<версия> (README, «Хосты»).
 //
 // Запись атомарная: пишем во временный dist/lumen_card.tmp.js, гоняем на нём
 // node --check, и только при успехе переименовываем в dist/lumen_card.js —
@@ -48,11 +51,18 @@ export function buildStamp(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 10);
 }
 
-/* Загрузчик с вписанной меткой; null — в нём нет строки var BUILD = '…';. */
+/* Загрузчик с вписанной меткой (и версией, если она передана); null — в
+   нём нет строки var BUILD = '…'; (или var VERSION = '…';). */
 const BUILD_RE = /var BUILD = '[0-9a-f]*';/;
-export function stampLoader(loader, stamp) {
+const VERSION_RE = /var VERSION = '[^']*';/;
+export function stampLoader(loader, stamp, version) {
   if (!BUILD_RE.test(loader)) return null;
-  return loader.replace(BUILD_RE, "var BUILD = '" + stamp + "';");
+  let out = loader.replace(BUILD_RE, "var BUILD = '" + stamp + "';");
+  if (version !== undefined) {
+    if (!VERSION_RE.test(out)) return null;
+    out = out.replace(VERSION_RE, "var VERSION = '" + version + "';");
+  }
+  return out;
 }
 
 function fail(msg) {
@@ -87,7 +97,7 @@ function main() {
     }
   }
 
-  const { raw, keep } = compose(srcDir, files);
+  const { raw, keep, version } = compose(srcDir, files);
 
   let out;
   try {
@@ -109,13 +119,14 @@ function main() {
 
   const stamp = buildStamp(out);
   const loaderNow = readFileSync(loaderFile, 'utf8');
-  const loader = stampLoader(loaderNow, stamp);
-  if (loader === null) fail("build failed: в lumen.js нет строки var BUILD = '…'; — метку сборки некуда вписать");
+  const loader = stampLoader(loaderNow, stamp, version);
+  if (loader === null) fail("build failed: в lumen.js нет строки var BUILD = '…'; или var VERSION = '…'; — метку сборки или версию некуда вписать");
 
   if (checkOnly) {
     const current = existsSync(distFile) ? readFileSync(distFile, 'utf8') : null;
     if (current !== out) fail('dist is stale, run node scripts/build.mjs');
-    if (loaderNow !== loader) fail('lumen.js: метка сборки не совпадает с dist (нужна ' + stamp + '), run node scripts/build.mjs');
+    if (stampLoader(loaderNow, stamp) !== loaderNow) fail('lumen.js: метка сборки не совпадает с dist (нужна ' + stamp + '), run node scripts/build.mjs');
+    if (loaderNow !== loader) fail('lumen.js: версия не совпадает с LC.VERSION (нужна ' + version + '), run node scripts/build.mjs');
     console.log('dist is up to date (build ' + stamp + ')');
     // Проверяем синхронность manifest.json с DEFAULT (I8).
     execFileSync(process.execPath, [join(root, 'scripts', 'manifest.mjs'), '--check'], { stdio: 'inherit' });

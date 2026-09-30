@@ -5,20 +5,29 @@
 //                                            x.y.z, баннер dist/lumen_card.js с той же
 //                                            версией, раздел «## x.y.z» в CHANGELOG.md,
 //                                            запасной адрес lumen.js — стабильная @main,
-//                                            метка BUILD в lumen.js = хэш dist;
+//                                            метка BUILD в lumen.js = хэш dist, VERSION в
+//                                            нём = LC.VERSION; если тег v<VERSION> уже
+//                                            есть, его сборка — ровно этот dist;
 //   node scripts/release.mjs --purge         сбросить кэш jsDelivr (lumen.js, dist,
 //                                            manifest.json) для ветки --ref;
 //   node scripts/release.mjs --remote        сверить, что GitHub Pages и jsDelivr @ref
 //                                            отдают ровно файлы коммита --sha (sha256)
 //                                            и баннер с его версией — в том числе
 //                                            сборку по тому адресу, что просит ТВ:
-//                                            dist/lumen_card.js?v=<BUILD из lumen.js>.
+//                                            dist/lumen_card.js?v=<BUILD из lumen.js>, и
+//                                            всё, что проверяет --tag;
+//   node scripts/release.mjs --tag           тег v<VERSION> на origin указывает на --sha,
+//                                            jsDelivr @v<VERSION> отдаёт сборку коммита
+//                                            (и по адресу загрузчика с ?v=<BUILD>).
+//                                            Гонять ПОСЛЕ push тега и ДО push main: Pages
+//                                            отдаст новый lumen.js, и он сразу попросит
+//                                            сборку по тегу (README, «Выпуск версии»);
 //   --ref <ветка>  ветка jsDelivr, по умолчанию main (бета — feat/lumen-v2);
 //   --sha <rev>    коммит, с которым сверяется хостинг, по умолчанию HEAD.
 //
 // Pages берёт файлы из той ветки, что выбрана в настройках репозитория
-// (Settings → Pages); с релиза 1.0.0 это main. Порядок выпуска — CHANGELOG.md
-// и docs/plans/2026-09-22-lumen-final.md, раздел «E. Релиз 1.0.0».
+// (Settings → Pages); с релиза 1.0.0 это main. Порядок выпуска — README,
+// раздел «Выпуск версии»: тег → --tag → ветки → --purge → --remote.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -28,6 +37,11 @@ import { buildStamp } from './build.mjs';
 
 const REPO = 'azarkostya/lumen-card';
 const PAGES = 'https://azarkostya.github.io/lumen-card/';
+/* Адрес сборки по тегу выпуска — тот, что загрузчик с Pages просит первым
+   (lumen.js: CDN + VERSION + '/dist/lumen_card.js?v=' + BUILD). */
+export function tagBuildUrl(version, build) {
+  return 'https://cdn.jsdelivr.net/gh/' + REPO + '@v' + version + '/dist/lumen_card.js' + (build ? '?v=' + build : '');
+}
 /* Порядок значим для --purge: загрузчик — последним. lumen.js несёт метку
    сборки (?v=BUILD); сбрось его раньше dist — и ТВ между двумя сбросами
    попросит dist/lumen_card.js?v=<новая> и может получить из кэша jsDelivr
@@ -60,12 +74,45 @@ export function loaderBuild(loader) {
   return m ? m[1] : '';
 }
 
+export function loaderVersion(loader) {
+  const m = /var VERSION = '([^']*)';/.exec(loader || '');
+  return m ? m[1] : '';
+}
+
 export function stampProblems(read) {
-  const build = loaderBuild(read('lumen.js'));
+  const loader = read('lumen.js');
+  const build = loaderBuild(loader);
   const dist = read('dist/lumen_card.js');
-  if (!build) return ["в lumen.js нет метки var BUILD = '…';"];
-  if (dist === null || build !== buildStamp(dist)) return ['метка BUILD в lumen.js (' + build + ') не хэш dist — нужна сборка'];
-  return [];
+  const out = [];
+  if (!build) out.push("в lumen.js нет метки var BUILD = '…';");
+  else if (dist === null || build !== buildStamp(dist)) out.push('метка BUILD в lumen.js (' + build + ') не хэш dist — нужна сборка');
+  const m = (read('src/00_head.js') || '').match(/LC\.VERSION\s*=\s*'([^']+)'/);
+  const version = loaderVersion(loader);
+  if (!version || !m || version !== m[1]) out.push('VERSION в lumen.js («' + version + '») не LC.VERSION' + (m ? ' ' + m[1] : '') + ' — нужна сборка');
+  return out;
+}
+
+/* Сборка тега v<версия> неизменна: jsDelivr отдаёт её с max-age на год
+   (immutable), и загрузчик с Pages просит именно её. Новая сборка под
+   старой версией ушла бы на ТВ старой — тег уже указывает на прежний dist.
+   tagDist — dist/lumen_card.js из тега (null — тега нет). */
+export function tagProblems(version, dist, tagDist) {
+  if (tagDist === null || tagDist === undefined) return [];
+  if (sha256(Buffer.from(tagDist)) === sha256(Buffer.from(dist || ''))) return [];
+  return ['тег v' + version + ' уже есть, и его сборка не этот dist — подними LC.VERSION (сборку тега jsDelivr кэширует навсегда)'];
+}
+
+/* Коммит тега из вывода git ls-remote: у аннотированного тега строка
+   «<объект тега> refs/tags/vX» и строка «<коммит> refs/tags/vX^{}» —
+   нужен коммит; у лёгкого тега строка одна. '' — тега нет. */
+export function remoteTagCommit(out, tag) {
+  let at = '';
+  for (const line of (out || '').split(/\r?\n/)) {
+    const parts = line.split(/\s+/);
+    if (parts[1] === tag + '^{}') return parts[0];
+    if (parts[1] === tag) at = parts[0];
+  }
+  return at;
 }
 
 function arg(name, def) {
@@ -84,6 +131,14 @@ async function main() {
   const readLocal = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return null; } };
   const local = localProblems(readLocal);
   local.problems = local.problems.concat(stampProblems(readLocal));
+  if (local.version) {
+    let tagDist = null;
+    try {
+      execFileSync('git', ['rev-parse', '-q', '--verify', 'refs/tags/v' + local.version], { cwd: root, stdio: 'ignore' });
+      tagDist = execFileSync('git', ['show', 'v' + local.version + ':dist/lumen_card.js'], { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20 });
+    } catch (e) { /* тега нет (или нет git) — сверять не с чем */ }
+    local.problems = local.problems.concat(tagProblems(local.version, readLocal('dist/lumen_card.js'), tagDist));
+  }
   console.log('версия ' + (local.version || '?') + ', локальные проверки: ' + (local.problems.length ? 'ЕСТЬ РАСХОЖДЕНИЯ' : 'ok'));
   for (const p of local.problems) console.log('  - ' + p);
   failed = failed || local.problems.length > 0;
@@ -100,7 +155,46 @@ async function main() {
     }
   }
 
-  if (process.argv.includes('--remote')) {
+  const remote = process.argv.includes('--remote');
+  if (remote || process.argv.includes('--tag')) {
+    const full = execFileSync('git', ['rev-parse', rev], { cwd: root, encoding: 'utf8' }).trim();
+    const show = (f) => execFileSync('git', ['show', full + ':' + f], { cwd: root, maxBuffer: 64 << 20 });
+    const lumen = show('lumen.js').toString('utf8');
+    const version = loaderVersion(lumen);
+    const build = loaderBuild(lumen);
+    if (!version) {
+      console.log('  (в lumen.js коммита нет VERSION — загрузчик до сборки по тегу)');
+      if (!remote) failed = true;
+    } else {
+      // Тег на origin — тот же коммит: jsDelivr разрешает тег через GitHub.
+      // Аннотированный тег ls-remote показывает дважды, «^{}» — его коммит.
+      const tag = 'refs/tags/v' + version;
+      let at = '';
+      try {
+        at = remoteTagCommit(execFileSync('git', ['ls-remote', 'origin', tag], { cwd: root, encoding: 'utf8' }), tag);
+      } catch (e) { console.log('  ERR  git ls-remote: ' + e.message); }
+      const tagOk = at === full;
+      console.log('  ' + (tagOk ? 'ok  ' : 'DIFF') + ' тег v' + version + ' на origin: ' + (at ? at.slice(0, 7) : 'нет') + ' (нужен ' + full.slice(0, 7) + ')');
+      if (!tagOk) failed = true;
+      // Сборка по тегу — в том числе ровно тем адресом, что просит загрузчик с
+      // Pages. Пока jsDelivr тег не разрешил, тут 404 — на ТВ это запасной
+      // путь с Pages, но main до «ok» не пушить.
+      const want = show('dist/lumen_card.js');
+      for (const url of [tagBuildUrl(version, ''), tagBuildUrl(version, build)]) {
+        let line;
+        try {
+          const r = await fetch(url, { cache: 'no-store' });
+          const got = Buffer.from(await r.arrayBuffer());
+          const same = r.ok && sha256(got) === sha256(want);
+          line = (same ? 'ok  ' : 'DIFF') + ' jsdelivr @v' + version + ' ' + url.slice(url.indexOf('/dist/') + 1) + ' HTTP ' + r.status + ' «' + got.toString('utf8', 0, 60).split('\n')[0] + '»';
+          if (!same) failed = true;
+        } catch (e) { line = 'ERR  jsdelivr @v' + version + ': ' + e.message; failed = true; }
+        console.log('  ' + line);
+      }
+    }
+  }
+
+  if (remote) {
     const full = execFileSync('git', ['rev-parse', rev], { cwd: root, encoding: 'utf8' }).trim();
     console.log('сверка хостинга с ' + full.slice(0, 7) + ' (jsDelivr @' + ref + ')');
     const bases = [['pages', PAGES, '?release=' + Date.now()], ['jsdelivr', 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + ref + '/', '']];
