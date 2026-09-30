@@ -2582,6 +2582,10 @@ var out=copy(json);
 out.results=cards(json.results,trusted(item));
 return out;
 }
+function ownMore(row){
+var emit=row&&row.params&&row.params.emit;
+return!!(emit&&typeof emit.onlyMore==='function');
+}
 function rows(list){
 var out=[];
 if(!Array.isArray(list))return out;
@@ -2592,6 +2596,7 @@ var kept=cards(row.results,false);
 if(!kept.length)continue;
 var next=copy(row);
 next.results=kept;
+if(!ownMore(row))next.total_pages=1;
 out.push(next);
 }
 return out;
@@ -2602,7 +2607,7 @@ var out=[];
 for(var i=0;i<list.length;i++){
 var row=list[i];
 if(!row||!Array.isArray(row.results))continue;
-if(!row.lumen_kids&&!row.lumen_personal&&!row.lumen_keep&&row.results.length<(min||0))continue;
+if(!row.lumen_kids&&!row.lumen_own&&!row.lumen_keep&&row.results.length<(min||0))continue;
 out.push(row);
 }
 return(!out.length&&keep)?list:out;
@@ -11188,9 +11193,11 @@ if(LC.manifest&&LC.manifest.get){
 var m=LC.manifest.get();
 if(m&&m.moods&&m.moods.length)return m.moods;
 }
-if(LC.manifest&&LC.manifest.DEFAULT&&LC.manifest.DEFAULT.moods){
-return LC.manifest.DEFAULT.moods;
-}
+var def=LC.manifest&&LC.manifest.DEFAULT;
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
+if(kids)def=def?LC.kids.catalog(def):null;
+if(def&&def.moods)return def.moods;
 }catch(e){
 warn('moods: manifest read failed',e);
 }
@@ -14610,7 +14617,7 @@ return out;
 function joinIds(ids){
 return(ids&&ids.length)?ids.join(','):'';
 }
-function sourcesFor(list,ids,manifest){
+function sourcesFor(list,ids,manifest,rnd){
 var out=[];
 if(!list||!list.length)return out;
 var picked={};
@@ -14626,6 +14633,15 @@ for(i=0;i<list.length;i++)byId[list[i].id]=list[i];
 for(i=0;i<home.length&&out.length<MAX_SOURCES;i++){
 if(byId[home[i]])out.push(byId[home[i]]);
 }
+if(typeof rnd==='function'&&out.length<MAX_SOURCES){
+var rest=[];
+for(i=0;i<list.length;i++)if(out.indexOf(list[i])<0)rest.push(list[i]);
+while(rest.length&&out.length<MAX_SOURCES){
+var at=Math.floor(rnd()*rest.length);
+if(at<0||at>=rest.length)at=rest.length-1;
+out.push(rest.splice(at,1)[0]);
+}
+}
 if(out.length)return out;
 for(i=0;i<list.length&&out.length<MAX_SOURCES;i++)out.push(list[i]);
 return out;
@@ -14639,6 +14655,18 @@ var have={};
 var i;
 for(i=0;list&&i<list.length;i++)if(list[i])have[list[i].id]=1;
 for(i=0;ids&&i<ids.length;i++)if(have[ids[i]])out.push(ids[i]);
+return out;
+}
+function keepHidden(ids,stored,shown,full){
+var out=ids?ids.slice():[];
+var have={};
+var i;
+for(i=0;i<out.length;i++)have[out[i]]=1;
+for(i=0;shown&&i<shown.length;i++)if(shown[i])have[shown[i].id]=1;
+var hidden=knownIds(stored,full);
+for(i=0;i<hidden.length;i++){
+if(!have[hidden[i]]){have[hidden[i]]=1;out.push(hidden[i]);}
+}
 return out;
 }
 function chipList(list,chosen,limit){
@@ -15062,7 +15090,11 @@ var ids=[];
 for(var i=0;i<chosen.length;i++){
 if(!like||chosen[i]!==like.id)ids.push(chosen[i]);
 }
-saveIds(media,ids);
+var full=[];
+try{
+if(LC.manifest&&typeof LC.manifest.raw==='function')full=collectionsFor(LC.manifest.raw(),media);
+}catch(eRaw){}
+saveIds(media,keepHidden(ids,storedIds(media),collections,full));
 }
 function chipNode(text,on){
 var node=watchFocus($('<div class="lumen-chip lumen-roulette__chip selector">'+esc(text)+'</div>'));
@@ -15122,7 +15154,9 @@ schedulePreview();
 filtersRow.append(short);
 }
 function keyOf(){
-return media+'|'+joinIds(chosen);
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
+return(kids?'kids|':'')+media+'|'+joinIds(chosen);
 }
 function seenIndex(cards){
 var map={};
@@ -15155,7 +15189,9 @@ if(poolWait&&poolWait.key===key&&poolWait.gen===gen){
 poolWait.done.push(done);
 return;
 }
-var list=sourcesFor(listFor(media),chosen,manifest);
+var kidsMode=false;
+try{kidsMode=!!(LC.kids&&LC.kids.enabled());}catch(eKidsMode){}
+var list=sourcesFor(listFor(media),chosen,manifest,kidsMode?Math.random:null);
 if(!list.length){pool=[];poolKey=key;done();return;}
 var captured=gen;
 var cards=[];
@@ -15920,6 +15956,7 @@ parseIds:parseIds,
 joinIds:joinIds,
 storageKey:storageKey,
 knownIds:knownIds,
+keepHidden:keepHidden,
 normalizeMedia:normalizeMedia,
 atvLook:atvLook,
 shelfCards:shelfCards,

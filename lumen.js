@@ -10,7 +10,7 @@
   /* Метка сборки: первые 10 hex sha256 от dist/lumen_card.js. Вписывает её
      scripts/build.mjs, руками не править (build.mjs --check ловит
      расхождение с dist). */
-  var BUILD = 'af529477a7';
+  var BUILD = 'c92d8c03aa';
   var cur = document.currentScript;
   var src = (cur && cur.src) || '';
   var base = src ? src.replace(/[?#].*$/, '').replace(/[^\/]*$/, '') : FALLBACK;
