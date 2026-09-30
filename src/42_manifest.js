@@ -7,7 +7,9 @@
   /*   orderForMonth(list, month) → list (сезонные наверх)                  */
   /*   isFresh(rec) → bool (кэш свежий < 12 ч)                              */
   /*   load(cb) — загружает манифест; вызывает cb(manifest)                 */
-  /*   get() → текущий (или DEFAULT) манифест                               */
+  /*   get() → текущий (или DEFAULT) манифест; в детском режиме — его       */
+  /*           детская копия (LC.kids.catalog), как и у load               */
+  /*   raw() → текущий манифест без детского фильтра                       */
   /*                                                                       */
   /* Все идентификаторы TMDB проверены живыми запросами — см. API_NOTES_4. */
   /* НЕ подтверждены и НЕ включены: col 8783 (Ice Age — чужая коллекция),  */
@@ -55,7 +57,7 @@
          title — русский; i18n содержит en/uk. */
       moods: [
         { id: 'friday', title: 'Пятничный вечер',  i18n: { en: 'Friday Evening',  uk: 'П\'ятничний вечір' },  sources: { movie: { type: 'discover', params: { genres: '28|12|35', sort_by: 'popularity.desc', filter: { 'vote_average.gte': 6.5, 'with_runtime.lte': 130 } } } } },
-        { id: 'family', title: 'Семейный просмотр', i18n: { en: 'Family Viewing',  uk: 'Сімейний перегляд' }, sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } } },
+        { id: 'family', title: 'Семейный просмотр', i18n: { en: 'Family Viewing',  uk: 'Сімейний перегляд' }, kids: true, sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } } },
         { id: 'scary',  title: 'Страшное на ночь',  i18n: { en: 'Scary at Night',  uk: 'Страшне вночі' },    sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } } },
         { id: 'short',  title: '90 минут',           i18n: { en: '90 Minutes',      uk: '90 хвилин' },         sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'with_runtime.lte': 90, 'vote_count.gte': 200 } } } } }
       ],
@@ -95,7 +97,20 @@
          признак — он стоит и у «Звёздных войн» (сериалы Lucasfilm), и у
          «Зимнего» и «Летнего кино». Не boolean — поле отбрасывается
          (validate), подборка остаётся; прежние версии плагина поле не
-         читают вовсе. */
+         читают вовсе.
+         kids (необязательное, 1.2) — true у подборок детского режима
+         (LC.kids, src/41_kids.js) и чипа хаба «Детям»: мультфильмы и
+         семейное (тег стоит и у настроения «Семейный просмотр») плюс
+         семейные блокбастеры — «Гарри Поттер», «Звёздные войны»,
+         «Мстители», «Человек-паук» (решение пользователя 29.09). Живая
+         проверка первой страницы каждой 2026-09-30: adult нет, ужасов,
+         триллеров и войны нет, кроме «Коралины» и «Барашка Шона» у
+         LAIKA/Aardman (27) — их снимает фильтр карточек. «Киновселенная
+         Marvel» и Marvel Studios тега НЕ получили: в них «Дэдпул и
+         Росомаха» (R, жанры 28/35/878 — фильтром не отличить) и сериалы
+         Netflix 18+ («Джессика Джонс» без стоп-жанров); «Люди Икс» — «Логан»
+         (R); «Классика Marvel» — «Блэйд» и «Каратель» (R); DC — решение
+         пользователя. Не boolean — поле отбрасывается (validate). */
       collections: [
 
         /* === FRANCHISE (47 подборок) === */
@@ -181,14 +196,14 @@
            запросов набора; у «Властелина колец» первым по дате стал бы
            мультфильм 1978 года. */
         {
-          id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
+          id: 'star-wars', title: 'Звёздные войны', group: 'franchise', kids: true, icon: 'film',
           sources: {
             movie: { type: 'discover',   params: { companies: 1, genres: 878, sort_by: 'primary_release_date.asc', filter: { without_genres: '99,10770,35,10751', 'vote_count.gte': 200 } } },
             tv:    { type: 'discover',   params: { companies: 1, genres: '10765|16', sort_by: 'popularity.desc', filter: { without_keywords: '211227,215470' } } }
           }
         },
         {
-          id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film', cover: '/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg',
+          id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', kids: true, icon: 'film', cover: '/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg',
           sources: {
             movie: { type: 'collection', id: 1241, also: [435259] },
             tv:    { type: 'discover',   params: { companies: '437,3268', sort_by: 'popularity.desc' } }
@@ -305,7 +320,7 @@
           }
         },
         {
-          id: 'avengers', title: 'Мстители', group: 'franchise', icon: 'film',
+          id: 'avengers', title: 'Мстители', group: 'franchise', kids: true, icon: 'film',
           sources: { movie: { type: 'collection', id: 86311 } }
         },
         /* Правка 2026-09-27 (второй проход): + трилогия «Росомахи» (453993:
@@ -564,15 +579,15 @@
            «Миньоны» (544669: 2015, 2022, 2026) — 7. «Мадагаскар» (ниже) — +
            «Пингвины Мадагаскара» (270946, 2014) — 4. Кадры — прежние. */
         {
-          id: 'shrek', title: 'Шрек', group: 'franchise', animation: true, icon: 'film', cover: '/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
+          id: 'shrek', title: 'Шрек', group: 'franchise', kids: true, animation: true, icon: 'film', cover: '/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
           sources: { movie: { type: 'collection', id: 2150, also: [94602] } }
         },
         {
-          id: 'toy-story', title: 'История игрушек', group: 'franchise', animation: true, icon: 'film', cover: '/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
+          id: 'toy-story', title: 'История игрушек', group: 'franchise', kids: true, animation: true, icon: 'film', cover: '/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
           sources: { movie: { type: 'collection', id: 10194, movies: [718789] } }
         },
         {
-          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', animation: true, icon: 'film', cover: '/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
+          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', kids: true, animation: true, icon: 'film', cover: '/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
           sources: { movie: { type: 'collection', id: 86066, also: [544669] } }
         },
         /* Правка 2026-09-27: «Человек-паук» — все игровые фильмы и
@@ -586,15 +601,15 @@
            «Крэйвен») — это не фильмы о Человеке-пауке. Кадр — «Человек-паук»
            (2002). */
         {
-          id: 'spiderman-mcu', title: 'Человек-паук', i18n: { en: 'Spider-Man', uk: 'Людина-павук' }, group: 'franchise', icon: 'film', cover: '/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
+          id: 'spiderman-mcu', title: 'Человек-паук', i18n: { en: 'Spider-Man', uk: 'Людина-павук' }, group: 'franchise', kids: true, icon: 'film', cover: '/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
           sources: { movie: { type: 'collection', id: 531241, also: [556, 125574, 573436] } }
         },
         {
-          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', animation: true, icon: 'film', cover: '/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
+          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', kids: true, animation: true, icon: 'film', cover: '/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
           sources: { movie: { type: 'collection', id: 14740, movies: [270946] } }
         },
         {
-          id: 'ice-age', title: 'Ледниковый период', group: 'franchise', animation: true, icon: 'film',
+          id: 'ice-age', title: 'Ледниковый период', group: 'franchise', kids: true, animation: true, icon: 'film',
           sources: { movie: { type: 'collection', id: 8354 } }
         },
         {
@@ -606,11 +621,11 @@
 
         /* Существующие (6) */
         {
-          id: 'pixar', title: 'Pixar', group: 'studio', animation: true,
+          id: 'pixar', title: 'Pixar', group: 'studio', kids: true, animation: true,
           sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'ghibli', title: 'Студия Гибли', group: 'studio', animation: true,
+          id: 'ghibli', title: 'Студия Гибли', group: 'studio', kids: true, animation: true,
           sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
         },
         {
@@ -667,11 +682,11 @@
           sources: { movie: { type: 'discover', params: { companies: 5, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'dreamworks', title: 'DreamWorks Animation', group: 'studio', animation: true,
+          id: 'dreamworks', title: 'DreamWorks Animation', group: 'studio', kids: true, animation: true,
           sources: { movie: { type: 'discover', params: { companies: 521, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'illumination', title: 'Illumination', group: 'studio', animation: true,
+          id: 'illumination', title: 'Illumination', group: 'studio', kids: true, animation: true,
           sources: { movie: { type: 'discover', params: { companies: 6704, sort_by: 'popularity.desc' } } }
         },
         {
@@ -701,11 +716,11 @@
            animation: true — признак анимационной подборки (контракт с чипом
            «Мультфильмы» хаба); проверка каталога поле не трогает. */
         {
-          id: 'disney-animation', title: 'Walt Disney Animation', i18n: { en: 'Walt Disney Animation', uk: 'Walt Disney Animation' }, group: 'studio', animation: true, cover: '/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
+          id: 'disney-animation', title: 'Walt Disney Animation', i18n: { en: 'Walt Disney Animation', uk: 'Walt Disney Animation' }, group: 'studio', kids: true, animation: true, cover: '/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
           sources: { movie: { type: 'discover', params: { companies: 6125, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'laika-aardman', title: 'LAIKA и Aardman', i18n: { en: 'LAIKA & Aardman', uk: 'LAIKA та Aardman' }, group: 'studio', animation: true, cover: '/svHDneADngRckbFMUcD0AR1KsSq.jpg',
+          id: 'laika-aardman', title: 'LAIKA и Aardman', i18n: { en: 'LAIKA & Aardman', uk: 'LAIKA та Aardman' }, group: 'studio', kids: true, animation: true, cover: '/svHDneADngRckbFMUcD0AR1KsSq.jpg',
           sources: { movie: { type: 'discover', params: { companies: '11537|297', sort_by: 'popularity.desc' } } }
         },
 
@@ -1021,7 +1036,7 @@
           sources: { movie: { type: 'discover', params: { keywords: '13088|14714|5767', genres: '35|10751|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,18', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 150 } } } }
         },
         {
-          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', animation: true, icon: 'star', aliases: ['Союзмультфильм', 'Мультики'], season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', kids: true, animation: true, icon: 'star', aliases: ['Союзмультфильм', 'Мультики'], season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
           sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ru', sort_by: 'vote_count.desc', filter: { 'primary_release_date.lte': '1991-12-31', 'vote_count.gte': 20 } } } }
         },
         {
@@ -1103,7 +1118,7 @@
           sources: { movie: { type: 'discover', params: { genres: 28, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', animation: true, cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+          id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', kids: true, animation: true, cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
           sources: { movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
@@ -1215,7 +1230,7 @@
            Кадры — не основные, без текста: «Тайна Коко», «Любовное
            настроение». «Лауреаты Оскара» замены не получили. */
         {
-          id: 'family', title: 'Семейные', i18n: { en: 'Family Films', uk: 'Сімейні' }, group: 'theme', cover: '/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
+          id: 'family', title: 'Семейные', i18n: { en: 'Family Films', uk: 'Сімейні' }, group: 'theme', kids: true, cover: '/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
           sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } }
         },
         {
@@ -1271,22 +1286,22 @@
              Остаются «Студия Marvel: Легенды» и «Общий сбор» (4-я и 8-я) — это
              документальные выпуски, признака отсечь их нет. */
         {
-          id: 'kids-toons', title: 'Мультсериалы для детей', i18n: { en: 'Cartoons for Kids', uk: 'Мультсеріали для дітей' }, group: 'theme', animation: true, cover: '/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+          id: 'kids-toons', title: 'Мультсериалы для детей', i18n: { en: 'Cartoons for Kids', uk: 'Мультсеріали для дітей' }, group: 'theme', kids: true, animation: true, cover: '/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
           sources: { tv: { type: 'discover', params: { genres: '16,10762', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 20 } } } }
         },
         {
-          id: 'toddlers', title: 'Для самых маленьких', i18n: { en: 'For Little Ones', uk: 'Для найменших' }, group: 'theme', animation: true, cover: '/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+          id: 'toddlers', title: 'Для самых маленьких', i18n: { en: 'For Little Ones', uk: 'Для найменших' }, group: 'theme', kids: true, animation: true, cover: '/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
           sources: {
             movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'G', 'vote_count.gte': 50 } } },
             tv:    { type: 'discover', params: { genres: 10762, sort_by: 'popularity.desc', filter: { certification_country: 'US', certification: 'TV-Y', 'vote_count.gte': 20 } } }
           }
         },
         {
-          id: 'family-toons', title: 'Семейные мультсериалы', i18n: { en: 'Family Animated Series', uk: 'Сімейні мультсеріали' }, group: 'theme', animation: true, cover: '/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
+          id: 'family-toons', title: 'Семейные мультсериалы', i18n: { en: 'Family Animated Series', uk: 'Сімейні мультсеріали' }, group: 'theme', kids: true, animation: true, cover: '/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
           sources: { tv: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { without_genres: '10762', 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'family-live', title: 'Семейное игровое кино', i18n: { en: 'Live-Action Family Films', uk: 'Сімейне ігрове кіно' }, group: 'theme', cover: '/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
+          id: 'family-live', title: 'Семейное игровое кино', i18n: { en: 'Live-Action Family Films', uk: 'Сімейне ігрове кіно' }, group: 'theme', kids: true, cover: '/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
           sources: { movie: { type: 'discover', params: { genres: 10751, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 200 } } } }
         },
         {
@@ -1562,7 +1577,7 @@
           sources: { movie: { type: 'person', id: 137427, job: 'Director' } }
         },
         {
-          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', animation: true, cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
+          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', kids: true, animation: true, cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
           sources: { movie: { type: 'person', id: 608, job: 'Director' } }
         },
 
@@ -2104,6 +2119,7 @@
         for (var mi = 0; mi < m.moods.length; mi++) {
           if (dropRetired(m.moods[mi].sources)) { m.moods.splice(mi, 1); mi--; continue; }
           if (!sourcesOk(m.moods[mi].sources)) return { ok: false, reason: 'bad_mood: ' + m.moods[mi].id };
+          if (typeof m.moods[mi].kids !== 'undefined' && typeof m.moods[mi].kids !== 'boolean') delete m.moods[mi].kids;
         }
       }
       for (var hi = 0; hi < m.home.length; hi++) {
@@ -2142,6 +2158,8 @@
            повод терять подборку или весь каталог: поле снимается, и
            подборка просто не попадает в чип. */
         if (typeof c.animation !== 'undefined' && typeof c.animation !== 'boolean') delete c.animation;
+        /* 1.2: тег детского режима — так же. */
+        if (typeof c.kids !== 'undefined' && typeof c.kids !== 'boolean') delete c.kids;
       }
       var themes = m.themes || [];
       for (i = 0; i < themes.length; i++) {
@@ -2203,7 +2221,7 @@
       try {
         if (!url && typeof LC.MANIFEST_URL === 'string') url = LC.MANIFEST_URL || '';
       } catch (e) {}
-      if (!url || !httpsUrl(url)) { current = DEFAULT; cb(DEFAULT); return; }
+      if (!url || !httpsUrl(url)) { current = DEFAULT; cb(view(DEFAULT)); return; }
       var cached = null;
       try { cached = Lampa.Storage.get('lumen_manifest', null); } catch (e) {}
       /* Кэш мог записать прежний плагин с прежней проверкой — перепроверяем
@@ -2211,7 +2229,7 @@
       var usable = !!(cached && validate(cached.data).ok);
       if (usable && isFresh(cached)) {
         current = cached.data;
-        cb(current);
+        cb(view(current));
         return;
       }
       var sep = url.indexOf('?') >= 0 ? '&' : '?';
@@ -2223,23 +2241,47 @@
           if (validate(json).ok) {
             try { Lampa.Storage.set('lumen_manifest', { at: Date.now(), data: json }); } catch (e) {}
             current = json;
-            cb(json);
+            cb(view(json));
           } else {
             current = usable ? cached.data : DEFAULT;
-            cb(current);
+            cb(view(current));
           }
         },
         function () {
           current = usable ? cached.data : DEFAULT;
-          cb(current);
+          cb(view(current));
         },
         false,
         { dataType: 'json', timeout: 8000 }
       );
     }
 
+    /* 1.2: детский режим (LC.kids, src/41_kids.js) — одна точка на весь
+       плагин: get() и load() отдают детскую копию каталога, и план главной,
+       хаб, рулетка, поиск и чипы настроения получают её разом. current
+       остаётся полным. Внешний каталог без тегов (manifest.json с хостинга,
+       выложенный до 1.2, — кэш до 12 ч) дал бы пустой детский каталог —
+       тогда берётся детская часть встроенного. */
+    function view(m) {
+      try {
+        if (!LC.kids || typeof LC.kids.enabled !== 'function' || !LC.kids.enabled()) return m;
+        var kids = LC.kids.catalog(m);
+        if (m !== DEFAULT && (!kids || !kids.collections || !kids.collections.length)) kids = LC.kids.catalog(DEFAULT);
+        return kids || m;
+      } catch (e) {
+        return m;
+      }
+    }
+
     /* Возвращает текущий манифест. До load() — DEFAULT. */
     function get() {
+      return view(current || DEFAULT);
+    }
+
+    /* Полный каталог в любом режиме: экран «Какие подборки показывать»
+       (src/80_settings.js) сохраняет отмеченное из показанного списка, и
+       из детского каталога он стёр бы взрослый выбор человека. */
+    function raw() {
       return current || DEFAULT;
     }
 
@@ -2249,7 +2291,8 @@
       orderForMonth: orderForMonth,
       isFresh: isFresh,
       load: load,
-      get: get
+      get: get,
+      raw: raw
     };
   })();
 

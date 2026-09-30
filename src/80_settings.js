@@ -681,6 +681,14 @@
     /* Сверка 2026-09-26: метка сезонной подборки (поле season каталога) в
        окне «Какие подборки показывать» — строкой под названием. */
     lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
+    /* 1.2: детский режим (LC.kids, src/41_kids.js). Описание честно
+       говорит, чего режим НЕ делает (план 1.2, раздел рисков). */
+    lumen_kids_name: { ru: 'Детский режим', en: 'Kids mode', uk: 'Дитячий режим' },
+    lumen_kids_descr: {
+      ru: 'Главная, подборки и рулетка — только мультфильмы, семейное кино и семейные блокбастеры. Это не родительский контроль: пароля нет, поиск, меню и карточки Lampa не ограничиваются.',
+      en: 'Home, collections and roulette show only animation, family films and family blockbusters. This is not parental control: no PIN, and Lampa search, menus and cards are not restricted.',
+      uk: 'Головна, підбірки й рулетка — лише мультфільми, сімейне кіно та сімейні блокбастери. Це не батьківський контроль: пароля немає, пошук, меню й картки Lampa не обмежуються.'
+    },
     /* 1.0.2: кнопка «Франшиза» и ряд «Смотреть по порядку» — одним
        выключателем (lumen_franchise). */
     lumen_franchise_name: { ru: 'Франшизы', en: 'Franchises', uk: 'Франшизи' },
@@ -984,6 +992,8 @@
        переключатель медиа в сетке подборки с фильмами и сериалами. */
     lumen_hub_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },
     lumen_hub_animation: { ru: 'Мультфильмы', en: 'Animation', uk: 'Мультфільми' },
+    /* 1.2: чип «Детям» — подборки с тегом kids (детский режим). */
+    lumen_hub_kids: { ru: 'Детям', en: 'For Kids', uk: 'Дітям' },
     lumen_grid_all: { ru: 'Всё', en: 'All', uk: 'Усе' },
     lumen_grid_movies: { ru: 'Фильмы', en: 'Movies', uk: 'Фільми' },
     lumen_grid_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },
@@ -1355,8 +1365,11 @@
        который выбирает режим ради сравнения на своём экране, увидел бы
        разницу только после выхода с главной и возврата, то есть сравнивал
        бы по памяти. */
+    /* 1.2: детский режим — тот же путь: план берёт каталог из load (уже
+       детский или снова полный), главная пересобирается; хаб, рулетка и
+       поиск читают каталог при открытии. */
     if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows' ||
-        name === 'lumen_rows_dedupe' || name === 'lumen_posters') {
+        name === 'lumen_rows_dedupe' || name === 'lumen_posters' || name === 'lumen_kids') {
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
       return true;
     }
@@ -1456,7 +1469,10 @@
       if (!LC.rows || typeof LC.rows.rowChoices !== 'function') return;
       if (!LC.manifest || typeof LC.manifest.get !== 'function') return;
 
-      var manifest = LC.manifest.get();
+      /* 1.2: полный каталог и в детском режиме — сохраняется отмеченное из
+         показанного, и детский список стёр бы взрослый выбор (raw,
+         src/42_manifest.js). */
+      var manifest = typeof LC.manifest.raw === 'function' ? LC.manifest.raw() : LC.manifest.get();
       var choices = LC.rows.rowChoices(manifest, LC.rows.storedIds());
       var lang = langCode();
 

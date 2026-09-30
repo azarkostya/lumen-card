@@ -1748,3 +1748,97 @@ test('partAhead: колбэки паузы, простоя и выдачи за�
   assert.equal(w.timers.length, 1);
   assert.equal(w.timers[0].fn.name, 'onRowsAheadTake', 'выдача заготовки Lampa');
 });
+
+/* ---------------------------------------------------------------- */
+/* 1.2: детский режим (src/41_kids.js).                              */
+/* ---------------------------------------------------------------- */
+
+function kidsApi(on) {
+  return loadCtx('41_kids.js', { pref: function (k, d) { return k === 'lumen_kids' ? on : d; } }).api;
+}
+
+test('kids: ряд подборки — ответ чистится до постеров и помечается lumen_kids; выключен — как было', function () {
+  var cards = [
+    { id: 1, genre_ids: [12, 14] },
+    { id: 2, genre_ids: [16, 10751] },
+    { id: 3, genre_ids: [27] }
+  ];
+  function run(on, item) {
+    var s = setupRows({ manifest: { version: 1, home: [item.id], collections: [item] } });
+    s.LC.kids = kidsApi(on);
+    var got = null;
+    s.rows()[0].call({}, 'main')(function (d) { got = d; });
+    s.fetchCalls[0].ok({ results: cards.slice(), total_pages: 1 });
+    return { got: got, posters: s.postersCalls[0].cards };
+  }
+  var hp = run(true, { id: 'harry-potter', title: 'ГП', kids: true, sources: { movie: {} } });
+  assert.deepEqual(hp.got.results.map(function (c) { return c.id; }), [1, 2], 'подборке с тегом хватает safe');
+  assert.equal(hp.got.lumen_kids, true);
+  assert.deepEqual(hp.posters.map(function (c) { return c.id; }), [1, 2], 'постеры — только оставшимся');
+  var other = run(true, { id: 'col-x', title: 'X', sources: { movie: {} } });
+  assert.deepEqual(other.got.results.map(function (c) { return c.id; }), [2], 'без тега — strict');
+  var off = run(false, { id: 'harry-potter', title: 'ГП', kids: true, sources: { movie: {} } });
+  assert.equal(off.got.results.length, 3);
+  assert.equal(off.got.lumen_kids, undefined, 'выключенный режим ряд не метит');
+});
+
+test('kids: обёртка Api.main — штатные и личные ряды чистятся ДО дедупликации, во всех пачках', function () {
+  function card(id, g) { return { id: id, source: 'tmdb', genre_ids: g }; }
+  var s = setupDedupeRuntime({
+    batches: [
+      [
+        mkRow('Досмотреть', [card(1, [10751]), card(2, [27])], { lumen_personal: true, lumen_own: true }),
+        mkRow('Мстители', [card(3, [28, 12, 878]), card(1, [10751]), card(13, [12]), card(14, [12]), card(15, [12])], { lumen_kids: true }),
+        mkRow('В тренде', [card(4, [53]), card(5, [10751]), card(6, [28]), card(7, [80])])
+      ],
+      [mkRow('Сейчас смотрят', [card(8, [10762]), card(9, [16, 10751]), card(10, [16, 10751]), card(11, [10751]), card(12, [27])])]
+    ]
+  });
+  s.LC.kids = kidsApi(true);
+  s.R.installDedupe();
+  var got = [];
+  var next = s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  next(function (d) { got.push(d); }, function () {});
+  assert.deepEqual(got[0].map(function (r) { return r.title; }), ['Досмотреть', 'Мстители'], 'огрызок «В тренде» ушёл');
+  assert.deepEqual(idsOf(got[0][0]), [1]);
+  assert.deepEqual(idsOf(got[0][1]), [3, 13, 14, 15], 'дубль «Досмотреть» снят дедупликацией после фильтра');
+  assert.deepEqual(idsOf(got[1][0]), [8, 9, 10, 11], 'вторая пачка — тем же фильтром');
+});
+
+test('kids: выключен — обёртка рядов не фильтрует', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('В тренде', [{ id: 4, source: 'tmdb', genre_ids: [27] }])]] });
+  s.LC.kids = kidsApi(false);
+  s.R.installDedupe();
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.deepEqual(idsOf(got[0]), [4]);
+});
+
+test('kids: огрызки чужих рядов уходят ПОСЛЕ дедупликации — и в глубине ленты тоже', function () {
+  function card(id, g) { return { id: id, source: 'tmdb', genre_ids: g }; }
+  var fam = function (id) { return card(id, [16, 10751]); };
+  var s = setupDedupeRuntime({
+    batches: [
+      [mkRow('Pixar', [fam(1), fam(2), fam(3), fam(4), fam(5)], { lumen_kids: true })],
+      /* Жанровый ряд Lampa: после фильтра 5 карточек, после окна — одна. */
+      [mkRow('Мультфильм', [fam(1), fam(2), fam(3), fam(4), fam(6), card(7, [28])]),
+        mkRow('Семейный', [fam(1), fam(2), fam(8)])]
+    ]
+  });
+  s.LC.kids = kidsApi(true);
+  s.R.installDedupe();
+  var got = [];
+  var next = s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  next(function (d) { got.push(d); }, function () {});
+  assert.deepEqual(got[0].map(function (r) { return r.title; }), ['Pixar']);
+  assert.deepEqual(got[1], [], 'пачка из огрызков — пустая: Lampa просто не дописывает ленту');
+});
+
+test('kids: первая пачка из одних огрызков отдаётся как есть — пустой главной не бывает', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('Мультфильм', [{ id: 1, source: 'tmdb', genre_ids: [10751] }])]] });
+  s.LC.kids = kidsApi(true);
+  s.R.installDedupe();
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.equal(got.length, 1);
+});

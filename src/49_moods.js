@@ -110,6 +110,14 @@
       node.on('hover:enter', function () {
         var m = this.lumen_mood;
         if (!m) return;
+        /* 1.2: в детском режиме — своя сетка хаба (LC.hub.open → openTarget):
+           штатную category_full фильтровать нечем. */
+        try {
+          if (LC.kids && LC.kids.enabled() && LC.hub && typeof LC.hub.open === 'function' && typeof LC.hub.moodItems === 'function') {
+            var tiles = LC.hub.moodItems({ moods: [m] });
+            if (tiles.length) { LC.hub.open(tiles[0]); return; }
+          }
+        } catch (eKids) { warn('moods: kids open failed', eKids); }
         var obj = moodActivityObj(m);
         if (!obj) return;
         try { Lampa.Activity.push(obj); } catch (e) { warn('moods: push failed', e); }

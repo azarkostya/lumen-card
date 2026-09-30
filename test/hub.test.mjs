@@ -858,7 +858,9 @@ function loadHub(opts) {
     pref: opts.pref,
     /* Task 40: замер автодетекта — модуля perf в этих тестах по умолчанию
        нет, как и в бандле до его загрузки (вызов защищён проверкой). */
-    perf: opts.perf
+    perf: opts.perf,
+    /* 1.2: детский режим (src/41_kids.js) — по умолчанию модуля нет. */
+    kids: opts.kids
   });
   return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, bannerCalls: bannerCalls, postersCalls: postersCalls };
 }
@@ -3677,4 +3679,69 @@ test('переключатель медиа: рулетка — того же м
   assert.equal(row._children[row._children.length - 1], btn[0], 'по-прежнему последним узлом строки');
   fire(btn[0], 'hover:enter');
   assert.deepEqual(r.opened[1], { media: 'movie', preselect: 'star-wars' }, '«Всё» — фильмы первыми, как раньше');
+});
+
+/* ====================================================================== */
+/* 1.2: детский режим (src/41_kids.js) и чип «Детям».                      */
+/* ====================================================================== */
+
+function kidsMod(on) {
+  return loadCtx('41_kids.js', { pref: function (k, d) { return k === 'lumen_kids' ? on : d; } }).api;
+}
+
+var KIDS_MANIFEST = Object.assign({}, SLICE_MANIFEST, {
+  collections: SLICE_MANIFEST.collections.map(function (c) {
+    return (c.id === 'shrek' || c.id === 'star-wars') ? Object.assign({}, c, { kids: true }) : c;
+  }).concat([{ id: 'fake-kids', title: 'Не детская', group: 'studio', kids: 'yes', sources: { movie: { type: 'discover', params: {} } } }])
+});
+
+test('kids: чип «Детям» — сразу за «Мультфильмами», virtual, счёт по тегу kids: true', function () {
+  var g = H.groupsWithCounts(KIDS_MANIFEST, 'ru');
+  assert.deepEqual(g.map(function (x) { return x.id; }), ['franchises', H.SERIES_HUB, H.ANIMATION_HUB, H.KIDS_HUB, 'studios']);
+  assert.equal(g[3].title, 'lumen_hub_kids');
+  assert.equal(g[3].count, 2, 'star-wars и shrek; kids: "yes" — не тег');
+  assert.ok(g[3].virtual, 'шапка не считает срез в число подборок');
+  assert.deepEqual(H.tilesFor(KIDS_MANIFEST, H.KIDS_HUB).map(function (t) { return t.id; }), ['star-wars', 'shrek']);
+});
+
+test('kids: чипа «Детям» нет без тегов и когда детские — весь каталог (детский режим)', function () {
+  var ids = H.groupsWithCounts(SLICE_MANIFEST, 'ru').map(function (x) { return x.id; });
+  assert.equal(ids.indexOf(H.KIDS_HUB), -1);
+  var all = Object.assign({}, KIDS_MANIFEST, { collections: H.kidsItems(KIDS_MANIFEST) });
+  ids = H.groupsWithCounts(all, 'ru').map(function (x) { return x.id; });
+  assert.equal(ids.indexOf(H.KIDS_HUB), -1, 'повторял бы «все подборки»');
+  assert.ok(ids.indexOf(H.ANIMATION_HUB) !== -1);
+});
+
+test('kids: openTarget — в детском режиме одиночный discover открывается своей сеткой', function () {
+  var on = loadHub({ kids: kidsMod(true) }).api;
+  assert.equal(on.openTarget(MANIFEST.collections[2]).component, 'lumen_grid', 'pixar: category_full фильтровать нечем');
+  var off = loadHub({ kids: kidsMod(false) }).api;
+  assert.equal(off.openTarget(MANIFEST.collections[2]).component, 'category_full', 'выключен — как было');
+});
+
+test('kids: moodItems несёт тег настроения в сетку', function () {
+  var tiles = H.moodItems({ moods: [
+    { id: 'family', title: 'С', kids: true, sources: { movie: { type: 'discover', params: {} } } },
+    { id: 'scary', title: 'С', sources: { movie: { type: 'discover', params: {} } } }
+  ] });
+  assert.equal(tiles[0].kids, true);
+  assert.equal('kids' in tiles[1], false);
+});
+
+test('kids: сетка подборки в детском режиме чистит ответ до постеров; без тега — strict', function () {
+  function run(item, on) {
+    var g = openGrid(item, { kids: kidsMod(on) });
+    var list = [
+      { id: 1, title: 'A', genre_ids: [12, 14], poster_path: '/a.jpg' },
+      { id: 2, title: 'B', genre_ids: [16, 10751], poster_path: '/b.jpg' },
+      { id: 3, title: 'C', genre_ids: [27], poster_path: '/c.jpg' }
+    ];
+    g.h.fetchCalls[0].ok({ results: list, page: 1, total_pages: 1, total_results: 3 });
+    return { cards: g.root.all('lumen-gcard').length, posters: g.h.postersCalls[0].cards.map(function (c) { return c.id; }) };
+  }
+  var kidsItem = Object.assign({}, COLLECTION, { kids: true });
+  assert.deepEqual(run(kidsItem, true), { cards: 2, posters: [1, 2] });
+  assert.deepEqual(run(COLLECTION, true), { cards: 1, posters: [2] });
+  assert.deepEqual(run(COLLECTION, false), { cards: 3, posters: [1, 2, 3] });
 });

@@ -308,6 +308,11 @@
        карточки — не пустой экран, а курируемый список: настройка про то,
        ЧТО показать, когда есть выбор, а не про то, показывать ли вообще. */
     function frames() {
+      /* 1.2: в детском режиме заставки Lumen нет вовсе — кадры каталога
+         из взрослого кино, а пустой список каталога curatedFrames заменил
+         бы встроенным. Нет кадров — start() не поднимает слой (canStart),
+         и работает штатная заставка Lampa, как без плагина. */
+      try { if (LC.kids && LC.kids.enabled()) return []; } catch (eKids) { }
       var source = 'curated';
       try { source = LC.pref('lumen_ambient_source', 'curated'); } catch (e) { }
       if (source === 'current') {

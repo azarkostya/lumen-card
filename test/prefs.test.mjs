@@ -152,6 +152,8 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     'lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale',
     /* Главная */
     'lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows',
+    /* 1.2: детский режим */
+    'lumen_kids',
     /* Карточка фильма */
     'lumen_reviews', 'lumen_kp_key', 'lumen_franchise',
     /* Движение */
@@ -225,7 +227,8 @@ test('фаза 3: масштаб — четыре ступени от «мель
    эффект правки соседней строки. */
 const MAIN_GROUPS = [
   ['lumen_group_look', ['lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale']],
-  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows']],
+  /* 1.2: «Детский режим» — шестой строкой «Главной» (решение пользователя 29.09). */
+  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows', 'lumen_kids']],
   ['lumen_group_card', ['lumen_reviews', 'lumen_kp_key', 'lumen_franchise']],
   ['lumen_group_motion', ['lumen_motion', 'lumen_fx', 'lumen_ambient', 'lumen_more']]
 ];
@@ -262,8 +265,9 @@ test('1.0.2: главный раздел — выключатель, четыр�
   const main = LIST.filter((e) => e.section !== 'more');
   assert.deepEqual(groupsOf(main.slice(1)), MAIN_GROUPS);
   const rows = main.filter((e) => e.type !== 'title');
-  /* 18 строк — столько согласовал автор: всё, что меняют чаще. */
-  assert.equal(rows.length, 18, 'строк в главном разделе: ' + rows.length);
+  /* 18 строк — столько согласовал автор: всё, что меняют чаще; 1.2 —
+     19-я, «Детский режим» (решение пользователя 29.09). */
+  assert.equal(rows.length, 19, 'строк в главном разделе: ' + rows.length);
   assert.equal(rows[rows.length - 1].name, 'lumen_more');
   assert.equal(prefs.find('lumen_more').type, 'button');
   for (const e of main) assert.equal(e.section, undefined, 'у пункта главного раздела нет section: ' + e.name);
@@ -280,9 +284,11 @@ test('1.0.2: второй экран — четыре группы, «Для р�
   assert.ok(more.slice(dev + 1).every((e) => e.type !== 'title'), 'после «Для разработчика» есть ещё группа');
 });
 
-test('1.0.2: в главном разделе группы короткие — не длиннее пяти строк', () => {
+test('1.0.2: в главном разделе группы короткие — не длиннее шести строк', () => {
+  /* Было ≤ 5; 1.2 — «Главная» с «Детским режимом» шестой строкой
+     (решение пользователя 29.09, вопрос 3.1 плана 1.2). */
   for (const [title, items] of MAIN_GROUPS) {
-    assert.ok(items.length >= 1 && items.length <= 5, 'группа ' + title + ': ' + items.length);
+    assert.ok(items.length >= 1 && items.length <= 6, 'группа ' + title + ': ' + items.length);
   }
 });
 

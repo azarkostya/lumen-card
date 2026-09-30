@@ -2533,3 +2533,32 @@ test('дизайн C: новые строки рулетки — во всех �
   }
   assert.equal(LC.STRINGS.lumen_roulette_similar.ru, 'Что посмотреть похожее', 'пункт назван не словами пользователя');
 });
+
+/* 1.2: детский режим (src/41_kids.js) — пул без стоп-жанров. MANIFEST34:
+   подборка без тега kids, то есть strict (нужен семейный жанр). */
+const KIDS_SRC = readFileSync(new URL('../src/41_kids.js', import.meta.url), 'utf8');
+function kidsLC(on) {
+  const LC = { pref: (k, d) => (k === 'lumen_kids' ? on : d) };
+  const module = { exports: null, lumen: true };
+  new Function('LC', 'module', KIDS_SRC)(LC, module);
+  return module.exports;
+}
+
+test('kids: пул рулетки в детском режиме — без ужасов и без карточек без семейного жанра', (t) => {
+  const cards = [
+    Object.assign({}, R44, { genre_ids: [16, 10751] }),
+    Object.assign({}, NOFRAME44, { genre_ids: [27, 53] }),
+    Object.assign({}, R44, { id: 7, genre_ids: [28] })
+  ];
+  let env = openRoulette34(cards, t, 1, 'lite');
+  env.LC.kids = kidsLC(true);
+  env.comp.start();
+  flushTimers();
+  assert.equal(env.count(), '1');
+  assert.equal(poolCards34.length, 3, 'общий ответ подборки не тронут');
+  env = openRoulette34(cards, t, 1, 'lite');
+  env.LC.kids = kidsLC(false);
+  env.comp.start();
+  flushTimers();
+  assert.equal(env.count(), '3', 'выключен — как было');
+});

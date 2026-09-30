@@ -874,8 +874,13 @@
          Исходный фильм и заголовок пересчитываются на каждом вызове
          (makeBecauseCall); здесь — решение, заводить ли ряд, и заголовок
          для «Каналов» Lampa. */
+      /* 1.2: в детском режиме ряда нет: исходный фильм — из общей истории,
+         и заголовок «Потому что вы смотрели: «Пила»» попал бы в «Каналы» и
+         на экран, как бы ни чистился состав (LC.kids, src/41_kids.js). */
+      var kids = false;
+      try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
       try {
-        var anchorCard = anchorOf(getHistory(), opts.anchor);
+        var anchorCard = kids ? null : anchorOf(getHistory(), opts.anchor);
         if (anchorCard) {
           out.push({
             id: 'because',

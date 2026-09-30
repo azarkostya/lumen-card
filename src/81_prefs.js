@@ -180,6 +180,9 @@
          src/80_settings.js). Значение — строка id через запятую в
          lumen_home_rows, его читает план главной (src/47_homeplan.js). */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
+      /* 1.2: детский режим (LC.kids, src/41_kids.js) — шестой строкой
+         группы (решение пользователя 29.09). Не родительский контроль. */
+      { name: 'lumen_kids', type: 'trigger', 'default': false, label: 'lumen_kids_name', descr: 'lumen_kids_descr' },
 
       { name: 'lumen_group_card', type: 'title', label: 'lumen_group_card' },
       { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },

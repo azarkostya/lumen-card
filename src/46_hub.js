@@ -6,7 +6,8 @@
   /*   groupsWithCounts(manifest, lang) → [{id, title, count, groups}]      */
   /*   tilesFor(manifest, hubGroupId) → [подборка, …]                       */
   /*   openTarget(item, media) → объект для Lampa.Activity.push             */
-  /*   seriesItems / animationItems — срезы «Сериалы» и «Мультфильмы»       */
+  /*   seriesItems / animationItems / kidsItems — срезы «Сериалы»,          */
+  /*     «Мультфильмы» и «Детям»                                           */
   /*   mediaModes(item) / forMedia(item, media) — переключатель медиа сетки */
   /*   open(item) — открыть подборку (фолбэк на свою сетку; «Ещё» рядов)    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
@@ -183,6 +184,12 @@
       if (series.length) extra.push({ id: SERIES_HUB, title: LC.lang('lumen_hub_series'), count: series.length, groups: [], virtual: true });
       var cartoons = animationItems(manifest);
       if (cartoons.length) extra.push({ id: ANIMATION_HUB, title: LC.lang('lumen_hub_animation'), count: cartoons.length, groups: [], virtual: true });
+      /* 1.2 (решение пользователя 29.09): «Детям» — рядом с «Мультфильмами»,
+         подборки с тегом kids (то же, что показывает детский режим). Когда
+         детские — весь каталог (детский режим включён), чип повторял бы
+         «все подборки» и не показывается. */
+      var kids = kidsItems(manifest);
+      if (kids.length && kids.length < manifest.collections.length) extra.push({ id: KIDS_HUB, title: LC.lang('lumen_hub_kids'), count: kids.length, groups: [], virtual: true });
       var at = out.length ? 1 : 0;
       for (var e = 0; e < extra.length; e++) out.splice(at + e, 0, extra[e]);
       /* Решение пользователя 2026-09-26: профили настроения — последним
@@ -210,7 +217,10 @@
       for (var i = 0; i < list.length; i++) {
         var m = list[i];
         if (!m || !m.id || !m.sources || (!m.sources.movie && !m.sources.tv)) continue;
-        out.push({ id: 'mood-' + m.id, title: m.title || '', i18n: m.i18n, group: 'mood', sources: m.sources, lumen_mood: true });
+        var tile = { id: 'mood-' + m.id, title: m.title || '', i18n: m.i18n, group: 'mood', sources: m.sources, lumen_mood: true };
+        /* 1.2: тег детского режима едет в сетку (LC.kids.trusted). */
+        if (m.kids === true) tile.kids = true;
+        out.push(tile);
       }
       return out;
     }
@@ -224,6 +234,7 @@
       var list = null;
       if (hubGroupId === SERIES_HUB) list = seriesItems(manifest);
       else if (hubGroupId === ANIMATION_HUB) list = animationItems(manifest);
+      else if (hubGroupId === KIDS_HUB) list = kidsItems(manifest);
       else if (manifest && Array.isArray(manifest.hubGroups)) {
         for (var i = 0; i < manifest.hubGroups.length; i++) {
           var g = manifest.hubGroups[i];
@@ -242,6 +253,7 @@
        группа. */
     var SERIES_HUB = 'lumen-series';
     var ANIMATION_HUB = 'lumen-animation';
+    var KIDS_HUB = 'lumen-kids';
 
     function catalogWhere(manifest, test) {
       var out = [];
@@ -258,6 +270,10 @@
 
     function animationItems(manifest) {
       return catalogWhere(manifest, function (c) { return c.animation === true; });
+    }
+
+    function kidsItems(manifest) {
+      return catalogWhere(manifest, function (c) { return c.kids === true; });
     }
 
     /* Сетка подборки с обоими источниками — переключатель «Всё / Фильмы /
@@ -350,7 +366,11 @@
        источником переключателя нет, и media ничего не меняет. */
     function openTarget(item, media0) {
       var media = singleDiscover(item);
-      if (media && fullGridReady()) {
+      /* 1.2: в детском режиме — всегда своя сетка: штатную category_full
+         фильтровать нечем, а своя чистит ответ (LC.kids.response). */
+      var kids = false;
+      try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
+      if (media && !kids && fullGridReady()) {
         /* Сверка 2026-09-26 (план фазы 2, риски: «при ошибке
            discover-сетки — фолбэк на lumen_grid»): адрес, который не
            собрался (исключение, пусто), — это своя сетка той же подборки,
@@ -2567,6 +2587,10 @@
 
         var handle = LC.sources['fetch'](request, nextPage, function (json) {
           if (gen !== captured) return;
+          /* 1.2: детский режим — ответ чистится до постеров и до сетки
+             (копия: ответ общий у одинаковых запросов). Подборке с тегом
+             kids хватает safe, прочим (франшиза из карточки, люди) — strict. */
+          try { if (LC.kids && LC.kids.enabled()) json = LC.kids.response(json, item); } catch (eKids) {}
           /* Постеры: постер сетки собирает не Lampa, а сама сетка (cardNode
              выше: el.lumen_poster из card.poster_path), и собирает его ОДИН
              раз при создании узла. Значит подмена обязана пройти до
@@ -2970,8 +2994,10 @@
          переключатель медиа сетки. */
       SERIES_HUB: SERIES_HUB,
       ANIMATION_HUB: ANIMATION_HUB,
+      KIDS_HUB: KIDS_HUB,
       seriesItems: seriesItems,
       animationItems: animationItems,
+      kidsItems: kidsItems,
       mediaModes: mediaModes,
       forMedia: forMedia,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —

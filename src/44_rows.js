@@ -729,8 +729,19 @@
            её достройки не меняется, а пробник — это синхронная раскладка. */
         var fit = measureFit();
         var seen = {};
+        /* 1.2: детский режим — ВСЕ ряды пачки (и штатные Lampa, и личные)
+           до дедупликации (LC.kids.rows), огрызки чужих рядов — после неё
+           (LC.kids.stubs; первая пачка пустой не бывает): kids → dedupe →
+           stubs → withView. */
+        var kids = false;
+        try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
+        var first = true;
         var pass = function (rows) {
-          return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN, fit) : rows, fit);
+          if (kids) rows = LC.kids.rows(rows);
+          var out = dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN, fit) : rows;
+          if (kids) out = LC.kids.stubs(out, DEDUPE_MIN, first);
+          first = false;
+          return withView(out, fit);
         };
         var part = null;
         var built = false;
@@ -1511,7 +1522,15 @@
               var hide = false;
               try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
               var filtered = filterWatched(json.results, viewedIds(json.results), hide);
+              /* 1.2: детский режим — карточки подборки фильтруются здесь, до
+                 постеров (за выброшенные не платим запросами), и ряд
+                 помечается: обёртка Api.main второй раз его не чистит
+                 (LC.kids.rows). Подборке с тегом kids хватает safe. */
+              var kids = false;
+              try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
+              if (kids) filtered = LC.kids.cards(filtered, LC.kids.trusted(item));
               var payload = { results: filtered, title: item.title };
+              if (kids) payload.lumen_kids = true;
               /* Task 57: ряд из состава, выбранного пользователем вручную,
                  дедупликация не выбрасывает по длине (см. describe). */
               if (pinned) payload.lumen_keep = true;

@@ -311,6 +311,8 @@ test('каждая настройка применяется ровно один
        ряда (poster_path карточки правится до того, как она уйдёт в Lampa),
        поэтому на живом экране менять нечего — ряды собираются заново. */
     lumen_posters: ['rows'],
+    /* 1.2: детский режим — каталог и ряды главной, тот же путь. */
+    lumen_kids: ['rows'],
     /* Task 19/20 (фаза 2): чипы настроения монтируются и снимаются на лету. */
     lumen_moods: ['moods'],
     /* Task 16 (фаза 2): персональные ряды. */
@@ -912,10 +914,10 @@ test('1.0.2: «Дополнительно…» открывает второй �
   created[0][1].onBack();
   assert.equal(created[1][0], 'lumen_card');
   /* last_index — номер «Дополнительно…» среди строк экрана (заголовки групп
-     строками не считаются): 18-я строка, индекс 17. */
-  assert.deepEqual(created[1][1], { last_index: 17 });
+     строками не считаются): 19-я строка, индекс 18 (1.2: + «Детский режим»). */
+  assert.deepEqual(created[1][1], { last_index: 18 });
   const main = env.LC.prefs.LIST.filter((e) => e.section !== 'more' && e.type !== 'title');
-  assert.equal(main[17].name, 'lumen_more');
+  assert.equal(main[18].name, 'lumen_more');
 });
 
 /* Стенд 960×540@2: Lampa ставит фокус по last_index, но ленту к строке не
@@ -981,7 +983,7 @@ test('1.0.2: Lampa.Settings.update() на втором экране — «Наз
   assert.equal(lampa.created[1][1].last_index, 3, 'фокус Lampa ставит сама — last_index не тронут');
   lampa.Settings.back();
   assert.equal(lampa.created[2][0], 'lumen_card', '«Назад» — в «Lumen Card», а не в список Lampa');
-  assert.deepEqual(lampa.created[2][1], { last_index: 17 }, 'на кнопку «Дополнительно…»; главный экран своего onBack не получает');
+  assert.deepEqual(lampa.created[2][1], { last_index: 18 }, 'на кнопку «Дополнительно…»; главный экран своего onBack не получает');
 
   /* Чужой onBack у второго экрана не перетирается. */
   const foreign = () => { };

@@ -1269,6 +1269,9 @@
         LC.util.each(list, function (item) {
           for (var page = 1; page <= PAGES; page++) {
             var handle = LC.sources['fetch'](item, page, function (json) {
+              /* 1.2: детский режим — пул без стоп-жанров (LC.kids.response;
+                 подборке с тегом kids хватает safe, «похожему» — strict). */
+              try { if (LC.kids && LC.kids.enabled()) json = LC.kids.response(json, item); } catch (eKids) { }
               var results = (json && json.results) || [];
               for (var i = 0; i < results.length; i++) cards.push(results[i]);
               gate.tick();

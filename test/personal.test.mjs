@@ -953,3 +953,23 @@ test('«Вышло в цифре»: bumpGen до ответа — пустой �
   s.tmdbCalls[0].ok({ results: [{ id: 5 }] });
   assert.equal(got.length, 1);
 });
+
+/* 1.2: детский режим (src/41_kids.js) — «Потому что вы смотрели» не
+   заводится: исходный фильм из общей истории, и его название в заголовке
+   ряда попало бы на экран и в «Каналы». Остальные личные ряды — на месте
+   (их состав чистит обёртка Api.main, test/rows.test.mjs). */
+test('kids: в детском режиме нет ряда «Потому что», остальные личные — как были', function () {
+  var opts = {
+    continues: function (type) { return type === 'movie' ? [{ id: 5, title: 'Начатый', original_title: 'Начатый' }] : []; },
+    getFav: function (o) {
+      if (o.type === 'history') return [{ id: 1, title: 'Пила' }];
+      if (o.type === 'book') return [{ id: 100, name: 'Show' }];
+      return [];
+    }
+  };
+  var s = setupRuntime(opts);
+  s.LC.kids = { enabled: function () { return true; } };
+  assert.deepEqual(s.api.describe().map(function (d) { return d.id; }), ['continue', 'new_episodes', 'soon', 'digital']);
+  s.LC.kids = { enabled: function () { return false; } };
+  assert.deepEqual(s.api.describe().map(function (d) { return d.id; }), ['continue', 'because', 'new_episodes', 'soon', 'digital']);
+});

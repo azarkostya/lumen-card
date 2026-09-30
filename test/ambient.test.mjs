@@ -748,3 +748,16 @@ test('S2: адрес кадра в url("…") экранирован — кав�
   assert.equal(bg, 'url("https://host/a%22.jpg?x=1%202")');
   e.api.uninstall();
 });
+
+/* 1.2: детский режим (src/41_kids.js) — заставки Lumen нет: кадры каталога
+   из взрослого кино, а пустой ambient детского каталога curatedFrames
+   заменил бы встроенным. Кадров нет — слой не поднимается, остаётся
+   штатная заставка Lampa. */
+test('kids: в детском режиме кадров нет — ни каталога, ни открытой карточки', () => {
+  const on = env({ lc: { kids: { enabled: () => true } } });
+  assert.deepEqual(on.api.frames(), []);
+  const cur = env({ store: { lumen_ambient_source: 'current' }, lc: { kids: { enabled: () => true } } });
+  assert.deepEqual(cur.api.frames(), []);
+  const off = env({ lc: { kids: { enabled: () => false } } });
+  assert.equal(off.api.frames().length, 12);
+});
