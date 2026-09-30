@@ -538,6 +538,9 @@
           var resolve = makeResolver(call);
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           var items = markContinue(continuesList());
+          /* 1.3: прерванный просмотр — первым, с меткой «Вернуться»
+             (LC.resume.raise, src/71_resume.js); клик по нему штатный. */
+          try { if (LC.resume && typeof LC.resume.raise === 'function') items = LC.resume.raise(items); } catch (eResume) {}
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
           return { cancel: function () {} };

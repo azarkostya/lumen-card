@@ -1058,7 +1058,36 @@
     },
     lumen_whatsnew_title: { ru: 'Что нового в Lumen Card', en: 'What\'s new in Lumen Card', uk: 'Що нового в Lumen Card' },
     lumen_whatsnew_ok: { ru: 'Понятно', en: 'Got it', uk: 'Зрозуміло' },
-    lumen_whatsnew_off: { ru: 'Выключить это окно: Настройки', en: 'To turn this window off: Settings', uk: 'Вимкнути це вікно: Налаштування' }
+    lumen_whatsnew_off: { ru: 'Выключить это окно: Настройки', en: 'To turn this window off: Settings', uk: 'Вимкнути це вікно: Налаштування' },
+    /* 1.3: «Вернуться к просмотру» (src/71_resume.js). Пункты окна идут в
+       Lampa.Select строками — без «<&${»; названия фильмов и серий модуль
+       экранирует сам. */
+    lumen_resume_name: { ru: 'Вернуться к просмотру', en: 'Resume watching', uk: 'Повернутися до перегляду' },
+    lumen_resume_descr: {
+      ru: 'Если Lampa перезапустилась во время фильма или серии, при следующем запуске предложит продолжить. Хранится только на этом устройстве.',
+      en: 'If Lampa restarts during a film or episode, it offers to continue next time it starts. Kept only on this device.',
+      uk: 'Якщо Lampa перезапустилася під час фільму чи серії, під час наступного запуску запропонує продовжити. Зберігається лише на цьому пристрої.'
+    },
+    lumen_resume_ttl_name: { ru: 'Сколько помнить место', en: 'Remember the spot for', uk: 'Скільки пам’ятати місце' },
+    lumen_resume_ttl_descr: {
+      ru: 'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
+      en: 'After this time the window will not appear — the title stays in "Continue watching".',
+      uk: 'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Досивитися».'
+    },
+    lumen_resume_ttl_suffix: { ru: 'ч', en: 'h', uk: 'год' },
+    lumen_resume_title: { ru: 'Вернуться к просмотру?', en: 'Resume watching?', uk: 'Повернутися до перегляду?' },
+    lumen_resume_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
+    lumen_resume_of: { ru: 'из', en: 'of', uk: 'з' },
+    lumen_resume_reopen: { ru: 'Открыть раздачу снова', en: 'Open the torrent again', uk: 'Відкрити роздачу знову' },
+    lumen_resume_reopen_hint: { ru: 'Список файлов — если серия не запустилась', en: 'The file list, if the episode did not start', uk: 'Список файлів — якщо серія не запустилася' },
+    lumen_resume_app_hint: { ru: 'серию и место выберете в TorrServe', en: 'pick the episode and spot in TorrServe', uk: 'серію й місце оберете в TorrServe' },
+    lumen_resume_open_card: { ru: 'Открыть карточку', en: 'Open the title page', uk: 'Відкрити картку' },
+    lumen_resume_later: { ru: 'Не сейчас', en: 'Not now', uk: 'Не зараз' },
+    lumen_resume_badge: { ru: 'Вернуться', en: 'Resume', uk: 'Повернутися' },
+    /* Строка HUD «boot#12 · ext 23 мин назад · cold/ext 3/5» (src/69_hud.js). */
+    lumen_resume_min: { ru: 'мин', en: 'min', uk: 'хв' },
+    lumen_resume_hours: { ru: 'ч', en: 'h', uk: 'год' },
+    lumen_resume_ago: { ru: 'назад', en: 'ago', uk: 'тому' }
   };
 
   function langCode() {
@@ -1405,6 +1434,13 @@
     /* 1.2: «Что нового после обновления» читается при запуске и перед
        самим показом окна (src/82_whatsnew.js) — применять на лету нечего. */
     if (name === 'lumen_whatsnew') return true;
+    /* 1.3: «Вернуться к просмотру» и его срок читаются при запуске и перед
+       показом окна (src/71_resume.js). Выключили, пока окно ждало, — таймер
+       снимается сразу; запись не трогаем (включат обратно — пригодится). */
+    if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
+      try { if (name === 'lumen_resume' && LC.resume && !LC.pref('lumen_resume', true)) LC.resume.cancel(); } catch (eResume) {}
+      return true;
+    }
     /* Task 21 (фаза 3): атмосферы — слой частиц на открытой карточке и в
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным

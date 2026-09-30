@@ -166,6 +166,8 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     'lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start', 'lumen_rows_dedupe',
     'lumen_hide_watched',
+    /* 1.3: «Вернуться к просмотру» и его срок */
+    'lumen_resume', 'lumen_resume_ttl',
     /* пульт и окна */
     'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
     'lumen_ambient_delay',
@@ -236,7 +238,9 @@ const MORE_GROUPS = [
   ['lumen_group_style', ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo',
     'lumen_hero_logo', 'lumen_badges', 'lumen_posters']],
   ['lumen_group_screens', ['lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
-    'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start',
+    'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows',
+    /* 1.3: «Вернуться к просмотру» — рядом с личными рядами («Досмотреть»). */
+    'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
     'lumen_rows_dedupe', 'lumen_hide_watched']],
   /* 1.2: «Что нового после обновления» — сразу за меню по удержанию OK. */
   ['lumen_group_remote', ['lumen_context_menu', 'lumen_whatsnew', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',

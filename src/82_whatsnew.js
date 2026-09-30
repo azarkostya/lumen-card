@@ -216,6 +216,13 @@
       _timer = null;
       if (!_pending) return;
       if (!enabled()) { _pending = null; return; }
+      /* 1.3: окно «Вернуться к просмотру» (src/71_resume.js) ждёт показа
+         или открыто — уступаем, и попытку не тратим: два окна разом не
+         открываются, а минута «Что нового» не сгорает, пока человек
+         решает, возвращаться ли к серии. */
+      var resume = false;
+      try { resume = !!(LC.resume && typeof LC.resume.busy === 'function' && LC.resume.busy()); } catch (eResume) { resume = false; }
+      if (resume) { _timer = setT(tick, RETRY_DELAY); return; }
       var ok = false;
       try { ok = !!(_ready && _ready()); } catch (e) { ok = false; }
       if (ok) {

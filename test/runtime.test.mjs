@@ -2987,3 +2987,66 @@ test('1.2: выключение плагина снимает ожидание �
   LC.applyEnabledPref();
   assert.equal(log[log.length - 1], 'cancel');
 });
+
+/* ====================================================================== */
+/* 1.3: «Вернуться к просмотру» — склейка с рантаймом (сам модуль —        */
+/* test/resume.test.mjs).                                                  */
+/* ====================================================================== */
+
+function resumeLC() {
+  const log = [];
+  let ready = null;
+  const env = initLC({
+    setup: (LC) => {
+      LC.whatsnew = { detect: () => log.push('whatsnew:detect'), schedule: () => log.push('whatsnew:schedule'), cancel: () => { } };
+      LC.resume = {
+        boot: () => log.push('boot'),
+        install: () => log.push('install'),
+        schedule: (fn) => { ready = fn; log.push('schedule'); },
+        uninstall: () => log.push('uninstall'),
+        onTimeline: (d) => log.push('timeline:' + d.hash),
+        onActivity: (e) => log.push('activity:' + e.type + ':' + e.component)
+      };
+      LC.homeplan = { apply: (o) => log.push(o && o.start ? 'plan:start' : 'plan'), unregister: () => { } };
+    }
+  });
+  return Object.assign({ log, ready: () => ready }, env);
+}
+
+test('1.3: resume — boot() в LC.init до активации, install+schedule в activate() раньше «Что нового», uninstall — в deactivate()', () => {
+  const { LC, log, ready } = resumeLC();
+  assert.ok(log.indexOf('boot') > log.indexOf('whatsnew:detect'), log.join(','));
+  assert.ok(log.indexOf('boot') < log.indexOf('plan:start'), 'до плана главной: ' + log.join(','));
+  assert.ok(log.indexOf('install') < log.indexOf('schedule'));
+  assert.ok(log.indexOf('schedule') < log.indexOf('whatsnew:schedule'), log.join(','));
+  assert.equal(typeof ready(), 'function');
+  globalThis.Lampa.Storage.field = (name) => (name === 'lumen_enabled' ? 'false' : undefined);
+  globalThis.Lampa.Storage.get = (name, def) => (name === 'lumen_enabled' ? 'false' : def);
+  LC.applyEnabledPref();
+  assert.equal(log[log.length - 1], 'uninstall');
+});
+
+test('1.3: resume — готовность: любой первый экран, но не плеер, не поверх окна или селекта', () => {
+  const { LC, ready } = resumeLC();
+  const isReady = ready();
+  let component = 'full';
+  let ctrl = 'full_start';
+  LC.covered = () => false;
+  globalThis.Lampa.Activity = { active: () => (component ? { component: component } : null) };
+  globalThis.Lampa.Controller.enabled = () => ({ name: ctrl });
+  globalThis.$ = () => EMPTY;
+  assert.equal(isReady(), true, 'карточка при «Стартовая страница: Последняя» — годится');
+  component = null;
+  assert.equal(isReady(), false, 'первого экрана ещё нет');
+  component = 'main';
+  for (const other of ['player', 'modal', 'select']) {
+    ctrl = other;
+    assert.equal(isReady(), false, 'контроллер ' + other);
+  }
+  ctrl = 'items_line';
+  globalThis.$ = (sel) => (sel === '.modal' ? { length: 1 } : EMPTY);
+  assert.equal(isReady(), false, 'открыто окно («Что нового» и т. п.)');
+  globalThis.$ = () => EMPTY;
+  LC.covered = () => true;
+  assert.equal(isReady(), false, 'поднята заставка');
+});

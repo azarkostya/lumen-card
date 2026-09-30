@@ -261,6 +261,13 @@
          (src/49_moods.js). */
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+      /* 1.3: «Вернуться к просмотру» после перезапуска Lampa
+         (src/71_resume.js) — рядом с личными рядами («Досмотреть»), и срок,
+         дольше которого прерванный просмотр не предлагается. В главный
+         раздел не встали: «Главная» там уже шесть строк (предел,
+         согласованный в 1.2). Оба читаются при запуске и перед показом. */
+      { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
+      { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' },
       /* Волна 4: первые ряды крутятся по эпохам (src/47_homeplan.js);
          'history' — прежний порядок, личные ряды сверху. */
       { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },

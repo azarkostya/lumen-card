@@ -121,6 +121,9 @@
       if (!card || !ctx || !ctx.words) return [];
       var w = ctx.words;
       var out = [];
+      /* 1.3: прерванный просмотр этой карточки — первым пунктом
+         (LC.resume.menuItem, src/71_resume.js; подпись уже экранирована). */
+      if (ctx.resume && ctx.resume.title) out.push({ title: ctx.resume.title, subtitle: ctx.resume.subtitle || '', lumen: 'resume' });
       out.push({ title: w.trailer, lumen: 'trailer' });
       if (ctx.collection && ctx.collection.id) {
         out.push({ title: w.franchise, subtitle: LC.util.esc(ctx.collection.name || ''), lumen: 'franchise' });
@@ -258,8 +261,18 @@
         collection: collectionOf(card),
         watched: isWatched(card),
         thrown: isThrown(card),
-        roulette: !!(LC.roulette && typeof LC.roulette.openSimilar === 'function')
+        roulette: !!(LC.roulette && typeof LC.roulette.openSimilar === 'function'),
+        resume: resumeItem(card)
       };
+    }
+
+    function resumeItem(card) {
+      try {
+        if (LC.resume && typeof LC.resume.menuItem === 'function') return LC.resume.menuItem(card);
+      } catch (e) {
+        warn('cardmenu: resume lookup failed', e);
+      }
+      return null;
     }
 
     /* ------------------------------------------------------------------ */
@@ -483,6 +496,10 @@
 
     function run(kind, card) {
       if (!kind || !card) return;
+      if (kind === 'resume') {
+        try { if (LC.resume && typeof LC.resume.resumeNow === 'function') LC.resume.resumeNow(); } catch (e) { warn('cardmenu: resume failed', e); }
+        return;
+      }
       if (kind === 'trailer') { playTrailer(card); return; }
       if (kind === 'franchise') { openFranchise(card); return; }
       if (kind === 'similar') { openSimilar(card); return; }

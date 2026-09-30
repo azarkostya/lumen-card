@@ -549,3 +549,13 @@ test('S1: имя коллекции в подзаголовке пункта э�
   assert.equal(fr.subtitle, 'Дюна &lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
   for (const it of items) assert.ok(String(it.title).indexOf('<') < 0);
 });
+
+/* 1.3: прерванный просмотр этой карточки (LC.resume.menuItem) — первым
+   пунктом, подпись как есть (её экранирует модуль возврата). */
+test('extraItems: «Вернуться к просмотру» — первым пунктом, когда запись про эту карточку', () => {
+  const items = M.extraItems(TV, { words: W, resume: { title: 'Вернуться к просмотру', subtitle: 'S2 E5 · 23:10 из 48:00' } });
+  assert.equal(items[0].lumen, 'resume');
+  assert.equal(items[0].title, 'Вернуться к просмотру');
+  assert.equal(items[0].subtitle, 'S2 E5 · 23:10 из 48:00');
+  assert.equal(kinds(M.extraItems(TV, { words: W, resume: null })).indexOf('resume'), -1);
+});

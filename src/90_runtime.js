@@ -353,6 +353,9 @@
              после выключения плагина. */
           if (!activated) return;
           if (e && e.data) LC.header.refreshEpisode(e.data.hash);
+          /* 1.3: та же подписка двигает запись «Вернуться к просмотру»
+             (src/71_resume.js): позиция, досмотр ≥95 % — следующая серия. */
+          try { if (LC.resume && e && e.data) LC.resume.onTimeline(e.data); } catch (eResume) { warn('resume timeline failed', eResume); }
           /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
              кнопки «Смотреть» — второй слушатель Timeline не заводится
              (поправки координатора). Хэш записи здесь не нужен: карточка
@@ -576,6 +579,10 @@
          снова запускал бы ротацию и загрузку кадров при выключенном плагине.
          Гейт тот же, что у подписки 'full'. */
       if (!activated) return;
+
+      /* 1.3: открыл другую карточку — ушёл от прерванного просмотра сам
+         (src/71_resume.js, onActivity). */
+      try { if (LC.resume) LC.resume.onActivity(e); } catch (eResume) { warn('resume activity failed', eResume); }
 
       /* Task 15 (C1-fix) + fix-раунд итогового ревью фазы 2: главную ВЫБРОСИЛИ
          — поднимаем поколение _homeGen в LC.rows, делая alive() в makeCall
@@ -1632,6 +1639,18 @@
     /* Ревью 1.0.2: «Назад» второго экрана настроек переживает
        Lampa.Settings.update() (src/80_settings.js, moreOpened). */
     if (LC.followMoreBack) LC.followMoreBack(true);
+    /* 1.3: «Вернуться к просмотру» — подписки на плеер, раздачу и видимость
+       страницы и окно, если boot() в LC.init его ждёт (resumeReady ниже).
+       Раньше «Что нового»: то ждёт, пока окно возврата не решится
+       (src/82_whatsnew.js, tick). */
+    try {
+      if (LC.resume) {
+        LC.resume.install();
+        LC.resume.schedule(resumeReady);
+      }
+    } catch (eResume) {
+      warn('resume schedule failed', eResume);
+    }
     /* 1.2: окно «Что нового», если detect() в LC.init его ждёт; показ —
        только поверх готовой главной (homeReady ниже). */
     try {
@@ -1658,6 +1677,23 @@
     try { cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { cur = null; }
     var name = cur && cur.name;
     if (name !== 'items_line' && name !== 'content') return false;
+    if (layerOpen()) return false;
+    if (LC.covered && LC.covered()) return false;
+    return true;
+  }
+
+  /* 1.3: можно ли открыть окно «Вернуться к просмотру». Мягче homeReady:
+     любой первый экран (при «Стартовая страница: Последняя» это карточка
+     или «Торренты»), но не плеер, не поверх окна, меню, настроек или
+     заставки. */
+  function resumeReady() {
+    if (!activated) return false;
+    if (!activeComponentName()) return false;
+    try { if (LC.util && LC.util.playerOpen && LC.util.playerOpen()) return false; } catch (ePlayer) { return false; }
+    var cur = null;
+    try { cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { cur = null; }
+    var name = cur && cur.name;
+    if (name === 'player' || name === 'player-loading' || name === 'modal' || name === 'select') return false;
     if (layerOpen()) return false;
     if (LC.covered && LC.covered()) return false;
     return true;
@@ -1763,6 +1799,9 @@
     /* 1.2: выключенный плагин таймера «Что нового» не держит; окно,
        которое ещё не показали, пропускается (как и по истечении минуты). */
     try { if (LC.whatsnew) LC.whatsnew.cancel(); } catch (eNewOff) {}
+    /* 1.3: подписки «Вернуться к просмотру» и таймер окна снимаются;
+       запись и счётчики остаются в Storage. */
+    try { if (LC.resume) LC.resume.uninstall(); } catch (eResumeOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -2381,6 +2420,11 @@
          пишет свою эпоху, и после неё первая установка неотличима от
          обновления (src/82_whatsnew.js, detect). Показ — из activate(). */
       try { if (LC.whatsnew) LC.whatsnew.detect(); } catch (eNew) { warn('whatsnew detect failed', eNew); }
+
+      /* 1.3: холодный старт — счётчик перезапусков (HUD) и решение, ждёт
+         ли окно «Вернуться к просмотру» (src/71_resume.js). Показ — из
+         activate(). */
+      try { if (LC.resume) LC.resume.boot(); } catch (eResume) { warn('resume boot failed', eResume); }
 
       LC.addSettings();
       LC.followStorage();
