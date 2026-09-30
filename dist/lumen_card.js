@@ -2521,6 +2521,141 @@ return{ok:missingInOurs.length===0,missingInOurs:missingInOurs,missingInOriginal
 return{innerOf:innerOf,build:build,REQUIRED:REQUIRED,assert:assert};
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.template;
+/* ---- 41_kids.js ---- */
+LC.kids=(function(){
+var STOP={27:1,53:1,10752:1,10768:1};
+var CRIME=80;
+var FAMILY={10751:1,10762:1};
+function genresOf(card){
+var out=[];
+if(!card)return out;
+var i;
+if(Array.isArray(card.genre_ids)){
+for(i=0;i<card.genre_ids.length;i++)out.push(Number(card.genre_ids[i]));
+return out;
+}
+if(Array.isArray(card.genres)){
+for(i=0;i<card.genres.length;i++){
+var g=card.genres[i];
+if(g&&g.id!==undefined)out.push(Number(g.id));
+}
+}
+return out;
+}
+function hasFamily(genres){
+for(var i=0;i<genres.length;i++)if(FAMILY[genres[i]])return true;
+return false;
+}
+function safe(card){
+if(!card||typeof card!=='object'||card.adult)return false;
+var genres=genresOf(card);
+var family=hasFamily(genres);
+for(var i=0;i<genres.length;i++){
+if(STOP[genres[i]])return false;
+if(genres[i]===CRIME&&!family)return false;
+}
+return true;
+}
+function strict(card){
+return safe(card)&&hasFamily(genresOf(card));
+}
+function trusted(item){
+return!!(item&&item.kids===true);
+}
+function cards(list,trust){
+var out=[];
+if(!Array.isArray(list))return out;
+var test=trust?safe:strict;
+for(var i=0;i<list.length;i++)if(test(list[i]))out.push(list[i]);
+return out;
+}
+function copy(obj){
+var out={};
+for(var k in obj){
+if(Object.prototype.hasOwnProperty.call(obj,k))out[k]=obj[k];
+}
+return out;
+}
+function response(json,item){
+if(!json||!Array.isArray(json.results))return json;
+var out=copy(json);
+out.results=cards(json.results,trusted(item));
+return out;
+}
+function rows(list){
+var out=[];
+if(!Array.isArray(list))return out;
+for(var i=0;i<list.length;i++){
+var row=list[i];
+if(!row||!Array.isArray(row.results)||row.lumen_kids){out.push(row);continue;}
+var kept=cards(row.results,false);
+if(!kept.length)continue;
+var next=copy(row);
+next.results=kept;
+out.push(next);
+}
+return out;
+}
+function stubs(list,min,keep){
+if(!Array.isArray(list))return[];
+var out=[];
+for(var i=0;i<list.length;i++){
+var row=list[i];
+if(!row||!Array.isArray(row.results))continue;
+if(!row.lumen_kids&&!row.lumen_personal&&!row.lumen_keep&&row.results.length<(min||0))continue;
+out.push(row);
+}
+return(!out.length&&keep)?list:out;
+}
+var memo=[];
+function build(m){
+var out=copy(m);
+var ids={};
+var list=Array.isArray(m.collections)?m.collections:[];
+var i;
+out.collections=[];
+for(i=0;i<list.length;i++){
+if(trusted(list[i])){out.collections.push(list[i]);ids[list[i].id]=1;}
+}
+if(Array.isArray(m.moods)){
+out.moods=[];
+for(i=0;i<m.moods.length;i++)if(trusted(m.moods[i]))out.moods.push(m.moods[i]);
+}
+out.home=[];
+var home=Array.isArray(m.home)?m.home:[];
+for(i=0;i<home.length;i++)if(ids[home[i]])out.home.push(home[i]);
+out.ambient=[];
+return out;
+}
+function catalog(m){
+if(!m||typeof m!=='object')return m;
+for(var i=0;i<memo.length;i++)if(memo[i].src===m)return memo[i].out;
+var out=build(m);
+memo.unshift({src:m,out:out});
+if(memo.length>2)memo.length=2;
+return out;
+}
+function reset(){
+memo=[];
+}
+function enabled(){
+try{return typeof LC.pref==='function'&&LC.pref('lumen_kids',false)===true;}catch(e){return false;}
+}
+return{
+genresOf:genresOf,
+safe:safe,
+strict:strict,
+trusted:trusted,
+cards:cards,
+response:response,
+rows:rows,
+stubs:stubs,
+catalog:catalog,
+enabled:enabled,
+reset:reset
+};
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.kids;
 /* ---- 42_manifest.js ---- */
 LC.manifest=(function(){
 var DEFAULT={
@@ -2547,7 +2682,7 @@ hubGroups:[
 ],
 moods:[
 {id:'friday',title:'Пятничный вечер',i18n:{en:'Friday Evening',uk:'П\'ятничний вечір'},sources:{movie:{type:'discover',params:{genres:'28|12|35',sort_by:'popularity.desc',filter:{'vote_average.gte':6.5,'with_runtime.lte':130}}}}},
-{id:'family',title:'Семейный просмотр',i18n:{en:'Family Viewing',uk:'Сімейний перегляд'},sources:{movie:{type:'discover',params:{genres:'10751|16',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'PG'}}}}},
+{id:'family',title:'Семейный просмотр',i18n:{en:'Family Viewing',uk:'Сімейний перегляд'},kids:true,sources:{movie:{type:'discover',params:{genres:'10751|16',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'PG'}}}}},
 {id:'scary',title:'Страшное на ночь',i18n:{en:'Scary at Night',uk:'Страшне вночі'},sources:{movie:{type:'discover',params:{genres:27,sort_by:'vote_average.desc',filter:{'vote_count.gte':300}}}}},
 {id:'short',title:'90 минут',i18n:{en:'90 Minutes',uk:'90 хвилин'},sources:{movie:{type:'discover',params:{sort_by:'popularity.desc',filter:{'with_runtime.lte':90,'vote_count.gte':200}}}}}
 ],
@@ -2558,14 +2693,14 @@ home:[
 ],
 collections:[
 {
-id:'star-wars',title:'Звёздные войны',group:'franchise',icon:'film',
+id:'star-wars',title:'Звёздные войны',group:'franchise',kids:true,icon:'film',
 sources:{
 movie:{type:'discover',params:{companies:1,genres:878,sort_by:'primary_release_date.asc',filter:{without_genres:'99,10770,35,10751','vote_count.gte':200}}},
 tv:{type:'discover',params:{companies:1,genres:'10765|16',sort_by:'popularity.desc',filter:{without_keywords:'211227,215470'}}}
 }
 },
 {
-id:'harry-potter',title:'Гарри Поттер',group:'franchise',icon:'film',cover:'/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg',
+id:'harry-potter',title:'Гарри Поттер',group:'franchise',kids:true,icon:'film',cover:'/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg',
 sources:{
 movie:{type:'collection',id:1241,also:[435259]},
 tv:{type:'discover',params:{companies:'437,3268',sort_by:'popularity.desc'}}
@@ -2622,7 +2757,7 @@ tv:{type:'discover',params:{keywords:180547,sort_by:'popularity.desc',filter:{wi
 }
 },
 {
-id:'avengers',title:'Мстители',group:'franchise',icon:'film',
+id:'avengers',title:'Мстители',group:'franchise',kids:true,icon:'film',
 sources:{movie:{type:'collection',id:86311}}
 },
 {
@@ -2733,27 +2868,27 @@ id:'dune',title:'Дюна',group:'franchise',icon:'film',
 sources:{movie:{type:'collection',id:726871,movies:[841]}}
 },
 {
-id:'shrek',title:'Шрек',group:'franchise',animation:true,icon:'film',cover:'/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
+id:'shrek',title:'Шрек',group:'franchise',kids:true,animation:true,icon:'film',cover:'/w0eKUOEog2ImtktCHAMUZws8qif.jpg',
 sources:{movie:{type:'collection',id:2150,also:[94602]}}
 },
 {
-id:'toy-story',title:'История игрушек',group:'franchise',animation:true,icon:'film',cover:'/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
+id:'toy-story',title:'История игрушек',group:'franchise',kids:true,animation:true,icon:'film',cover:'/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg',
 sources:{movie:{type:'collection',id:10194,movies:[718789]}}
 },
 {
-id:'despicable-me',title:'Гадкий я',group:'franchise',animation:true,icon:'film',cover:'/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
+id:'despicable-me',title:'Гадкий я',group:'franchise',kids:true,animation:true,icon:'film',cover:'/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg',
 sources:{movie:{type:'collection',id:86066,also:[544669]}}
 },
 {
-id:'spiderman-mcu',title:'Человек-паук',i18n:{en:'Spider-Man',uk:'Людина-павук'},group:'franchise',icon:'film',cover:'/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
+id:'spiderman-mcu',title:'Человек-паук',i18n:{en:'Spider-Man',uk:'Людина-павук'},group:'franchise',kids:true,icon:'film',cover:'/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg',
 sources:{movie:{type:'collection',id:531241,also:[556,125574,573436]}}
 },
 {
-id:'madagascar',title:'Мадагаскар',group:'franchise',animation:true,icon:'film',cover:'/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
+id:'madagascar',title:'Мадагаскар',group:'franchise',kids:true,animation:true,icon:'film',cover:'/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg',
 sources:{movie:{type:'collection',id:14740,movies:[270946]}}
 },
 {
-id:'ice-age',title:'Ледниковый период',group:'franchise',animation:true,icon:'film',
+id:'ice-age',title:'Ледниковый период',group:'franchise',kids:true,animation:true,icon:'film',
 sources:{movie:{type:'collection',id:8354}}
 },
 {
@@ -2761,11 +2896,11 @@ id:'kingsman',title:'Kingsman',group:'franchise',icon:'film',
 sources:{movie:{type:'collection',id:391860}}
 },
 {
-id:'pixar',title:'Pixar',group:'studio',animation:true,
+id:'pixar',title:'Pixar',group:'studio',kids:true,animation:true,
 sources:{movie:{type:'discover',params:{companies:3,sort_by:'popularity.desc'}}}
 },
 {
-id:'ghibli',title:'Студия Гибли',group:'studio',animation:true,
+id:'ghibli',title:'Студия Гибли',group:'studio',kids:true,animation:true,
 sources:{movie:{type:'discover',params:{companies:10342,sort_by:'popularity.desc'}}}
 },
 {
@@ -2807,11 +2942,11 @@ id:'sony-pictures',title:'Sony Pictures',group:'studio',cover:'/rz3TAyd5kmiJmozp
 sources:{movie:{type:'discover',params:{companies:5,sort_by:'popularity.desc'}}}
 },
 {
-id:'dreamworks',title:'DreamWorks Animation',group:'studio',animation:true,
+id:'dreamworks',title:'DreamWorks Animation',group:'studio',kids:true,animation:true,
 sources:{movie:{type:'discover',params:{companies:521,sort_by:'popularity.desc'}}}
 },
 {
-id:'illumination',title:'Illumination',group:'studio',animation:true,
+id:'illumination',title:'Illumination',group:'studio',kids:true,animation:true,
 sources:{movie:{type:'discover',params:{companies:6704,sort_by:'popularity.desc'}}}
 },
 {
@@ -2831,11 +2966,11 @@ id:'miramax',title:'Miramax',group:'studio',
 sources:{movie:{type:'discover',params:{companies:14,sort_by:'popularity.desc'}}}
 },
 {
-id:'disney-animation',title:'Walt Disney Animation',i18n:{en:'Walt Disney Animation',uk:'Walt Disney Animation'},group:'studio',animation:true,cover:'/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
+id:'disney-animation',title:'Walt Disney Animation',i18n:{en:'Walt Disney Animation',uk:'Walt Disney Animation'},group:'studio',kids:true,animation:true,cover:'/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg',
 sources:{movie:{type:'discover',params:{companies:6125,sort_by:'popularity.desc'}}}
 },
 {
-id:'laika-aardman',title:'LAIKA и Aardman',i18n:{en:'LAIKA & Aardman',uk:'LAIKA та Aardman'},group:'studio',animation:true,cover:'/svHDneADngRckbFMUcD0AR1KsSq.jpg',
+id:'laika-aardman',title:'LAIKA и Aardman',i18n:{en:'LAIKA & Aardman',uk:'LAIKA та Aardman'},group:'studio',kids:true,animation:true,cover:'/svHDneADngRckbFMUcD0AR1KsSq.jpg',
 sources:{movie:{type:'discover',params:{companies:'11537|297',sort_by:'popularity.desc'}}}
 },
 {
@@ -3021,7 +3156,7 @@ id:'summer-movies',title:'Летнее кино',i18n:{en:'Summer Films',uk:'Л�
 sources:{movie:{type:'discover',params:{keywords:'13088|14714|5767',genres:'35|10751|16|12',sort_by:'popularity.desc',filter:{without_genres:'27,53,80,18',certification_country:'US','certification.lte':'PG-13','vote_count.gte':150}}}}
 },
 {
-id:'soviet-cartoons',title:'Советские мультфильмы',i18n:{en:'Soviet Animation',uk:'Радянські мультфільми'},group:'theme',animation:true,icon:'star',aliases:['Союзмультфильм','Мультики'],season:[6],cover:'/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+id:'soviet-cartoons',title:'Советские мультфильмы',i18n:{en:'Soviet Animation',uk:'Радянські мультфільми'},group:'theme',kids:true,animation:true,icon:'star',aliases:['Союзмультфильм','Мультики'],season:[6],cover:'/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
 sources:{movie:{type:'discover',params:{genres:16,orig_lang:'ru',sort_by:'vote_count.desc',filter:{'primary_release_date.lte':'1991-12-31','vote_count.gte':20}}}}
 },
 {
@@ -3041,7 +3176,7 @@ id:'action',title:'Боевики',i18n:{en:'Action',uk:'Бойовики'},grou
 sources:{movie:{type:'discover',params:{genres:28,sort_by:'popularity.desc',filter:{'vote_count.gte':300}}}}
 },
 {
-id:'animation',title:'Мультфильмы',i18n:{en:'Animated Films',uk:'Мультфільми'},group:'theme',animation:true,cover:'/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+id:'animation',title:'Мультфильмы',i18n:{en:'Animated Films',uk:'Мультфільми'},group:'theme',kids:true,animation:true,cover:'/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
 sources:{movie:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{'vote_count.gte':300}}}}
 },
 {
@@ -3127,7 +3262,7 @@ tv:{type:'discover',params:{keywords:41645,sort_by:'popularity.desc',filter:{'vo
 }
 },
 {
-id:'family',title:'Семейные',i18n:{en:'Family Films',uk:'Сімейні'},group:'theme',cover:'/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
+id:'family',title:'Семейные',i18n:{en:'Family Films',uk:'Сімейні'},group:'theme',kids:true,cover:'/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg',
 sources:{movie:{type:'discover',params:{genres:'10751|16',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'PG'}}}}
 },
 {
@@ -3135,22 +3270,22 @@ id:'romance',title:'Романтика',i18n:{en:'Romance',uk:'Романтик�
 sources:{movie:{type:'discover',params:{genres:'10749,18',sort_by:'vote_average.desc',filter:{without_genres:'99,16,27','vote_count.gte':2000}}}}
 },
 {
-id:'kids-toons',title:'Мультсериалы для детей',i18n:{en:'Cartoons for Kids',uk:'Мультсеріали для дітей'},group:'theme',animation:true,cover:'/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+id:'kids-toons',title:'Мультсериалы для детей',i18n:{en:'Cartoons for Kids',uk:'Мультсеріали для дітей'},group:'theme',kids:true,animation:true,cover:'/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
 sources:{tv:{type:'discover',params:{genres:'16,10762',sort_by:'popularity.desc',filter:{'vote_count.gte':20}}}}
 },
 {
-id:'toddlers',title:'Для самых маленьких',i18n:{en:'For Little Ones',uk:'Для найменших'},group:'theme',animation:true,cover:'/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+id:'toddlers',title:'Для самых маленьких',i18n:{en:'For Little Ones',uk:'Для найменших'},group:'theme',kids:true,animation:true,cover:'/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
 sources:{
 movie:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'G','vote_count.gte':50}}},
 tv:{type:'discover',params:{genres:10762,sort_by:'popularity.desc',filter:{certification_country:'US',certification:'TV-Y','vote_count.gte':20}}}
 }
 },
 {
-id:'family-toons',title:'Семейные мультсериалы',i18n:{en:'Family Animated Series',uk:'Сімейні мультсеріали'},group:'theme',animation:true,cover:'/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
+id:'family-toons',title:'Семейные мультсериалы',i18n:{en:'Family Animated Series',uk:'Сімейні мультсеріали'},group:'theme',kids:true,animation:true,cover:'/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg',
 sources:{tv:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{without_genres:'10762','vote_count.gte':100}}}}
 },
 {
-id:'family-live',title:'Семейное игровое кино',i18n:{en:'Live-Action Family Films',uk:'Сімейне ігрове кіно'},group:'theme',cover:'/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
+id:'family-live',title:'Семейное игровое кино',i18n:{en:'Live-Action Family Films',uk:'Сімейне ігрове кіно'},group:'theme',kids:true,cover:'/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg',
 sources:{movie:{type:'discover',params:{genres:10751,sort_by:'popularity.desc',filter:{without_genres:'16','vote_count.gte':200}}}}
 },
 {
@@ -3347,7 +3482,7 @@ id:'villeneuve',title:'Дени Вильнёв',group:'people',
 sources:{movie:{type:'person',id:137427,job:'Director'}}
 },
 {
-id:'miyazaki',title:'Хаяо Миядзаки',group:'people',animation:true,cover:'/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
+id:'miyazaki',title:'Хаяо Миядзаки',group:'people',kids:true,animation:true,cover:'/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
 sources:{movie:{type:'person',id:608,job:'Director'}}
 },
 {
@@ -3711,6 +3846,7 @@ if(!Array.isArray(m.moods)||!labelsOk(m.moods))return{ok:false,reason:'bad_mood'
 for(var mi=0;mi<m.moods.length;mi++){
 if(dropRetired(m.moods[mi].sources)){m.moods.splice(mi,1);mi--;continue;}
 if(!sourcesOk(m.moods[mi].sources))return{ok:false,reason:'bad_mood: '+m.moods[mi].id};
+if(typeof m.moods[mi].kids!=='undefined'&&typeof m.moods[mi].kids!=='boolean')delete m.moods[mi].kids;
 }
 }
 for(var hi=0;hi<m.home.length;hi++){
@@ -3745,6 +3881,7 @@ if(typeof c.cover!=='undefined'&&(typeof c.cover!=='string'||!COVER_RE.test(c.co
 return{ok:false,reason:'bad_cover: '+c.id};
 }
 if(typeof c.animation!=='undefined'&&typeof c.animation!=='boolean')delete c.animation;
+if(typeof c.kids!=='undefined'&&typeof c.kids!=='boolean')delete c.kids;
 }
 var themes=m.themes||[];
 for(i=0;i<themes.length;i++){
@@ -3791,13 +3928,13 @@ if(typeof LC.pref==='function')url=LC.pref('lumen_manifest_url','')||'';
 try{
 if(!url&&typeof LC.MANIFEST_URL==='string')url=LC.MANIFEST_URL||'';
 }catch(e){}
-if(!url||!httpsUrl(url)){current=DEFAULT;cb(DEFAULT);return;}
+if(!url||!httpsUrl(url)){current=DEFAULT;cb(view(DEFAULT));return;}
 var cached=null;
 try{cached=Lampa.Storage.get('lumen_manifest',null);}catch(e){}
 var usable=!!(cached&&validate(cached.data).ok);
 if(usable&&isFresh(cached)){
 current=cached.data;
-cb(current);
+cb(view(current));
 return;
 }
 var sep=url.indexOf('?')>=0?'&':'?';
@@ -3809,21 +3946,34 @@ function(json){
 if(validate(json).ok){
 try{Lampa.Storage.set('lumen_manifest',{at:Date.now(),data:json});}catch(e){}
 current=json;
-cb(json);
+cb(view(json));
 }else{
 current=usable?cached.data:DEFAULT;
-cb(current);
+cb(view(current));
 }
 },
 function(){
 current=usable?cached.data:DEFAULT;
-cb(current);
+cb(view(current));
 },
 false,
 {dataType:'json',timeout:8000}
 );
 }
+function view(m){
+try{
+if(!LC.kids||typeof LC.kids.enabled!=='function'||!LC.kids.enabled())return m;
+var kids=LC.kids.catalog(m);
+if(m!==DEFAULT&&(!kids||!kids.collections||!kids.collections.length))kids=LC.kids.catalog(DEFAULT);
+return kids||m;
+}catch(e){
+return m;
+}
+}
 function get(){
+return view(current||DEFAULT);
+}
+function raw(){
 return current||DEFAULT;
 }
 return{
@@ -3832,7 +3982,8 @@ validate:validate,
 orderForMonth:orderForMonth,
 isFresh:isFresh,
 load:load,
-get:get
+get:get,
+raw:raw
 };
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.manifest;
@@ -4790,8 +4941,15 @@ if(LC.homeplan&&typeof LC.homeplan.apply==='function')LC.homeplan.apply({fresh:t
 var dedupe=dedupeEnabled();
 var fit=measureFit();
 var seen={};
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
+var first=true;
 var pass=function(rows){
-return withView(dedupe?dedupeAcross(rows,seen,DEDUPE_MIN,fit):rows,fit);
+if(kids)rows=LC.kids.rows(rows);
+var out=dedupe?dedupeAcross(rows,seen,DEDUPE_MIN,fit):rows;
+if(kids)out=LC.kids.stubs(out,DEDUPE_MIN,first);
+first=false;
+return withView(out,fit);
 };
 var part=null;
 var built=false;
@@ -5301,7 +5459,11 @@ function(json){
 var hide=false;
 try{hide=LC.pref?!!LC.pref('lumen_hide_watched',false):false;}catch(eIgnore){}
 var filtered=filterWatched(json.results,viewedIds(json.results),hide);
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
+if(kids)filtered=LC.kids.cards(filtered,LC.kids.trusted(item));
 var payload={results:filtered,title:item.title};
+if(kids)payload.lumen_kids=true;
 if(pinned)payload.lumen_keep=true;
 var pages=Number(json&&json.total_pages)||1;
 if(pages>1){
@@ -5830,8 +5992,10 @@ call:makeContinueCall()
 });
 }
 }catch(e){}
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
 try{
-var anchorCard=anchorOf(getHistory(),opts.anchor);
+var anchorCard=kids?null:anchorOf(getHistory(),opts.anchor);
 if(anchorCard){
 out.push({
 id:'because',
@@ -5927,6 +6091,8 @@ var series=seriesItems(manifest);
 if(series.length)extra.push({id:SERIES_HUB,title:LC.lang('lumen_hub_series'),count:series.length,groups:[],virtual:true});
 var cartoons=animationItems(manifest);
 if(cartoons.length)extra.push({id:ANIMATION_HUB,title:LC.lang('lumen_hub_animation'),count:cartoons.length,groups:[],virtual:true});
+var kids=kidsItems(manifest);
+if(kids.length&&kids.length<manifest.collections.length)extra.push({id:KIDS_HUB,title:LC.lang('lumen_hub_kids'),count:kids.length,groups:[],virtual:true});
 var at=out.length?1:0;
 for(var e=0;e<extra.length;e++)out.splice(at+e,0,extra[e]);
 var moods=moodItems(manifest);
@@ -5940,7 +6106,9 @@ var list=manifest&&Array.isArray(manifest.moods)?manifest.moods:[];
 for(var i=0;i<list.length;i++){
 var m=list[i];
 if(!m||!m.id||!m.sources||(!m.sources.movie&&!m.sources.tv))continue;
-out.push({id:'mood-'+m.id,title:m.title||'',i18n:m.i18n,group:'mood',sources:m.sources,lumen_mood:true});
+var tile={id:'mood-'+m.id,title:m.title||'',i18n:m.i18n,group:'mood',sources:m.sources,lumen_mood:true};
+if(m.kids===true)tile.kids=true;
+out.push(tile);
 }
 return out;
 }
@@ -5949,6 +6117,7 @@ if(hubGroupId===MOOD_HUB)return moodItems(manifest);
 var list=null;
 if(hubGroupId===SERIES_HUB)list=seriesItems(manifest);
 else if(hubGroupId===ANIMATION_HUB)list=animationItems(manifest);
+else if(hubGroupId===KIDS_HUB)list=kidsItems(manifest);
 else if(manifest&&Array.isArray(manifest.hubGroups)){
 for(var i=0;i<manifest.hubGroups.length;i++){
 var g=manifest.hubGroups[i];
@@ -5963,6 +6132,7 @@ return list;
 }
 var SERIES_HUB='lumen-series';
 var ANIMATION_HUB='lumen-animation';
+var KIDS_HUB='lumen-kids';
 function catalogWhere(manifest,test){
 var out=[];
 var list=manifest&&Array.isArray(manifest.collections)?manifest.collections:[];
@@ -5976,6 +6146,9 @@ return catalogWhere(manifest,function(c){return!!c.sources.tv;});
 }
 function animationItems(manifest){
 return catalogWhere(manifest,function(c){return c.animation===true;});
+}
+function kidsItems(manifest){
+return catalogWhere(manifest,function(c){return c.kids===true;});
 }
 function mediaModes(item){
 var src=(item&&item.sources)||{};
@@ -6025,7 +6198,9 @@ return null;
 }
 function openTarget(item,media0){
 var media=singleDiscover(item);
-if(media&&fullGridReady()){
+var kids=false;
+try{kids=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
+if(media&&!kids&&fullGridReady()){
 var url='';
 try{url=LC.sources.discoverUrl(item.sources[media],media);}catch(e){warn('hub: discover url failed',e);}
 if(url&&typeof url==='string'){
@@ -7370,6 +7545,7 @@ if(started&&ownsRemote(self.activity))recollect(null,byMouse);
 }
 var handle=LC.sources['fetch'](request,nextPage,function(json){
 if(gen!==captured)return;
+try{if(LC.kids&&LC.kids.enabled())json=LC.kids.response(json,item);}catch(eKids){}
 LC.sources.posters(request,json.results||[],function(){
 if(gen!==captured)return;
 fill(json);
@@ -7653,8 +7829,10 @@ fullStage:{start:fullStart,destroy:fullDestroy,clear:fullClear,count:function(){
 moodItems:moodItems,
 SERIES_HUB:SERIES_HUB,
 ANIMATION_HUB:ANIMATION_HUB,
+KIDS_HUB:KIDS_HUB,
 seriesItems:seriesItems,
 animationItems:animationItems,
+kidsItems:kidsItems,
 mediaModes:mediaModes,
 forMedia:forMedia,
 open:openCollection,
@@ -11001,6 +11179,12 @@ node[0].lumen_mood=mood;
 node.on('hover:enter',function(){
 var m=this.lumen_mood;
 if(!m)return;
+try{
+if(LC.kids&&LC.kids.enabled()&&LC.hub&&typeof LC.hub.open==='function'&&typeof LC.hub.moodItems==='function'){
+var tiles=LC.hub.moodItems({moods:[m]});
+if(tiles.length){LC.hub.open(tiles[0]);return;}
+}
+}catch(eKids){warn('moods: kids open failed',eKids);}
 var obj=moodActivityObj(m);
 if(!obj)return;
 try{Lampa.Activity.push(obj);}catch(e){warn('moods: push failed',e);}
@@ -13487,6 +13671,7 @@ warn('ambient: current frames failed',e);
 return normalizeFrames(out);
 }
 function frames(){
+try{if(LC.kids&&LC.kids.enabled())return[];}catch(eKids){}
 var source='curated';
 try{source=LC.pref('lumen_ambient_source','curated');}catch(e){}
 if(source==='current'){
@@ -15001,6 +15186,7 @@ for(var w=0;w<wait.done.length;w++)wait.done[w]();
 LC.util.each(list,function(item){
 for(var page=1;page<=PAGES;page++){
 var handle=LC.sources['fetch'](item,page,function(json){
+try{if(LC.kids&&LC.kids.enabled())json=LC.kids.response(json,item);}catch(eKids){}
 var results=(json&&json.results)||[];
 for(var i=0;i<results.length;i++)cards.push(results[i]);
 gate.tick();
@@ -24673,6 +24859,12 @@ en:'Collection rows on home',
 uk:'Ряди підбірок на головній'
 },
 lumen_rows_seasonal:{ru:'Сезонная',en:'Seasonal',uk:'Сезонна'},
+lumen_kids_name:{ru:'Детский режим',en:'Kids mode',uk:'Дитячий режим'},
+lumen_kids_descr:{
+ru:'Главная, подборки и рулетка — только мультфильмы, семейное кино и семейные блокбастеры. Это не родительский контроль: пароля нет, поиск, меню и карточки Lampa не ограничиваются.',
+en:'Home, collections and roulette show only animation, family films and family blockbusters. This is not parental control: no PIN, and Lampa search, menus and cards are not restricted.',
+uk:'Головна, підбірки й рулетка — лише мультфільми, сімейне кіно та сімейні блокбастери. Це не батьківський контроль: пароля немає, пошук, меню й картки Lampa не обмежуються.'
+},
 lumen_franchise_name:{ru:'Франшизы',en:'Franchises',uk:'Франшизи'},
 lumen_franchise_descr:{
 ru:'Кнопка «Франшиза» и ряд «Смотреть по порядку» у фильмов из серии.',
@@ -24889,6 +25081,7 @@ lumen_hub_title:{ru:'Подборки',en:'Collections',uk:'Підбірки'},
 lumen_hub_moods:{ru:'Настроение',en:'Mood',uk:'Настрій'},
 lumen_hub_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
 lumen_hub_animation:{ru:'Мультфильмы',en:'Animation',uk:'Мультфільми'},
+lumen_hub_kids:{ru:'Детям',en:'For Kids',uk:'Дітям'},
 lumen_grid_all:{ru:'Всё',en:'All',uk:'Усе'},
 lumen_grid_movies:{ru:'Фильмы',en:'Movies',uk:'Фільми'},
 lumen_grid_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
@@ -25065,7 +25258,7 @@ try{if(LC.applyMoodsPref)LC.applyMoodsPref();}catch(eMoods){}
 return true;
 }
 if(name==='lumen_hide_watched'||name==='lumen_rows_limit'||name==='lumen_home_rows'||
-name==='lumen_rows_dedupe'||name==='lumen_posters'){
+name==='lumen_rows_dedupe'||name==='lumen_posters'||name==='lumen_kids'){
 try{if(LC.applyRowsPref)LC.applyRowsPref();}catch(eRows){}
 return true;
 }
@@ -25108,7 +25301,7 @@ try{
 if(!window.Lampa||!Lampa.Select||typeof Lampa.Select.show!=='function')return;
 if(!LC.rows||typeof LC.rows.rowChoices!=='function')return;
 if(!LC.manifest||typeof LC.manifest.get!=='function')return;
-var manifest=LC.manifest.get();
+var manifest=typeof LC.manifest.raw==='function'?LC.manifest.raw():LC.manifest.get();
 var choices=LC.rows.rowChoices(manifest,LC.rows.storedIds());
 var lang=langCode();
 var groupTitle={};
@@ -25409,6 +25602,7 @@ var MAIN=[
 {name:'lumen_tile_size',type:'select',values:['small','normal','large'],vprefix:'lumen_tile_size_','default':'normal',label:'lumen_tile_size_name',descr:'lumen_tile_size_descr'},
 {name:'lumen_rows_limit',type:'select',values:['10','15','25'],vsuffix:'lumen_rows_limit_suffix','default':'10',label:'lumen_rows_limit_name',descr:'lumen_rows_limit_descr'},
 {name:'lumen_home_rows',type:'button',label:'lumen_home_rows_name',descr:'lumen_home_rows_descr'},
+{name:'lumen_kids',type:'trigger','default':false,label:'lumen_kids_name',descr:'lumen_kids_descr'},
 {name:'lumen_group_card',type:'title',label:'lumen_group_card'},
 {name:'lumen_reviews',type:'trigger','default':true,label:'lumen_card_reviews_name',descr:'lumen_card_reviews_descr'},
 {name:'lumen_kp_key',type:'input','default':'',label:'lumen_card_kp_key',descr:'lumen_card_kp_key_descr',placeholder:'lumen_pref_unset'},

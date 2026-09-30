@@ -183,6 +183,7 @@
         "en": "Family Viewing",
         "uk": "Сімейний перегляд"
       },
+      "kids": true,
       "sources": {
         "movie": {
           "type": "discover",
@@ -256,6 +257,7 @@
       "id": "star-wars",
       "title": "Звёздные войны",
       "group": "franchise",
+      "kids": true,
       "icon": "film",
       "sources": {
         "movie": {
@@ -287,6 +289,7 @@
       "id": "harry-potter",
       "title": "Гарри Поттер",
       "group": "franchise",
+      "kids": true,
       "icon": "film",
       "cover": "/lvOLivVeX3DVVcwfVkxKf0R22D8.jpg",
       "sources": {
@@ -515,6 +518,7 @@
       "id": "avengers",
       "title": "Мстители",
       "group": "franchise",
+      "kids": true,
       "icon": "film",
       "sources": {
         "movie": {
@@ -1027,6 +1031,7 @@
       "id": "shrek",
       "title": "Шрек",
       "group": "franchise",
+      "kids": true,
       "animation": true,
       "icon": "film",
       "cover": "/w0eKUOEog2ImtktCHAMUZws8qif.jpg",
@@ -1044,6 +1049,7 @@
       "id": "toy-story",
       "title": "История игрушек",
       "group": "franchise",
+      "kids": true,
       "animation": true,
       "icon": "film",
       "cover": "/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg",
@@ -1061,6 +1067,7 @@
       "id": "despicable-me",
       "title": "Гадкий я",
       "group": "franchise",
+      "kids": true,
       "animation": true,
       "icon": "film",
       "cover": "/2XSeKDmIa2KxaiJy4J9e8FrIZhk.jpg",
@@ -1082,6 +1089,7 @@
         "uk": "Людина-павук"
       },
       "group": "franchise",
+      "kids": true,
       "icon": "film",
       "cover": "/zQ8AxTPiCiS5nnwXpwTBPBHSaa5.jpg",
       "sources": {
@@ -1100,6 +1108,7 @@
       "id": "madagascar",
       "title": "Мадагаскар",
       "group": "franchise",
+      "kids": true,
       "animation": true,
       "icon": "film",
       "cover": "/tPaurpIUskVji5vwV0dhy9pq4Vs.jpg",
@@ -1117,6 +1126,7 @@
       "id": "ice-age",
       "title": "Ледниковый период",
       "group": "franchise",
+      "kids": true,
       "animation": true,
       "icon": "film",
       "sources": {
@@ -1142,6 +1152,7 @@
       "id": "pixar",
       "title": "Pixar",
       "group": "studio",
+      "kids": true,
       "animation": true,
       "sources": {
         "movie": {
@@ -1157,6 +1168,7 @@
       "id": "ghibli",
       "title": "Студия Гибли",
       "group": "studio",
+      "kids": true,
       "animation": true,
       "sources": {
         "movie": {
@@ -1308,6 +1320,7 @@
       "id": "dreamworks",
       "title": "DreamWorks Animation",
       "group": "studio",
+      "kids": true,
       "animation": true,
       "sources": {
         "movie": {
@@ -1323,6 +1336,7 @@
       "id": "illumination",
       "title": "Illumination",
       "group": "studio",
+      "kids": true,
       "animation": true,
       "sources": {
         "movie": {
@@ -1398,6 +1412,7 @@
         "uk": "Walt Disney Animation"
       },
       "group": "studio",
+      "kids": true,
       "animation": true,
       "cover": "/p2fRZzxla6NoRbIH2KOZq0gHb5S.jpg",
       "sources": {
@@ -1418,6 +1433,7 @@
         "uk": "LAIKA та Aardman"
       },
       "group": "studio",
+      "kids": true,
       "animation": true,
       "cover": "/svHDneADngRckbFMUcD0AR1KsSq.jpg",
       "sources": {
@@ -2322,6 +2338,7 @@
         "uk": "Радянські мультфільми"
       },
       "group": "theme",
+      "kids": true,
       "animation": true,
       "icon": "star",
       "aliases": [
@@ -2447,6 +2464,7 @@
         "uk": "Мультфільми"
       },
       "group": "theme",
+      "kids": true,
       "animation": true,
       "cover": "/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg",
       "sources": {
@@ -2877,6 +2895,7 @@
         "uk": "Сімейні"
       },
       "group": "theme",
+      "kids": true,
       "cover": "/bnkf3C2ZMF6i7MLOemWqEHDMqfh.jpg",
       "sources": {
         "movie": {
@@ -2923,6 +2942,7 @@
         "uk": "Мультсеріали для дітей"
       },
       "group": "theme",
+      "kids": true,
       "animation": true,
       "cover": "/ogMd4e3A0uSNwZADzgC23zCByoi.jpg",
       "sources": {
@@ -2946,6 +2966,7 @@
         "uk": "Для найменших"
       },
       "group": "theme",
+      "kids": true,
       "animation": true,
       "cover": "/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg",
       "sources": {
@@ -2983,6 +3004,7 @@
         "uk": "Сімейні мультсеріали"
       },
       "group": "theme",
+      "kids": true,
       "animation": true,
       "cover": "/cKVI3X6DGhzfAtNbZDyj8RcTWBq.jpg",
       "sources": {
@@ -3007,6 +3029,7 @@
         "uk": "Сімейне ігрове кіно"
       },
       "group": "theme",
+      "kids": true,
       "cover": "/9iRRfMZbnpgHDdKi2lczGGYZXDo.jpg",
       "sources": {
         "movie": {
@@ -3904,6 +3927,7 @@
       "id": "miyazaki",
       "title": "Хаяо Миядзаки",
       "group": "people",
+      "kids": true,
       "animation": true,
       "cover": "/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg",
       "sources": {
