@@ -826,7 +826,7 @@
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
           loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
           raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), font: fontStatus(), tr: trailerStatus(), tint: accentStatus()
-        }) + '\n' + heroText(state.probe.summary());
+        }) + '\n' + heroText(state.probe.summary()) + bootLine();
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в
            самый старый слот. Окно из SLOTS интервалов уезжает вместе с ним,
@@ -835,6 +835,16 @@
         resetSlot(state.slots[state.at]);
       }
       state.raf = raf(paint);
+    }
+
+    /* 1.3: третья строка — перезапуски Lampa: «boot#12 · ext 23 мин назад
+       · cold/ext 3/5» (LC.resume.statsLine, src/71_resume.js). Счётчики
+       пишутся и без HUD; здесь только чтение раз в интервал строки. */
+    function bootLine() {
+      try {
+        if (LC.resume && typeof LC.resume.statsLine === 'function') return '\n' + LC.resume.statsLine();
+      } catch (e) { }
+      return '';
     }
 
     function start() {
@@ -928,7 +938,7 @@
       hardware: hardware,
       /* Полоса телеметрии: зонд героя — и для самотеста (стадия 9,
          src/69_bench.js); чистые окно и строка — ради теста. */
-      probe: probe, heroStats: heroStats, heroText: heroText
+      probe: probe, heroStats: heroStats, heroText: heroText, bootLine: bootLine
     };
   })();
 

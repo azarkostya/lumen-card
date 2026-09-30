@@ -1340,3 +1340,15 @@ test('1.1: в строке HUD — режим с причиной выбора �
   bare.tick(1000);
   assert.ok(bare.bodyChildren[0].textContent.indexOf(' · lite · hw ') !== -1, 'без LC.motionWhy — голый режим');
 });
+
+/* 1.3: третья строка HUD — перезапуски Lampa (LC.resume.statsLine,
+   src/71_resume.js); без модуля возврата строки нет, исключение модуля
+   строку HUD не роняет. */
+test('1.3: bootLine — «boot#N · ext M мин назад · cold/ext a/b» с новой строки', () => {
+  let { api } = fresh({ resume: { statsLine: () => 'boot#12 · ext 23 мин назад · cold/ext 3/5' } });
+  assert.equal(api.bootLine(), '\nboot#12 · ext 23 мин назад · cold/ext 3/5');
+  ({ api } = fresh());
+  assert.equal(api.bootLine(), '');
+  ({ api } = fresh({ resume: { statsLine: () => { throw new Error('boom'); } } }));
+  assert.equal(api.bootLine(), '');
+});
