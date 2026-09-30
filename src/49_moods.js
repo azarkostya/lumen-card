@@ -137,9 +137,15 @@
           var m = LC.manifest.get();
           if (m && m.moods && m.moods.length) return m.moods;
         }
-        if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
-          return LC.manifest.DEFAULT.moods;
-        }
+        var def = LC.manifest && LC.manifest.DEFAULT;
+        /* 1.2: в детском режиме запасной список — детская часть
+           встроенного (LC.kids.catalog), а не взрослые «Страшное на ночь»
+           и «Пятничный вечер»: пустые детские настроения каталога — не
+           повод показывать всё. */
+        var kids = false;
+        try { kids = !!(LC.kids && LC.kids.enabled()); } catch (eKids) { }
+        if (kids) def = def ? LC.kids.catalog(def) : null;
+        if (def && def.moods) return def.moods;
       } catch (e) {
         warn('moods: manifest read failed', e);
       }

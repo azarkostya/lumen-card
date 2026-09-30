@@ -533,3 +533,32 @@ test('moodActivityObj: штатная сетка с меткой подборк�
   assert.equal(obj.lumen_stage, true);
   assert.equal(M.moodActivityObj({ sources: { movie: { type: 'collection', id: 1 } } }), null);
 });
+
+/* Ревью детского режима, п.3: детский каталог без детских настроений
+   (LC.manifest.get() отдаёт moods: []) не откатывается на взрослые
+   настроения встроенного — запасной список тоже детский. */
+test('kids: пустые детские настроения — запас из детской части встроенного, без «Страшного на ночь»', function () {
+  const K = load('41_kids.js');
+  const kidsMood = Object.assign({}, MOODS[1], { kids: true });
+  const DEF = { collections: [], moods: [MOODS[0], kidsMood, MOODS[2], MOODS[3]] };
+  let on = true;
+  const kids = { enabled: function () { return on; }, catalog: K.catalog };
+  let ctx = freshMoods({ kids: kids, manifest: { get: function () { return { moods: [] }; }, DEFAULT: DEF } });
+  let root = makeMainRoot();
+  ctx.api.mount(root);
+  assert.deepEqual(chipTitles(root), ['Семейный просмотр'], 'в детском режиме на главной взрослые настроения');
+  ctx.api.unmount();
+
+  on = false;
+  ctx = freshMoods({ kids: kids, manifest: { get: function () { return { moods: [] }; }, DEFAULT: DEF } });
+  root = makeMainRoot();
+  ctx.api.mount(root);
+  assert.equal(chipTitles(root).length, 4, 'выключен — запасной список прежний');
+  ctx.api.unmount();
+
+  on = true;
+  ctx = freshMoods({ kids: kids, manifest: { get: function () { return { moods: [] }; }, DEFAULT: { moods: [MOODS[0]] } } });
+  root = makeMainRoot();
+  ctx.api.mount(root);
+  assert.equal(ctx.api.active(), false, 'детских настроений нет нигде — чипов нет');
+});
