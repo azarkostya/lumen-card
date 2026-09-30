@@ -6091,8 +6091,6 @@ var series=seriesItems(manifest);
 if(series.length)extra.push({id:SERIES_HUB,title:LC.lang('lumen_hub_series'),count:series.length,groups:[],virtual:true});
 var cartoons=animationItems(manifest);
 if(cartoons.length)extra.push({id:ANIMATION_HUB,title:LC.lang('lumen_hub_animation'),count:cartoons.length,groups:[],virtual:true});
-var kids=kidsItems(manifest);
-if(kids.length&&kids.length<manifest.collections.length)extra.push({id:KIDS_HUB,title:LC.lang('lumen_hub_kids'),count:kids.length,groups:[],virtual:true});
 var at=out.length?1:0;
 for(var e=0;e<extra.length;e++)out.splice(at+e,0,extra[e]);
 var moods=moodItems(manifest);
@@ -6117,7 +6115,6 @@ if(hubGroupId===MOOD_HUB)return moodItems(manifest);
 var list=null;
 if(hubGroupId===SERIES_HUB)list=seriesItems(manifest);
 else if(hubGroupId===ANIMATION_HUB)list=animationItems(manifest);
-else if(hubGroupId===KIDS_HUB)list=kidsItems(manifest);
 else if(manifest&&Array.isArray(manifest.hubGroups)){
 for(var i=0;i<manifest.hubGroups.length;i++){
 var g=manifest.hubGroups[i];
@@ -6132,7 +6129,6 @@ return list;
 }
 var SERIES_HUB='lumen-series';
 var ANIMATION_HUB='lumen-animation';
-var KIDS_HUB='lumen-kids';
 function catalogWhere(manifest,test){
 var out=[];
 var list=manifest&&Array.isArray(manifest.collections)?manifest.collections:[];
@@ -6146,9 +6142,6 @@ return catalogWhere(manifest,function(c){return!!c.sources.tv;});
 }
 function animationItems(manifest){
 return catalogWhere(manifest,function(c){return c.animation===true;});
-}
-function kidsItems(manifest){
-return catalogWhere(manifest,function(c){return c.kids===true;});
 }
 function mediaModes(item){
 var src=(item&&item.sources)||{};
@@ -7829,10 +7822,8 @@ fullStage:{start:fullStart,destroy:fullDestroy,clear:fullClear,count:function(){
 moodItems:moodItems,
 SERIES_HUB:SERIES_HUB,
 ANIMATION_HUB:ANIMATION_HUB,
-KIDS_HUB:KIDS_HUB,
 seriesItems:seriesItems,
 animationItems:animationItems,
-kidsItems:kidsItems,
 mediaModes:mediaModes,
 forMedia:forMedia,
 open:openCollection,
@@ -25081,7 +25072,6 @@ lumen_hub_title:{ru:'Подборки',en:'Collections',uk:'Підбірки'},
 lumen_hub_moods:{ru:'Настроение',en:'Mood',uk:'Настрій'},
 lumen_hub_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
 lumen_hub_animation:{ru:'Мультфильмы',en:'Animation',uk:'Мультфільми'},
-lumen_hub_kids:{ru:'Детям',en:'For Kids',uk:'Дітям'},
 lumen_grid_all:{ru:'Всё',en:'All',uk:'Усе'},
 lumen_grid_movies:{ru:'Фильмы',en:'Movies',uk:'Фільми'},
 lumen_grid_series:{ru:'Сериалы',en:'Series',uk:'Серіали'},
@@ -25881,23 +25871,20 @@ var NOTES={
 '1.2.0':{
 ru:[
 'На главной — ряд «Вышло в цифре»: фильмы, которые только что стали доступны в хорошем качестве.',
-'Детский режим в настройках: на главной и в подборках — только мультфильмы и семейное кино. В «Подборках» появился раздел «Детям».',
+'Детский режим в настройках: на главной и в подборках — только мультфильмы и семейное кино.',
 'Подборка «Братья Коэн» теперь целиком — вместе с фильмами, которые Итан снял сам.',
-'На медленном интернете ряды и постеры подгружаются быстрее.',
 'Такое окно будет появляться один раз после каждого обновления.'
 ],
 en:[
 'A new "New on digital" row on the home screen: films that have just become available in good quality.',
-'Kids mode in the settings: only cartoons and family films on the home screen and in collections. Collections now have a "For kids" section.',
+'Kids mode in the settings: only cartoons and family films on the home screen and in collections.',
 'The "Coen Brothers" collection is now complete, including the films Ethan made on his own.',
-'Rows and posters load faster on a slow connection.',
 'This window will appear once after every update.'
 ],
 uk:[
 'На головній — ряд «Вийшло в цифрі»: фільми, які щойно стали доступні в добрій якості.',
-'Дитячий режим у налаштуваннях: на головній і в підбірках — лише мультфільми та сімейне кіно. У «Підбірках» з’явився розділ «Дітям».',
+'Дитячий режим у налаштуваннях: на головній і в підбірках — лише мультфільми та сімейне кіно.',
 'Підбірка «Брати Коен» тепер повна — разом із фільмами, які Ітан зняв сам.',
-'На повільному інтернеті ряди й постери підвантажуються швидше.',
 'Таке вікно з’являтиметься один раз після кожного оновлення.'
 ]
 }
