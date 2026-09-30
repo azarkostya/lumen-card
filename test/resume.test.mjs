@@ -654,6 +654,64 @@ test('resume: запись без ext_at — живой возврат по at',
   assert.equal(env.rec().returned, true);
 });
 
+test('resume: плагин выключен на старте — окна нет и после включения посреди сессии; запись остаётся', () => {
+  const first = setup();
+  first.api.install();
+  first.player('external', playData(2, 6));
+  const env = setup({ storage: { lumen_resume: first.rec() } });
+  let on = false;
+  env.LC.enabled = () => on;
+  assert.equal(env.api.boot(), false);
+  assert.equal(env.api.busy(), false, '«Что нового» не ждёт окна, которого не будет');
+  assert.ok(env.stats().boots, 'счётчик перезапусков пишется');
+  on = true;
+  env.api.install();
+  env.api.schedule(() => true);
+  assert.equal(env.timers.length, 0);
+  assert.equal(env.log.select.length, 0);
+  assert.ok(env.rec(), 'запись на месте');
+  assert.ok(env.api.menuItem(SHOW), 'пункт меню карточки есть');
+  const again = setup({ storage: { lumen_resume: first.rec() } });
+  again.LC.enabled = () => true;
+  assert.equal(again.api.boot(), true, 'включённый плагин — окно как прежде');
+});
+
+/* Select Lampa один на всех: чужой Select.show поверх нашего подменяет его
+   параметры, и наши onSelect/onBack не придут; Select.hide() их не зовёт
+   вовсе. Открытость окна сверяется с Select.opened(). */
+test('resume: наше окно вытеснил чужой Select или его скрыли без close — busy() снимается, «Что нового» не ждёт вечно', () => {
+  const first = setup();
+  first.api.install();
+  first.player('external', playData(2, 6));
+  for (const how of ['foreign', 'hide']) {
+    const env = setup({ storage: { lumen_resume: first.rec() } });
+    let open = false;
+    env.Lampa.Select.show = (p) => { env.log.select.push(p); open = true; };
+    env.Lampa.Select.opened = () => open;
+    env.api.boot();
+    env.api.install();
+    env.api.schedule(() => true);
+    env.step();
+    assert.equal(env.log.select.length, 1, how);
+    assert.equal(env.api.busy(), true, 'наше окно открыто — ' + how);
+    if (how === 'foreign') {
+      env.Lampa.Select.show({ title: 'Другое окно', items: [] });
+      assert.equal(env.api.busy(), true, 'чужое окно поверх ещё открыто — ждём');
+    }
+    open = false;
+    assert.equal(env.api.busy(), false, how);
+    assert.equal(env.api.busy(), false, how + ': и дальше');
+  }
+  const legacy = setup({ storage: { lumen_resume: first.rec() } });
+  legacy.api.boot();
+  legacy.api.install();
+  legacy.api.schedule(() => true);
+  legacy.step();
+  assert.equal(legacy.api.busy(), true, 'Lampa без Select.opened — как прежде, до выбора в окне');
+  legacy.log.select[0].onBack();
+  assert.equal(legacy.api.busy(), false);
+});
+
 test('resume: истёк срок — окна нет, запись удалена', () => {
   const first = setup();
   first.api.install();

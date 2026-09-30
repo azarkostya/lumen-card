@@ -708,7 +708,10 @@
     }
 
     /* LC.init, до activate(): счётчики и решение на этот запуск. Истёкшая
-       запись удаляется здесь же. */
+       запись удаляется здесь же. Плагин выключен — окна на этот запуск
+       нет вовсе: иначе включение в настройках посреди сессии (activate →
+       schedule) показало бы «Вернуться к просмотру» там, где холодного
+       старта давно нет (ревью 1.3). Запись остаётся — для меню и ряда. */
     function boot() {
       _pending = false;
       try {
@@ -717,12 +720,16 @@
         if (!rec) return false;
         var d = decide(rec, now(), opts());
         if (d === 'expire') { save(null); return false; }
-        _pending = d === 'show';
+        _pending = d === 'show' && pluginOn();
       } catch (e) {
         _pending = false;
         warn('resume boot failed', e);
       }
       return _pending;
+    }
+
+    function pluginOn() {
+      try { return typeof LC.enabled !== 'function' || !!LC.enabled(); } catch (e) { return true; }
     }
 
     function stopTimer() {
@@ -920,7 +927,27 @@
       }
     }
 
+    /* Окно открыто, пока его не закрыли выбором или «Назад» (finish).
+       Но чужой Select.show поверх нашего подменяет параметры окна Lampa
+       (active$8 в app.min.js), и наши onSelect/onBack уже не придут никогда;
+       Select.hide() без close тоже их не зовёт. Тогда _open остался бы true
+       навсегда, и «Что нового» (src/82_whatsnew.js), которое ждёт busy(),
+       не открылось бы до перезапуска. Поэтому открытость сверяем с самой
+       Lampa: Select.opened() — класс selectbox--open у body, его снимает
+       любое закрытие окна выбора, чьё бы оно ни было. Чужое окно поверх
+       нашего ещё открыто — ждём его закрытия: «Что нового» поверх него всё
+       равно не открылось бы (layerOpen). Таймаут не нужен и вреден: окно
+       возврата честно висит, пока человек у ТВ не ответит. */
+    function selectGone() {
+      try {
+        return !!(window.Lampa && Lampa.Select && typeof Lampa.Select.opened === 'function' && !Lampa.Select.opened());
+      } catch (e) {
+        return false;
+      }
+    }
+
     function busy() {
+      if (_open && selectGone()) _open = false;
       return _pending || _open;
     }
 
