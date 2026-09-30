@@ -567,6 +567,93 @@ test('resume: живой возврат из внешнего плеера — �
   assert.equal(env.stats().cold_after_ext, 0);
 });
 
+/* Ревью 1.3: на Android клиент пишет таймкод ДО 'visible' — onActivityResult
+   → Android.timeCall → Timeline.update (app.min.js ~32976) → onTimeline, и
+   advance двигает at. Живой возврат сверяется с моментом ухода (ext_at),
+   иначе он не отмечался и следующий холодный старт показывал ложное окно. */
+test('resume: живой возврат на Android — таймкод приходит раньше visible: окна при следующем запуске нет', () => {
+  const first = setup({ android: true, fields: { internal_torrclient: true } });
+  first.api.boot();
+  first.api.install();
+  watchEpisode(first, 2);
+  const ext = first.rec().ext_at;
+  assert.equal(ext, T0, 'момент ухода во внешний плеер');
+  first.tick(1000);
+  first.vis('hidden');
+  first.tick(40 * 60000);
+  first.api.onTimeline({ hash: 'tl2', road: { percent: 60, time: 2256, duration: 3760 } });
+  assert.ok(first.rec().at > first.rec().hidden_at, 'таймкод сдвинул at позже ухода в фон');
+  assert.equal(first.rec().ext_at, ext, 'момент ухода таймкод не двигает');
+  first.tick(300);
+  first.vis('visible');
+  assert.equal(first.rec().returned, true, 'живой возврат отмечен');
+  assert.equal(first.stats().ext_open, 0);
+  const env = setup({ android: true, fields: { internal_torrclient: true }, now: T0 + 3 * HOUR,
+    storage: { lumen_resume: first.rec(), lumen_resume_stats: first.stats() }, timeline: { tl2: { time: 2256, percent: 60, duration: 3760 } } });
+  assert.equal(env.api.boot(), false, 'ложного окна нет');
+  env.api.install();
+  env.api.schedule(() => true);
+  assert.equal(env.timers.length, 0);
+  assert.equal(env.log.select.length, 0);
+  assert.ok(env.api.menuItem(SHOW), 'запись для меню карточки осталась');
+});
+
+test('resume: процесс убит во внешнем плеере (visible не было) — окно при перезапуске есть, в том числе после таймкода', () => {
+  for (const withTimeline of [false, true]) {
+    const first = setup({ android: true, fields: { internal_torrclient: true } });
+    first.api.boot();
+    first.api.install();
+    watchEpisode(first, 2);
+    first.tick(1000);
+    first.vis('hidden');
+    if (withTimeline) {
+      first.tick(60000);
+      first.api.onTimeline({ hash: 'tl2', road: { percent: 50, time: 1880, duration: 3760 } });
+    }
+    assert.equal(first.rec().returned, false, String(withTimeline));
+    const env = setup({ android: true, fields: { internal_torrclient: true }, now: T0 + 50 * 60000,
+      storage: { lumen_resume: first.rec(), lumen_resume_stats: first.stats() }, timeline: { tl2: { time: 1880, percent: 50, duration: 3760 } } });
+    assert.equal(env.api.boot(), true, String(withTimeline));
+    assert.equal(env.stats().cold_after_ext, 1);
+    env.api.install();
+    env.api.schedule(() => true);
+    env.step();
+    assert.equal(env.log.select.length, 1, String(withTimeline));
+  }
+});
+
+test('resume: режим TorrServe и «Открыть раздачу снова» — момент ухода ставится заново, живой возврат отмечается', () => {
+  const env = setup({ android: true, fields: { internal_torrclient: false } });
+  env.api.boot();
+  env.api.install();
+  env.setActive({ component: 'torrents', movie: SHOW });
+  env.listener('torrent', { type: 'onenter', element: { title: 'GoT S02', MagnetUri: 'magnet:?xt=urn:btih:' + HASH } });
+  assert.equal(env.rec().ext_at, T0);
+  env.tick(1000);
+  env.vis('hidden');
+  env.tick(1000);
+  env.vis('visible');
+  assert.equal(env.rec().returned, true);
+  env.tick(10 * 60000);
+  env.api.resumeNow();
+  assert.deepEqual([env.rec().ext_at, env.rec().returned, env.rec().hidden_at], [T0 + 10 * 60000 + 2000, false, 0], 'новый сеанс в TorrServe');
+});
+
+/* Черновые записи без ext_at — по at, как до правки. */
+test('resume: запись без ext_at — живой возврат по at', () => {
+  const first = setup();
+  first.api.install();
+  first.player('external', playData(2, 6));
+  const rec = first.rec();
+  delete rec.ext_at;
+  const env = setup({ storage: { lumen_resume: rec } });
+  env.api.install();
+  env.tick(1000);
+  env.vis('hidden');
+  env.vis('visible');
+  assert.equal(env.rec().returned, true);
+});
+
 test('resume: истёк срок — окна нет, запись удалена', () => {
   const first = setup();
   first.api.install();

@@ -168,7 +168,8 @@
         playlist: [], cur: -1,
         subtitles: [],
         torrent: (extra && extra.torrent) || null,
-        shown: false, settled: false, returned: false, hidden_at: 0
+        shown: false, settled: false, returned: false, hidden_at: 0,
+        ext_at: mode === 'external' ? now : 0
       };
       var subs = Array.isArray(data.subtitles) ? data.subtitles : [];
       for (var s = 0; s < subs.length && s < 6 && !online; s++) {
@@ -211,7 +212,7 @@
         url: '', torrent_hash: '', index: -1, title: t.title, card: c,
         season: 0, episode: 0, tl_hash: '', percent: 0, time: 0, duration: 0,
         playlist: [], cur: -1, subtitles: [], torrent: t,
-        shown: false, settled: false, returned: false, hidden_at: 0
+        shown: false, settled: false, returned: false, hidden_at: 0, ext_at: now
       };
     }
 
@@ -587,7 +588,15 @@
     /* Страница ушла в фон после внешнего плеера и вернулась живой — место
        не потеряно (Lampa стоит на окне файлов), окна при следующем запуске
        не будет; и холодным стартом «после плеера» следующий запуск уже не
-       считается. */
+       считается.
+       «Ушла в фон после ухода в плеер» сверяется с ext_at — моментом ухода
+       (capture в режиме 'external', fromTorrent, reopen), а не с at: at
+       двигает каждый таймкод (advance), а на Android клиент пишет таймкод
+       ещё до 'visible' (onActivityResult → Android.timeCall →
+       Timeline.update, app.min.js ~32976). Со сравнением по at живой
+       возврат не отмечался, и следующий холодный старт в пределах срока
+       показывал ложное окно (ревью 1.3). Запись без ext_at (черновые
+       сборки до этой правки) — по at, как было. */
     function onVisibility() {
       if (!_on) return;
       try {
@@ -605,7 +614,7 @@
         if (hidden) {
           rec.hidden_at = t;
           save(rec);
-        } else if (num(rec.hidden_at) >= num(rec.at) && !rec.returned) {
+        } else if (num(rec.hidden_at) >= num(rec.ext_at || rec.at) && !rec.returned) {
           rec.returned = true;
           save(rec);
         }
@@ -838,6 +847,7 @@
         var fresh = load();
         if (fresh) {
           fresh.at = now();
+          fresh.ext_at = fresh.at;
           fresh.shown = false;
           fresh.returned = false;
           fresh.hidden_at = 0;
