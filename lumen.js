@@ -1,16 +1,26 @@
 /* Lumen Card для Lampa — короткий адрес установки.
-   Подгружает сборку dist/lumen_card.js, лежащую рядом с этим файлом
-   (GitHub Pages или jsDelivr). Строгий ES5.
+   Подгружает сборку dist/lumen_card.js: с GitHub Pages — с jsDelivr по
+   тегу версии (запасной путь — рядом с этим файлом), с любого другого
+   адреса — лежащую рядом с этим файлом. Строгий ES5.
    Стабильная версия — ветка main (GitHub Pages с 1.0.0 берёт её); бета —
    ветка feat/lumen-v2 через jsDelivr. Запасной адрес (браузер без
    document.currentScript) — стабильная ветка. */
 (function () {
   'use strict';
   var FALLBACK = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/';
+  var PAGES = 'https://azarkostya.github.io/lumen-card/';
+  var CDN = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@v';
+  /* Сколько ждать сборку с jsDelivr до запасного пути (мс), см. README,
+     раздел «Хосты». */
+  var WAIT = 10000;
   /* Метка сборки: первые 10 hex sha256 от dist/lumen_card.js. Вписывает её
      scripts/build.mjs, руками не править (build.mjs --check ловит
      расхождение с dist). */
-  var BUILD = 'ae69d950f0';
+  var BUILD = '8960423f8a';
+  /* Версия выпуска (LC.VERSION из src/00_head.js) — тег v<VERSION>, с
+     которого Pages-загрузчик берёт сборку на jsDelivr. Тоже вписывает
+     scripts/build.mjs; --check ловит расхождение. */
+  var VERSION = '1.2.0';
   var cur = document.currentScript;
   var src = (cur && cur.src) || '';
   var base = src ? src.replace(/[?#].*$/, '').replace(/[^\/]*$/, '') : FALLBACK;
@@ -38,7 +48,50 @@
      lumen.js, что отдаёт хостинг, — Pages после пересборки (1–2 минуты) и
      не позже срока своего кэша (max-age=600), jsDelivr @ветка — после
      сброса кэша (scripts/release.mjs --purge). */
-  var s = document.createElement('script');
-  s.src = base + 'dist/lumen_card.js?v=' + BUILD;
-  (document.head || document.documentElement).appendChild(s);
+  var head = document.head || document.documentElement;
+  var local = base + 'dist/lumen_card.js?v=' + BUILD;
+  function add(url, onload, onerror) {
+    var s = document.createElement('script');
+    if (onload) s.onload = onload;
+    if (onerror) s.onerror = onerror;
+    s.src = url;
+    head.appendChild(s);
+  }
+  /* После 1.2.0: загрузчик с GitHub Pages берёт сборку с jsDelivr — по адресу
+     ВЕРСИИ (тег v<VERSION>), запасной путь — та же сборка с Pages. Зачем:
+     у Pages статистики нет, у jsDelivr — публичная, по версиям
+     (node scripts/stats.mjs). Ни идентификаторов, ни новых хостов, ни
+     «пингов»: только другой адрес той же сборки; параметры, которые Lampa
+     дописывает к адресу плагина (logged, reset, origin, email), дальше
+     lumen.js не уходят. Адрес по тегу, а не @main или @<sha>: lumen.js не
+     знает своего коммита, а ветку jsDelivr держит до 12 часов и без
+     --purge отдаёт старое; тег jsDelivr отдаёт с max-age на год
+     (immutable) — сборка версии с него всегда та, что в коммите тега, а
+     ?v=<метка> держит прежний инвариант «новая сборка — новый адрес» и для
+     кэша браузера. Бета (jsDelivr по ветке), свой сервер, стенд, IP-адрес —
+     как раньше, сборка из той же папки: им теги не нужны. */
+  if (base.toLowerCase() !== PAGES) {
+    add(local);
+    return;
+  }
+  /* Запасной путь — один раз: на onerror (тег ещё не разрешён — jsDelivr
+     отвечает 404 без кэша; хост недоступен), на onload без запущенного
+     плагина (вместо сборки пришло что-то не то) и по таймауту WAIT, если
+     jsDelivr «висит» (DPI режет соединение — ошибки сети браузер ждёт
+     десятки секунд). Если jsDelivr догрузится после таймаута, второго
+     старта нет: голова сборки (src/00_head.js) выходит сразу, когда
+     window.lumen_card_plugin уже стоит. */
+  var spare = false;
+  var timer = 0;
+  function fallback() {
+    clearTimeout(timer);
+    if (spare) return;
+    spare = true;
+    add(local);
+  }
+  timer = setTimeout(fallback, WAIT);
+  add(CDN + VERSION + '/dist/lumen_card.js?v=' + BUILD, function () {
+    if (window.lumen_card_plugin) clearTimeout(timer);
+    else fallback();
+  }, fallback);
 })();

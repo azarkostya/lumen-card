@@ -5762,6 +5762,7 @@ function alive(){return _gen===gen;}
 var resolve=makeResolver(call);
 if(!alive()){resolve({results:[]});return{cancel:function(){}};}
 var items=markContinue(continuesList());
+try{if(LC.resume&&typeof LC.resume.raise==='function')items=LC.resume.raise(items);}catch(eResume){}
 if(!alive()){resolve({results:[]});return{cancel:function(){}};}
 resolve({results:items,title:LC.lang?LC.lang('lumen_row_continue'):'Continue watching',lumen_personal:true,lumen_own:true});
 return{cancel:function(){}};
@@ -20692,6 +20693,7 @@ function extraItems(card,ctx){
 if(!card||!ctx||!ctx.words)return[];
 var w=ctx.words;
 var out=[];
+if(ctx.resume&&ctx.resume.title)out.push({title:ctx.resume.title,subtitle:ctx.resume.subtitle||'',lumen:'resume'});
 out.push({title:w.trailer,lumen:'trailer'});
 if(ctx.collection&&ctx.collection.id){
 out.push({title:w.franchise,subtitle:LC.util.esc(ctx.collection.name||''),lumen:'franchise'});
@@ -20796,8 +20798,17 @@ words:words(),
 collection:collectionOf(card),
 watched:isWatched(card),
 thrown:isThrown(card),
-roulette:!!(LC.roulette&&typeof LC.roulette.openSimilar==='function')
+roulette:!!(LC.roulette&&typeof LC.roulette.openSimilar==='function'),
+resume:resumeItem(card)
 };
+}
+function resumeItem(card){
+try{
+if(LC.resume&&typeof LC.resume.menuItem==='function')return LC.resume.menuItem(card);
+}catch(e){
+warn('cardmenu: resume lookup failed',e);
+}
+return null;
 }
 function playTrailer(card){
 var ticket={seq:++trailerReq,at:Date.now(),activity:currentActivity(),overlays:overlaysNow()};
@@ -20934,6 +20945,10 @@ warn('cardmenu: thrown failed',e);
 }
 function run(kind,card){
 if(!kind||!card)return;
+if(kind==='resume'){
+try{if(LC.resume&&typeof LC.resume.resumeNow==='function')LC.resume.resumeNow();}catch(e){warn('cardmenu: resume failed',e);}
+return;
+}
 if(kind==='trailer'){playTrailer(card);return;}
 if(kind==='franchise'){openFranchise(card);return;}
 if(kind==='similar'){openSimilar(card);return;}
@@ -24246,12 +24261,18 @@ cr:chrome(),mode:mode,
 long:state.longSup?{win:sums.long,total:state.longTotal}:null,
 loaf:state.loafSup?{n:sums.loaf,ms:sums.loafMs}:null,
 raf:st.raf,eps:eps(),layers:lay.on,hid:lay.off,hw:hardware(),pf:prefetchStats(),font:fontStatus(),tr:trailerStatus(),tint:accentStatus()
-})+'\n'+heroText(state.probe.summary());
+})+'\n'+heroText(state.probe.summary())+bootLine();
 state.frames=0;state.last=t;
 state.at=(state.at+1)%SLOTS;
 resetSlot(state.slots[state.at]);
 }
 state.raf=raf(paint);
+}
+function bootLine(){
+try{
+if(LC.resume&&typeof LC.resume.statsLine==='function')return'\n'+LC.resume.statsLine();
+}catch(e){}
+return'';
 }
 function start(){
 if(state)return;
@@ -24301,7 +24322,7 @@ windowStats:windowStats,
 layerCounts:layerCounts,
 eps:eps,chrome:chrome,
 hardware:hardware,
-probe:probe,heroStats:heroStats,heroText:heroText
+probe:probe,heroStats:heroStats,heroText:heroText,bootLine:bootLine
 };
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.hud;
@@ -24418,6 +24439,790 @@ label:label
 };
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.progress;
+/* ---- 71_resume.js ---- */
+LC.resume=(function(){
+var KEY='lumen_resume';
+var STATS_KEY='lumen_resume_stats';
+var HOUR=3600000;
+var TTLS=[2,6,12,24];
+var TTL_DEFAULT=6;
+var WATCHED=95;
+var WINDOW=8;
+var COLD_GAP=2*HOUR;
+var FIRST_DELAY=2000;
+var RETRY_DELAY=2000;
+var TRIES=15;
+function num(v){
+var n=Number(v);
+return isFinite(n)?n:0;
+}
+function str(v){
+return(v===null||typeof v==='undefined')?'':(''+v);
+}
+function plain(v){
+return str(v).replace(/<[^>]*>?/g,'').replace(/\s+/g,' ').replace(/^\s+|\s+$/g,'');
+}
+function indexOf(url){
+var m=/[?&]index=(\d+)/.exec(str(url));
+return m?+m[1]:-1;
+}
+var CARD_FIELDS=['id','source','name','title','original_name','original_title','poster_path',
+'backdrop_path','first_air_date','release_date','runtime','number_of_seasons','vote_average','img','adult'];
+function cardOf(card){
+if(!card||typeof card!=='object'||card.id===null||typeof card.id==='undefined'||card.id==='')return null;
+var out={};
+for(var i=0;i<CARD_FIELDS.length;i++){
+var v=card[CARD_FIELDS[i]];
+if(v===null||typeof v==='undefined'||typeof v==='function'||typeof v==='object')continue;
+out[CARD_FIELDS[i]]=v;
+}
+var genres=[];
+var j;
+if(Array.isArray(card.genre_ids)){
+for(j=0;j<card.genre_ids.length;j++)genres.push(num(card.genre_ids[j]));
+}else if(Array.isArray(card.genres)){
+for(j=0;j<card.genres.length;j++)if(card.genres[j]&&card.genres[j].id!==undefined)genres.push(num(card.genres[j].id));
+}
+out.genre_ids=genres;
+return out;
+}
+function tlOf(t){
+if(!t||typeof t!=='object'||!t.hash)return null;
+return{hash:str(t.hash),percent:num(t.percent),time:num(t.time),duration:num(t.duration)};
+}
+function itemOf(p,online){
+var tl=tlOf(p&&p.timeline);
+var out={
+title:plain(p&&p.title),
+tl_hash:tl?tl.hash:'',
+season:num(p&&p.season),
+episode:num(p&&p.episode)
+};
+if(!online)out.url=str(p&&p.url);
+return out;
+}
+function trim(list,cur){
+if(!Array.isArray(list)||!list.length)return{list:[],cur:-1};
+if(cur<0||cur>=list.length)cur=0;
+var from=Math.max(0,cur-WINDOW);
+var to=Math.min(list.length,cur+WINDOW+1);
+return{list:list.slice(from,to),cur:cur-from};
+}
+function findCurrent(list,tlHash,url){
+var i;
+if(tlHash)for(i=0;i<list.length;i++)if(list[i].tl_hash===tlHash)return i;
+if(url)for(i=0;i<list.length;i++)if(list[i].url&&list[i].url===url)return i;
+return-1;
+}
+function capture(data,mode,now,card,extra){
+if(!data||typeof data!=='object')return null;
+if(data.youtube||data.iptv||data.tv)return null;
+var tl=tlOf(data.timeline);
+var torrent=!!data.torrent_hash;
+if(!tl&&!torrent)return null;
+var c=cardOf(data.card||data.movie||card);
+if(!c)return null;
+var online=!torrent;
+var rec={
+v:1,at:now,kind:online?'online':'torrent',mode:mode||'pending',
+url:online?'':str(data.url),
+torrent_hash:online?'':str(data.torrent_hash),
+index:online?-1:indexOf(data.url),
+title:plain(data.title),
+card:c,
+season:num(data.season),episode:num(data.episode),
+tl_hash:tl?tl.hash:'',percent:tl?tl.percent:0,time:tl?tl.time:0,duration:tl?tl.duration:0,
+playlist:[],cur:-1,
+subtitles:[],
+torrent:(extra&&extra.torrent)||null,
+shown:false,settled:false,returned:false,hidden_at:0
+};
+var subs=Array.isArray(data.subtitles)?data.subtitles:[];
+for(var s=0;s<subs.length&&s<6&&!online;s++){
+if(subs[s]&&subs[s].url)rec.subtitles.push({label:plain(subs[s].label),url:str(subs[s].url)});
+}
+if(Array.isArray(data.playlist)&&data.playlist.length){
+var all=[];
+for(var i=0;i<data.playlist.length;i++){
+var p=data.playlist[i];
+if(!p||typeof p!=='object')continue;
+if(!online&&typeof p.url!=='string')continue;
+all.push(itemOf(p,online));
+}
+var at=findCurrent(all,rec.tl_hash,rec.url);
+if(at>=0){
+var w=trim(all,at);
+rec.playlist=w.list;
+rec.cur=w.cur;
+}
+}
+return rec;
+}
+function torrentOf(element){
+if(!element||typeof element!=='object')return null;
+var magnet=str(element.MagnetUri||element.Link);
+if(!magnet)return null;
+return{magnet:magnet,title:plain(element.title||element.Title),poster:str(element.poster)};
+}
+function fromTorrent(element,card,now){
+var t=torrentOf(element);
+var c=cardOf(card);
+if(!t||!c)return null;
+return{
+v:1,at:now,kind:'torrent-app',mode:'external',
+url:'',torrent_hash:'',index:-1,title:t.title,card:c,
+season:0,episode:0,tl_hash:'',percent:0,time:0,duration:0,
+playlist:[],cur:-1,subtitles:[],torrent:t,
+shown:false,settled:false,returned:false,hidden_at:0
+};
+}
+function isTv(c){
+return!!(c&&(c.name||c.original_name||c.first_air_date));
+}
+function sameCard(a,b){
+return!!(a&&b&&String(a.id)===String(b.id)&&isTv(a)===isTv(b));
+}
+function valid(rec){
+return!!(rec&&typeof rec==='object'&&rec.v===1&&rec.card&&rec.card.id!==undefined&&
+(rec.kind==='torrent'||rec.kind==='online'||rec.kind==='torrent-app')&&num(rec.at)>0);
+}
+function copy(rec){
+try{return JSON.parse(JSON.stringify(rec));}catch(e){return null;}
+}
+function advance(rec,upd,now){
+if(!valid(rec)||!upd||!upd.hash||rec.kind==='torrent-app')return{rec:rec,change:''};
+var out=copy(rec);
+var hash=str(upd.hash);
+if(hash!==out.tl_hash){
+var j=-1;
+for(var i=0;i<out.playlist.length;i++)if(out.playlist[i].tl_hash===hash)j=i;
+if(j<0)return{rec:rec,change:''};
+moveTo(out,j);
+}
+out.percent=num(upd.percent);
+out.time=num(upd.time);
+if(num(upd.duration)>0)out.duration=num(upd.duration);
+if(now)out.at=now;
+if(out.percent<WATCHED)return{rec:out,change:'update'};
+var next=out.cur>=0?out.cur+1:-1;
+if(next<0||next>=out.playlist.length)return{rec:null,change:'drop'};
+moveTo(out,next);
+out.percent=0;
+out.time=0;
+out.duration=0;
+out.shown=false;
+return{rec:out,change:'next'};
+}
+function moveTo(rec,j){
+var p=rec.playlist[j];
+rec.cur=j;
+rec.tl_hash=p.tl_hash;
+rec.title=p.title;
+rec.season=p.season;
+rec.episode=p.episode;
+if(p.url){
+rec.url=p.url;
+rec.index=indexOf(p.url);
+}
+rec.subtitles=[];
+rec.percent=0;
+rec.time=0;
+}
+function decide(rec,now,opts){
+opts=opts||{};
+if(!valid(rec))return'expire';
+var ttl=num(opts.ttl)||TTL_DEFAULT*HOUR;
+var age=now-num(rec.at);
+if(age>ttl||age<-HOUR)return'expire';
+if(opts.enabled===false)return'skip';
+if(rec.shown||rec.settled||rec.returned)return'skip';
+if(rec.kind!=='torrent-app'&&num(rec.percent)>=WATCHED)return'skip';
+if(typeof opts.kidsOk==='function'&&!opts.kidsOk(rec.card))return'skip';
+return'show';
+}
+function buildPlay(rec,view){
+if(!valid(rec)||rec.kind!=='torrent'||!rec.url)return null;
+function tl(hash){
+try{return hash&&typeof view==='function'?view(hash):null;}catch(e){return null;}
+}
+var data={
+url:rec.url,title:rec.title,torrent_hash:rec.torrent_hash,card:rec.card,
+season:rec.season,episode:rec.episode,first_title:rec.card.name||rec.card.title||''
+};
+var t=tl(rec.tl_hash);
+if(t)data.timeline=t;
+if(rec.subtitles&&rec.subtitles.length)data.subtitles=rec.subtitles.slice();
+var list=[];
+for(var i=0;i<rec.playlist.length;i++){
+var p=rec.playlist[i];
+if(!p.url)continue;
+var item={url:p.url,title:p.title,torrent_hash:rec.torrent_hash,card:rec.card,season:p.season,episode:p.episode};
+var pt=i===rec.cur?t:tl(p.tl_hash);
+if(pt)item.timeline=pt;
+list.push(item);
+}
+if(list.length)data.playlist=list;
+return data;
+}
+function clock(sec){
+sec=Math.max(0,Math.floor(num(sec)));
+var h=Math.floor(sec/3600);
+var m=Math.floor((sec%3600)/60);
+var s=sec%60;
+var mm=h?(m<10?'0':'')+m:''+m;
+return(h?h+':':'')+mm+':'+(s<10?'0':'')+s;
+}
+function episodeText(rec,of){
+var parts=[];
+if(num(rec.season)>0&&num(rec.episode)>0)parts.push('S'+rec.season+' E'+rec.episode);
+if(num(rec.time)>0)parts.push(clock(rec.time)+(num(rec.duration)>0?' '+(of||'/')+' '+clock(rec.duration):''));
+return parts.join(' · ');
+}
+function bootStats(prev,now){
+var s=prev&&typeof prev==='object'?copy(prev)||{}:{};
+s.boots=num(s.boots)+1;
+s.ext_n=num(s.ext_n);
+s.cold_after_ext=num(s.cold_after_ext);
+s.ext_at=num(s.ext_at);
+if(s.ext_open&&s.ext_at&&now-s.ext_at>=0&&now-s.ext_at<COLD_GAP){
+s.cold_after_ext++;
+s.last_gap_min=Math.round((now-s.ext_at)/60000);
+}
+s.ext_open=0;
+s.boot_at=now;
+return s;
+}
+function statsText(s,now,words){
+s=s||{};
+words=words||{};
+var ext='ext —';
+if(num(s.ext_at)>0){
+var min=Math.max(0,Math.round((now-num(s.ext_at))/60000));
+ext=min<180?'ext '+min+' '+(words.min||'мин')+' '+(words.ago||'назад')
+:'ext '+Math.round(min/60)+' '+(words.hours||'ч')+' '+(words.ago||'назад');
+}
+return'boot#'+num(s.boots)+' · '+ext+' · cold/ext '+num(s.cold_after_ext)+'/'+num(s.ext_n);
+}
+var _on=false;
+var _followed=null;
+var _pending=false;
+var _open=false;
+var _timer=null;
+var _tries=0;
+var _ready=null;
+var _torrent=null;
+function now(){
+var hook=api._now;
+return typeof hook==='function'?hook():Date.now();
+}
+function setT(fn,ms){
+var hook=api._timers;
+if(hook&&typeof hook.set==='function')return hook.set(fn,ms);
+return setTimeout(fn,ms);
+}
+function clearT(id){
+if(!id)return;
+var hook=api._timers;
+if(hook&&typeof hook.clear==='function'){hook.clear(id);return;}
+clearTimeout(id);
+}
+function storage(){
+try{
+if(window.Lampa&&Lampa.Storage&&typeof Lampa.Storage.get==='function')return Lampa.Storage;
+}catch(e){}
+return null;
+}
+function read(key){
+var st=storage();
+if(!st)return null;
+try{
+var v=st.get(key,'');
+if(typeof v==='string')v=v?JSON.parse(v):null;
+return v&&typeof v==='object'?copy(v):null;
+}catch(e){
+return null;
+}
+}
+function write(key,value){
+var st=storage();
+if(!st||typeof st.set!=='function')return;
+try{st.set(key,value===null?'':value,true);}catch(e){warn('resume write failed',e);}
+}
+function load(){
+var rec=read(KEY);
+return valid(rec)?rec:null;
+}
+function save(rec){
+write(KEY,rec);
+}
+function enabled(){
+try{return!!LC.pref('lumen_resume',true);}catch(e){return true;}
+}
+function ttl(){
+var h=0;
+try{h=Number(LC.pref('lumen_resume_ttl','6'));}catch(e){h=0;}
+if(TTLS.indexOf(h)===-1)h=TTL_DEFAULT;
+return h*HOUR;
+}
+function kidsOk(card){
+try{
+if(!LC.kids||typeof LC.kids.enabled!=='function'||!LC.kids.enabled())return true;
+return typeof LC.kids.strict==='function'?!!LC.kids.strict(card):false;
+}catch(e){
+return false;
+}
+}
+function opts(){
+return{ttl:ttl(),enabled:enabled(),kidsOk:kidsOk};
+}
+function stats(){
+return read(STATS_KEY)||{};
+}
+function bumpStats(fn){
+var s=stats();
+try{fn(s);}catch(e){}
+write(STATS_KEY,s);
+}
+function markExt(){
+var t=now();
+bumpStats(function(s){
+s.ext_at=t;
+s.ext_n=num(s.ext_n)+1;
+s.ext_open=1;
+});
+}
+function activeCard(){
+try{
+var a=Lampa.Activity&&typeof Lampa.Activity.active==='function'?Lampa.Activity.active():null;
+return a?(a.card||a.movie||null):null;
+}catch(e){
+return null;
+}
+}
+function torrentFor(data,card,prev){
+var id=card&&card.id;
+if(_torrent&&id!==undefined&&String(_torrent.card_id)===String(id)&&now()-_torrent.at<ttl()){
+return{magnet:_torrent.magnet,title:_torrent.title,poster:_torrent.poster};
+}
+if(prev&&prev.torrent&&prev.torrent_hash&&prev.torrent_hash===str(data.torrent_hash))return prev.torrent;
+return null;
+}
+function record(data,mode){
+if(!enabled())return null;
+var card=data&&(data.card||data.movie)?(data.card||data.movie):activeCard();
+var prev=load();
+var c=cardOf(card);
+var rec=capture(data,mode,now(),card,{torrent:c?torrentFor(data,c,prev):null});
+if(rec)save(rec);
+return rec;
+}
+function onCreate(e){
+if(!_on)return;
+try{record(e&&e.data,'pending');}catch(err){warn('resume create failed',err);}
+}
+function onExternal(data){
+if(!_on)return;
+try{
+markExt();
+record(data,'external');
+}catch(err){
+warn('resume external failed',err);
+}
+}
+function onStart(data){
+if(!_on)return;
+try{record(data,'inner');}catch(err){warn('resume start failed',err);}
+}
+function onDestroy(){
+if(!_on)return;
+try{
+var rec=load();
+if(rec&&rec.mode!=='external'&&!rec.settled){
+rec.settled=true;
+save(rec);
+}
+}catch(err){
+warn('resume destroy failed',err);
+}
+}
+function appMode(){
+try{
+return!!(Lampa.Platform&&Lampa.Platform.is('android')&&!Lampa.Storage.field('internal_torrclient'));
+}catch(e){
+return false;
+}
+}
+function onTorrent(e){
+if(!_on||!e||e.type!=='onenter')return;
+try{
+var card=activeCard();
+var t=torrentOf(e.element);
+if(!t||!card)return;
+_torrent={magnet:t.magnet,title:t.title,poster:t.poster,card_id:card.id,at:now()};
+if(!appMode())return;
+markExt();
+if(!enabled())return;
+var rec=fromTorrent(e.element,card,now());
+if(rec)save(rec);
+}catch(err){
+warn('resume torrent failed',err);
+}
+}
+function onVisibility(){
+if(!_on)return;
+try{
+var hidden=document.visibilityState==='hidden'||document.hidden===true;
+var t=now();
+var s=stats();
+if(hidden)s.last_hidden=t;
+else{
+s.last_visible=t;
+if(s.ext_open&&num(s.last_hidden)>=num(s.ext_at))s.ext_open=0;
+}
+write(STATS_KEY,s);
+var rec=load();
+if(!rec||(rec.mode!=='external'&&rec.kind!=='torrent-app'))return;
+if(hidden){
+rec.hidden_at=t;
+save(rec);
+}else if(num(rec.hidden_at)>=num(rec.at)&&!rec.returned){
+rec.returned=true;
+save(rec);
+}
+}catch(err){
+warn('resume visibility failed',err);
+}
+}
+function onTimeline(data){
+if(!_on||!data||!data.hash)return;
+try{
+var rec=load();
+if(!rec)return;
+var road=data.road&&typeof data.road==='object'?data.road:data;
+var r=advance(rec,{hash:data.hash,percent:road.percent,time:road.time,duration:road.duration},now());
+if(!r.change)return;
+save(r.rec);
+}catch(err){
+warn('resume timeline failed',err);
+}
+}
+function onActivity(e){
+if(!_on||_pending||_open||!e||e.type!=='start'||e.component!=='full')return;
+try{
+var o=e.object||{};
+var id=o.id!==undefined&&o.id!==null?o.id:(o.card&&o.card.id);
+if(id===undefined||id===null)return;
+var tv=o.method?o.method==='tv':isTv(o.card);
+var rec=load();
+if(!rec||rec.settled||(String(rec.card.id)===String(id)&&isTv(rec.card)===tv))return;
+rec.settled=true;
+save(rec);
+}catch(err){
+warn('resume activity failed',err);
+}
+}
+function install(){
+if(_on)return;
+_on=true;
+try{
+if(_followed||!window.Lampa)return;
+_followed={player:false,listener:false,doc:false};
+if(Lampa.Player&&Lampa.Player.listener&&typeof Lampa.Player.listener.follow==='function'){
+Lampa.Player.listener.follow('create',onCreate);
+Lampa.Player.listener.follow('external',onExternal);
+Lampa.Player.listener.follow('start',onStart);
+Lampa.Player.listener.follow('destroy',onDestroy);
+_followed.player=true;
+}
+if(Lampa.Listener&&typeof Lampa.Listener.follow==='function'){
+Lampa.Listener.follow('torrent',onTorrent);
+_followed.listener=true;
+}
+if(typeof document!=='undefined'&&document.addEventListener){
+document.addEventListener('visibilitychange',onVisibility);
+_followed.doc=true;
+}
+}catch(e){
+warn('resume install failed',e);
+}
+}
+function unfollow(obj,name,fn){
+try{if(obj&&typeof obj.remove==='function')obj.remove(name,fn);}catch(e){}
+}
+function uninstall(){
+_on=false;
+cancel();
+if(!_followed)return;
+if(_followed.player){
+unfollow(Lampa.Player.listener,'create',onCreate);
+unfollow(Lampa.Player.listener,'external',onExternal);
+unfollow(Lampa.Player.listener,'start',onStart);
+unfollow(Lampa.Player.listener,'destroy',onDestroy);
+}
+if(_followed.listener)unfollow(Lampa.Listener,'torrent',onTorrent);
+if(_followed.doc){
+try{document.removeEventListener('visibilitychange',onVisibility);}catch(e){}
+}
+_followed=null;
+}
+function boot(){
+_pending=false;
+try{
+write(STATS_KEY,bootStats(read(STATS_KEY),now()));
+var rec=read(KEY);
+if(!rec)return false;
+var d=decide(rec,now(),opts());
+if(d==='expire'){save(null);return false;}
+_pending=d==='show';
+}catch(e){
+_pending=false;
+warn('resume boot failed',e);
+}
+return _pending;
+}
+function stopTimer(){
+clearT(_timer);
+_timer=null;
+}
+function schedule(ready){
+stopTimer();
+if(!_pending)return;
+_ready=typeof ready==='function'?ready:null;
+_tries=0;
+_timer=setT(tick,FIRST_DELAY);
+}
+function tick(){
+_timer=null;
+if(!_pending)return;
+if(!_on||!enabled()){_pending=false;return;}
+var ok=false;
+try{ok=!!(_ready&&_ready());}catch(e){ok=false;}
+if(ok){
+_pending=false;
+show();
+return;
+}
+_tries++;
+if(_tries>=TRIES){_pending=false;return;}
+_timer=setT(tick,RETRY_DELAY);
+}
+function cancel(){
+stopTimer();
+_pending=false;
+}
+function lang(key){
+try{return LC.lang(key);}catch(e){return key;}
+}
+function nameOf(card){
+return plain(card&&(card.name||card.title||card.original_name||card.original_title));
+}
+function refresh(rec){
+if(!rec||rec.kind==='torrent-app'||!rec.tl_hash)return rec;
+try{
+if(!Lampa.Timeline||typeof Lampa.Timeline.view!=='function')return rec;
+var v=Lampa.Timeline.view(rec.tl_hash);
+if(!v)return rec;
+if(num(v.time)===num(rec.time)&&num(v.percent)===num(rec.percent))return rec;
+if(num(v.time)<=0&&num(v.percent)<=0)return rec;
+var r=advance(rec,{hash:rec.tl_hash,percent:v.percent,time:v.time,duration:v.duration},0);
+return r.rec;
+}catch(e){
+return rec;
+}
+}
+function controllerName(){
+try{
+var cur=Lampa.Controller&&typeof Lampa.Controller.enabled==='function'?Lampa.Controller.enabled():null;
+if(cur&&cur.name)return cur.name;
+}catch(e){}
+return'content';
+}
+function toggle(name){
+try{if(Lampa.Controller&&typeof Lampa.Controller.toggle==='function')Lampa.Controller.toggle(name);}catch(e){}
+}
+function items(rec){
+var esc=LC.util.esc;
+var head=nameOf(rec.card);
+var ep=episodeText(rec,lang('lumen_resume_of'));
+var out=[];
+if(rec.kind==='torrent'){
+out.push({title:lang('lumen_resume_continue'),subtitle:esc([head,ep].filter(Boolean).join(' · ')),lumen:'play'});
+if((rec.torrent&&rec.torrent.magnet)||rec.torrent_hash){
+out.push({title:lang('lumen_resume_reopen'),subtitle:esc(lang('lumen_resume_reopen_hint')),lumen:'reopen'});
+}
+}else if(rec.kind==='torrent-app'){
+out.push({title:lang('lumen_resume_reopen'),subtitle:esc([head,lang('lumen_resume_app_hint')].filter(Boolean).join(' · ')),lumen:'reopen'});
+}
+out.push({title:lang('lumen_resume_open_card'),subtitle:rec.kind==='online'?esc([head,ep].filter(Boolean).join(' · ')):'',lumen:'card'});
+out.push({title:lang('lumen_resume_later'),lumen:'later'});
+return out;
+}
+function play(rec){
+var data=buildPlay(rec,function(hash){return Lampa.Timeline.view(hash);});
+if(!data||!Lampa.Player||typeof Lampa.Player.play!=='function')return false;
+Lampa.Player.play(data);
+if(data.playlist&&typeof Lampa.Player.playlist==='function')Lampa.Player.playlist(data.playlist);
+return true;
+}
+function reopen(rec){
+if(!Lampa.Torrent)return false;
+var t=rec.torrent;
+if(t&&t.magnet&&typeof Lampa.Torrent.start==='function'){
+Lampa.Torrent.start({MagnetUri:t.magnet,Link:t.magnet,title:t.title,Title:t.title,poster:t.poster||rec.card.img||''},rec.card);
+}else if(rec.torrent_hash&&typeof Lampa.Torrent.open==='function'){
+Lampa.Torrent.open(rec.torrent_hash,rec.card);
+}else{
+return false;
+}
+if(rec.kind==='torrent-app'){
+var fresh=load();
+if(fresh){
+fresh.at=now();
+fresh.shown=false;
+fresh.returned=false;
+fresh.hidden_at=0;
+save(fresh);
+}
+markExt();
+}
+return true;
+}
+function openCard(rec){
+var c=rec.card;
+Lampa.Activity.push({
+url:'',component:'full',id:c.id,method:isTv(c)?'tv':'movie',
+card:c,source:c.source||'tmdb'
+});
+}
+function run(kind,rec){
+try{
+if(kind==='play')return play(rec);
+if(kind==='reopen')return reopen(rec);
+if(kind==='card'){openCard(rec);return true;}
+}catch(e){
+warn('resume action failed: '+kind,e);
+}
+return false;
+}
+function show(){
+try{
+if(!window.Lampa||!Lampa.Select||typeof Lampa.Select.show!=='function')return false;
+var rec=refresh(load());
+if(!rec){save(null);return false;}
+if(decide(rec,now(),opts())!=='show'){save(rec);return false;}
+rec.shown=true;
+save(rec);
+var back=controllerName();
+var list=items(rec);
+var done=false;
+var finish=function(kind){
+if(done)return;
+done=true;
+_open=false;
+toggle(back);
+if(kind&&kind!=='later')run(kind,rec);
+};
+for(var i=0;i<list.length;i++){
+(function(it){
+it.onSelect=function(){finish(it.lumen);};
+})(list[i]);
+}
+_open=true;
+Lampa.Select.show({
+lumen_own:true,
+title:lang('lumen_resume_title'),
+items:list,
+onBack:function(){finish('later');}
+});
+return true;
+}catch(err){
+_open=false;
+warn('resume show failed',err);
+return false;
+}
+}
+function busy(){
+return _pending||_open;
+}
+function alive(card){
+var rec=load();
+if(!rec||!enabled())return null;
+if(card&&!sameCard(card,rec.card))return null;
+var d=decide(rec,now(),{ttl:ttl(),enabled:true,kidsOk:kidsOk});
+if(d==='expire')return null;
+if(rec.kind!=='torrent-app'&&num(rec.percent)>=WATCHED)return null;
+if(!kidsOk(rec.card))return null;
+return rec;
+}
+function menuItem(card){
+var rec=alive(card);
+if(!rec||rec.kind==='online')return null;
+var sub=rec.kind==='torrent-app'?lang('lumen_resume_app_hint'):episodeText(rec,lang('lumen_resume_of'));
+return{title:lang('lumen_resume_name'),subtitle:LC.util.esc(sub),lumen:'resume'};
+}
+function resumeNow(){
+var rec=alive(null);
+if(!rec)return false;
+return run(rec.kind==='torrent'?'play':'reopen',rec);
+}
+function raise(list){
+if(!Array.isArray(list)||!list.length)return list;
+var rec=alive(null);
+if(!rec)return list;
+var at=-1;
+for(var i=0;i<list.length;i++){
+if(sameCard(list[i],rec.card)){at=i;break;}
+}
+if(at<0)return list;
+var out=list.slice();
+var card=out.splice(at,1)[0];
+card.lumen_badge=lang('lumen_resume_badge');
+out.unshift(card);
+return out;
+}
+function statsLine(){
+return statsText(stats(),now(),{min:lang('lumen_resume_min'),hours:lang('lumen_resume_hours'),ago:lang('lumen_resume_ago')});
+}
+var api={
+KEY:KEY,
+STATS_KEY:STATS_KEY,
+WATCHED:WATCHED,
+WINDOW:WINDOW,
+FIRST_DELAY:FIRST_DELAY,
+RETRY_DELAY:RETRY_DELAY,
+TRIES:TRIES,
+capture:capture,
+fromTorrent:fromTorrent,
+advance:advance,
+decide:decide,
+trim:trim,
+buildPlay:buildPlay,
+clock:clock,
+episodeText:episodeText,
+bootStats:bootStats,
+statsText:statsText,
+boot:boot,
+install:install,
+uninstall:uninstall,
+schedule:schedule,
+cancel:cancel,
+show:show,
+busy:busy,
+pending:function(){return _pending;},
+onTimeline:onTimeline,
+onActivity:onActivity,
+menuItem:menuItem,
+resumeNow:resumeNow,
+raise:raise,
+stats:stats,
+statsLine:statsLine,
+record:function(){return load();},
+_timers:null,
+_now:null
+};
+return api;
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.resume;
 /* ---- 80_settings.js ---- */
 LC.STRINGS={
 lumen_card_title:{ru:'Lumen Card',en:'Lumen Card',uk:'Lumen Card'},
@@ -25146,7 +25951,32 @@ uk:'Один раз після оновлення плагіна показує,
 },
 lumen_whatsnew_title:{ru:'Что нового в Lumen Card',en:'What\'s new in Lumen Card',uk:'Що нового в Lumen Card'},
 lumen_whatsnew_ok:{ru:'Понятно',en:'Got it',uk:'Зрозуміло'},
-lumen_whatsnew_off:{ru:'Выключить это окно: Настройки',en:'To turn this window off: Settings',uk:'Вимкнути це вікно: Налаштування'}
+lumen_whatsnew_off:{ru:'Выключить это окно: Настройки',en:'To turn this window off: Settings',uk:'Вимкнути це вікно: Налаштування'},
+lumen_resume_name:{ru:'Вернуться к просмотру',en:'Resume watching',uk:'Повернутися до перегляду'},
+lumen_resume_descr:{
+ru:'Если Lampa перезапустилась во время фильма или серии, при следующем запуске предложит продолжить. Хранится только на этом устройстве.',
+en:'If Lampa restarts during a film or episode, it offers to continue next time it starts. Kept only on this device.',
+uk:'Якщо Lampa перезапустилася під час фільму чи серії, під час наступного запуску запропонує продовжити. Зберігається лише на цьому пристрої.'
+},
+lumen_resume_ttl_name:{ru:'Сколько помнить место',en:'Remember the spot for',uk:'Скільки пам’ятати місце'},
+lumen_resume_ttl_descr:{
+ru:'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
+en:'After this time the window will not appear — the title stays in "Continue watching".',
+uk:'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Досивитися».'
+},
+lumen_resume_ttl_suffix:{ru:'ч',en:'h',uk:'год'},
+lumen_resume_title:{ru:'Вернуться к просмотру?',en:'Resume watching?',uk:'Повернутися до перегляду?'},
+lumen_resume_continue:{ru:'Продолжить',en:'Continue',uk:'Продовжити'},
+lumen_resume_of:{ru:'из',en:'of',uk:'з'},
+lumen_resume_reopen:{ru:'Открыть раздачу снова',en:'Open the torrent again',uk:'Відкрити роздачу знову'},
+lumen_resume_reopen_hint:{ru:'Список файлов — если серия не запустилась',en:'The file list, if the episode did not start',uk:'Список файлів — якщо серія не запустилася'},
+lumen_resume_app_hint:{ru:'серию и место выберете в TorrServe',en:'pick the episode and spot in TorrServe',uk:'серію й місце оберете в TorrServe'},
+lumen_resume_open_card:{ru:'Открыть карточку',en:'Open the title page',uk:'Відкрити картку'},
+lumen_resume_later:{ru:'Не сейчас',en:'Not now',uk:'Не зараз'},
+lumen_resume_badge:{ru:'Вернуться',en:'Resume',uk:'Повернутися'},
+lumen_resume_min:{ru:'мин',en:'min',uk:'хв'},
+lumen_resume_hours:{ru:'ч',en:'h',uk:'год'},
+lumen_resume_ago:{ru:'назад',en:'ago',uk:'тому'}
 };
 function langCode(){
 var code='ru';
@@ -25302,6 +26132,10 @@ if(name==='lumen_debug_bench'||name==='lumen_more')return true;
 if(name==='lumen_rowmem'||name==='lumen_rowmem_bytes'||name==='lumen_netmem'||name==='lumen_prefill')return true;
 if(name==='lumen_roulette_unseen')return true;
 if(name==='lumen_whatsnew')return true;
+if(name==='lumen_resume'||name==='lumen_resume_ttl'){
+try{if(name==='lumen_resume'&&LC.resume&&!LC.pref('lumen_resume',true))LC.resume.cancel();}catch(eResume){}
+return true;
+}
 if(name==='lumen_fx'){
 try{if(LC.applyFxPref)LC.applyFxPref();}catch(eFx){}
 return true;
@@ -25659,6 +26493,8 @@ var MORE=[
 {name:'lumen_hide_meta',type:'trigger','default':false,label:'lumen_hide_meta_name',descr:'lumen_hide_meta_descr'},
 {name:'lumen_moods',type:'trigger','default':true,label:'lumen_moods_name',descr:'lumen_moods_descr'},
 {name:'lumen_personal_rows',type:'trigger','default':true,label:'lumen_personal_rows_name',descr:'lumen_personal_rows_descr'},
+{name:'lumen_resume',type:'trigger','default':true,label:'lumen_resume_name',descr:'lumen_resume_descr'},
+{name:'lumen_resume_ttl',type:'select',values:['2','6','12','24'],vsuffix:'lumen_resume_ttl_suffix','default':'6',label:'lumen_resume_ttl_name',descr:'lumen_resume_ttl_descr'},
 {name:'lumen_home_start',type:'select',values:['rotate','history'],vprefix:'lumen_home_start_','default':'rotate',label:'lumen_home_start_name',descr:'lumen_home_start_descr'},
 {name:'lumen_rows_dedupe',type:'trigger','default':true,label:'lumen_rows_dedupe_name',descr:'lumen_rows_dedupe_descr'},
 {name:'lumen_hide_watched',type:'trigger','default':false,label:'lumen_hide_watched_name',descr:'lumen_hide_watched_descr'},
@@ -25905,6 +26741,26 @@ var FIRST_DELAY=4000;
 var RETRY_DELAY=5000;
 var TRIES=12;
 var NOTES={
+'1.3.0':{
+ru:[
+'Если Lampa перезапустилась, пока шла серия или фильм, при следующем запуске она предложит вернуться к просмотру с того же места.',
+'Серии из приложения TorrServe: окно предложит открыть ту же раздачу снова, серию и место выберете там.',
+'Досмотрели серию до конца — окно предложит следующую.',
+'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.'
+],
+en:[
+'If Lampa restarted while an episode or film was playing, it will offer to resume from the same spot next time it starts.',
+'Episodes from the TorrServe app: the window offers to open the same torrent again, and you pick the episode and spot there.',
+'Finished an episode — the window offers the next one.',
+'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.'
+],
+uk:[
+'Якщо Lampa перезапустилася, поки йшла серія чи фільм, під час наступного запуску вона запропонує повернутися до перегляду з того ж місця.',
+'Серії із застосунку TorrServe: вікно запропонує відкрити ту саму роздачу знову, серію й місце оберете там.',
+'Додивилися серію до кінця — вікно запропонує наступну.',
+'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.'
+]
+},
 '1.2.0':{
 ru:[
 'На главной — ряд «Вышло в цифре»: фильмы, которые только что стали доступны в хорошем качестве.',
@@ -26025,6 +26881,9 @@ function tick(){
 _timer=null;
 if(!_pending)return;
 if(!enabled()){_pending=null;return;}
+var resume=false;
+try{resume=!!(LC.resume&&typeof LC.resume.busy==='function'&&LC.resume.busy());}catch(eResume){resume=false;}
+if(resume){_timer=setT(tick,RETRY_DELAY);return;}
 var ok=false;
 try{ok=!!(_ready&&_ready());}catch(e){ok=false;}
 if(ok){
@@ -27429,6 +28288,7 @@ Lampa.Timeline.listener.follow('update',function(e){
 try{
 if(!activated)return;
 if(e&&e.data)LC.header.refreshEpisode(e.data.hash);
+try{if(LC.resume&&e&&e.data)LC.resume.onTimeline(e.data);}catch(eResume){warn('resume timeline failed',eResume);}
 LC.header.scheduleProgressRefresh();
 }catch(err){
 warn('timeline listener failed',err);
@@ -27502,6 +28362,7 @@ LC.onActivityEvent=function(e){
 try{
 if(!e)return;
 if(!activated)return;
+try{if(LC.resume)LC.resume.onActivity(e);}catch(eResume){warn('resume activity failed',eResume);}
 if(e.type==='destroy'&&e.component==='main'){
 try{if(LC.rows&&LC.rows.bumpGen)LC.rows.bumpGen();}catch(eBump){}
 try{if(LC.personal&&LC.personal.bumpGen)LC.personal.bumpGen();}catch(eBumpP){}
@@ -28043,6 +28904,14 @@ warn('ambient install failed',eAmbient);
 }
 if(LC.followMoreBack)LC.followMoreBack(true);
 try{
+if(LC.resume){
+LC.resume.install();
+LC.resume.schedule(resumeReady);
+}
+}catch(eResume){
+warn('resume schedule failed',eResume);
+}
+try{
 if(LC.whatsnew&&LC.whatsnew.schedule)LC.whatsnew.schedule(homeReady);
 }catch(eNew){
 warn('whatsnew schedule failed',eNew);
@@ -28057,6 +28926,18 @@ var cur=null;
 try{cur=Lampa.Controller&&typeof Lampa.Controller.enabled==='function'?Lampa.Controller.enabled():null;}catch(e){cur=null;}
 var name=cur&&cur.name;
 if(name!=='items_line'&&name!=='content')return false;
+if(layerOpen())return false;
+if(LC.covered&&LC.covered())return false;
+return true;
+}
+function resumeReady(){
+if(!activated)return false;
+if(!activeComponentName())return false;
+try{if(LC.util&&LC.util.playerOpen&&LC.util.playerOpen())return false;}catch(ePlayer){return false;}
+var cur=null;
+try{cur=Lampa.Controller&&typeof Lampa.Controller.enabled==='function'?Lampa.Controller.enabled():null;}catch(e){cur=null;}
+var name=cur&&cur.name;
+if(name==='player'||name==='player-loading'||name==='modal'||name==='select')return false;
 if(layerOpen())return false;
 if(LC.covered&&LC.covered())return false;
 return true;
@@ -28109,6 +28990,7 @@ try{if(LC.roulette&&LC.roulette.uninstall)LC.roulette.uninstall();}catch(eRoulet
 try{if(LC.ambient&&LC.ambient.uninstall)LC.ambient.uninstall();}catch(eAmbientOff){}
 if(LC.followMoreBack)LC.followMoreBack(false);
 try{if(LC.whatsnew)LC.whatsnew.cancel();}catch(eNewOff){}
+try{if(LC.resume)LC.resume.uninstall();}catch(eResumeOff){}
 }
 var pending_refresh=null;
 function activeComponentName(){
@@ -28434,6 +29316,7 @@ inited=true;
 try{if(Lampa.Lang&&typeof Lampa.Lang.add==='function')Lampa.Lang.add(LC.STRINGS);}catch(e){}
 LC.migratePrefs();
 try{if(LC.whatsnew)LC.whatsnew.detect();}catch(eNew){warn('whatsnew detect failed',eNew);}
+try{if(LC.resume)LC.resume.boot();}catch(eResume){warn('resume boot failed',eResume);}
 LC.addSettings();
 LC.followStorage();
 if(!isWideLayout())return;
