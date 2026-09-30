@@ -8,7 +8,7 @@
 
   var LC = {};
   if (typeof window !== 'undefined') window.lumen_card = LC;
-  LC.VERSION = '1.1.0';
+  LC.VERSION = '1.2.0';
 
   /* Адрес каталога подборок на хостинге (Task 20). С релиза 1.0.0
      репозиторий отдаётся GitHub Pages с ветки main, корнем (до релиза —
