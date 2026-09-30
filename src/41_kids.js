@@ -21,7 +21,7 @@
   /*   trusted(item) → bool — подборка с тегом kids (ей хватает safe)       */
   /*   cards(list, trusted) → новый массив                                 */
   /*   response(json, item) → копия ответа с отфильтрованными results       */
-  /*   rows(rows) → ряды главной без чужих карточек (до дедупликации)      */
+  /*   rows(rows) → ряды главной без чужих карточек и без «Ещё» у чужих  */
   /*   stubs(rows, min, keep) → без огрызков чужих рядов (после неё)       */
   /*   catalog(m) → детская копия каталога (мемоизация по объекту)          */
   /*   enabled() → включён ли режим; reset() — сброс мемоизации            */
@@ -119,6 +119,11 @@
       return out;
     }
 
+    function ownMore(row) {
+      var emit = row && row.params && row.params.emit;
+      return !!(emit && typeof emit.onlyMore === 'function');
+    }
+
     /* Ряды главной одной пачки (обёртка Api.main, src/44_rows.js) — до
        дедупликации. Ряд подборки каталога приходит уже отфильтрованным
        (lumen_kids, makeCall) и не трогается. Остальные — strict; ряд без
@@ -133,14 +138,24 @@
         if (!kept.length) continue;
         var next = copy(row);
         next.results = kept;
+        /* «Ещё» (кнопка в шапке ряда и плитка в конце) Lampa ставит при
+           total_pages > 1 (модуль More, vendor/lampa/app.min.js:19148-19176),
+           и главная ведёт его в штатную category_full по url ряда
+           (app.min.js:37080) — сетку без фильтра. Чужому ряду без своего
+           обработчика (params.emit.onlyMore) «Ещё» не даём: ряд показывает
+           уже отфильтрованную первую страницу, и только. */
+        if (!ownMore(row)) next.total_pages = 1;
         out.push(next);
       }
       return out;
     }
 
     /* Огрызки — ПОСЛЕ дедупликации: чужой ряд (штатный Lampa: не подборка
-       каталога, не личный, не выбранный вручную) короче min уходит, как бы
-       он таким ни стал. Стенд 2026-09-30: жанровые ряды Lampa в глубине
+       каталога, не своя история, не выбранный вручную) короче min уходит,
+       как бы он таким ни стал. Личные ряды без своей истории («Скоро на
+       экранах», «Вышло в цифре»: lumen_personal без lumen_own) — тоже:
+       приёмка 2026-09-30 видела «Скоро на экранах» с одной карточкой. Свои
+       «Досмотреть» и «Новые серии» (lumen_own) остаются и с одной. Стенд 2026-09-30: жанровые ряды Lampa в глубине
        главной («Мультфильм», «Семейный», «Космос») после фильтра и окна
        дедупликации оставались с одной карточкой, а порог dedupeAcross их
        возвращал — вся пачка из огрызков отдаётся им как есть (пустая
@@ -154,7 +169,7 @@
       for (var i = 0; i < list.length; i++) {
         var row = list[i];
         if (!row || !Array.isArray(row.results)) continue;
-        if (!row.lumen_kids && !row.lumen_personal && !row.lumen_keep && row.results.length < (min || 0)) continue;
+        if (!row.lumen_kids && !row.lumen_own && !row.lumen_keep && row.results.length < (min || 0)) continue;
         out.push(row);
       }
       return (!out.length && keep) ? list : out;

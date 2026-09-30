@@ -86,14 +86,35 @@ test('kids: rows — чужие карточки уходят, пустой ря
   assert.deepEqual(K.rows(null), []);
 });
 
-test('kids: stubs — чужой ряд короче min уходит; свои, личные и выбранные вручную — нет', () => {
+/* Ревью детского режима, п.2: «Ещё» у штатного ряда Lampa (кнопка в шапке и
+   плитка в конце, модуль More — при total_pages > 1) ведёт в category_full
+   по url ряда, то есть в нефильтрованную сетку. В детском режиме у чужого
+   ряда его нет; ряд со своим обработчиком (params.emit.onlyMore — своя
+   фильтруемая сетка) и ряд подборки (lumen_kids) не трогаются. */
+test('kids: rows — у чужого ряда нет «Ещё» в нефильтрованную сетку', () => {
+  const kid = [card(1, [16, 10751]), card(2, [10751])];
+  const lampa = { title: 'В тренде', url: 'trending/all/week', total_pages: 500, results: kid };
+  const more = function () {};
+  const withOwn = { title: 'Своё', total_pages: 7, params: { emit: { onlyMore: more } }, results: kid };
+  const own = { title: 'Шрек', lumen_kids: true, total_pages: 3, results: kid };
+  const out = K.rows([lampa, withOwn, own]);
+  assert.equal(out[0].total_pages, 1, 'штатный ряд сохранил «Ещё» в category_full без фильтра');
+  assert.equal(out[0].url, 'trending/all/week', 'остальные поля ряда едут дальше');
+  assert.equal(lampa.total_pages, 500, 'входной ряд не меняется');
+  assert.equal(out[1].total_pages, 7, 'у ряда со своим «Ещё» оно осталось');
+  assert.equal(out[1].params.emit.onlyMore, more);
+  assert.equal(out[2], own);
+});
+
+test('kids: stubs — чужой и личный без своей истории ряд короче min уходят; свои, «Досмотреть» и выбранные вручную — нет', () => {
   const stub = { title: 'Мультфильм', results: [card(1, [16, 10751])] };
   const full = { title: 'Семейный', results: [card(2, [10751]), card(3, [10751]), card(4, [10751]), card(5, [10751])] };
   const own = { title: 'Шрек', lumen_kids: true, results: [card(6, [16, 10751])] };
   const soon = { title: 'Скоро', lumen_personal: true, results: [card(7, [10751])] };
   const kept = { title: 'Мой выбор', lumen_keep: true, results: [card(8, [10751])] };
-  const out = K.stubs([stub, full, own, soon, kept, null], 4, false);
-  assert.deepEqual(out.map((r) => r.title), ['Семейный', 'Шрек', 'Скоро', 'Мой выбор']);
+  const cont = { title: 'Досмотреть', lumen_personal: true, lumen_own: true, results: [card(9, [10751])] };
+  const out = K.stubs([stub, full, own, soon, kept, cont, null], 4, false);
+  assert.deepEqual(out.map((r) => r.title), ['Семейный', 'Шрек', 'Мой выбор', 'Досмотреть'], '«Скоро» с одной карточкой остался огрызком');
   /* Вся пачка из огрызков: дальше по ленте — пусто, первая — как пришла. */
   assert.deepEqual(K.stubs([stub], 4, false), []);
   const first = [stub];
