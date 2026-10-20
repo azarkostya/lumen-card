@@ -29756,25 +29756,25 @@ var TRIES=12;
 var NOTES={
 '1.3.0':{
 ru:[
-'Если Lampa перезапустилась, пока шла серия или фильм, при следующем запуске она предложит вернуться к просмотру с того же места.',
-'Серии из приложения TorrServe: окно предложит открыть ту же раздачу снова, серию и место выберете там.',
-'Досмотрели серию до конца — окно предложит следующую.',
-'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.',
-'Новый пункт «Автоочистка TorrServer»: раздачи, которые не открывали больше суток, удаляются сами. По умолчанию выключен.'
+'Lampa перезапустилась посреди серии или фильма — при следующем запуске окно предложит вернуться с того же места, а после досмотренной серии — следующую.',
+'Основной парсер молчит или ничего не нашёл — раздачи сами ищутся по второму адресу парсера Lampa.',
+'В «Досмотреть» у сериалов — серия вместо процента: «S2·E5».',
+'Автоочистка TorrServer: срок 1, 3 или 7 дней, сериалы из «Досмотреть» не трогаются, есть «Очистить сейчас». По умолчанию выключена.',
+'Окна выбора и подтверждения — в стиле плагина; стиль Apple TV — без тёплых цветов.'
 ],
 en:[
-'If Lampa restarted while an episode or film was playing, it will offer to resume from the same spot next time it starts.',
-'Episodes from the TorrServe app: the window offers to open the same torrent again, and you pick the episode and spot there.',
-'Finished an episode — the window offers the next one.',
-'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.',
-'New "TorrServer auto-cleanup" option: torrents not opened for over a day are removed automatically. Off by default.'
+'If Lampa restarted in the middle of an episode or film, it offers to resume from the same spot next time, and the next episode after a finished one.',
+'If the main parser is silent or finds nothing, torrents are searched at the second parser address set in Lampa.',
+'In "Continue watching", series show the episode instead of a percentage: "S2·E5".',
+'TorrServer auto-cleanup: keep torrents 1, 3 or 7 days, series in "Continue watching" are kept, plus "Clean now". Off by default.',
+'Selection and confirmation windows match the plugin style; the Apple TV style has no warm colours.'
 ],
 uk:[
-'Якщо Lampa перезапустилася, поки йшла серія чи фільм, під час наступного запуску вона запропонує повернутися до перегляду з того ж місця.',
-'Серії із застосунку TorrServe: вікно запропонує відкрити ту саму роздачу знову, серію й місце оберете там.',
-'Додивилися серію до кінця — вікно запропонує наступну.',
-'Перерваний фільм стоїть першим у «Додивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.',
-'Новий пункт «Автоочищення TorrServer»: роздачі, які не відкривали понад добу, видаляються самі. Типово вимкнений.'
+'Lampa перезапустилася посеред серії чи фільму — під час наступного запуску вікно запропонує повернутися з того ж місця, а після додивленої серії — наступну.',
+'Основний парсер мовчить або нічого не знайшов — роздачі самі шукаються за другою адресою парсера Lampa.',
+'У «Додивитися» в серіалів — серія замість відсотка: «S2·E5».',
+'Автоочищення TorrServer: строк 1, 3 або 7 днів, серіали з «Додивитися» не чіпаються, є «Очистити зараз». Типово вимкнене.',
+'Вікна вибору й підтвердження — у стилі плагіна; стиль Apple TV — без теплих кольорів.'
 ]
 },
 '1.2.0':{
