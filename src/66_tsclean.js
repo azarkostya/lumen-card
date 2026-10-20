@@ -482,14 +482,22 @@
       }
     }
 
+    /* Режим приложения TorrServe на Android: Lampa отдаёт раздачи ему,
+       а не серверу из настроек. */
+    function appMode() {
+      try {
+        return !!(window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function' && Lampa.Platform.is('android') &&
+          Lampa.Storage && typeof Lampa.Storage.field === 'function' && !Lampa.Storage.field('internal_torrclient'));
+      } catch (e) {
+        return false;
+      }
+    }
+
     /* Адрес TorrServer, куда Lampa кладёт раздачи; '' — его нет. */
     function server() {
       try {
         if (!window.Lampa) return '';
-        if (Lampa.Platform && typeof Lampa.Platform.is === 'function' && Lampa.Platform.is('android') &&
-            Lampa.Storage && typeof Lampa.Storage.field === 'function' && !Lampa.Storage.field('internal_torrclient')) {
-          return APP_URL;
-        }
+        if (appMode()) return APP_URL;
         var u = Lampa.Torserver && typeof Lampa.Torserver.url === 'function' ? Lampa.Torserver.url() : '';
         return str(u).replace(/\/+$/, '');
       } catch (e) {
@@ -740,6 +748,7 @@
       MIN_CLOCK: MIN_CLOCK,
       markOff: markOff,
       server: server,
+      appMode: appMode,
       install: install,
       uninstall: uninstall,
       apply: apply,

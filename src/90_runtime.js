@@ -1243,6 +1243,9 @@
                full_start соберёт кнопку в коллекцию сам — пересобирать её
                вручную, как у «Стоп», не нужно. */
             LC.hub.franchise(root, (e.data && e.data.movie) || {});
+            /* Точка «TorrServer не отвечает» на «Смотреть» — /echo не чаще
+               раза в 60 с (src/66_tshealth.js). */
+            try { if (LC.tshealth) LC.tshealth.check(root); } catch (eTsh) {}
             /* Task 29: замер «сколько у этого железа занимает первый кадр
                тяжёлого экрана» — отсюда и до второго requestAnimationFrame.
                Точка вызова последняя в обработчике намеренно: замер обязан

@@ -169,7 +169,7 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     /* 1.3: «Вернуться к просмотру» и его срок */
     'lumen_resume', 'lumen_resume_ttl',
     /* 1.3: «Автоочистка TorrServer» */
-    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now',
+    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
     /* пульт и окна */
     'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
     'lumen_ambient_delay',
@@ -247,7 +247,7 @@ const MORE_GROUPS = [
   /* 1.2: «Что нового после обновления» — сразу за меню по удержанию OK. */
   /* 1.3: «Автоочистка TorrServer» — сразу за «Оформлением торрентов». */
   ['lumen_group_remote', ['lumen_context_menu', 'lumen_whatsnew', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
-    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ambient_source', 'lumen_ambient_delay']],
+    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_ambient_source', 'lumen_ambient_delay']],
   /* «Для разработчика» — в самом низу второго экрана. */
   ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem',
     'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]

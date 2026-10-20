@@ -529,6 +529,18 @@
       en: 'TorrServer did not respond — cleanup skipped',
       uk: 'TorrServer не відповів — очищення не виконано'
     },
+    /* «Состояние TorrServer» на карточке (src/66_tshealth.js). */
+    lumen_ts_health_name: { ru: 'Состояние TorrServer', en: 'TorrServer status', uk: 'Стан TorrServer' },
+    lumen_ts_health_descr: {
+      ru: 'Красная точка на «Смотреть», если TorrServer не ответил при открытии карточки.',
+      en: 'A red dot on Watch if TorrServer did not respond when the card opened.',
+      uk: 'Червона крапка на «Дивитися», якщо TorrServer не відповів під час відкриття картки.'
+    },
+    lumen_ts_health_noty: {
+      ru: 'TorrServer не отвечает. Запасную ссылку можно выбрать: Настройки → TorrServer',
+      en: 'TorrServer is not responding. You can pick the backup link in Settings → TorrServer',
+      uk: 'TorrServer не відповідає. Запасне посилання можна вибрати: Налаштування → TorrServer'
+    },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
        поверх карточки стоит дороже выигрыша). */
@@ -1504,6 +1516,12 @@
     /* Срок читается на каждом проходе; «Очистить сейчас» — кнопка
        (onButtonFor). Применять на лету нечего. */
     if (name === 'lumen_tsclean_days' || name === 'lumen_tsclean_now') return true;
+    /* «Состояние TorrServer» — выключили: точка с открытой карточки снята
+       (src/66_tshealth.js, apply); включили — со следующего открытия. */
+    if (name === 'lumen_ts_health') {
+      try { if (LC.tshealth) LC.tshealth.apply(); } catch (eTsh) {}
+      return true;
+    }
     if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
       try { if (name === 'lumen_resume' && LC.resume && !LC.pref('lumen_resume', true)) LC.resume.cancel(); } catch (eResume) {}
       return true;

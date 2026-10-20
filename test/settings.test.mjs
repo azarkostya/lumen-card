@@ -106,6 +106,7 @@ function setup(opts) {
   LC.applyNavPref = mark('nav');
   /* 1.3: «Автоочистка TorrServer» — перезаводит свой таймер (apply). */
   LC.tsclean = { apply: mark('tsclean') };
+  LC.tshealth = { apply: mark('tshealth') };
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
   LC.applyHeroSizePref = mark('herosize');
   /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
@@ -342,6 +343,8 @@ test('каждая настройка применяется ровно один
        сейчас» — кнопка (проверка нажатия ниже). */
     lumen_tsclean_days: [],
     lumen_tsclean_now: null,
+    /* «Состояние TorrServer» — снимает точку при выключении (apply). */
+    lumen_ts_health: ['tshealth'],
     /* 1.0.2: «Ускорители пульта» — мини-карта и быстрое листание, одни и
        те же две подписки на клавиатуру Lampa. */
     lumen_remote_boost: ['nav'],

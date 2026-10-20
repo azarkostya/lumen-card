@@ -3119,3 +3119,15 @@ test('1.3: tsclean — включённый плагин, но activate() не �
   const thrown = tscleanLC({}, { buildThrowsOnce: true }).log;
   assert.equal(thrown[0], 'markOff', 'исключение в init: ' + thrown.join(','));
 });
+
+/* «Состояние TorrServer» (src/66_tshealth.js): complite карточки зовёт
+   LC.tshealth.check с корнем карточки; исключение модуля карточку не роняет. */
+test('tshealth: complite — LC.tshealth.check(root); исключение не мешает остальному', () => {
+  const roots = [];
+  const { full, calls } = initLC({ setup: (LC) => { LC.tshealth = { check: (r) => { roots.push(r); throw new Error('boom'); } }; } });
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const body = new FakeEl(['activity__body']);
+  full[0]({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } });
+  assert.deepEqual(roots, [root]);
+  assert.equal(calls.schedule.length, 1, 'трейлер заведён, как обычно');
+});
