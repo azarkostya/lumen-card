@@ -896,7 +896,7 @@ test('Task 73 (ревью п.3): разделитель строк не пере
 /* Фокус пути (Task 53/54) обязан работать в обоих видах: его правила
    специфичнее базовых на класс, и плоский вид их не переписывает. */
 test('Task 73: фокус раздачи и файла в плоском виде не тронут', () => {
-  const on = cssWith({ lumen_flat: 'true' });
+  const on = cssWith({ lumen_flat: 'true', lumen_card_accent: 'sand' });
   const off = cssWith({});
   for (const sel of ['body.lumen-torrents-on .torrent-item.focus', 'body.lumen-torrents-on .torrent-file.focus']) {
     /* У обоих селекторов правил больше одного (заливка с рамкой и отдельно

@@ -127,3 +127,19 @@ test('Apple TV: штатные жёлтые метки Lampa (качество, 
   }
   assert.ok(!/html body \.card__quality\{[^}]*display:none/.test(apple.css));
 });
+
+test('Apple TV: без сохранённого акцента (или с неизвестным) — графит, Lumen — песок', () => {
+  const graphite = '#BDB8B2';
+  const sand = '#E8B87A';
+  const read = (prefs) => {
+    const o = build(prefs);
+    o.LC.accent = null;
+    globalThis.window = { Lampa: { Storage: { get: (n, d) => (n in prefs ? prefs[n] : d), field: (n) => prefs[n] } }, innerWidth: 960 };
+    globalThis.Lampa = globalThis.window.Lampa;
+    try { return o.LC.tokens().accent; } finally { delete globalThis.window; delete globalThis.Lampa; }
+  };
+  assert.equal(read({ lumen_flat: 'true', lumen_theme: 'black' }), graphite);
+  assert.equal(read({ lumen_flat: 'true', lumen_theme: 'black', lumen_card_accent: 'nope' }), graphite);
+  assert.equal(read({}), sand);
+  assert.equal(read({ lumen_card_accent: 'nope' }), sand);
+});
