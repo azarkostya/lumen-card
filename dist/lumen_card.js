@@ -2604,6 +2604,7 @@ css.push('.lumen-card .lumen-episode.focus .lumen-episode__name,.lumen-card .lum
 css.push('.lumen-card .lumen-episode__caption,.lumen-card .lumen-episode__timecode{font-size:1.01em;line-height:1.25;margin-top:0;color:'+P.muted+'}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:block;color:'+P.soft+'}');
 css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state{display:none}');
+css.push('.lumen-card.lumen-has-episodes .lumen-descr-short{display:none}');
 css.push('.lumen-card .lumen-episodes .lumen-episode--past:not(.focus){opacity:0}');
 if(!APPLE){
 css.push('.lumen-card .lumen-episode__bottom{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline}');
@@ -29246,6 +29247,7 @@ var previous=row[0].lumenEpisodes;
 if(previous&&list&&previous.list===list&&previous.sign===sign)return false;
 var track=row.find('.lumen-episodes__track');
 row.addClass('hide');
+root.removeClass('lumen-has-episodes');
 track.empty();
 setShift(track,0);
 setSpacer(track,0,0);
@@ -29280,6 +29282,7 @@ if(nodes[i]&&nodes[i].hasClass('lumen-episode--watching')){loadStills(nodes,i);b
 row.find('.lumen-episodes__title').text(season?LC.lang('lumen_card_season')+' '+season:(data.episodes.name||''));
 row.find('.lumen-episodes__count').text(eps.length+' '+LC.episodesWord(eps.length));
 row.removeClass('hide');
+root.addClass('lumen-has-episodes');
 markClipped(info,track,viewWidth(row.find('.lumen-episodes__viewport')[0]));
 scheduleClip(root);
 return true;
