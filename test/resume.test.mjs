@@ -787,3 +787,38 @@ test('resume + «Что нового»: пока окно возврата жд�
   timers.shift().fn();
   assert.equal(opened.length, 1, 'окно возврата закрыто — «Что нового» следом');
 });
+
+/* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js) своих подписок на плеер
+   не заводит — запуски раздач ей передают подписки этого модуля: Player
+   'create' (onPlay), 'destroy' (onStop), Listener 'torrent' onenter
+   (onTorrent с карточкой активности). И при выключенном «Вернуться к
+   просмотру»: это другой пункт. */
+test('resume: подписки передают запуски раздач автоочистке TorrServer — и при выключенном пункте', () => {
+  for (const on of [true, false]) {
+    const env = setup({ android: true, fields: { internal_torrclient: true }, prefs: { lumen_resume: on } });
+    const calls = [];
+    env.LC.tsclean = {
+      onPlay: (d) => calls.push(['play', d && d.torrent_hash]),
+      onStop: () => calls.push(['stop']),
+      onTorrent: (el, card) => calls.push(['torrent', el && el.MagnetUri, card && card.id])
+    };
+    env.api.boot();
+    env.api.install();
+    watchEpisode(env, 2);
+    env.player('destroy', {});
+    assert.deepEqual(calls, [
+      ['torrent', 'magnet:?xt=urn:btih:' + HASH, SHOW.id],
+      ['play', HASH],
+      ['stop']
+    ], 'lumen_resume=' + on);
+    /* Сломанный хук не роняет запись «Вернуться к просмотру». */
+    env.LC.tsclean = { onPlay: () => { throw new Error('boom'); }, onStop() { }, onTorrent() { } };
+    env.player('create', { data: playData(3, 6, { mode: 'preload' }), abort: () => { } });
+    if (on) assert.equal(env.rec().episode, 3);
+    env.api.uninstall();
+    calls.length = 0;
+    env.LC.tsclean = { onPlay: () => calls.push('play'), onStop() { }, onTorrent() { } };
+    env.player('create', { data: playData(4, 6), abort: () => { } });
+    assert.deepEqual(calls, [], 'после uninstall (плагин выключен) — ничего');
+  }
+});

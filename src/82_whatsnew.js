@@ -64,19 +64,22 @@
           'Если Lampa перезапустилась, пока шла серия или фильм, при следующем запуске она предложит вернуться к просмотру с того же места.',
           'Серии из приложения TorrServe: окно предложит открыть ту же раздачу снова, серию и место выберете там.',
           'Досмотрели серию до конца — окно предложит следующую.',
-          'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.'
+          'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.',
+          'Новый пункт «Автоочистка TorrServer»: раздачи, которые не открывали больше суток, удаляются сами. По умолчанию выключен.'
         ],
         en: [
           'If Lampa restarted while an episode or film was playing, it will offer to resume from the same spot next time it starts.',
           'Episodes from the TorrServe app: the window offers to open the same torrent again, and you pick the episode and spot there.',
           'Finished an episode — the window offers the next one.',
-          'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.'
+          'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.',
+          'New "TorrServer auto-cleanup" option: torrents not opened for over a day are removed automatically. Off by default.'
         ],
         uk: [
           'Якщо Lampa перезапустилася, поки йшла серія чи фільм, під час наступного запуску вона запропонує повернутися до перегляду з того ж місця.',
           'Серії із застосунку TorrServe: вікно запропонує відкрити ту саму роздачу знову, серію й місце оберете там.',
           'Додивилися серію до кінця — вікно запропонує наступну.',
-          'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.'
+          'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.',
+          'Новий пункт «Автоочищення TorrServer»: роздачі, які не відкривали понад добу, видаляються самі. Типово вимкнений.'
         ]
       },
       '1.2.0': {

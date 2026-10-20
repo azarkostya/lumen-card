@@ -288,6 +288,10 @@
       { name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },
       { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
       { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
+      /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js) — рядом с
+         оформлением пути через TorrServer. По умолчанию ВЫКЛЮЧЕНА: плагин
+         без спроса чужих раздач не удаляет. */
+      { name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'lumen_tsclean_name', descr: 'lumen_tsclean_descr' },
       /* Task 22: сам выключатель заставки — в главном разделе («Движение»),
          здесь то, что настраивают один раз. */
       { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },

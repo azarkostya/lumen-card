@@ -521,8 +521,18 @@
       return rec;
     }
 
+    /* Эти же подписки ведут «открыто» для «Автоочистки TorrServer»
+       (src/66_tsclean.js): запуск раздачи — Player 'create' и Listener
+       'torrent', закрытие плеера — 'destroy'. Отдельных подписок на плеер
+       модуль не заводит; пишет он и при выключенном «Вернуться к
+       просмотру». */
+    function tsclean(fn) {
+      try { if (LC.tsclean) fn(LC.tsclean); } catch (err) { warn('tsclean hook failed', err); }
+    }
+
     function onCreate(e) {
       if (!_on) return;
+      tsclean(function (ts) { ts.onPlay(e && e.data); });
       try { record(e && e.data, 'pending'); } catch (err) { warn('resume create failed', err); }
     }
 
@@ -546,6 +556,7 @@
        следующем запуске не будет, запись остаётся для меню и ряда. */
     function onDestroy() {
       if (!_on) return;
+      tsclean(function (ts) { ts.onStop(); });
       try {
         var rec = load();
         if (rec && rec.mode !== 'external' && !rec.settled) {
@@ -570,6 +581,7 @@
        «Торренты» (object.movie). */
     function onTorrent(e) {
       if (!_on || !e || e.type !== 'onenter') return;
+      tsclean(function (ts) { ts.onTorrent(e.element, activeCard()); });
       try {
         var card = activeCard();
         var t = torrentOf(e.element);

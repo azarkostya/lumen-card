@@ -1651,6 +1651,14 @@
     } catch (eResume) {
       warn('resume schedule failed', eResume);
     }
+    /* 1.3: «Автоочистка TorrServer» — первый проход через 30 с, потом
+       раз в 6 ч; выключенный пункт таймера не заводит (src/66_tsclean.js).
+       Запуски раздач ему передают подписки «Вернуться к просмотру» выше. */
+    try {
+      if (LC.tsclean) LC.tsclean.install();
+    } catch (eTsclean) {
+      warn('tsclean install failed', eTsclean);
+    }
     /* 1.2: окно «Что нового», если detect() в LC.init его ждёт; показ —
        только поверх готовой главной (homeReady ниже). */
     try {
@@ -1802,6 +1810,9 @@
     /* 1.3: подписки «Вернуться к просмотру» и таймер окна снимаются;
        запись и счётчики остаются в Storage. */
     try { if (LC.resume) LC.resume.uninstall(); } catch (eResumeOff) {}
+    /* 1.3: выключенный плагин TorrServer не чистит: таймер и начатый
+       проход снимаются (src/66_tsclean.js). */
+    try { if (LC.tsclean) LC.tsclean.uninstall(); } catch (eTscleanOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -2426,10 +2437,21 @@
          activate(). */
       try { if (LC.resume) LC.resume.boot(); } catch (eResume) { warn('resume boot failed', eResume); }
 
+      /* 1.3: activate() в этом запуске не будет (плагин выключен, узкая
+         раскладка, шаблон не поддерживается, исключение ниже) — подписки
+         на плеер не встанут, запуски раздач не запишутся, и первый проход
+         «Автоочистки TorrServer» после включения обязан быть посевным
+         (src/66_tsclean.js, markOff). Каждый выход до activate() зовёт
+         tsOff. */
+      var tsOff = function () {
+        try { if (LC.tsclean) LC.tsclean.markOff(); } catch (eTsclean) { warn('tsclean mark failed', eTsclean); }
+      };
+      if (!LC.enabled()) tsOff();
+
       LC.addSettings();
       LC.followStorage();
 
-      if (!isWideLayout()) return;
+      if (!isWideLayout()) { tsOff(); return; }
 
       saveOriginalTemplate();
 
@@ -2443,6 +2465,7 @@
         try {
           if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_card_unsupported'));
         } catch (e3) { }
+        tsOff();
         return;
       }
       our_template = tpl;
@@ -2465,6 +2488,7 @@
          успешный проход сюда не заходит и флаг сохраняет. */
       inited = false;
       warn('init failed', e);
+      try { if (LC.tsclean) LC.tsclean.markOff(); } catch (eTscleanInit) { }
       restoreOriginalTemplate();
     }
   };

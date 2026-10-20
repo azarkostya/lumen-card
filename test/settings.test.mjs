@@ -104,6 +104,8 @@ function setup(opts) {
   LC.applyBadgesPref = mark('badges');
   LC.applyCardmenuPref = mark('cardmenu');
   LC.applyNavPref = mark('nav');
+  /* 1.3: «Автоочистка TorrServer» — перезаводит свой таймер (apply). */
+  LC.tsclean = { apply: mark('tsclean') };
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
   LC.applyHeroSizePref = mark('herosize');
   /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
@@ -333,6 +335,9 @@ test('каждая настройка применяется ровно один
        показом окна (src/71_resume.js) — применять на лету нечего. */
     lumen_resume: [],
     lumen_resume_ttl: [],
+    /* 1.3: «Автоочистка TorrServer» — включение заводит первый проход,
+       выключение снимает таймер (src/66_tsclean.js, apply). */
+    lumen_tsclean: ['tsclean'],
     /* 1.0.2: «Ускорители пульта» — мини-карта и быстрое листание, одни и
        те же две подписки на клавиатуру Lampa. */
     lumen_remote_boost: ['nav'],

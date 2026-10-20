@@ -466,7 +466,7 @@ function initLC(opts) {
     Timeline: { listener: { follow: (name, fn) => { if (name === 'update') timelines.push(fn); } } }
   };
   globalThis.Lampa = Lampa;
-  globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
+  globalThis.window = { Lampa: Lampa, innerWidth: opts.innerWidth || 1920 };
   globalThis.$ = () => EMPTY;
 
   const LC = {};
@@ -3049,4 +3049,46 @@ test('1.3: resume — готовность: любой первый экран, 
   globalThis.$ = () => EMPTY;
   LC.covered = () => true;
   assert.equal(isReady(), false, 'поднята заставка');
+});
+
+/* 1.3: «Автоочистка TorrServer» — склейка с рантаймом (сам модуль —
+   test/tsclean.test.mjs). Пока плагин выключен, запуски раздач не пишутся:
+   старт Lampa с выключенным плагином помечает следующий проход посевным;
+   install — в activate(), uninstall — в deactivate(). */
+function tscleanLC(storage, opts) {
+  const log = [];
+  const env = initLC({
+    ...(opts || {}),
+    storage,
+    setup: (LC) => {
+      LC.tsclean = {
+        markOff: () => log.push('markOff'),
+        install: () => log.push('install'),
+        uninstall: () => log.push('uninstall'),
+        apply: () => log.push('apply')
+      };
+    }
+  });
+  return Object.assign({ log }, env);
+}
+
+test('1.3: tsclean — старт с выключенным плагином: markOff в LC.init, без install', () => {
+  const { log } = tscleanLC({ lumen_enabled: 'false' });
+  assert.deepEqual(log, ['markOff']);
+});
+
+test('1.3: tsclean — старт с включённым плагином: install в activate(), uninstall в deactivate()', () => {
+  const { LC, log } = tscleanLC({});
+  assert.deepEqual(log, ['install']);
+  globalThis.Lampa.Storage.field = (name) => (name === 'lumen_enabled' ? 'false' : undefined);
+  globalThis.Lampa.Storage.get = (name, def) => (name === 'lumen_enabled' ? 'false' : def);
+  LC.applyEnabledPref();
+  assert.equal(log[log.length - 1], 'uninstall');
+});
+
+test('1.3: tsclean — включённый плагин, но activate() не будет (узкая раскладка, шаблон не поддерживается, исключение) — markOff', () => {
+  assert.deepEqual(tscleanLC({}, { innerWidth: 400 }).log, ['markOff'], 'узкая раскладка');
+  assert.deepEqual(tscleanLC({}, { templateUnsupported: true }).log, ['markOff'], 'шаблон не поддерживается');
+  const thrown = tscleanLC({}, { buildThrowsOnce: true }).log;
+  assert.equal(thrown[0], 'markOff', 'исключение в init: ' + thrown.join(','));
 });

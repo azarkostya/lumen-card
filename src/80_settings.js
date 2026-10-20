@@ -487,6 +487,13 @@
       en: 'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
       uk: 'Список роздач, вікна підключення та помилок, списки файлів і передзавантаження — у стилі картки.'
     },
+    /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js). */
+    lumen_tsclean_name: { ru: 'Автоочистка TorrServer', en: 'TorrServer auto-cleanup', uk: 'Автоочищення TorrServer' },
+    lumen_tsclean_descr: {
+      ru: 'Убирает из TorrServer раздачи, которые не открывали из Lampa больше суток. Просмотр прямо в приложении TorrServe не учитывается. Идущие не трогает.',
+      en: 'Removes torrents from TorrServer not opened from Lampa for over a day. Watching directly in the TorrServe app does not count. Active ones are kept.',
+      uk: 'Прибирає з TorrServer роздачі, які не відкривали з Lampa понад добу. Перегляд просто в застосунку TorrServe не враховується. Активні не чіпає.'
+    },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
        поверх карточки стоит дороже выигрыша). */
@@ -1437,6 +1444,13 @@
     /* 1.3: «Вернуться к просмотру» и его срок читаются при запуске и перед
        показом окна (src/71_resume.js). Выключили, пока окно ждало, — таймер
        снимается сразу; запись не трогаем (включат обратно — пригодится). */
+    /* 1.3: «Автоочистка TorrServer» — включили: первый проход через 30 с;
+       выключили: таймер снят, начатый проход останавливается перед
+       следующим удалением (src/66_tsclean.js, apply). */
+    if (name === 'lumen_tsclean') {
+      try { if (LC.tsclean) LC.tsclean.apply(); } catch (eTsclean) {}
+      return true;
+    }
     if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
       try { if (name === 'lumen_resume' && LC.resume && !LC.pref('lumen_resume', true)) LC.resume.cancel(); } catch (eResume) {}
       return true;
