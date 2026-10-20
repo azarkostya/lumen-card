@@ -54,9 +54,16 @@
     return false;
   }
 
-  /* v2, экран 35: «1,6 тыс.» вместо «1.6K» Lampa (LC.util.shortNum). */
+  /* v2, экраны 35/43: «2 тыс.», «3,4 тыс.» вместо «2K/3.4K» Lampa — латинская K
+     в чипе читалась как разрешение. Основной путь — LC.typo.bigNumber
+     (src/31_v2_typo.js, ru/en/uk, «млн»), запасной — LC.util.shortNum. */
   function bigNumber(n) {
-    return LC.util.shortNum(n, typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
+    if (LC.typo && typeof LC.typo.bigNumber === 'function') return LC.typo.bigNumber(n);
+    if (LC.util && typeof LC.util.shortNum === 'function') return LC.util.shortNum(n, typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
+    try {
+      if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.bigNumberToShort === 'function') return Lampa.Utils.bigNumberToShort(n);
+    } catch (e) { }
+    return '' + n;
   }
 
   /* -------------------------------------------------------------------- */

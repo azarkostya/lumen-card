@@ -236,7 +236,7 @@
       return null;
     }
 
-    function cardHtml(item, total) {
+    function cardHtml(item, total, name) {
       var url = posterUrl(item.poster);
       var flag = flagOf(item);
       var mods = '';
@@ -251,8 +251,8 @@
         '<div class="lumen-fr-card__mark"></div>' +
         '</div>' +
         '<div class="lumen-fr-card__num">' + esc('№ ' + item.num + ' ' + lang('lumen_fr_of') + ' ' + total) + '</div>' +
-        '<div class="lumen-fr-card__name">' + esc(item.title) + '</div>' +
-        '<div class="lumen-fr-card__year">' + esc(item.year) + '</div>' +
+        '<div class="lumen-fr-card__name">' + esc(name ? name.t : item.title) + '</div>' +
+        '<div class="lumen-fr-card__year">' + esc(name && name.s ? name.s + (item.year ? ' · ' + item.year : '') : item.year) + '</div>' +
         (flag ? '<div class="lumen-fr-card__flag lumen-fr-card__flag--' + flag.cls + '">' + esc(flag.text) + '</div>' : '') +
         '</div>';
     }
@@ -276,7 +276,13 @@
 
     function bodyHtml(list, name, order) {
       var cards = [];
-      for (var i = 0; i < list.length; i++) cards.push(cardHtml(list[i], list.length));
+      /* v2, экран 44: общий префикс франшизы снят («Голодные игры: И
+         вспыхнет пламя» → «И вспыхнет пламя»), «Эпизод V» — во вторую строку
+         к году (LC.typo.stripPrefix, src/31_v2_typo.js). */
+      var titles = [];
+      for (var t = 0; t < list.length; t++) titles.push(list[t].title);
+      var names = LC.typo ? LC.typo.stripPrefix(titles) : null;
+      for (var i = 0; i < list.length; i++) cards.push(cardHtml(list[i], list.length, names && names[i]));
       return headHtml(name, order) + '<div class="lumen-fr__row">' + cards.join('') + '</div>';
     }
 
