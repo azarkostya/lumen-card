@@ -9331,3 +9331,25 @@ test('v2: токены фокуса наружу — LC.focusTokens', () => {
   assert.equal(a.dur, 240);
   assert.equal(a.dim, 0);
 });
+
+/* Находка пользователя 2026-10-20: тёмная полоса под шапкой на первом экране
+   карточки — верхняя чёрная полоса ролика 2.39:1, которую наезд 1.12 (герой —
+   запас 120 %) срезал лишь частично. Наезд под полосы меряет плеер и кладёт в
+   --lc-yt-z; CSS берёт max(штатный, --lc-yt-z), а прежние объявления остаются
+   первыми — без var()/max() действуют они. */
+test('ролик 2.39:1: наезд карточки и героя — max(штатный, --lc-yt-z), прежние значения — запасным правилом', () => {
+  const card = '.lumen-backdrop .lumen-bg__trailer iframe{';
+  const plain = css.indexOf(card + 'position:absolute');
+  const zoom = css.indexOf(card + '-webkit-transform:translate(-50%,-50%) scale(max(1.12,var(--lc-yt-z,1.12)))');
+  assert.ok(plain !== -1 && zoom !== -1, 'правил наезда ролика карточки нет');
+  assert.ok(css.slice(plain, css.indexOf('}', plain)).indexOf('scale(1.12)') !== -1, 'запасной наезд 1.12 пропал');
+  assert.ok(zoom > plain, 'правило с переменной обязано идти после запасного');
+  const hero = '.lumen-hero-stage .lumen-hero__trailer iframe{';
+  const hPlain = css.indexOf(hero + 'position:absolute;top:-10%');
+  const hZoom = css.indexOf(hero + 'top:calc((1 - max(1.2,var(--lc-yt-z,1.2))) * 50%)');
+  assert.ok(hPlain !== -1 && hZoom > hPlain, 'наезд ролика героя: ' + hPlain + ' / ' + hZoom);
+  const rule = css.slice(hZoom, css.indexOf('}', hZoom));
+  for (const need of ['left:calc((1 - max(1.2,var(--lc-yt-z,1.2))) * 50%)', 'width:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%)', 'height:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%)']) {
+    assert.ok(rule.indexOf(need) !== -1, 'нет ' + need + ': ' + rule);
+  }
+});

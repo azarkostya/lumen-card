@@ -4774,6 +4774,12 @@
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-hero-stage .lumen-hero__trailer.is-live{opacity:1}');
     css.push('.lumen-hero-stage .lumen-hero__trailer iframe{position:absolute;top:-10%;left:-10%;width:120%;height:120%;border:0;pointer-events:none}');
+    /* Находка пользователя 2026-10-20: запаса 120 % ролику 2.39:1 мало —
+       полоса 29 px оставалась под шапкой. Наезд под полосы меряет плеер
+       (src/55_trailer.js, probeLetterbox, переменная --lc-yt-z на узле
+       ролика), для 16:9 переменной нет и запас прежний; без var()/max()
+       объявления отбрасываются — действует правило выше. */
+    css.push('.lumen-hero-stage .lumen-hero__trailer iframe{top:calc((1 - max(1.2,var(--lc-yt-z,1.2))) * 50%);left:calc((1 - max(1.2,var(--lc-yt-z,1.2))) * 50%);width:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%);height:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%)}');
     css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__lqip.is-active{opacity:.25}');
     /* Волна производительности: приглушение — без перехода. Ролик сам
        проявляется за 1 с поверх кадра, и анимировать под ним ещё и кадр
@@ -7126,6 +7132,14 @@
     css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.9) 34%,rgba(' + P.bgRgb + ',0.7) 55%,rgba(' + P.bgRgb + ',0) 85%)}');
     css.push('.lumen-backdrop .lumen-bg__trailer{top:0;bottom:0}');
     css.push('.lumen-backdrop .lumen-bg__trailer iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;-webkit-transform:translate(-50%,-50%) scale(1.12);transform:translate(-50%,-50%) scale(1.12)}');
+    /* Ролик 2.39:1 приходит с чёрными полосами внутри 16:9, и 1.12 срезает
+       лишь треть верхней — под шапкой оставалась тёмная полоса ~90 px FHD
+       (находка пользователя 2026-10-20). Наезд под полосы меряет плеер
+       (src/55_trailer.js, probeLetterbox) и кладёт в --lc-yt-z узла ролика;
+       ролик 16:9 переменной не получает и стоит на прежних 1.12. Без
+       поддержки var()/max() объявление отбрасывается целиком — действует
+       правило выше. */
+    css.push('.lumen-backdrop .lumen-bg__trailer iframe{-webkit-transform:translate(-50%,-50%) scale(max(1.12,var(--lc-yt-z,1.12)));transform:translate(-50%,-50%) scale(max(1.12,var(--lc-yt-z,1.12)))}');
 
     /* Apple TV: кнопки ровно «Смотреть» (инверсия) · «Трейлер» · «В
        избранное» — подписи текстом, без иконок; «Нравится», подписка и «…»

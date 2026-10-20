@@ -962,3 +962,34 @@ test('schedule: stopActive снимает трейлер текущей карт
   assert.equal(env.slideshow.resumeCalls, 1);
   assert.equal(env.layer.data('lumenTrailer'), undefined);
 });
+
+/* Находка пользователя 2026-10-20: чёрные полосы ролика 2.39:1 под шапкой.
+   barShare меряет полосу кадра-миниатюры, letterboxZoom переводит доли
+   нескольких кадров в наезд 16:9-бокса. */
+function frame(w, h, bar, bottomBar = bar, fill = 120) {
+  const d = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const black = y < bar || y >= h - bottomBar;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      d[i] = d[i + 1] = d[i + 2] = black ? 8 : fill; d[i + 3] = 255;
+    }
+  }
+  return d;
+}
+
+test('barShare: полоса 2.39:1 в 320×180 — 23 строки; без полос — 0; тёмный только верх — 0', () => {
+  assert.equal(t.barShare(frame(320, 180, 23), 320, 180), 23 / 180);
+  assert.equal(t.barShare(frame(320, 180, 0), 320, 180), 0);
+  assert.equal(t.barShare(frame(320, 180, 40, 0), 320, 180), 0, 'тёмное небо сверху — не letterbox');
+});
+
+test('letterboxZoom: 2.39:1 -> наезд, закрывающий полосу; 16:9 и шум -> 0; тёмные кадры не завышают', () => {
+  const z = t.letterboxZoom([23 / 180, 23 / 180, 24 / 180]);
+  assert.ok(z >= 0.5 / (0.5 - 23 / 180) && z <= 1.4, 'наезд ' + z);
+  assert.equal(t.letterboxZoom([0, 0.005, 0]), 0);
+  assert.equal(t.letterboxZoom([0, 23 / 180, 23 / 180]), 0, 'кадр без полос — ролик 16:9 с тёмными сценами');
+  assert.equal(t.letterboxZoom([0.5, 0.45]), 0, 'чёрные титры — не полоса');
+  assert.equal(t.letterboxZoom([0.19, 0.19]), 1.4, 'потолок наезда');
+  assert.equal(t.letterboxZoom(null), 0);
+});

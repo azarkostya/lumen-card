@@ -67,6 +67,103 @@
     var WATCH_MS = 1000;
 
     /* ------------------------------------------------------------------ */
+    /* Чёрные полосы ролика (letterbox).                                   */
+    /* ------------------------------------------------------------------ */
+
+    /* Находка пользователя (ТВ, 2026-10-20): на первом экране карточки под
+       иконками шапки — тёмная полоса ~90 px FHD с жёстким краем. Это не
+       шапка и не вуаль, а верхняя чёрная полоса самого ролика: трейлер
+       2.39:1 YouTube отдаёт вписанным в 16:9, полоса — 12.8 % высоты
+       (69 CSS px на 960×540), а наезд карточки 1.12 срезает за кромку лишь
+       32 из них (у героя главной запас 120 % — 40 из 69). Полосы закодированы
+       в самом видео, iframe чужого домена их не отдаёт, поэтому пропорцию
+       меряем по кадрам-миниатюрам mq1/mq2/mq3 (320×180, кадры из 25/50/75 %
+       ролика; обложка mqdefault для этого не годится — её часто заменяют
+       постером без полос). i.ytimg.com отдаёт их с
+       Access-Control-Allow-Origin:*, и canvas их читает. Найденный наезд
+       ложится в переменную --lc-yt-z на узел ролика, CSS берёт
+       max(штатный наезд, --lc-yt-z) — ролик 16:9 остаётся как был.
+       LB_DARK — порог «чёрного» пикселя (каналы 0–255, с запасом на шум
+       JPEG), LB_MAX — доля, выше которой «полоса» на деле тёмная сцена или
+       титр, LB_ZMAX — потолок наезда (2.39:1 → 1.37). */
+    var LB_FRAMES = ['mq1', 'mq2', 'mq3'];
+    var LB_DARK = 28;
+    var LB_MAX = 0.2;
+    var LB_EDGE = 0.006;
+    var LB_ZMAX = 1.4;
+    var lbCache = {};
+
+    /* Чистая: data — RGBA w×h; доля высоты под полосой — меньшая из верхней
+       и нижней (полосы letterbox симметричны, а тёмное небо или пол сцены —
+       нет). Строка «чёрная», если чёрен каждый 4-й пиксель. */
+    function barShare(data, w, h) {
+      function dark(y) {
+        for (var x = 0; x < w; x += 4) {
+          var i = (y * w + x) * 4;
+          if (data[i] > LB_DARK || data[i + 1] > LB_DARK || data[i + 2] > LB_DARK) return false;
+        }
+        return true;
+      }
+      var top = 0;
+      var bot = 0;
+      while (top < h / 2 && dark(top)) top++;
+      while (bot < h / 2 && dark(h - 1 - bot)) bot++;
+      return Math.min(top, bot) / h;
+    }
+
+    /* Чистая: доли полос нескольких кадров -> наезд 16:9-бокса, при котором
+       полоса уходит за кромку экрана (z·(0.5 − f) ≥ 0.5), или 0 — полос нет.
+       Берётся наименьшая доля: тёмный кадр полосу завышает, светлый — нет.
+       LB_EDGE — строка-другая размытой JPEG кромки полосы. */
+    function letterboxZoom(shares) {
+      var best = -1;
+      for (var i = 0; i < (shares || []).length; i++) {
+        var s = shares[i];
+        if (typeof s !== 'number' || !(s >= 0) || s > LB_MAX) continue;
+        if (best < 0 || s < best) best = s;
+      }
+      if (best < 0.02) return 0;
+      var z = 0.5 / (0.5 - best - LB_EDGE);
+      return Math.min(LB_ZMAX, Math.ceil(z * 100) / 100);
+    }
+
+    /* Замер по кадрам ролика key; done(z) — асинхронно, один раз. Нужны хотя
+       бы два прочитанных кадра — по одному полосу не отличить от сцены. */
+    function probeLetterbox(key, done) {
+      if (Object.prototype.hasOwnProperty.call(lbCache, key)) { done(lbCache[key]); return; }
+      var shares = [];
+      var left = LB_FRAMES.length;
+      function fin() {
+        if (--left > 0) return;
+        var z = shares.length >= 2 ? letterboxZoom(shares) : 0;
+        lbCache[key] = z;
+        done(z);
+      }
+      function one(name) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth || img.width;
+            var h = img.naturalHeight || img.height;
+            var c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            var ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            shares.push(barShare(ctx.getImageData(0, 0, w, h).data, w, h));
+          } catch (e) { }
+          fin();
+        };
+        img.onerror = fin;
+        img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(key) + '/' + name + '.jpg';
+      }
+      try {
+        for (var i = 0; i < LB_FRAMES.length; i++) one(LB_FRAMES[i]);
+      } catch (e) { }
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Чистая часть: выбор ролика и режим настройки.                       */
     /* ------------------------------------------------------------------ */
 
@@ -231,6 +328,19 @@
       mark('api');
 
       $host.html('<div id="' + id + '"></div>');
+
+      /* Наезд под полосы ролика (см. probeLetterbox): узел общий для
+         роликов подряд, поэтому прежний снимается сразу. */
+      function zoom(z) {
+        try {
+          var el = $host[0];
+          if (!el || !el.style || typeof el.style.setProperty !== 'function') return;
+          if (z) el.style.setProperty('--lc-yt-z', String(z));
+          else el.style.removeProperty('--lc-yt-z');
+        } catch (e) { }
+      }
+      zoom(0);
+      if (typeof Image === 'function') probeLetterbox(key, function (z) { if (!dead && z) zoom(z); });
 
       function mark(st) {
         if (owner === mine) last = st;
@@ -695,6 +805,8 @@
     return {
       pickTrailer: pickTrailer,
       modeFor: modeFor,
+      barShare: barShare,
+      letterboxZoom: letterboxZoom,
       mode: mode,
       player: player,
       reveal: reveal,
