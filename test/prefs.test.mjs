@@ -161,7 +161,7 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     'lumen_more',
     /* Дополнительно: оформление */
     'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo', 'lumen_hero_logo',
-    'lumen_badges', 'lumen_posters',
+    'lumen_badges', 'lumen_next_ep_badge', 'lumen_posters',
     /* карточка и главная */
     'lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start', 'lumen_rows_dedupe',
@@ -238,7 +238,7 @@ const MAIN_GROUPS = [
 ];
 const MORE_GROUPS = [
   ['lumen_group_style', ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo',
-    'lumen_hero_logo', 'lumen_badges', 'lumen_posters']],
+    'lumen_hero_logo', 'lumen_badges', 'lumen_next_ep_badge', 'lumen_posters']],
   ['lumen_group_screens', ['lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
     'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows',
     /* 1.3: «Вернуться к просмотру» — рядом с личными рядами («Досмотреть»). */

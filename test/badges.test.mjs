@@ -1068,3 +1068,124 @@ test('perf: новый ряд вне ряда — пересчитывается
     assert.deepEqual(o.calls, [3]);
   } finally { cleanupObserved(); }
 });
+
+/* ====================================================================== */
+/* «Досмотреть», сериал: серия вместо процента (episodeBadge).            */
+/* ====================================================================== */
+
+/* Timeline-заглушка: записи по ключу «сезон[:]серия + название» — та же
+   формула, что у LC.progress (src/70_progress.js, episodeHash). */
+function timeline(records) {
+  const calls = [];
+  return {
+    calls,
+    view: (h) => { calls.push(h); return records[h] || null; },
+    hash: (k) => k
+  };
+}
+const SERIAL = { id: 7, name: 'Дом', original_name: 'House', number_of_seasons: 2, lumen_continue: true };
+const EPW = { epLeft: '{e} · {n} мин' };
+
+test('episodeBadge: начатая серия с длительностью — «S2·E4 · 12 мин», полоса — её процент', () => {
+  const B = fresh().api;
+  const t = timeline({ '21House': { percent: 100 }, '22House': { percent: 100 }, '23House': { percent: 100 },
+    '24House': { percent: 40, time: 1080, duration: 1800, updated: 5 } });
+  const b = B.episodeBadge(SERIAL, t.view, t.hash, EPW);
+  assert.deepEqual(b, { kind: 'progress', text: 'S2·E4 · 12 мин', percent: 40, left: true });
+});
+
+test('episodeBadge: начатая серия без длительности — «S2·E4 ▶»', () => {
+  const B = fresh().api;
+  const t = timeline({ '24House': { percent: 40 } });
+  const b = B.episodeBadge(SERIAL, t.view, t.hash, EPW);
+  assert.equal(b.text, 'S2·E4 ▶︎');
+  assert.equal(b.percent, 40);
+});
+
+test('episodeBadge: досмотренная серия — следующая, «S2·E5», без полосы', () => {
+  const B = fresh().api;
+  const t = timeline({ '23House': { percent: 100, updated: 1 }, '24House': { percent: 97, updated: 2 } });
+  const b = B.episodeBadge(SERIAL, t.view, t.hash, EPW);
+  assert.deepEqual(b, { kind: 'progress', text: 'S2·E5', percent: 0 });
+});
+
+test('episodeBadge: следующей серии ещё нет в эфире (last_episode_to_air) — null', () => {
+  const B = fresh().api;
+  const t = timeline({ '24House': { percent: 100 } });
+  const card = Object.assign({}, SERIAL, { last_episode_to_air: { season_number: 2, episode_number: 4 } });
+  assert.equal(B.episodeBadge(card, t.view, t.hash, EPW), null);
+});
+
+test('episodeBadge: выбор по updated, сезон > 10 — с разделителем, сезон из last_episode_to_air', () => {
+  const B = fresh().api;
+  const t = timeline({ '12:1Show': { percent: 30, updated: 9 }, '12:2Show': { percent: 50, updated: 3 } });
+  const card = { id: 1, name: 'Show', lumen_continue: true, last_episode_to_air: { season_number: 12, episode_number: 10 } };
+  assert.equal(B.episodeBadge(card, t.view, t.hash, {}).text, 'S12·E1 ▶︎');
+});
+
+test('episodeBadge: только последний сезон и короткий хвост после находки — цена мала', () => {
+  const B = fresh().api;
+  const t = timeline({ '21House': { percent: 50 } });
+  B.episodeBadge(SERIAL, t.view, t.hash, EPW);
+  assert.ok(t.calls.every((h) => h.indexOf('2') === 0), 'сканировался не только последний сезон');
+  assert.equal(t.calls.length, 4, 'после найденной серии — три пустых и стоп');
+  const none = timeline({});
+  assert.equal(B.episodeBadge(SERIAL, none.view, none.hash, EPW), null);
+  assert.equal(none.calls.length, 30, 'не больше 30 серий');
+});
+
+test('episodeBadge: фильм, карточка не из «Досмотреть», сезон неизвестен — null', () => {
+  const B = fresh().api;
+  const t = timeline({ '24House': { percent: 40 } });
+  assert.equal(B.episodeBadge(Object.assign({}, SERIAL, { lumen_continue: false }), t.view, t.hash, EPW), null);
+  assert.equal(B.episodeBadge({ title: 'X', original_title: 'X', lumen_continue: true, number_of_seasons: 2 }, t.view, t.hash, EPW), null);
+  assert.equal(B.episodeBadge({ name: 'House', lumen_continue: true }, t.view, t.hash, EPW), null);
+  assert.equal(t.calls.length, 0);
+});
+
+test('badgeFor: ctx.episode у сериала «Досмотреть» важнее процента, без неё — прежний путь', () => {
+  const B = fresh().api;
+  const ep = { kind: 'progress', text: 'S2·E5', percent: 0 };
+  const card = Object.assign({}, SERIAL);
+  assert.equal(B.badgeFor(card, TODAY, { progress: () => 40, episode: () => ep, words: WORDS }), ep);
+  assert.equal(B.badgeFor(card, TODAY, { progress: () => 40, episode: () => null, words: WORDS }).text, '40 %');
+  assert.equal(B.badgeFor(Object.assign({}, card, { lumen_badge: 'Новая серия' }), TODAY, { episode: () => ep, words: WORDS }).kind, 'custom');
+});
+
+test('decorate: метка серии на постере, кэш на показ главной, настройка выключает', () => {
+  class FakeObserver { constructor() {} observe() {} disconnect() {} }
+  let views = 0;
+  let on = true;
+  const store = { '24House': { percent: 40 } };
+  const Lampa = {
+    Activity: { active: () => null },
+    Utils: { hash: (k) => k },
+    Timeline: { view: (h) => { views++; return store[h] || null; } }
+  };
+  globalThis.window = { Lampa: Lampa, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  try {
+    const { api } = runtime({
+      Lampa: Lampa,
+      pref: (k, d) => (k === 'lumen_next_ep_badge' ? on : d),
+      lang: (k) => (k === 'lumen_badge_ep_left' ? '{e} · {n} мин' : (k === 'lumen_card_months_short' ? MONTHS.join(',') : k))
+    });
+    const a = makeCard(Object.assign({}, SERIAL));
+    const b = makeCard(Object.assign({}, SERIAL));
+    api.mount(makeRoot([a, b]));
+    const plate = (c) => c._children[0]._children.filter((x) => x.hasClass('lumen-badge'))[0];
+    assert.equal(plate(a).text(), 'S2·E4 ▶︎');
+    assert.equal(plate(b).text(), 'S2·E4 ▶︎');
+    const after = views;
+    assert.equal(after, 7, 'второй карточке того же сериала — кэш, а не повторный проход (E1–E4 + три пустых)');
+
+    on = false;
+    api.unmount();
+    const c = makeCard(Object.assign({}, SERIAL));
+    api.mount(makeRoot([c]));
+    assert.ok(!plate(c) || plate(c).text().indexOf('S2') === -1, 'выключенная настройка — прежняя метка');
+  } finally {
+    delete globalThis.window;
+    delete globalThis.MutationObserver;
+  }
+});

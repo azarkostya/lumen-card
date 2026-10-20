@@ -810,6 +810,9 @@
     /* Сверка 2026-09-26: метка карточки ряда «Досмотреть» — остаток минутами
        вместо процента (src/62_badges.js); {n} — целые минуты. */
     lumen_badge_left: { ru: 'Осталось {n} мин', en: '{n} min left', uk: 'Залишилось {n} хв' },
+    /* «Досмотреть», сериал: начатая серия и остаток — «S2·E4 · 12 мин»
+       (src/62_badges.js, episodeBadge); {e} — «S2·E4», {n} — минуты. */
+    lumen_badge_ep_left: { ru: '{e} · {n} мин', en: '{e} · {n} min', uk: '{e} · {n} хв' },
     lumen_badge_new: { ru: 'Новинка', en: 'New', uk: 'Новинка' },
     /* Task 25: обратный отсчёт в мета-строке карточки. «Премьера через 31
        день · 17 дек» собирается из premiere + lumen_card_in_days + числа со
@@ -905,6 +908,12 @@
     lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
     lumen_posters_original: { ru: 'Английские', en: 'English', uk: 'Англійські' },
     lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
+    lumen_next_ep_badge_name: { ru: 'Серия в «Досмотреть»', en: 'Episode in "Continue watching"', uk: 'Серія в «Досивитися»' },
+    lumen_next_ep_badge_descr: {
+      ru: 'У сериала в ряду «Досмотреть» — серия вместо процента: «S2·E5» или «S2·E4 · 12 мин».',
+      en: 'Series in "Continue watching" show the episode, not a percentage: "S2·E5", "S2·E4 · 12 min".',
+      uk: 'У серіалу в ряду «Досивитися» — серія замість відсотка: «S2·E5» або «S2·E4 · 12 хв».'
+    },
     lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
     lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
     lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
