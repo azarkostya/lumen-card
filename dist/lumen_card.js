@@ -22597,6 +22597,450 @@ cancel:cancel
 };
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.franchise;
+/* ---- 66_tsclean.js ---- */
+LC.tsclean=(function(){
+var KEY='lumen_tsclean_played';
+var SEED_KEY='lumen_tsclean_seed';
+var HOUR=3600000;
+var MAX_IDLE=24*HOUR;
+var FIRST_DELAY=30000;
+var PERIOD=6*HOUR;
+var PLAYER_RETRY=10*60000;
+var LIST_TIMEOUT=8000;
+var REM_TIMEOUT=5000;
+var MAX_PER_RUN=40;
+var CAP=300;
+var IN_DB=5;
+var IN_DB_TEXT='Torrent in db';
+var APP_URL='http://127.0.0.1:8090';
+var MIN_CLOCK=Date.UTC(2026,9,1);
+var CLOCK_SLACK=10*60000;
+var FUTURE_MAX=30*24*HOUR;
+function str(v){
+return(v===null||typeof v==='undefined')?'':(''+v);
+}
+var B32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function b32hex(s){
+var bits='';
+var i;
+s=s.toUpperCase();
+for(i=0;i<s.length;i++){
+var v=B32.indexOf(s.charAt(i));
+if(v<0)return'';
+var b=v.toString(2);
+while(b.length<5)b='0'+b;
+bits+=b;
+}
+var hex='';
+for(i=0;i+4<=bits.length;i+=4)hex+=parseInt(bits.substr(i,4),2).toString(16);
+return hex.length===40?hex:'';
+}
+function hashOf(v){
+var s=str(v);
+if(!s)return'';
+var m=/^([0-9a-fA-F]{40})$/.exec(s)||
+/[?&]link=([0-9a-fA-F]{40})(?:[&#]|$)/.exec(s)||
+/\/play\/([0-9a-fA-F]{40})(?:[\/?#]|$)/.exec(s)||
+/urn:btih:([0-9a-fA-F]{40})(?:[&#]|$)/i.exec(s);
+if(m)return m[1].toLowerCase();
+m=/urn:btih:([A-Za-z2-7]{32})(?:[&#]|$)/i.exec(s);
+return m?b32hex(m[1]):'';
+}
+function cardKey(card){
+if(!card||typeof card!=='object')return'';
+var id=card.id;
+if(id===null||typeof id==='undefined'||id==='')return'';
+var tv=!!(card.name||card.original_name||card.first_air_date);
+return(tv?'tv:':'movie:')+id;
+}
+function movieOf(torrent){
+var d=torrent&&torrent.data;
+if(!d)return null;
+try{
+if(typeof d==='string')d=JSON.parse(d);
+}catch(e){
+return null;
+}
+return d&&typeof d==='object'&&d.movie&&typeof d.movie==='object'?d.movie:null;
+}
+function touch(map,keys,now){
+var out={};
+var list=[];
+var k;
+if(map&&typeof map==='object'){
+for(k in map){
+if(!Object.prototype.hasOwnProperty.call(map,k))continue;
+var t=Number(map[k]);
+if(isFinite(t)&&t>0&&now-t<=MAX_IDLE&&t-now<=FUTURE_MAX)list.push([k,t]);
+}
+}
+for(var i=0;i<keys.length;i++)if(keys[i])list.push([keys[i],now]);
+list.sort(function(a,b){return b[1]-a[1];});
+var count=0;
+for(var j=0;j<list.length&&count<CAP;j++){
+if(Object.prototype.hasOwnProperty.call(out,list[j][0]))continue;
+out[list[j][0]]=list[j][1];
+count++;
+}
+return out;
+}
+function stamp(map,key){
+if(!map||!key||!Object.prototype.hasOwnProperty.call(map,key))return 0;
+var t=Number(map[key]);
+return isFinite(t)&&t>0?t:0;
+}
+function lastSeen(torrent,map){
+var ts=Number(torrent&&torrent.timestamp);
+var t=isFinite(ts)&&ts>0?ts*1000:0;
+var hash=hashOf(torrent&&torrent.hash);
+t=Math.max(t,stamp(map,'h:'+hash));
+var ck=cardKey(movieOf(torrent));
+if(ck)t=Math.max(t,stamp(map,'m:'+ck));
+return t;
+}
+function idle(torrent){
+if(typeof torrent.stat==='number')return torrent.stat===IN_DB;
+return torrent.stat_string===IN_DB_TEXT;
+}
+function removable(torrent,map,now,current){
+if(!torrent||typeof torrent!=='object')return false;
+var hash=hashOf(torrent.hash);
+if(!hash||hash===current)return false;
+if(!idle(torrent))return false;
+var ts=Number(torrent.timestamp);
+if(!isFinite(ts)||ts<=0)return false;
+return now-lastSeen(torrent,map)>MAX_IDLE;
+}
+function plan(list,map,now,current){
+if(!Array.isArray(list))return[];
+var picked=[];
+for(var i=0;i<list.length;i++){
+if(removable(list[i],map,now,current||''))picked.push([hashOf(list[i].hash),lastSeen(list[i],map)]);
+}
+picked.sort(function(a,b){return a[1]-b[1];});
+var out=[];
+for(var j=0;j<picked.length&&out.length<MAX_PER_RUN;j++){
+if(out.indexOf(picked[j][0])===-1)out.push(picked[j][0]);
+}
+return out;
+}
+function latest(map){
+var max=0;
+for(var k in(map||{})){
+if(!Object.prototype.hasOwnProperty.call(map,k))continue;
+var t=Number(map[k]);
+if(isFinite(t)&&t>max)max=t;
+}
+return max;
+}
+function clockOk(now,map){
+if(!isFinite(now)||now<MIN_CLOCK)return false;
+return now>=latest(map)-CLOCK_SLACK;
+}
+function prune(map,list,now,removed){
+var hashes={};
+var cards={};
+var gone={};
+var i;
+for(i=0;removed&&i<removed.length;i++)gone[removed[i]]=true;
+for(i=0;Array.isArray(list)&&i<list.length;i++){
+var h=hashOf(list[i]&&list[i].hash);
+if(!h||gone[h])continue;
+hashes['h:'+h]=true;
+var ck=cardKey(movieOf(list[i]));
+if(ck)cards['m:'+ck]=true;
+}
+var kept={};
+for(var k in(map||{})){
+if(!Object.prototype.hasOwnProperty.call(map,k))continue;
+if(!hashes[k]&&!cards[k])continue;
+kept[k]=map[k];
+}
+return touch(kept,[],now);
+}
+function seed(map,list,now){
+var keys=[];
+for(var i=0;Array.isArray(list)&&i<list.length;i++){
+var h=hashOf(list[i]&&list[i].hash);
+if(h)keys.push('h:'+h);
+}
+return prune(touch(map,keys,now),list,now,[]);
+}
+var _on=false;
+var _timer=null;
+var _running=false;
+var _current='';
+var _net=null;
+function now(){
+var hook=api._now;
+return typeof hook==='function'?hook():Date.now();
+}
+function setT(fn,ms){
+var hook=api._timers;
+if(hook&&typeof hook.set==='function')return hook.set(fn,ms);
+return setTimeout(fn,ms);
+}
+function clearT(id){
+if(!id)return;
+var hook=api._timers;
+if(hook&&typeof hook.clear==='function'){hook.clear(id);return;}
+clearTimeout(id);
+}
+function enabled(){
+try{return!!LC.pref('lumen_tsclean',false);}catch(e){return false;}
+}
+function log(msg,err){
+var debug=false;
+try{debug=!!LC.pref('lumen_debug_hud',false);}catch(e){}
+if(debug)warn('tsclean: '+msg,err);
+}
+function storage(){
+try{
+if(window.Lampa&&Lampa.Storage&&typeof Lampa.Storage.get==='function')return Lampa.Storage;
+}catch(e){}
+return null;
+}
+function load(){
+var st=storage();
+if(!st)return{};
+try{
+var v=st.get(KEY,'');
+if(typeof v==='string')v=v?JSON.parse(v):null;
+return v&&typeof v==='object'?v:{};
+}catch(e){
+return{};
+}
+}
+function mapExists(){
+var st=storage();
+if(!st)return false;
+try{
+var v=st.get(KEY,'');
+if(typeof v==='string')v=v?JSON.parse(v):null;
+return!!(v&&typeof v==='object'&&!Array.isArray(v));
+}catch(e){
+return false;
+}
+}
+function seedPending(){
+var st=storage();
+if(!st)return false;
+try{return!!st.get(SEED_KEY,'');}catch(e){return false;}
+}
+function setSeed(on){
+var st=storage();
+if(!st||typeof st.set!=='function')return;
+try{st.set(SEED_KEY,on?'1':'',true);}catch(e){log('seed failed',e);}
+}
+function save(map){
+var st=storage();
+if(!st||typeof st.set!=='function')return;
+try{st.set(KEY,map,true);}catch(e){log('save failed',e);}
+}
+function remember(keys){
+var list=[];
+for(var i=0;i<keys.length;i++)if(keys[i])list.push(keys[i]);
+if(!list.length)return;
+var t=now();
+if(!isFinite(t)||t<MIN_CLOCK){setSeed(true);return;}
+save(touch(load(),list,t));
+}
+function activeCard(){
+try{
+var a=Lampa.Activity&&typeof Lampa.Activity.active==='function'?Lampa.Activity.active():null;
+return a?(a.card||a.movie||null):null;
+}catch(e){
+return null;
+}
+}
+function onPlay(data){
+try{
+if(!data||typeof data!=='object')return;
+var hash=hashOf(data.torrent_hash)||hashOf(data.url);
+if(!hash)return;
+_current=hash;
+var ck=cardKey(data.card||data.movie||activeCard());
+remember(['h:'+hash,ck?'m:'+ck:'']);
+}catch(e){
+log('play failed',e);
+}
+}
+function onStop(){
+_current='';
+}
+function onTorrent(element,card){
+try{
+if(!element||typeof element!=='object')return;
+var hash=hashOf(element.hash)||hashOf(element.MagnetUri)||hashOf(element.Link);
+var ck=cardKey(card);
+remember([hash?'h:'+hash:'',ck?'m:'+ck:'']);
+}catch(e){
+log('torrent failed',e);
+}
+}
+function server(){
+try{
+if(!window.Lampa)return'';
+if(Lampa.Platform&&typeof Lampa.Platform.is==='function'&&Lampa.Platform.is('android')&&
+Lampa.Storage&&typeof Lampa.Storage.field==='function'&&!Lampa.Storage.field('internal_torrclient')){
+return APP_URL;
+}
+var u=Lampa.Torserver&&typeof Lampa.Torserver.url==='function'?Lampa.Torserver.url():'';
+return str(u).replace(/\/+$/,'');
+}catch(e){
+return'';
+}
+}
+function net(){
+if(_net)return _net;
+var make=api._net;
+if(typeof make==='function')_net=make();
+else if(window.Lampa&&typeof Lampa.Reguest==='function')_net=new Lampa.Reguest();
+return _net;
+}
+function playerOpen(){
+try{return!!(LC.util&&LC.util.playerOpen&&LC.util.playerOpen());}catch(e){return false;}
+}
+function run(done){
+var finish=function(n){
+_running=false;
+if(typeof done==='function'){try{done(n);}catch(e){}}
+};
+if(_running){if(typeof done==='function')done(null);return;}
+var url=server();
+var n0=net();
+if(!url||!n0||typeof n0.silent!=='function'){if(typeof done==='function')done(null);return;}
+_running=true;
+try{
+if(typeof n0.timeout==='function')n0.timeout(LIST_TIMEOUT);
+n0.silent(url+'/torrents',function(list){
+if(!_on||!enabled()||!Array.isArray(list)){finish(null);return;}
+var t=now();
+if(!clockOk(t,load())){
+log('clock looks wrong, pass skipped');
+finish(null);
+return;
+}
+if(seedPending()||!mapExists()||list.length>CAP){
+save(seed(load(),list,t));
+if(list.length<=CAP)setSeed(false);
+log((list.length>CAP?'too many torrents, seeded only ':'seeded ')+list.length);
+finish(0);
+return;
+}
+var byHash={};
+for(var i=0;i<list.length;i++){
+var h=hashOf(list[i]&&list[i].hash);
+if(h&&!byHash[h])byHash[h]=list[i];
+}
+var queue=plan(list,load(),t,_current);
+var removed=[];
+var next=function(){
+if(!_on||!enabled()||seedPending()||playerOpen()||!queue.length){
+save(prune(load(),list,now(),removed));
+if(removed.length)log('removed '+removed.length);
+finish(removed.length);
+return;
+}
+var hash=queue.shift();
+var tnow=now();
+var fresh=load();
+if(!clockOk(tnow,fresh)||!removable(byHash[hash],fresh,tnow,_current)){next();return;}
+if(typeof n0.timeout==='function')n0.timeout(REM_TIMEOUT);
+n0.silent(url+'/torrents',function(){
+removed.push(hash);
+next();
+},function(a,c){
+log('rem failed '+hash,c);
+next();
+},JSON.stringify({action:'rem',hash:hash}),{dataType:'text'});
+};
+next();
+},function(a,c){
+log('list failed',c);
+finish(null);
+},JSON.stringify({action:'list'}));
+}catch(e){
+log('run failed',e);
+finish(null);
+}
+}
+function stopTimer(){
+clearT(_timer);
+_timer=null;
+}
+function wait(ms){
+stopTimer();
+_timer=setT(tick,ms);
+}
+function tick(){
+_timer=null;
+if(!_on||!enabled())return;
+if(playerOpen()){wait(PLAYER_RETRY);return;}
+_current='';
+wait(PERIOD);
+run();
+}
+function install(){
+_on=true;
+if(enabled()&&!_timer)wait(FIRST_DELAY);
+}
+function markOff(){
+setSeed(true);
+}
+function uninstall(){
+markOff();
+_on=false;
+stopTimer();
+_current='';
+try{if(_net&&typeof _net.clear==='function')_net.clear();}catch(e){}
+_running=false;
+}
+function apply(){
+if(enabled())setSeed(true);
+if(!_on)return;
+if(enabled()){if(!_timer)wait(FIRST_DELAY);}
+else stopTimer();
+}
+var api={
+KEY:KEY,
+SEED_KEY:SEED_KEY,
+MAX_IDLE:MAX_IDLE,
+FIRST_DELAY:FIRST_DELAY,
+PERIOD:PERIOD,
+PLAYER_RETRY:PLAYER_RETRY,
+MAX_PER_RUN:MAX_PER_RUN,
+CAP:CAP,
+APP_URL:APP_URL,
+hashOf:hashOf,
+cardKey:cardKey,
+movieOf:movieOf,
+touch:touch,
+lastSeen:lastSeen,
+removable:removable,
+plan:plan,
+prune:prune,
+seed:seed,
+clockOk:clockOk,
+MIN_CLOCK:MIN_CLOCK,
+markOff:markOff,
+server:server,
+install:install,
+uninstall:uninstall,
+apply:apply,
+run:run,
+onPlay:onPlay,
+onStop:onStop,
+onTorrent:onTorrent,
+current:function(){return _current;},
+pending:function(){return!!_timer;},
+_now:null,
+_timers:null,
+_net:null
+};
+return api;
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.tsclean;
 /* ---- 67_transition.js ---- */
 LC.transition=(function(){
 var DURATION=480;
@@ -24817,8 +25261,12 @@ var rec=capture(data,mode,now(),card,{torrent:c?torrentFor(data,c,prev):null});
 if(rec)save(rec);
 return rec;
 }
+function tsclean(fn){
+try{if(LC.tsclean)fn(LC.tsclean);}catch(err){warn('tsclean hook failed',err);}
+}
 function onCreate(e){
 if(!_on)return;
+tsclean(function(ts){ts.onPlay(e&&e.data);});
 try{record(e&&e.data,'pending');}catch(err){warn('resume create failed',err);}
 }
 function onExternal(data){
@@ -24836,6 +25284,7 @@ try{record(data,'inner');}catch(err){warn('resume start failed',err);}
 }
 function onDestroy(){
 if(!_on)return;
+tsclean(function(ts){ts.onStop();});
 try{
 var rec=load();
 if(rec&&rec.mode!=='external'&&!rec.settled){
@@ -24855,6 +25304,7 @@ return false;
 }
 function onTorrent(e){
 if(!_on||!e||e.type!=='onenter')return;
+tsclean(function(ts){ts.onTorrent(e.element,activeCard());});
 try{
 var card=activeCard();
 var t=torrentOf(e.element);
@@ -25578,6 +26028,12 @@ ru:'Список раздач, окна подключения и ошибок, 
 en:'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
 uk:'Список роздач, вікна підключення та помилок, списки файлів і передзавантаження — у стилі картки.'
 },
+lumen_tsclean_name:{ru:'Автоочистка TorrServer',en:'TorrServer auto-cleanup',uk:'Автоочищення TorrServer'},
+lumen_tsclean_descr:{
+ru:'Убирает из TorrServer раздачи, которые не открывали из Lampa больше суток. Просмотр прямо в приложении TorrServe не учитывается. Идущие не трогает.',
+en:'Removes torrents from TorrServer not opened from Lampa for over a day. Watching directly in the TorrServe app does not count. Active ones are kept.',
+uk:'Прибирає з TorrServer роздачі, які не відкривали з Lampa понад добу. Перегляд просто в застосунку TorrServe не враховується. Активні не чіпає.'
+},
 lumen_card_trailer:{ru:'Трейлер в карточке',en:'Trailer on the card',uk:'Трейлер у картці'},
 lumen_card_trailer_descr:{
 ru:'Трейлер без звука через 3 секунды после открытия карточки. «Авто» — выключен на Tizen и webOS.',
@@ -26145,6 +26601,10 @@ if(name==='lumen_debug_bench'||name==='lumen_more')return true;
 if(name==='lumen_rowmem'||name==='lumen_rowmem_bytes'||name==='lumen_netmem'||name==='lumen_prefill')return true;
 if(name==='lumen_roulette_unseen')return true;
 if(name==='lumen_whatsnew')return true;
+if(name==='lumen_tsclean'){
+try{if(LC.tsclean)LC.tsclean.apply();}catch(eTsclean){}
+return true;
+}
 if(name==='lumen_resume'||name==='lumen_resume_ttl'){
 try{if(name==='lumen_resume'&&LC.resume&&!LC.pref('lumen_resume',true))LC.resume.cancel();}catch(eResume){}
 return true;
@@ -26517,6 +26977,7 @@ var MORE=[
 {name:'lumen_remote_boost',type:'trigger','default':true,label:'lumen_remote_boost_name',descr:'lumen_remote_boost_descr'},
 {name:'lumen_menus',type:'select',values:['all','path','off'],vprefix:'lumen_card_menus_','default':'all',label:'lumen_card_menus',descr:'lumen_card_menus_descr'},
 {name:'lumen_torrents',type:'trigger','default':true,label:'lumen_card_torrents_name',descr:'lumen_card_torrents_descr'},
+{name:'lumen_tsclean',type:'trigger','default':false,label:'lumen_tsclean_name',descr:'lumen_tsclean_descr'},
 {name:'lumen_ambient_source',type:'select',values:['curated','current'],vprefix:'lumen_ambient_source_','default':'curated',label:'lumen_ambient_source_name',descr:'lumen_ambient_source_descr'},
 {name:'lumen_ambient_delay',type:'select',values:['3','5','10'],vsuffix:'lumen_ambient_minutes','default':'3',label:'lumen_ambient_delay_name',descr:'lumen_ambient_delay_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
@@ -26759,19 +27220,22 @@ ru:[
 'Если Lampa перезапустилась, пока шла серия или фильм, при следующем запуске она предложит вернуться к просмотру с того же места.',
 'Серии из приложения TorrServe: окно предложит открыть ту же раздачу снова, серию и место выберете там.',
 'Досмотрели серию до конца — окно предложит следующую.',
-'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.'
+'Прерванный фильм стоит первым в «Досмотреть» с меткой «Вернуться», вернуться к нему можно и из меню по удержанию OK.',
+'Новый пункт «Автоочистка TorrServer»: раздачи, которые не открывали больше суток, удаляются сами. По умолчанию выключен.'
 ],
 en:[
 'If Lampa restarted while an episode or film was playing, it will offer to resume from the same spot next time it starts.',
 'Episodes from the TorrServe app: the window offers to open the same torrent again, and you pick the episode and spot there.',
 'Finished an episode — the window offers the next one.',
-'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.'
+'The interrupted title comes first in "Continue watching" with a "Resume" label, and you can also resume it from the hold-OK menu.',
+'New "TorrServer auto-cleanup" option: torrents not opened for over a day are removed automatically. Off by default.'
 ],
 uk:[
 'Якщо Lampa перезапустилася, поки йшла серія чи фільм, під час наступного запуску вона запропонує повернутися до перегляду з того ж місця.',
 'Серії із застосунку TorrServe: вікно запропонує відкрити ту саму роздачу знову, серію й місце оберете там.',
 'Додивилися серію до кінця — вікно запропонує наступну.',
-'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.'
+'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.',
+'Новий пункт «Автоочищення TorrServer»: роздачі, які не відкривали понад добу, видаляються самі. Типово вимкнений.'
 ]
 },
 '1.2.0':{
@@ -28925,6 +29389,11 @@ LC.resume.schedule(resumeReady);
 warn('resume schedule failed',eResume);
 }
 try{
+if(LC.tsclean)LC.tsclean.install();
+}catch(eTsclean){
+warn('tsclean install failed',eTsclean);
+}
+try{
 if(LC.whatsnew&&LC.whatsnew.schedule)LC.whatsnew.schedule(homeReady);
 }catch(eNew){
 warn('whatsnew schedule failed',eNew);
@@ -29004,6 +29473,7 @@ try{if(LC.ambient&&LC.ambient.uninstall)LC.ambient.uninstall();}catch(eAmbientOf
 if(LC.followMoreBack)LC.followMoreBack(false);
 try{if(LC.whatsnew)LC.whatsnew.cancel();}catch(eNewOff){}
 try{if(LC.resume)LC.resume.uninstall();}catch(eResumeOff){}
+try{if(LC.tsclean)LC.tsclean.uninstall();}catch(eTscleanOff){}
 }
 var pending_refresh=null;
 function activeComponentName(){
@@ -29330,9 +29800,13 @@ try{if(Lampa.Lang&&typeof Lampa.Lang.add==='function')Lampa.Lang.add(LC.STRINGS)
 LC.migratePrefs();
 try{if(LC.whatsnew)LC.whatsnew.detect();}catch(eNew){warn('whatsnew detect failed',eNew);}
 try{if(LC.resume)LC.resume.boot();}catch(eResume){warn('resume boot failed',eResume);}
+var tsOff=function(){
+try{if(LC.tsclean)LC.tsclean.markOff();}catch(eTsclean){warn('tsclean mark failed',eTsclean);}
+};
+if(!LC.enabled())tsOff();
 LC.addSettings();
 LC.followStorage();
-if(!isWideLayout())return;
+if(!isWideLayout()){tsOff();return;}
 saveOriginalTemplate();
 var tpl=LC.template.build(original_template);
 var check=tpl?LC.template.assert(original_template,tpl):null;
@@ -29341,6 +29815,7 @@ warn('template not supported'+(check?': missing '+check.missingInOurs.join(', ')
 try{
 if(Lampa.Noty&&typeof Lampa.Noty.show==='function')Lampa.Noty.show(LC.lang('lumen_card_unsupported'));
 }catch(e3){}
+tsOff();
 return;
 }
 our_template=tpl;
@@ -29352,6 +29827,7 @@ if(LC.enabled())activate();
 }catch(e){
 inited=false;
 warn('init failed',e);
+try{if(LC.tsclean)LC.tsclean.markOff();}catch(eTscleanInit){}
 restoreOriginalTemplate();
 }
 };
