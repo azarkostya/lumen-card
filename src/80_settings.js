@@ -1117,7 +1117,11 @@
     /* Строка HUD «boot#12 · ext 23 мин назад · cold/ext 3/5» (src/69_hud.js). */
     lumen_resume_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_resume_hours: { ru: 'ч', en: 'h', uk: 'год' },
-    lumen_resume_ago: { ru: 'назад', en: 'ago', uk: 'тому' }
+    lumen_resume_ago: { ru: 'назад', en: 'ago', uk: 'тому' },
+    /* Подсказка пустого поиска (src/31_v2_search.js): ключ — штатный ключ
+       Lampa, LC.lang берёт её перевод; здесь — тексты Lampa на случай, если
+       Lang ещё не поднялся. */
+    search_start_typing: { ru: 'Начните вводить текст для поиска.', en: 'Start typing search text.', uk: 'Почніть вводити текст для пошуку.' }
   };
 
   function langCode() {

@@ -139,8 +139,10 @@ test('LC.v2search.scan: обходит карточки результатов',
 test('v2 экран 38: пустое поле — ряды результатов и счётчики вкладок скрыты', () => {
   for (const st of [{}, APPLE]) {
     const { css } = build(st);
-    const r = rules(css, '.search__input:not(.filled) ~ .search__results .items-line');
+    /* Ряды: прочие — целиком, первый — пустой рамкой под подсказку. */
+    const r = rules(css, '.search__input:not(.filled) ~ .search__results .items-line + .items-line,');
     assert.equal(r.length, 1);
+    assert.ok(r[0].indexOf('body.search--open .search .search__input:not(.filled) ~ .search__results .items-line > *') !== -1);
     assert.ok(r[0].indexOf('body.search--open .search .search__input:not(.filled) ~ .search__sources .search-source__count') !== -1);
     assert.ok(/\{display:none\}$/.test(r[0]), r[0]);
     /* «Начните вводить…» и «Ничего не найдено» (.search-looking) не трогаем. */
@@ -289,5 +291,39 @@ test('v2 экран 38: штатная анимация фокуса карто�
 test('v2 экран 38: карточки результатов без will-change:transform', () => {
   for (const st of [{}, APPLE]) {
     assert.equal(rules(build(st).css, 'body.search--open .search .search__results .card{will-change:auto}').length, 1);
+  }
+});
+
+/* Ревью [65]: пустое поле — справа не пустота, а штатная подсказка Lampa
+   (ряды прошлого поиска recall('') заменяют её «Начните вводить…» и скрыты). */
+test('v2 экран 38: пустое поле — подсказка «Начните вводить…» в рамке первого скрытого ряда', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const pre = 'body.search--open .search .search__input:not(.filled) ~ .search__results .items-line:first-child';
+    assert.equal(rules(css, pre + '{padding:9.18em 0 0 1.5em}').length, 1);
+    const txt = rules(css, pre + ':after{');
+    assert.equal(txt.length, 1);
+    assert.match(txt[0], /content:"Начните вводить текст для поиска\.";display:block;max-width:20em;.*font-size:1\.67em/);
+    const icon = rules(css, pre + ':before{');
+    assert.equal(icon.length, 1);
+    assert.match(icon[0], /^@supports .*width:2\.45em;height:2\.45em;margin-bottom:0\.62em/);
+    /* Первый ряд сам не скрыт — иначе пропала бы и подсказка. */
+    assert.equal(css.split('\n').some((x) => /\.search__results \.items-line(:first-child)?[,{][^}]*display:none/.test(x.replace(/\.items-line \+ \.items-line,|\.items-line > \*,/g, ''))), false);
+  }
+});
+
+test('v2 экран 38: подсказка пустого поиска — перевод Lampa, кавычки экранированы', () => {
+  const LCx = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (n, d) => d, field: () => undefined }, Lang: { translate: (k) => (k === 'search_start_typing' ? 'Type "here"' : k) } };
+  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
+  globalThis.Lampa = Lampa;
+  try {
+    for (const f of ['10_util.js', '20_icons.js', '80_settings.js', '81_prefs.js', '30_css.js', '31_v2_search.js']) loadInto(LCx, module, f);
+    const css = LCx.buildCss();
+    assert.ok(css.indexOf('.items-line:first-child:after{content:"Type \\"here\\"";') !== -1);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
   }
 });

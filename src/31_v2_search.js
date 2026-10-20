@@ -236,7 +236,18 @@
          на вкладках. Поле и результаты — соседи в .search__body, класс
          filled поля ставит сама Lampa. Пульт в скрытые ряды не пускает
          LC.v2search.onToggle ниже. */
-      css.push(S + ' .search__input:not(.filled) ~ .search__results .items-line,' + S + ' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+      /* Ревью [65]: скрыть ряды целиком значило оставить справа пустоту —
+         Lampa уже заменила ими свою «Начните вводить…». Поэтому первый ряд
+         остаётся пустой рамкой (его содержимое и прочие ряды скрыты), а в
+         нём — та же подсказка псевдоэлементом, видом .search-looking__text
+         ниже (лупа 1.47em и отступ 5.5em пересчитаны из её кегля 1.67em).
+         Текст — штатный ключ Lampa search_start_typing. */
+      var EMPTY = S + ' .search__input:not(.filled) ~ .search__results';
+      var hint = typeof LC.lang === 'function' ? LC.lang('search_start_typing') : '';
+      css.push(EMPTY + ' .items-line + .items-line,' + EMPTY + ' .items-line > *,' + S + ' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+      css.push(EMPTY + ' .items-line:first-child{padding:' + ctx.round2(5.5 * 1.67) + 'em 0 0 1.5em}');
+      css.push(EMPTY + ' .items-line:first-child:after{content:"' + ('' + hint).replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ') + '";display:block;max-width:20em;font-family:' + FB + ';font-weight:' + (APPLE ? '600' : '700') + ';font-size:1.67em;line-height:1.2;color:' + P.text + '}');
+      css.push(hasMask + '{' + EMPTY + ' .items-line:first-child:before{content:"";display:block;width:' + ctx.round2(1.47 * 1.67) + 'em;height:' + ctx.round2(1.47 * 1.67) + 'em;margin-bottom:' + ctx.round2(0.37 * 1.67) + 'em;color:' + MUTED + ';' + maskDecl(LC.icons.maskUrl('search')) + '}}');
 
       /* --- Пустые состояния и «Идёт поиск». ---
          Текст Lampa один («Начните вводить…», «Ничего не найдено…») —
