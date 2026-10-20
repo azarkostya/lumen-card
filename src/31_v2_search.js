@@ -197,6 +197,10 @@
       css.push(RES + ' .card__title{display:block;max-height:none;margin-top:.45em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + ';-webkit-line-clamp:none}');
       css.push(RES + ' .card__age{margin-top:.1em;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');
       if (typeof LC.badgesMode === 'function' && LC.badgesMode() !== 'off') css.push(RES + ' .card__vote{display:none}');
+      /* QA v2 P3-10: белая плашка «TV» (.card__type) и жёлтая качества
+         (.card__quality) на постерах — те же «пёстрые» плашки, что сняты на
+         главной; сериалы и так в своём ряду «Сериалы». */
+      css.push(RES + ' .card__type,' + RES + ' .card__quality{display:none}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
          снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),

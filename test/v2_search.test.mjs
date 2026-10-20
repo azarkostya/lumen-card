@@ -265,3 +265,10 @@ test('v2 экран 38: фокус результата масштабирует
     assert.equal(css.split('\n').some((r) => /search__results \.card\.focus \.card__(title|age)[^{]*\{[^}]*(transform|font-size)/.test(r)), false);
   }
 });
+
+test('v2 экран 38: плашки «TV» и качества на постерах результатов сняты (QA v2 P3-10)', () => {
+  for (const st of [{}, APPLE, { lumen_badges: 'off' }]) {
+    const { css } = build(st);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__type,body.search--open .search .search__results .card__quality{display:none}').length, 1);
+  }
+});
