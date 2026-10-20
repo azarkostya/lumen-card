@@ -293,6 +293,25 @@ test('v2 окна: Modal во весь экран — без скруглени�
   assert.equal(prop(eff(css, M + '.modal__content'), 'border-radius'), '.79em', 'обычное окно скруглено');
 });
 
+/* Ревью окон v2 (п.4): замок .selectbox-item__lock у Lampa — right:1.7em,
+   2em шириной (vendor/lampa/css/app.css:7200-7211), при нашем поле
+   чекбокс-пункта справа 3.3em он лежал на тексте. Замок — в гнезде
+   чекбокса и целиком внутри поля, svg-размер Lampa (с !important) снят. */
+test('v2 окна: замок пункта не заходит на текст', () => {
+  const { css } = build({});
+  const em = (v) => parseFloat(v);
+  const pad = em(prop(eff(css, G0 + '.selectbox-item--checkbox'), 'padding-right'));
+  const lock = eff(css, G0 + '.selectbox-item__lock');
+  const svg = eff(css, G0 + '.selectbox-item__lock > svg');
+  assert.ok(lock && svg, 'правил замка нет');
+  assert.equal(prop(svg, 'width'), prop(svg, 'height'));
+  assert.ok(/!important$/.test(prop(svg, 'width')), 'Lampa задаёт 2em с !important');
+  const right = em(prop(lock, 'right'));
+  const w = em(bare(prop(svg, 'width')));
+  assert.ok(right + w + 0.5 <= pad, 'замок ' + right + '+' + w + 'em, поле ' + pad + 'em');
+  assert.ok(Math.abs(em(prop(lock, 'margin-top')) + w / 2) < 0.001, 'по центру строки');
+});
+
 /* Правила, которые добавляет именно src/31_v2_dialogs.js: разница таблиц
    со стилем окон и без него. */
 function dialogRules(storage) {

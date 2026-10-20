@@ -114,6 +114,11 @@
       css.push(g0(['.selectbox-item__title']) + '{font-size:1.096em;font-weight:500;line-height:1.25}');
       css.push(g0(['.selectbox-item--checkbox']) + '{padding-right:3.3em}');
       css.push(g0(['.selectbox-item__checkbox']) + '{top:50%;right:1.05em;margin-top:-.614em;width:1.227em;height:1.227em;-webkit-box-sizing:border-box;box-sizing:border-box;border-width:.11em}');
+      /* Замок (закладки без CUB Premium, app.min.js onDraw) встаёт вместо
+         чекбокса — в его же гнездо: у Lampa он 2em на right:1.7em и
+         залезал на текст при нашем поле 3.3em. */
+      css.push(g0(['.selectbox-item__lock']) + '{right:1.05em;margin-top:-.614em}');
+      css.push(g0(['.selectbox-item__lock > svg']) + '{width:1.227em !important;height:1.227em !important}');
       css.push(g0(['.selectbox-item.selected:not(.nomark)::after', '.selectbox-item.picked::after']) + '{right:1.4em}');
       css.push(g0(['.settings-param-title']) + '{padding:.6em 2.45em .3em}');
       css.push(g(['.selectbox-item']) + '{color:' + TEXT + '}');
