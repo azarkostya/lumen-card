@@ -557,8 +557,9 @@ if(Object.prototype.hasOwnProperty.call(base,k))p[k]=base[k];
 p.good=C.good;
 p.goodDeep=C.goodDeep;
 p.spice=C.spice;
+var neutral=appleLook();
 try{
-if(LC.accent&&typeof LC.accent.tint==='function'){
+if(!neutral&&LC.accent&&typeof LC.accent.tint==='function'){
 var tinted=LC.accent.tint(p.bg,p.muted,4.5);
 if(tinted)p.bg=tinted;
 }
@@ -569,7 +570,7 @@ p.bgRgb=hexToRgb(p.bg);
 p.shadeRgb=shadeRgb(p.bg);
 p.rows=p.bg;
 try{
-if(LC.accent&&typeof LC.accent.rowsTint==='function'){
+if(!neutral&&LC.accent&&typeof LC.accent.rowsTint==='function'){
 var rows=LC.accent.rowsTint(p.soft,4.5,ROWS_LEAK);
 if(rows)p.rows=rows;
 }
@@ -629,7 +630,7 @@ return'background:-webkit-linear-gradient(top,'+stops+');background:linear-gradi
 LC.stageTone=function(rgb){
 var th=THEMES[LC.pref('lumen_theme','warm')]||THEMES.warm;
 var tone=th.bg;
-if(rgb&&LC.color&&typeof LC.color.rowsTint==='function'){
+if(rgb&&!appleLook()&&LC.color&&typeof LC.color.rowsTint==='function'){
 try{tone=LC.color.rowsTint(rgb,th.soft,4.5,STAGE_LEAK)||th.bg;}catch(e){tone=th.bg;}
 }
 return{tone:tone,scrim:stageScrim(hexToRgb(tone))};
@@ -2229,7 +2230,7 @@ css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after,.lumen-grid_
 css.push('.lumen-hub.lumen-motion-full .lumen-tile,.lumen-grid.lumen-motion-full .lumen-gcard{'+V2_TR(V2.durA)+'}');
 css.push('.lumen-card .lumen-episodes .lumen-episode.focus{'+V2_TF(V2.scaleWideA)+';'+V2_IMG_A+';border-color:transparent;background:none;background-color:'+P.panel+'}');
 css.push('.lumen-card.lumen-motion-full .lumen-episode{'+V2_EP_TR(V2.durA)+'}');
-css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{'+V2_TF(V2.buttonScaleA)+';-webkit-box-shadow:'+V2.buttonShadowA+';box-shadow:'+V2.buttonShadowA+'}');
+css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{'+V2_TF(V2.buttonScaleA)+';background-color:'+FILL+' !important;color:'+P.bg+' !important;-webkit-box-shadow:'+V2.buttonShadowA+' !important;box-shadow:'+V2.buttonShadowA+' !important}');
 css.push(ATV+' .lumen-roulette__spin.focus{'+V2_TF(V2.buttonScaleA)+'}');
 css.push('.lumen-descr-row .full-descr__text{background:none}');
 css.push('.lumen-descr-row .full-descr__text.focus{background:'+V2.blockA+';color:'+P.text+'}');
@@ -2385,6 +2386,10 @@ var r=[];
 r.push('.lumen-descr-row .lumen-review--bad .lumen-review__tone,.lumen-descr-row .lumen-review--bad.focus .lumen-review__tone,.lumen-review-modal--bad .lumen-review-modal__tone{background:'+RED+'}');
 r.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:'+P.soft+'}');
 r.push('.lumen-card .lumen-progress__bar > div,.lumen-grid .lumen-gcard__bar > div,.lumen-main .lumen-badge-bar > div{background:#FFFFFF}');
+r.push('.lumen-backdrop--proc0 .lumen-backdrop__img,.lumen-backdrop--proc1 .lumen-backdrop__img,.lumen-backdrop--proc2 .lumen-backdrop__img{background:linear-gradient(180deg,#0B0B0D 0%,#1D1D21 55%,#0B0B0D 100%)}');
+r.push('html body .card__quality{background:rgba(28,28,30,.85);color:#FFFFFF}');
+r.push('html body .card__marker--viewed::before{background-color:rgba(235,235,245,.6)}');
+r.push('html body .full-start__tag.tag--quality{background:rgba(255,255,255,.16);color:#FFFFFF}');
 return r.join('\n');
 }
 });
@@ -2658,24 +2663,32 @@ var BTN=A?V2.blockA:'rgba('+P.textRgb+',.12)';
 var SHADOW=A?'':'-webkit-box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);';
 var R='.526em';
 var NOBLUR='-webkit-backdrop-filter:none;backdrop-filter:none';
-function sel(prefix,list){
+var ALL='body.lumen-menus-all';
+var MS=(LC.menus&&LC.menus.MARK_SELECT)||'lumen-select';
+var MM=(LC.menus&&LC.menus.MARK_MODAL)||'lumen-modal';
+function sel(prefixes,list){
 var out=[];
-for(var i=0;i<list.length;i++)out.push(prefix+list[i]);
+for(var i=0;i<list.length;i++){
+for(var j=0;j<prefixes.length;j++)out.push(prefixes[j]+list[i]);
+}
 return out.join(',');
 }
-var G0='.selectbox:not(.lumen-cardmenu) ';
-var G='html body .selectbox:not(.lumen-cardmenu) ';
+var G0=[ALL+' .selectbox ','.selectbox.'+MS+' '];
+var G=['html '+ALL+' .selectbox:not(.lumen-cardmenu) ','html body .selectbox.'+MS+':not(.lumen-cardmenu) '];
 function g0(list){return sel(G0,list);}
 function g(list){return sel(G,list);}
 css.push(g(['.selectbox__layer'])+'{'+NOBLUR+'}');
-css.push(g(['.selectbox__content'])+'{background:'+PANEL+';color:'+TEXT+';'+FF+SHADOW+NOBLUR+'}');
+css.push(g(['.selectbox__content'])+'{background:'+PANEL+';color:'+TEXT+';'+FF+NOBLUR+'}');
+if(SHADOW)css.push(sel(['html '+ALL+'.selectbox--open .selectbox:not(.lumen-cardmenu) ','html body.selectbox--open .selectbox.'+MS+':not(.lumen-cardmenu) '],['.selectbox__content'])+'{'+SHADOW+'}');
 css.push(g0(['.selectbox__title'])+'{font-size:1.67em;font-weight:700;line-height:1.2}');
 css.push(g(['.selectbox__title'])+'{color:'+TEXT+'}');
-css.push(g0(['.selectbox__text'])+'{color:'+SOFT+'}');
+css.push(g(['.selectbox__text'])+'{color:'+SOFT+'}');
 css.push(g0(['.selectbox-item'])+'{margin:0 1.4em .175em;padding:.7em 1.05em;border-radius:'+R+'}');
 css.push(g0(['.selectbox-item__title'])+'{font-size:1.096em;font-weight:500;line-height:1.25}');
 css.push(g0(['.selectbox-item--checkbox'])+'{padding-right:3.3em}');
 css.push(g0(['.selectbox-item__checkbox'])+'{top:50%;right:1.05em;margin-top:-.614em;width:1.227em;height:1.227em;-webkit-box-sizing:border-box;box-sizing:border-box;border-width:.11em}');
+css.push(g0(['.selectbox-item__lock'])+'{right:1.05em;margin-top:-.614em}');
+css.push(g0(['.selectbox-item__lock > svg'])+'{width:1.227em !important;height:1.227em !important}');
 css.push(g0(['.selectbox-item.selected:not(.nomark)::after','.selectbox-item.picked::after'])+'{right:1.4em}');
 css.push(g0(['.settings-param-title'])+'{padding:.6em 2.45em .3em}');
 css.push(g(['.selectbox-item'])+'{color:'+TEXT+'}');
@@ -2692,12 +2705,13 @@ css.push(g(['.selectbox-item.focus .selectbox-item__checkbox'])+'{border-color:'
 css.push(g(['.selectbox-item--checked.focus .selectbox-item__checkbox'])+'{background-color:'+ON+' !important}');
 css.push(g(['.selectbox-item--checked.focus .selectbox-item__checkbox::after'])+'{color:'+FILL+' !important;border-color:'+FILL+' !important}');
 css.push(g(['.selectbox-item.selected.focus:not(.nomark)::after','.selectbox-item.picked.focus::after'])+'{color:'+ON+' !important;border-color:'+ON+' !important}');
-var M0='body .modal ';
-var M='html body .modal.modal ';
-function m0(list){return sel(M0,list);}
+var M0=[ALL+' .modal','.modal.'+MM];
+var M=['html '+ALL+' .modal ','html body .modal.'+MM+' '];
+function m0(list){return sel([M0[0]+' ',M0[1]+' '],list);}
 function m(list){return sel(M,list);}
-css.push('body .modal{background-color:rgba('+P.bgRgb+',.55);'+NOBLUR+'}');
+css.push(M0.join(',')+'{background-color:rgba('+P.bgRgb+',.55);'+NOBLUR+'}');
 css.push(m(['.modal__content'])+'{background-color:'+PANEL+';border-radius:.79em;color:'+TEXT+';'+FF+SHADOW+NOBLUR+'}');
+css.push(sel(['html '+ALL+' .modal.modal--full ','html body .modal.'+MM+'.modal--full '],['.modal__content'])+'{border-radius:0}');
 css.push(m0(['.modal__title'])+'{font-size:1.67em;font-weight:700;line-height:1.2}');
 css.push(m(['.modal__title'])+'{color:'+TEXT+'}');
 css.push(m0(['.about'])+'{font-weight:500}');
@@ -2916,11 +2930,14 @@ css.push(RES+' .items-line__title{font-family:'+FB+';font-weight:'+(APPLE?'600':
 css.push('body.search--open .search .search__results .scroll--horizontal{padding-top:1.2em !important;padding-bottom:1.6em !important}');
 css.push(RES+' .items-line__head + .items-line__body{margin-top:-.59em}');
 css.push(RES+' .card{width:9.52em;margin-right:1.75em}');
+css.push(RES+' .card{will-change:auto}');
 css.push(RES+' .card__view,'+RES+' .card__img{border-radius:'+V2.rImg+'em}');
 css.push(RES+' .card__title{display:block;max-height:none;margin-top:.45em;font-family:'+FB+';font-weight:600;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:'+P.text+';-webkit-line-clamp:none}');
 css.push(RES+' .card__age{margin-top:.1em;font-family:'+FB+';font-weight:500;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:'+MUTED+'}');
 if(typeof LC.badgesMode==='function'&&LC.badgesMode()!=='off')css.push(RES+' .card__vote{display:none}');
 css.push(RES+' .card__type,'+RES+' .card__quality{display:none}');
+css.push(RES+' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+css.push(RES+' .card__icon{width:1.25em;height:1.25em}');
 css.push(RES+' .card.focus .card__view:after,'+RES+' .card.hover .card__view:after{display:none}');
 var SC=APPLE?V2.scalePosterA:V2.scalePosterL;
 css.push(RES+' .card.focus{z-index:2}');
@@ -2929,8 +2946,14 @@ css.push(RES+' .card.focus .card__view{-webkit-transform:scale('+SC+');transform
 }else{
 css.push(RES+' .card.focus .card__view{-webkit-transform:scale('+SC+');transform:scale('+SC+');outline:'+V2.ring+'em solid '+P.text+';outline-offset:'+V2.ringGap+'em;-webkit-box-shadow:'+V2.shadowL+';box-shadow:'+V2.shadowL+'}');
 }
+css.push(RES+' .card.focus .card__view,'+RES+' .card.hover .card__view,'+RES+' .card.animate-trigger-enter .card__view{-webkit-animation:none !important;animation:none !important}');
 css.push('body.lumen-motion-full.search--open .search .search__results .card__view{'+tr(APPLE?V2.durA:V2.durL)+'}');
-css.push(S+' .search__input:not(.filled) ~ .search__results .items-line,'+S+' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+var EMPTY=S+' .search__input:not(.filled) ~ .search__results';
+var hint=typeof LC.lang==='function'?LC.lang('search_start_typing'):'';
+css.push(EMPTY+' .items-line + .items-line,'+EMPTY+' .items-line > *,'+S+' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+css.push(EMPTY+' .items-line:first-child{padding:'+ctx.round2(5.5*1.67)+'em 0 0 1.5em}');
+css.push(EMPTY+' .items-line:first-child:after{content:"'+(''+hint).replace(/[\\"]/g,'\\$&').replace(/[\r\n\f]+/g,' ')+'";display:block;max-width:20em;font-family:'+FB+';font-weight:'+(APPLE?'600':'700')+';font-size:1.67em;line-height:1.2;color:'+P.text+'}');
+css.push(hasMask+'{'+EMPTY+' .items-line:first-child:before{content:"";display:block;width:'+ctx.round2(1.47*1.67)+'em;height:'+ctx.round2(1.47*1.67)+'em;margin-bottom:'+ctx.round2(0.37*1.67)+'em;color:'+MUTED+';'+maskDecl(LC.icons.maskUrl('search'))+'}}');
 css.push(RES+' .search-looking{padding-left:1.5em}');
 css.push(RES+' .search-looking__text{max-width:20em;margin-top:5.5em;font-family:'+FB+';font-weight:'+(APPLE?'600':'700')+';font-size:1.67em;line-height:1.2;color:'+P.text+'}');
 css.push(hasMask+'{'+RES+' .search-looking__text:before{content:"";display:block;width:1.47em;height:1.47em;margin-bottom:.37em;color:'+MUTED+';'+maskDecl(LC.icons.maskUrl('search'))+'}}');
@@ -2965,6 +2988,33 @@ var n=0;
 for(var i=0;i<cards.length;i++)if(rateCard(cards[i]))n++;
 return n;
 }
+function hasClass(n,c){
+return!!(n&&n.classList&&n.classList.contains(c));
+}
+function onMutations(list,root){
+var n=0;
+for(var i=0;list&&i<list.length;i++){
+var added=list[i].addedNodes;
+for(var j=0;added&&j<added.length;j++){
+var node=added[j];
+if(!node||node.nodeType!==1)continue;
+var card=null;
+var inRes=false;
+for(var p=node;p&&p!==root;p=p.parentNode){
+if(!card&&hasClass(p,'card'))card=p;
+if(hasClass(p,'search__results')){inRes=true;break;}
+}
+if(!inRes)continue;
+if(card){
+if(rateCard(card))n++;
+continue;
+}
+var cards=node.querySelectorAll?node.querySelectorAll('.card'):[];
+for(var k=0;k<cards.length;k++)if(rateCard(cards[k]))n++;
+}
+}
+return n;
+}
 function rootNode(){
 try{
 var r=window.Lampa&&Lampa.Search&&Lampa.Search.render?Lampa.Search.render(true):null;
@@ -2987,7 +3037,7 @@ if(!root)return;
 scan(root);
 if(typeof window.MutationObserver!=='function')return;
 try{
-obs=new window.MutationObserver(function(){scan(root);});
+obs=new window.MutationObserver(function(list){onMutations(list,root);});
 obs.observe(root,{childList:true,subtree:true});
 }catch(e){
 warn('v2search: observe failed',e);
@@ -3015,10 +3065,18 @@ return!!(nav&&typeof nav.canmove==='function'&&nav.canmove(dir));
 return true;
 }
 }
+function tabsHidden(){
+try{
+var t=sources&&typeof sources.tabs==='function'?sources.tabs():null;
+return!!(t&&t.classList&&t.classList.contains('hide'));
+}catch(e){
+return false;
+}
+}
 function onToggle(name){
 try{
 if(!installed||!sources)return;
-if(name!=='keybord'&&name!=='search_sources')return;
+if(name!=='keybord'&&name!=='search_sources'&&name!=='search_results')return;
 var body=document.body;
 if(!body||!body.classList||!body.classList.contains('search--open'))return;
 if(body.classList.contains('keyboard-input--visible'))return;
@@ -3027,6 +3085,10 @@ var c=en&&en.name===name?en.controller:null;
 if(!c||c.lumenSearchBound)return;
 var root=rootNode();
 if(!root)return;
+if(name==='search_results'){
+if(!filled(root))Lampa.Controller.toggle(root.querySelector('.search__history .search-history-key')?'search_history':'keybord');
+return;
+}
 c.lumenSearchBound=true;
 if(name==='keybord'&&typeof c.right==='function'){
 var right=c.right;
@@ -3050,6 +3112,10 @@ c.down=function(){
 if(!filled(root))return;
 return down.apply(this,arguments);
 };
+if(tabsHidden()){
+if(filled(root)&&hasRows(root))c.down();
+else if(typeof c.up==='function')c.up();
+}
 }
 }catch(e){
 warn('v2search: toggle failed',e);
@@ -3078,7 +3144,7 @@ Lampa.Search.listener.remove('sources',onSources);
 installed=false;
 sources=null;
 }
-return{rateCard:rateCard,scan:scan,install:install,uninstall:uninstall,onToggle:onToggle};
+return{rateCard:rateCard,scan:scan,onMutations:onMutations,install:install,uninstall:uninstall,onToggle:onToggle};
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.v2search;
 /* ---- 31_v2_settings_menu.js ---- */
@@ -3181,6 +3247,7 @@ var ON_SUB=A?ctx.V2.sub:'rgba('+P.bgRgb+',.72)';
 var ROW_BG=A?'transparent':P.panelHi;
 var LINE=A?'rgba(255,255,255,.14)':P.line;
 var CHIP=A?'rgba(255,255,255,.16)':'rgba('+P.textRgb+',.12)';
+var IMP=A?' !important':'';
 var r=[];
 var S='body.lumen-torrents-on .activity.lumen-torrents ';
 function s(list){
@@ -3229,7 +3296,7 @@ var chipsFocus=[];
 for(var c=0;c<chips.length;c++)chipsFocus.push(chips[c]+'.focus');
 r.push(s(chips)+'{height:2.28em;padding:0 1.052em;margin-right:.614em;border:0;border-radius:1.14em;background-color:'+CHIP+';color:'+P.text+';font-size:1.008em;font-weight:500;-webkit-box-shadow:none;box-shadow:none;-webkit-transform:none !important;transform:none !important}');
 r.push(s(['.torrent-filter .filter--search > div','.torrent-filter .filter--sort > div'])+'{color:'+MUTED+';border-left:0;font-weight:500}');
-r.push(s(chipsFocus)+'{background-color:'+FILL+';color:'+ON+';-webkit-box-shadow:none;box-shadow:none}');
+r.push(s(chipsFocus)+'{background-color:'+FILL+IMP+';color:'+ON+IMP+';-webkit-box-shadow:none'+IMP+';box-shadow:none'+IMP+'}');
 r.push(s(['.torrent-filter .filter--search.focus > div','.torrent-filter .filter--sort.focus > div'])+'{color:'+ON_SUB+'}');
 r.push(s(['.torrent-filter__title'])+'{display:none}');
 r.push(s(['.torrent-list'])+'{padding:.35em 3.507em 1.4em 3.507em}');
@@ -3241,7 +3308,7 @@ r.push(s([row+'.focus'])+'{border-radius:.614em;border-bottom-color:transparent}
 }else{
 r.push(s([row+' + .torrent-item'])+'{margin-top:.526em}');
 }
-r.push(s([row+'.focus'])+'{background-color:'+FILL+';color:'+ON+';border-color:transparent;padding:.75em '+(A?'1.052em':'1.227em')+';-webkit-box-shadow:none;box-shadow:none}');
+r.push(s([row+'.focus'])+'{background-color:'+FILL+IMP+';color:'+ON+IMP+';border-color:transparent;padding:.75em '+(A?'1.052em':'1.227em')+';-webkit-box-shadow:none'+IMP+';box-shadow:none'+IMP+'}');
 r.push(s([row+'.focus::after'])+'{display:none}');
 r.push(s([row+' .torrent-item__title'])+'{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.008em;font-weight:500;line-height:1.35;color:'+P.text+';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
 r.push(s([row+' .lumen-tt-a'])+'{color:'+SOFT+'}');
@@ -3279,7 +3346,7 @@ r.push(s([row+'.focus .torrent-item__size',row+'.focus .torrent-item__seeds'])+'
 r.push(s([row+' .torrent-item__viewed'])+'{top:.45em;left:.45em;width:1.1em;height:1.1em}');
 r.push(s([row+' .torrent-item__viewed:before'])+'{width:.7em;height:.7em}');
 r.push(s(['.watched-history'])+'{margin:0 0 .526em;padding:.6em 1.227em;border:0;border-radius:.614em;background-color:'+(A?CHIP:P.panelHi)+';color:'+SOFT+';-webkit-box-shadow:none;box-shadow:none}');
-r.push(s(['.watched-history.focus'])+'{background-color:'+FILL+';color:'+ON+';padding:.6em 1.227em;border:0;-webkit-box-shadow:none;box-shadow:none}');
+r.push(s(['.watched-history.focus'])+'{background-color:'+FILL+IMP+';color:'+ON+IMP+';padding:.6em 1.227em;border:0;-webkit-box-shadow:none'+IMP+';box-shadow:none'+IMP+'}');
 r.push(s(['.watched-history.focus::after'])+'{display:none}');
 r.push(s(['.watched-history.focus .watched-history__icon'])+'{border-color:'+ON+';color:'+ON+';background:none}');
 var F='body.lumen-torrents-on .modal .torrent-files.torrent-files ';
@@ -3291,7 +3358,7 @@ return out.join(',');
 r.push(f(['.torrent-serial','.torrent-file'])+'{margin:0;border:0;border-radius:'+(A?'0':'.614em')+';background-color:'+ROW_BG+';-webkit-box-shadow:none;box-shadow:none}');
 if(A)r.push(f(['.torrent-serial','.torrent-file'])+'{border-bottom:.044em solid '+LINE+'}');
 else r.push(f(['.torrent-serial + .torrent-serial','.torrent-file + .torrent-file','.torrent-serial + .torrent-file','.torrent-file + .torrent-serial'])+'{margin-top:.526em}');
-r.push(f(['.torrent-serial.focus','.torrent-file.focus'])+'{border-radius:.614em;border-color:transparent;background-color:'+FILL+';color:'+ON+';-webkit-box-shadow:none;box-shadow:none}');
+r.push(f(['.torrent-serial.focus','.torrent-file.focus'])+'{border-radius:.614em;border-color:transparent;background-color:'+FILL+IMP+';color:'+ON+IMP+';-webkit-box-shadow:none'+IMP+';box-shadow:none'+IMP+'}');
 r.push(f(['.torrent-serial.focus::after','.torrent-file.focus::after'])+'{display:none}');
 r.push(f(['.torrent-serial','.torrent-serial.focus'])+'{-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:4.56em;padding:.6em '+(A?'1.052em':'1.227em')+'}');
 r.push(f(['.torrent-serial__img'])+'{display:none}');
@@ -3340,6 +3407,7 @@ r.push(m(['.selectbox-item--checked .selectbox-item__checkbox::after'])+'{color:
 r.push(m(['.selectbox-item.focus .selectbox-item__checkbox'])+'{border-color:'+ON+' !important}');
 r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox'])+'{background-color:'+ON+' !important}');
 r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after'])+'{color:'+FILL+' !important}');
+if(A)r.push(m(['.selectbox-item.selected:not(.nomark)::after','.selectbox-item.picked::after'])+'{color:#FFFFFF !important;border-color:#FFFFFF !important}');
 r.push(m(['.selectbox-item__lock'])+'{right:.7em;margin-top:-.44em;opacity:1;color:'+MUTED+'}');
 r.push(m(['.selectbox-item__lock > svg'])+'{width:.877em !important;height:.877em !important}');
 r.push(m(['.selectbox-item.focus .selectbox-item__lock'])+'{color:'+ON_SUB+' !important}');
@@ -7905,6 +7973,7 @@ act.prepend(node);
 return true;
 }
 function colorOf(path){
+try{if(LC.pref&&LC.pref('lumen_flat',false))return null;}catch(e){}
 try{return LC.accent&&typeof LC.accent.frameColor==='function'?LC.accent.frameColor(path):undefined;}catch(e){return undefined;}
 }
 function paintTone(path){
@@ -11288,6 +11357,9 @@ if(tgen!==captured||!state)return;
 state.trailer=null;
 markTrailer(false);
 trailerOff();
+},function(){
+if(tgen!==captured||!state)return;
+trailerOn();
 });
 }catch(err){
 warn('hero: trailer start failed',err);
@@ -14273,6 +14345,14 @@ keyBound=true;
 }
 }catch(e){}
 }
+function unbindKeys(){
+if(!keyBound)return;
+keyBound=false;
+var d=doc();
+try{
+if(d&&typeof d.removeEventListener==='function')d.removeEventListener('keydown',onKey,true);
+}catch(e){}
+}
 function nodeOf(layer){
 if(!layer)return null;
 var node=layer[0]||layer;
@@ -14514,6 +14594,7 @@ unraf(frame);
 frame=0;
 clearIdle();
 last=0;
+unbindKeys();
 }
 }
 function sweep(){
@@ -15752,7 +15833,7 @@ return owner;
 function status(){
 return last;
 }
-function player($host,key,onStart,onEnd){
+function player($host,key,onStart,onEnd,onPlaying){
 var mine=++seq;
 var id='lumen-yt-'+mine;
 var yt=null;
@@ -15760,6 +15841,8 @@ var dead=false;
 var timeout=null;
 var started=false;
 var shown=false;
+var due=false;
+var lastState=-1;
 owner=mine;
 mark('api');
 $host.html('<div id="'+id+'"></div>');
@@ -15789,6 +15872,22 @@ yt=null;
 try{$host.empty().removeClass('is-live');}catch(e2){}
 onEnd();
 }
+function reveal(){
+due=false;
+try{$host.addClass('is-live');}catch(e){}
+shown=true;
+mark('play');
+onStart();
+}
+function playing(){
+var st=lastState;
+try{if(yt&&typeof yt.getPlayerState==='function')st=yt.getPlayerState();}catch(e){}
+return st===1;
+}
+function waitStart(){
+if(timeout)clearTimeout(timeout);
+timeout=setTimeout(function(){kill('timeout ready');},WAIT_MS);
+}
 function create(){
 if(dead)return;
 try{
@@ -15815,6 +15914,7 @@ try{if(ev.target.unloadModule){ev.target.unloadModule('captions');ev.target.unlo
 },
 onStateChange:function(ev){
 if(dead||!ev)return;
+lastState=ev.data;
 if(ev.data===1){
 if(!started){
 started=true;
@@ -15823,10 +15923,17 @@ mark('play');
 timeout=setTimeout(function(){
 timeout=null;
 if(dead)return;
-try{$host.addClass('is-live');}catch(e){}
-shown=true;
-onStart();
+if(playing()){reveal();return;}
+due=true;
+mark('ready');
+waitStart();
 },CLEAN_MS);
+if(typeof onPlaying==='function'){
+try{onPlaying();}catch(e){warn('trailer playing hook failed',e);}
+}
+}else if(due){
+if(timeout){clearTimeout(timeout);timeout=null;}
+reveal();
 }else if(shown){
 try{$host.addClass('is-live');}catch(e){}
 mark('play');
@@ -16009,7 +16116,6 @@ control=player(ensureHost(layer),video.key,function(){
 if(!alive)return;
 paused=true;
 pauseSlideshow(layer);
-startWatchdog();
 try{root.addClass('lumen-trailer-on');}catch(e){}
 try{layer.addClass('lumen-trailer-live');}catch(e2){}
 addBadge(root);
@@ -16020,6 +16126,7 @@ if(!alive)return;
 alive=false;
 cleanup();
 });
+if(alive&&control)startWatchdog();
 }
 function destroy(){
 if(timer){clearTimeout(timer);timer=null;}
@@ -18134,7 +18241,9 @@ writeAccentStyle('lumen-accent-focus',focus,last);
 var applied=null;
 var applied_tint=false;
 function tokenColor(){
-var t=override||themeTokens;
+var flat=false;
+try{flat=!!LC.pref('lumen_flat',false);}catch(e){flat=false;}
+var t=(flat?null:override)||themeTokens;
 return t?t.color:null;
 }
 function restyle(){
@@ -21977,11 +22086,55 @@ function releaseDate(card){
 if(!card)return'';
 return card.release_date||card.first_air_date||'';
 }
+var EP_SCAN=30;
+var EP_GAP=3;
+var EP_DONE=95;
+var EP_PLAY=' \u25B6\uFE0E';
+function episodeBadge(card,view,hash,words){
+if(!card||!card.lumen_continue||typeof view!=='function'||typeof hash!=='function')return null;
+if(card.original_title||!(card.original_name||card.name))return null;
+var key=card.original_name||card.name;
+var last=card.last_episode_to_air||null;
+var season=parseInt(card.number_of_seasons,10)||(last?parseInt(last.season_number,10)||0:0);
+if(!(season>0))return null;
+var best=null,bestEp=0,gap=0;
+for(var ep=1;ep<=EP_SCAN;ep++){
+var v=view(hash([season,season>10?':':'',ep,key].join('')));
+var percent=v?Number(v.percent)||0:0;
+if(percent>0){
+gap=0;
+if(!best||(Number(v.updated)||0)>=(Number(best.updated)||0)){best=v;bestEp=ep;}
+}else if(best&&++gap>=EP_GAP){
+break;
+}
+}
+if(!best)return null;
+var head='S'+season+'\u00B7E';
+var pct=Number(best.percent)||0;
+if(pct>=EP_DONE){
+var next=bestEp+1;
+if(last&&(parseInt(last.season_number,10)||0)===season&&(parseInt(last.episode_number,10)||0)<next)return null;
+return{kind:'progress',text:head+next,percent:0};
+}
+var whole=Math.max(1,Math.round(pct));
+var duration=Number(best.duration)||0;
+var time=Number(best.time)||0;
+var tpl=words&&words.epLeft?''+words.epLeft:'';
+if(duration>0&&time>=0&&time<duration&&tpl){
+var left=Math.ceil((duration-time)/60);
+if(left>=1)return{kind:'progress',text:tpl.replace('{e}',head+bestEp).replace('{n}',left),percent:whole,left:true};
+}
+return{kind:'progress',text:head+bestEp+EP_PLAY,percent:whole};
+}
 function badgeFor(card,today,ctx){
 if(!card)return null;
 ctx=ctx||{};
 var words=ctx.words||{};
 if(card.lumen_badge)return{kind:'custom',text:''+card.lumen_badge,percent:0};
+if(card.lumen_continue&&typeof ctx.episode==='function'){
+var epBadge=ctx.episode(card);
+if(epBadge&&epBadge.text)return epBadge;
+}
 var percent=null;
 if(typeof ctx.progress==='function')percent=Number(ctx.progress(card));
 if(percent!==null&&!isNaN(percent)&&percent>=PROGRESS_MIN&&percent<=PROGRESS_MAX){
@@ -22049,8 +22202,31 @@ return{
 soon:LC.lang('lumen_badge_soon'),
 fresh:LC.lang('lumen_badge_new'),
 left:left.indexOf('{n}')!==-1?left:'',
+epLeft:epLeftWord(),
 months:(''+LC.lang('lumen_card_months_short')).split(',')
 };
+}
+function epLeftWord(){
+var tpl=''+LC.lang('lumen_badge_ep_left');
+return tpl.indexOf('{e}')!==-1&&tpl.indexOf('{n}')!==-1?tpl:'';
+}
+var ep_cache={};
+function episodeOf(card){
+try{
+if(LC.pref&&!LC.pref('lumen_next_ep_badge',true))return null;
+var id=card.id!=null?'i'+card.id:null;
+if(id&&Object.prototype.hasOwnProperty.call(ep_cache,id))return ep_cache[id];
+var out=null;
+if(window.Lampa&&Lampa.Timeline&&typeof Lampa.Timeline.view==='function'&&
+Lampa.Utils&&typeof Lampa.Utils.hash==='function'){
+out=episodeBadge(card,function(h){return Lampa.Timeline.view(h);},
+function(k){return Lampa.Utils.hash(k);},{epLeft:epLeftWord()});
+}
+if(id)ep_cache[id]=out;
+return out;
+}catch(e){
+return null;
+}
 }
 function batch(){
 return{today:new Date(),words:words()};
@@ -22121,7 +22297,7 @@ if(!data)return;
 el.lumen_badged=true;
 if(data.lumen_advent)return;
 var ctx=shared||batch();
-var badge=badgeFor(data,ctx.today,{progress:progressOf,left:leftOf,words:ctx.words});
+var badge=badgeFor(data,ctx.today,{progress:progressOf,left:leftOf,episode:episodeOf,words:ctx.words});
 var view=$(el).find('.card__view');
 var hasBadge=!!(badge&&badge.text&&view&&view.length);
 var view_mode=mode();
@@ -22173,21 +22349,53 @@ if(line)lines.push(line);
 else if(typeof el.querySelectorAll==='function')lines=el.querySelectorAll('.items-line');
 for(var i=0;i<lines.length;i++)LC.typo.stripCards(lines[i].querySelectorAll('.card'));
 }
+var OWN=['lumen-badge','lumen-badge-cap','lumen-badge-bar'];
+function ownNode(n){
+var c=n&&n.classList;
+if(!c)return false;
+for(var i=0;i<OWN.length;i++)if(c.contains(OWN[i]))return true;
+return false;
+}
+function inHero(target){
+try{
+return!!(target&&typeof target.closest==='function'&&target.closest('.lumen-hero, .lumen-hero-stage'));
+}catch(e){
+return false;
+}
+}
+function addLine(lines,line){
+if(line&&lines.indexOf(line)===-1)lines.push(line);
+}
+function linesOf(target,elems,lines){
+var line=target&&typeof target.closest==='function'?target.closest('.items-line'):null;
+if(line){addLine(lines,line);return;}
+for(var i=0;i<elems.length;i++){
+var el=elems[i];
+if(el.classList&&el.classList.contains('items-line')){addLine(lines,el);continue;}
+if(typeof el.querySelectorAll!=='function')continue;
+var inner=el.querySelectorAll('.items-line');
+for(var k=0;k<inner.length;k++)addLine(lines,inner[k]);
+}
+}
 function onMutations(records){
 if(!state)return;
 try{
 var shared=null;
+var lines=[];
 for(var i=0;i<records.length;i++){
 var added=records[i]&&records[i].addedNodes;
 if(!added||!added.length)continue;
-if(!shared)shared=batch();
-var elems=false;
+var elems=[];
 for(var k=0;k<added.length;k++){
-decorateAdded(added[k],shared);
-if(added[k]&&added[k].nodeType===1)elems=true;
+var n=added[k];
+if(n&&n.nodeType===1&&!ownNode(n))elems.push(n);
 }
-if(elems&&LC.typo)stripLines(records[i].target);
+if(!elems.length||inHero(records[i].target))continue;
+if(!shared)shared=batch();
+for(var j=0;j<elems.length;j++)decorateAdded(elems[j],shared);
+if(LC.typo)linesOf(records[i].target,elems,lines);
 }
+for(var m=0;m<lines.length;m++)LC.typo.stripCards(lines[m].querySelectorAll('.card'));
 }catch(e){
 warn('badges: observer failed',e);
 }
@@ -22205,6 +22413,7 @@ warn('badges: observe failed',e);
 function mount(root){
 try{
 if(!root||!root.length)return;
+ep_cache={};
 var want=mode();
 if(state&&state.root&&state.root[0]===root[0]&&mounted_mode===want)return;
 unmount();
@@ -22301,6 +22510,7 @@ if(root&&root.length)strip(root);
 }
 return{
 badgeFor:badgeFor,
+episodeBadge:episodeBadge,
 countdown:countdown,
 decorate:decorate,
 mount:mount,
@@ -22384,6 +22594,9 @@ var installed=false;
 var pending=null;
 var longHandler=null;
 var preshowHandler=null;
+var toggleHandler=null;
+var menuActive=null;
+var menuHit=null;
 function enabled(){
 try{return LC.pref?!!LC.pref('lumen_context_menu',true):true;}catch(e){return true;}
 }
@@ -22669,6 +22882,10 @@ if(!enabled())return;
 var active=e&&e.active;
 var hit=active&&(active.lumen_own||isCardMenu(active,actionTitle()))?fresh():null;
 platter(hit);
+if(hit){
+menuActive=active;
+menuHit=hit;
+}
 if(!active||active.lumen_own)return;
 if(!isCardMenu(active,actionTitle()))return;
 if(!hit||!hit.card)return;
@@ -22678,6 +22895,16 @@ if(!items.length)return;
 active.items=active.items.concat([{title:words().section,separator:true}]).concat(decorate(items,card,active));
 }catch(err){
 warn('cardmenu: preshow failed',err);
+}
+}
+function onToggle(e){
+try{
+if(!enabled())return;
+var active=e&&e.active;
+if(!active)return;
+platter(menuActive&&active===menuActive?menuHit:null);
+}catch(err){
+warn('cardmenu: toggle failed',err);
 }
 }
 function decorate(items,card,active){
@@ -22770,8 +22997,10 @@ return;
 }
 longHandler=onLong;
 preshowHandler=onPreshow;
+toggleHandler=onToggle;
 document.addEventListener('hover:long',longHandler,true);
 Lampa.Select.listener.follow('preshow',preshowHandler);
+Lampa.Select.listener.follow('toggle',toggleHandler);
 installed=true;
 }catch(e){
 warn('cardmenu: install failed',e);
@@ -22781,6 +23010,8 @@ function uninstall(){
 if(!installed)return;
 installed=false;
 pending=null;
+menuActive=null;
+menuHit=null;
 platter(null);
 try{
 if(longHandler)document.removeEventListener('hover:long',longHandler,true);
@@ -22790,12 +23021,14 @@ warn('cardmenu: remove listener failed',e);
 try{
 if(preshowHandler&&window.Lampa&&Lampa.Select&&Lampa.Select.listener&&typeof Lampa.Select.listener.remove==='function'){
 Lampa.Select.listener.remove('preshow',preshowHandler);
+if(toggleHandler)Lampa.Select.listener.remove('toggle',toggleHandler);
 }
 }catch(e2){
 warn('cardmenu: unfollow failed',e2);
 }
 longHandler=null;
 preshowHandler=null;
+toggleHandler=null;
 }
 function active(){
 return installed;
@@ -24402,12 +24635,179 @@ cancel:cancel
 };
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.franchise;
+/* ---- 66_parserfb.js ---- */
+LC.parserfb=(function(){
+var TIMEOUT=8000;
+var _orig=null;
+var _origClear=null;
+var _wrap=null;
+var _wrapClear=null;
+var _on=false;
+var _gen=0;
+function parser(){
+return(typeof window!=='undefined'&&window.Lampa&&window.Lampa.Parser)||null;
+}
+function storage(){
+return window.Lampa.Storage;
+}
+function enabled(){
+try{return!!LC.pref('lumen_parser_fallback',true);}catch(e){}
+return true;
+}
+function backup(){
+var S=storage();
+var url=S.field('jackett_url_two');
+if(!url||typeof url!=='string')return null;
+url=url.replace('jacred.xyz','jac.red');
+try{
+var U=window.Lampa.Utils;
+if(U&&typeof U.checkEmptyUrl==='function')url=U.checkEmptyUrl(url);
+}catch(e){}
+if(!url)return null;
+return{url:url,key:S.field('jackett_key_two')||''};
+}
+function active(){
+if(!enabled())return null;
+var S=storage();
+if(S.field('parser_torrent_type')!=='jackett')return null;
+if((S.field('parser_use_link')||'one')!=='one')return null;
+var P=parser();
+if(!P||typeof P.jackett!=='function')return null;
+return backup();
+}
+function hasResults(data){
+return!!(data&&data.Results&&data.Results.length);
+}
+function setT(fn,ms){
+if(api._timers)return api._timers.set(fn,ms);
+return setTimeout(fn,ms);
+}
+function clearT(id){
+if(api._timers)return api._timers.clear(id);
+clearTimeout(id);
+}
+function noty(){
+try{
+var L=window.Lampa;
+if(L.Noty&&typeof L.Noty.show==='function')L.Noty.show(''+LC.lang('lumen_parser_fallback_noty'));
+}catch(e){}
+}
+function guarded(self,args,link){
+var params=args[0];
+var oncomplite=args[1];
+var onerror=args[2];
+var gen=_gen;
+var stage=0;
+var timer=null;
+var primaryData=null;
+var primaryErr=null;
+function live(){
+return gen===_gen&&stage!==2;
+}
+function finish(ok,value){
+stage=2;
+if(timer!==null){clearT(timer);timer=null;}
+if(ok){if(typeof oncomplite==='function')oncomplite(value);}
+else if(typeof onerror==='function')onerror(value);
+}
+function fallback(){
+if(!live()||stage!==0)return;
+stage=1;
+if(timer!==null){clearT(timer);timer=null;}
+var P=parser();
+try{
+P.jackett(params,link.url,link.key,1,function(json){
+if(!live())return;
+if(hasResults(json)){noty();finish(true,json);}
+else if(primaryData)finish(true,primaryData);
+else finish(true,json&&json.Results?json:{Results:[]});
+},function(e){
+if(!live())return;
+if(primaryData)finish(true,primaryData);
+else finish(false,primaryErr!==null?primaryErr:e);
+});
+}catch(err){
+if(!live())return;
+if(primaryData)finish(true,primaryData);
+else finish(false,primaryErr!==null?primaryErr:'');
+}
+}
+timer=setT(function(){
+timer=null;
+fallback();
+},TIMEOUT);
+try{
+return _orig.call(self,params,function(data){
+if(!live()||stage!==0)return;
+if(hasResults(data))finish(true,data);
+else{primaryData=data&&data.Results?data:{Results:[]};fallback();}
+},function(e){
+if(!live()||stage!==0)return;
+primaryErr=e===undefined?'':e;
+fallback();
+});
+}catch(err){
+stage=2;
+if(timer!==null){clearT(timer);timer=null;}
+throw err;
+}
+}
+function install(){
+var P=parser();
+if(!P||typeof P.get!=='function')return false;
+_on=true;
+if(_wrap)return true;
+_orig=P.get;
+_wrap=function(){
+var args=Array.prototype.slice.call(arguments);
+var link=null;
+if(_on){
+try{link=active();}catch(e){link=null;}
+}
+if(!link)return _orig.apply(this,args);
+return guarded(this,args,link);
+};
+P.get=_wrap;
+if(!_wrapClear&&typeof P.clear==='function'){
+_origClear=P.clear;
+_wrapClear=function(){
+_gen++;
+return _origClear.apply(this,arguments);
+};
+P.clear=_wrapClear;
+}
+return true;
+}
+function uninstall(){
+_on=false;
+_gen++;
+var P=parser();
+if(!P)return;
+if(_wrap&&P.get===_wrap){P.get=_orig;_wrap=null;_orig=null;}
+if(_wrapClear&&P.clear===_wrapClear){P.clear=_origClear;_wrapClear=null;_origClear=null;}
+}
+var api={
+TIMEOUT:TIMEOUT,
+install:install,
+uninstall:uninstall,
+active:active,
+installed:function(){return!!_wrap&&_on;},
+_timers:null
+};
+return api;
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.parserfb;
 /* ---- 66_tsclean.js ---- */
 LC.tsclean=(function(){
 var KEY='lumen_tsclean_played';
 var SEED_KEY='lumen_tsclean_seed';
 var HOUR=3600000;
 var MAX_IDLE=24*HOUR;
+var DAY=24*HOUR;
+var DAYS=['1','3','7'];
+var PROTECT=14*DAY;
+var KEEP=PROTECT;
+var RECENT=20;
 var FIRST_DELAY=30000;
 var PERIOD=6*HOUR;
 var PLAYER_RETRY=10*60000;
@@ -24476,7 +24876,7 @@ if(map&&typeof map==='object'){
 for(k in map){
 if(!Object.prototype.hasOwnProperty.call(map,k))continue;
 var t=Number(map[k]);
-if(isFinite(t)&&t>0&&now-t<=MAX_IDLE&&t-now<=FUTURE_MAX)list.push([k,t]);
+if(isFinite(t)&&t>0&&now-t<=KEEP&&t-now<=FUTURE_MAX)list.push([k,t]);
 }
 }
 for(var i=0;i<keys.length;i++)if(keys[i])list.push([keys[i],now]);
@@ -24507,25 +24907,48 @@ function idle(torrent){
 if(typeof torrent.stat==='number')return torrent.stat===IN_DB;
 return torrent.stat_string===IN_DB_TEXT;
 }
-function removable(torrent,map,now,current){
+function limitOf(torrent,rule){
+var lim=rule&&rule.idle>0?rule.idle:MAX_IDLE;
+if(rule&&rule.keep){
+var ck=cardKey(movieOf(torrent));
+if(ck&&rule.keep[ck]===true)lim=Math.max(lim,PROTECT);
+}
+return lim;
+}
+function removable(torrent,map,now,current,rule){
 if(!torrent||typeof torrent!=='object')return false;
 var hash=hashOf(torrent.hash);
 if(!hash||hash===current)return false;
 if(!idle(torrent))return false;
 var ts=Number(torrent.timestamp);
 if(!isFinite(ts)||ts<=0)return false;
-return now-lastSeen(torrent,map)>MAX_IDLE;
+return now-lastSeen(torrent,map)>limitOf(torrent,rule);
 }
-function plan(list,map,now,current){
+function plan(list,map,now,current,rule){
 if(!Array.isArray(list))return[];
 var picked=[];
 for(var i=0;i<list.length;i++){
-if(removable(list[i],map,now,current||''))picked.push([hashOf(list[i].hash),lastSeen(list[i],map)]);
+if(removable(list[i],map,now,current||'',rule))picked.push([hashOf(list[i].hash),lastSeen(list[i],map)]);
 }
 picked.sort(function(a,b){return a[1]-b[1];});
 var out=[];
 for(var j=0;j<picked.length&&out.length<MAX_PER_RUN;j++){
 if(out.indexOf(picked[j][0])===-1)out.push(picked[j][0]);
+}
+return out;
+}
+function idleOf(v){
+var s=str(v);
+return DAYS.indexOf(s)===-1?MAX_IDLE:Number(s)*DAY;
+}
+function keepOf(lists){
+var out={};
+for(var i=0;lists&&i<lists.length;i++){
+var arr=lists[i];
+for(var j=0;Array.isArray(arr)&&j<arr.length;j++){
+var ck=cardKey(arr[j]);
+if(ck.indexOf('tv:')===0)out[ck]=true;
+}
 }
 return out;
 }
@@ -24683,13 +25106,18 @@ remember([hash?'h:'+hash:'',ck?'m:'+ck:'']);
 log('torrent failed',e);
 }
 }
+function appMode(){
+try{
+return!!(window.Lampa&&Lampa.Platform&&typeof Lampa.Platform.is==='function'&&Lampa.Platform.is('android')&&
+Lampa.Storage&&typeof Lampa.Storage.field==='function'&&!Lampa.Storage.field('internal_torrclient'));
+}catch(e){
+return false;
+}
+}
 function server(){
 try{
 if(!window.Lampa)return'';
-if(Lampa.Platform&&typeof Lampa.Platform.is==='function'&&Lampa.Platform.is('android')&&
-Lampa.Storage&&typeof Lampa.Storage.field==='function'&&!Lampa.Storage.field('internal_torrclient')){
-return APP_URL;
-}
+if(appMode())return APP_URL;
 var u=Lampa.Torserver&&typeof Lampa.Torserver.url==='function'?Lampa.Torserver.url():'';
 return str(u).replace(/\/+$/,'');
 }catch(e){
@@ -24706,12 +25134,34 @@ return _net;
 function playerOpen(){
 try{return!!(LC.util&&LC.util.playerOpen&&LC.util.playerOpen());}catch(e){return false;}
 }
-function run(done){
-var finish=function(n){
+function idleMs(){
+try{return idleOf(LC.pref('lumen_tsclean_days','1'));}catch(e){return MAX_IDLE;}
+}
+function protectedSet(){
+var lists=[];
+try{
+var fav=window.Lampa&&Lampa.Favorite;
+if(!fav)return{};
+if(typeof fav.continues==='function'){
+lists.push(fav.continues('tv'));
+lists.push(fav.continues('anime'));
+}
+if(typeof fav.get==='function'){
+var h=fav.get({type:'history'});
+if(Array.isArray(h))lists.push(h.slice(0,RECENT));
+}
+}catch(e){
+log('favorite failed',e);
+}
+return keepOf(lists);
+}
+function run(done,force){
+var on=function(){return _on&&(force||enabled());};
+var finish=function(n,seeded){
 _running=false;
-if(typeof done==='function'){try{done(n);}catch(e){}}
+if(typeof done==='function'){try{done(n,!!seeded);}catch(e){}}
 };
-if(_running){if(typeof done==='function')done(null);return;}
+if(_running||!_on){if(typeof done==='function')done(null);return;}
 var url=server();
 var n0=net();
 if(!url||!n0||typeof n0.silent!=='function'){if(typeof done==='function')done(null);return;}
@@ -24719,7 +25169,7 @@ _running=true;
 try{
 if(typeof n0.timeout==='function')n0.timeout(LIST_TIMEOUT);
 n0.silent(url+'/torrents',function(list){
-if(!_on||!enabled()||!Array.isArray(list)){finish(null);return;}
+if(!on()||!Array.isArray(list)){finish(null);return;}
 var t=now();
 if(!clockOk(t,load())){
 log('clock looks wrong, pass skipped');
@@ -24730,18 +25180,19 @@ if(seedPending()||!mapExists()||list.length>CAP){
 save(seed(load(),list,t));
 if(list.length<=CAP)setSeed(false);
 log((list.length>CAP?'too many torrents, seeded only ':'seeded ')+list.length);
-finish(0);
+finish(0,true);
 return;
 }
+var rule={idle:idleMs(),keep:protectedSet()};
 var byHash={};
 for(var i=0;i<list.length;i++){
 var h=hashOf(list[i]&&list[i].hash);
 if(h&&!byHash[h])byHash[h]=list[i];
 }
-var queue=plan(list,load(),t,_current);
+var queue=plan(list,load(),t,_current,rule);
 var removed=[];
 var next=function(){
-if(!_on||!enabled()||seedPending()||playerOpen()||!queue.length){
+if(!on()||seedPending()||playerOpen()||!queue.length){
 save(prune(load(),list,now(),removed));
 if(removed.length)log('removed '+removed.length);
 finish(removed.length);
@@ -24750,7 +25201,7 @@ return;
 var hash=queue.shift();
 var tnow=now();
 var fresh=load();
-if(!clockOk(tnow,fresh)||!removable(byHash[hash],fresh,tnow,_current)){next();return;}
+if(!clockOk(tnow,fresh)||!removable(byHash[hash],fresh,tnow,_current,rule)){next();return;}
 if(typeof n0.timeout==='function')n0.timeout(REM_TIMEOUT);
 n0.silent(url+'/torrents',function(){
 removed.push(hash);
@@ -24807,8 +25258,32 @@ if(!_on)return;
 if(enabled()){if(!_timer)wait(FIRST_DELAY);}
 else stopTimer();
 }
+function noty(text){
+try{
+if(window.Lampa&&Lampa.Noty&&typeof Lampa.Noty.show==='function')Lampa.Noty.show(text);
+}catch(e){}
+}
+function word(key){
+try{return typeof LC.lang==='function'?str(LC.lang(key)):key;}catch(e){return key;}
+}
+function runNow(){
+run(function(n,seeded){
+var text;
+if(n===null)text=word('lumen_tsclean_now_fail');
+else if(seeded)text=word('lumen_tsclean_now_seeded');
+else text=word('lumen_tsclean_now_done').replace('{n}',n);
+noty(text);
+},true);
+}
 var api={
 KEY:KEY,
+PROTECT:PROTECT,
+KEEP:KEEP,
+RECENT:RECENT,
+idleOf:idleOf,
+keepOf:keepOf,
+protectedSet:protectedSet,
+runNow:runNow,
 SEED_KEY:SEED_KEY,
 MAX_IDLE:MAX_IDLE,
 FIRST_DELAY:FIRST_DELAY,
@@ -24830,6 +25305,7 @@ clockOk:clockOk,
 MIN_CLOCK:MIN_CLOCK,
 markOff:markOff,
 server:server,
+appMode:appMode,
 install:install,
 uninstall:uninstall,
 apply:apply,
@@ -24846,6 +25322,107 @@ _net:null
 return api;
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.tsclean;
+/* ---- 66_tshealth.js ---- */
+LC.tshealth=(function(){
+var TTL=60000;
+var TIMEOUT=3000;
+var DOT='lumen-ts-dot';
+var DOT_HTML='<i class="'+DOT+'" style="position:absolute;top:.32em;right:.32em;width:.42em;height:.42em;'+
+'border-radius:50%;background:#FF453A;pointer-events:none"></i>';
+var _state='';
+var _at=0;
+var _pending=false;
+var _root=null;
+var _net=null;
+function now(){
+var hook=api._now;
+return typeof hook==='function'?hook():Date.now();
+}
+function storageGet(key){
+try{
+if(window.Lampa&&Lampa.Storage&&typeof Lampa.Storage.get==='function'){
+var v=Lampa.Storage.get(key,'');
+return v===null||typeof v==='undefined'?'':String(v).replace(/^\s+|\s+$/g,'');
+}
+}catch(e){}
+return'';
+}
+function enabled(){
+try{return!!LC.pref('lumen_ts_health',true);}catch(e){return false;}
+}
+function net(){
+if(_net)return _net;
+var make=api._net;
+if(typeof make==='function')_net=make();
+else if(window.Lampa&&typeof Lampa.Reguest==='function')_net=new Lampa.Reguest();
+return _net;
+}
+function paint(root,down){
+try{
+if(!root||typeof root.find!=='function')return;
+var btn=root.find('.full-start-new__buttons .button--play');
+if(!btn||!btn.length)return;
+var old=btn.find('.'+DOT);
+if(down){
+if(old&&old.length)return;
+btn.css('position','relative');
+btn.append(DOT_HTML);
+}else if(old&&old.length){
+old.remove();
+btn.css('position','');
+}
+}catch(e){}
+}
+function hint(){
+try{
+if(!storageGet('torrserver_url_two'))return;
+if(LC.tsclean&&typeof LC.tsclean.appMode==='function'&&LC.tsclean.appMode())return;
+if(window.Lampa&&Lampa.Noty&&typeof Lampa.Noty.show==='function'){
+Lampa.Noty.show(typeof LC.lang==='function'?LC.lang('lumen_ts_health_noty'):'TorrServer');
+}
+}catch(e){}
+}
+function done(ok){
+var prev=_state;
+_pending=false;
+_state=ok?'ok':'down';
+_at=now();
+paint(_root,!ok);
+if(!ok&&prev!=='down')hint();
+}
+function check(root){
+if(!enabled()||!storageGet('torrserver_url')){paint(root,false);return;}
+_root=root;
+if(_pending)return;
+var t=now();
+if(_state&&t-_at<TTL){paint(root,_state==='down');return;}
+var url=LC.tsclean&&typeof LC.tsclean.server==='function'?LC.tsclean.server():'';
+var n=net();
+if(!url||!n||typeof n.silent!=='function')return;
+_pending=true;
+_at=t;
+try{
+if(typeof n.timeout==='function')n.timeout(TIMEOUT);
+n.silent(url+'/echo',function(){done(true);},function(){done(false);},false,{dataType:'text'});
+}catch(e){
+done(false);
+}
+}
+function apply(){
+if(!enabled())paint(_root,false);
+}
+var api={
+TTL:TTL,
+TIMEOUT:TIMEOUT,
+check:check,
+apply:apply,
+state:function(){return _state;},
+_now:null,
+_net:null
+};
+return api;
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.tshealth;
 /* ---- 67_transition.js ---- */
 LC.transition=(function(){
 var DURATION=480;
@@ -27839,9 +28416,57 @@ uk:'Список роздач, вікна підключення й помило
 },
 lumen_tsclean_name:{ru:'Автоочистка TorrServer',en:'TorrServer auto-cleanup',uk:'Автоочищення TorrServer'},
 lumen_tsclean_descr:{
-ru:'Убирает из TorrServer раздачи, не открытые из Lampa больше суток. Идущие не трогает.',
-en:'Removes TorrServer torrents not opened from Lampa for over a day. Active ones are kept.',
-uk:'Прибирає з TorrServer роздачі, не відкриті з Lampa понад добу. Активні не чіпає.'
+ru:'Убирает из TorrServer раздачи, не открытые из Lampa дольше срока. Идущие не трогает.',
+en:'Removes TorrServer torrents not opened from Lampa within the term. Active ones are kept.',
+uk:'Прибирає з TorrServer роздачі, не відкриті з Lampa довше строку. Активні не чіпає.'
+},
+lumen_tsclean_days_name:{ru:'Срок хранения раздач',en:'Keep torrents for',uk:'Строк зберігання роздач'},
+lumen_tsclean_days_descr:{
+ru:'Сериалы из «Досмотреть» и недавно смотренные хранятся до 14 дней.',
+en:'Series in Continue watching and recently watched ones are kept up to 14 days.',
+uk:'Серіали з «Додивитися» і нещодавно переглянуті зберігаються до 14 днів.'
+},
+lumen_tsclean_days_1:{ru:'1 день',en:'1 day',uk:'1 день'},
+lumen_tsclean_days_3:{ru:'3 дня',en:'3 days',uk:'3 дні'},
+lumen_tsclean_days_7:{ru:'7 дней',en:'7 days',uk:'7 днів'},
+lumen_tsclean_now_name:{ru:'Очистить сейчас',en:'Clean up now',uk:'Очистити зараз'},
+lumen_tsclean_now_descr:{
+ru:'Один проход автоочистки прямо сейчас — по сроку выше.',
+en:'Runs one auto-cleanup pass right now, using the term above.',
+uk:'Один прохід автоочищення просто зараз — за строком вище.'
+},
+lumen_tsclean_now_done:{ru:'TorrServer: удалено раздач — {n}',en:'TorrServer: torrents removed — {n}',uk:'TorrServer: видалено роздач — {n}'},
+lumen_tsclean_now_seeded:{
+ru:'TorrServer: раздачи запомнены, удалять пока нечего',
+en:'TorrServer: torrents remembered, nothing to remove yet',
+uk:'TorrServer: роздачі запам’ятовано, видаляти поки нічого'
+},
+lumen_tsclean_now_fail:{
+ru:'TorrServer не ответил — очистка не выполнена',
+en:'TorrServer did not respond — cleanup skipped',
+uk:'TorrServer не відповів — очищення не виконано'
+},
+lumen_ts_health_name:{ru:'Состояние TorrServer',en:'TorrServer status',uk:'Стан TorrServer'},
+lumen_ts_health_descr:{
+ru:'Красная точка на «Смотреть», если TorrServer не ответил при открытии карточки.',
+en:'A red dot on Watch if TorrServer did not respond when the card opened.',
+uk:'Червона крапка на «Дивитися», якщо TorrServer не відповів під час відкриття картки.'
+},
+lumen_ts_health_noty:{
+ru:'TorrServer не отвечает. Запасную ссылку можно выбрать: Настройки → TorrServer',
+en:'TorrServer is not responding. You can pick the backup link in Settings → TorrServer',
+uk:'TorrServer не відповідає. Запасне посилання можна вибрати: Налаштування → TorrServer'
+},
+lumen_parser_fallback_name:{ru:'Запасной парсер',en:'Backup parser',uk:'Запасний парсер'},
+lumen_parser_fallback_descr:{
+ru:'Основной Jackett молчит 8 с или пуст — поиск по второму адресу парсера Lampa.',
+en:'Main Jackett silent for 8 s or empty: search the second Lampa parser address.',
+uk:'Основний Jackett мовчить 8 с або порожній — пошук за другою адресою парсера Lampa.'
+},
+lumen_parser_fallback_noty:{
+ru:'Основной парсер не ответил — раздачи с запасного',
+en:'Main parser did not respond — torrents from the backup',
+uk:'Основний парсер не відповів — роздачі із запасного'
 },
 lumen_card_trailer:{ru:'Трейлер в карточке',en:'Trailer on the card',uk:'Трейлер у картці'},
 lumen_card_trailer_descr:{
@@ -28026,7 +28651,7 @@ uk:'Фільм — лише в першому ряду, де трапився. �
 lumen_row_continue:{
 ru:'Досмотреть',
 en:'Continue watching',
-uk:'Досивитися'
+uk:'Додивитися'
 },
 lumen_row_because:{
 ru:'Потому что вы смотрели',
@@ -28060,6 +28685,7 @@ uk:'Через'
 },
 lumen_badge_soon:{ru:'Скоро',en:'Soon',uk:'Скоро'},
 lumen_badge_left:{ru:'Осталось {n} мин',en:'{n} min left',uk:'Залишилось {n} хв'},
+lumen_badge_ep_left:{ru:'{e} · {n} мин',en:'{e} · {n} min',uk:'{e} · {n} хв'},
 lumen_badge_new:{ru:'Новинка',en:'New',uk:'Новинка'},
 lumen_badge_premiere:{ru:'Премьера',en:'Premiere',uk:'Прем\'єра'},
 lumen_badge_premiere_today:{
@@ -28115,6 +28741,12 @@ uk:'«Англійські» й «Без написів» — по запиту 
 lumen_posters_lampa:{ru:'Как в Lampa',en:'As in Lampa',uk:'Як у Lampa'},
 lumen_posters_original:{ru:'Английские',en:'English',uk:'Англійські'},
 lumen_posters_clean:{ru:'Без надписей',en:'No lettering',uk:'Без написів'},
+lumen_next_ep_badge_name:{ru:'Серия в «Досмотреть»',en:'Episode in "Continue watching"',uk:'Серія в «Додивитися»'},
+lumen_next_ep_badge_descr:{
+ru:'У сериала в ряду «Досмотреть» — серия вместо процента: «S2·E5» или «S2·E4 · 12 мин».',
+en:'Series in "Continue watching" show the episode, not a percentage: "S2·E5", "S2·E4 · 12 min".',
+uk:'У серіалу в ряду «Додивитися» — серія замість відсотка: «S2·E5» або «S2·E4 · 12 хв».'
+},
 lumen_badges_poster:{ru:'На постере',en:'On the poster',uk:'На постері'},
 lumen_badges_caption:{ru:'В подписи',en:'In the caption',uk:'У підписі'},
 lumen_badges_off:{ru:'Не показывать',en:'Do not show',uk:'Не показувати'},
@@ -28183,15 +28815,15 @@ uk:'Персональні ряди'
 lumen_personal_rows_descr:{
 ru:'Ряды «Досмотреть», «Потому что вы смотрели», новые серии и релизы.',
 en:'"Continue watching", "Because you watched", "New episodes", "Coming soon", "New on digital"',
-uk:'«Досивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
+uk:'«Додивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
 },
 lumen_home_start_name:{ru:'Начало главной',en:'Top of the home screen',uk:'Початок головної'},
 lumen_home_start_rotate:{ru:'Подборки по очереди',en:'Rotating collections',uk:'Підбірки по черзі'},
-lumen_home_start_history:{ru:'Сначала «Досмотреть»',en:'"Continue watching" first',uk:'Спочатку «Досивитися»'},
+lumen_home_start_history:{ru:'Сначала «Досмотреть»',en:'"Continue watching" first',uk:'Спочатку «Додивитися»'},
 lumen_home_start_descr:{
 ru:'Ряды меняются при каждом запуске Lampa, «Досмотреть» стоит вторым.',
 en:'Rows change at every Lampa start, "Continue watching" second. Or your history on top.',
-uk:'Ряди змінюються з кожним запуском Lampa, «Досивитися» другим; або історія вгорі.'
+uk:'Ряди змінюються з кожним запуском Lampa, «Додивитися» другим; або історія вгорі.'
 },
 lumen_moods_no_sources:{
 ru:'Нет источника',
@@ -28250,7 +28882,7 @@ lumen_resume_ttl_name:{ru:'Сколько помнить место',en:'Remembe
 lumen_resume_ttl_descr:{
 ru:'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
 en:'After this time the window will not appear — the title stays in "Continue watching".',
-uk:'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Досивитися».'
+uk:'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Додивитися».'
 },
 lumen_resume_ttl_suffix:{ru:'ч',en:'h',uk:'год'},
 lumen_resume_title:{ru:'Вернуться к просмотру?',en:'Resume watching?',uk:'Повернутися до перегляду?'},
@@ -28264,7 +28896,8 @@ lumen_resume_later:{ru:'Не сейчас',en:'Not now',uk:'Не зараз'},
 lumen_resume_badge:{ru:'Вернуться',en:'Resume',uk:'Повернутися'},
 lumen_resume_min:{ru:'мин',en:'min',uk:'хв'},
 lumen_resume_hours:{ru:'ч',en:'h',uk:'год'},
-lumen_resume_ago:{ru:'назад',en:'ago',uk:'тому'}
+lumen_resume_ago:{ru:'назад',en:'ago',uk:'тому'},
+search_start_typing:{ru:'Начните вводить текст для поиска.',en:'Start typing search text.',uk:'Почніть вводити текст для пошуку.'}
 };
 function langCode(){
 var code='ru';
@@ -28420,8 +29053,14 @@ if(name==='lumen_debug_bench'||name==='lumen_more')return true;
 if(name==='lumen_rowmem'||name==='lumen_rowmem_bytes'||name==='lumen_netmem'||name==='lumen_prefill')return true;
 if(name==='lumen_roulette_unseen')return true;
 if(name==='lumen_whatsnew')return true;
+if(name==='lumen_parser_fallback')return true;
 if(name==='lumen_tsclean'){
 try{if(LC.tsclean)LC.tsclean.apply();}catch(eTsclean){}
+return true;
+}
+if(name==='lumen_tsclean_days'||name==='lumen_tsclean_now')return true;
+if(name==='lumen_ts_health'){
+try{if(LC.tshealth)LC.tshealth.apply();}catch(eTsh){}
 return true;
 }
 if(name==='lumen_resume'||name==='lumen_resume_ttl'){
@@ -28586,6 +29225,7 @@ warn('kp key mask failed',e);
 }
 function kpRender(item){
 maskKpValue(item);
+if(typeof requestAnimationFrame==='function')requestAnimationFrame(function(){maskKpValue(item);});
 setTimeout(function(){maskKpValue(item);},0);
 }
 function refreshFontPreview(){
@@ -28695,6 +29335,9 @@ if(name==='lumen_home_rows')openHomeRows();
 else if(name==='lumen_more')openMore();
 else if(name==='lumen_debug_bench'){
 try{if(LC.bench)LC.bench.start();}catch(e){warn('bench start failed',e);}
+}
+else if(name==='lumen_tsclean_now'){
+try{if(LC.tsclean)LC.tsclean.runNow();}catch(eTs){warn('tsclean now failed',eTs);}
 }
 };
 }
@@ -28837,6 +29480,7 @@ var MORE=[
 {name:'lumen_card_logo',type:'trigger','default':true,label:'lumen_card_logo_name',descr:'lumen_card_logo_descr'},
 {name:'lumen_hero_logo',type:'trigger','default':true,label:'lumen_hero_logo_name',descr:'lumen_hero_logo_descr'},
 {name:'lumen_badges',type:'select',values:['poster','caption','off'],vprefix:'lumen_badges_','default':'poster',label:'lumen_badges_name',descr:'lumen_badges_descr'},
+{name:'lumen_next_ep_badge',type:'trigger','default':true,label:'lumen_next_ep_badge_name',descr:'lumen_next_ep_badge_descr'},
 {name:'lumen_posters',type:'select',values:['lampa','original','clean'],vprefix:'lumen_posters_','default':'lampa',label:'lumen_posters_name',descr:'lumen_posters_descr'},
 {name:'lumen_group_screens',type:'title',label:'lumen_group_screens'},
 {name:'lumen_fx_heavy',type:'trigger','default':function(){return fxHeavyDefault(LC.platformInfo());},label:'lumen_fx_heavy_name',descr:'lumen_fx_heavy_descr'},
@@ -28859,6 +29503,10 @@ var MORE=[
 {name:'lumen_menus',type:'select',values:['all','path','off'],vprefix:'lumen_card_menus_','default':'all',label:'lumen_card_menus',descr:'lumen_card_menus_descr'},
 {name:'lumen_torrents',type:'trigger','default':true,label:'lumen_card_torrents_name',descr:'lumen_card_torrents_descr'},
 {name:'lumen_tsclean',type:'trigger','default':false,label:'lumen_tsclean_name',descr:'lumen_tsclean_descr'},
+{name:'lumen_tsclean_days',type:'select',values:['1','3','7'],vprefix:'lumen_tsclean_days_','default':'1',label:'lumen_tsclean_days_name',descr:'lumen_tsclean_days_descr'},
+{name:'lumen_tsclean_now',type:'button',label:'lumen_tsclean_now_name',descr:'lumen_tsclean_now_descr'},
+{name:'lumen_ts_health',type:'trigger','default':true,label:'lumen_ts_health_name',descr:'lumen_ts_health_descr'},
+{name:'lumen_parser_fallback',type:'trigger','default':true,label:'lumen_parser_fallback_name',descr:'lumen_parser_fallback_descr'},
 {name:'lumen_ambient_source',type:'select',values:['curated','current'],vprefix:'lumen_ambient_source_','default':'curated',label:'lumen_ambient_source_name',descr:'lumen_ambient_source_descr'},
 {name:'lumen_ambient_delay',type:'select',values:['3','5','10'],vsuffix:'lumen_ambient_minutes','default':'3',label:'lumen_ambient_delay_name',descr:'lumen_ambient_delay_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
@@ -29115,7 +29763,7 @@ uk:[
 'Якщо Lampa перезапустилася, поки йшла серія чи фільм, під час наступного запуску вона запропонує повернутися до перегляду з того ж місця.',
 'Серії із застосунку TorrServe: вікно запропонує відкрити ту саму роздачу знову, серію й місце оберете там.',
 'Додивилися серію до кінця — вікно запропонує наступну.',
-'Перерваний фільм стоїть першим у «Досивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.',
+'Перерваний фільм стоїть першим у «Додивитися» з міткою «Повернутися», повернутися до нього можна й з меню за утриманням OK.',
 'Новий пункт «Автоочищення TorrServer»: роздачі, які не відкривали понад добу, видаляються самі. Типово вимкнений.'
 ]
 },
@@ -30848,6 +31496,20 @@ var MOTION_CLASSES='lumen-motion-full lumen-motion-lite lumen-motion-off';
 function activeCardRoot(){
 try{return $(LC.util.ON_SCREEN_SEL+' .lumen-card');}catch(e){return null;}
 }
+function toggleCardRoot(){
+try{
+var a=LC.active;
+if(a&&a.body&&typeof a.body.find==='function'){
+var own=a.body.find('.lumen-card');
+if(own&&own.length&&LC.util.onScreen(own))return own;
+}
+if(window.Lampa&&Lampa.Activity&&typeof Lampa.Activity.active==='function'){
+var act=Lampa.Activity.active();
+if(act&&act.component&&act.component!=='full')return null;
+}
+}catch(e){}
+return activeCardRoot();
+}
 function activeBackdropLayer(){
 try{return $(LC.util.ON_SCREEN_SEL+' .lumen-backdrop');}catch(e){return null;}
 }
@@ -30943,7 +31605,7 @@ if(!activated)return;
 if(LC.hero&&typeof LC.hero.onToggle==='function')LC.hero.onToggle();
 if(LC.homeRow&&typeof LC.homeRow.onToggle==='function')LC.homeRow.onToggle(e.name);
 if(LC.v2search&&typeof LC.v2search.onToggle==='function')LC.v2search.onToggle(e.name);
-var root=activeCardRoot();
+var root=toggleCardRoot();
 if(!root||!root.length)return;
 if(e.name==='full_descr'||e.name==='items_line')root.addClass('lumen-compact');
 else if(e.name==='full_start')root.removeClass('lumen-compact');
@@ -31277,6 +31939,7 @@ LC.trailer.bind(root);
 LC.trailer.reveal(root,e.data);
 LC.active.trailer=LC.trailer.schedule(root,e.body,e.data);
 LC.hub.franchise(root,(e.data&&e.data.movie)||{});
+try{if(LC.tshealth)LC.tshealth.check(root);}catch(eTsh){}
 try{if(LC.perf)LC.perf.track('card');}catch(ePerf){}
 }
 }catch(err){
@@ -31616,6 +32279,11 @@ if(LC.tsclean)LC.tsclean.install();
 warn('tsclean install failed',eTsclean);
 }
 try{
+if(LC.parserfb)LC.parserfb.install();
+}catch(eParserFb){
+warn('parserfb install failed',eParserFb);
+}
+try{
 if(LC.whatsnew&&LC.whatsnew.schedule)LC.whatsnew.schedule(homeReady);
 }catch(eNew){
 warn('whatsnew schedule failed',eNew);
@@ -31698,6 +32366,7 @@ if(LC.followMoreBack)LC.followMoreBack(false);
 try{if(LC.whatsnew)LC.whatsnew.cancel();}catch(eNewOff){}
 try{if(LC.resume)LC.resume.uninstall();}catch(eResumeOff){}
 try{if(LC.tsclean)LC.tsclean.uninstall();}catch(eTscleanOff){}
+try{if(LC.parserfb)LC.parserfb.uninstall();}catch(eParserFbOff){}
 }
 var pending_refresh=null;
 function activeComponentName(){
