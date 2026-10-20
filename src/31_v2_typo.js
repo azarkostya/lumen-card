@@ -15,9 +15,9 @@
   /*   films(n)        «5 фильмов» (склонение — LC.util.plural);           */
   /*   titleStep(s)    ступень названия героя без логотипа: 1 — до 14      */
   /*                   знаков, 2 — 15–28, 3 — длиннее;                     */
-  /*   stripPrefix(ts) общий префикс франшизы: [{ t, s }] той же длины —   */
-  /*                   t без префикса, s — «Эпизод V» (если он был), иначе */
-  /*                   ''; правило — у самой функции;                      */
+  /*   stripPrefix(ts) общий префикс франшизы: [{ t, s, r }] той же длины — */
+  /*                   t без префикса, s — «Эпизод V» / «Часть 1» (если    */
+  /*                   были), r — остаток целиком; правило — у функции;    */
   /*   stripCards(els) то же для плиток ряда/сетки (.card с card_data).    */
   /*                                                                       */
   /* CSS экранов 43/44/46 — в LC.v2css (точка подключения в src/30_css.js). */
@@ -127,14 +127,25 @@
       return str(s).replace(/^\s+|\s+$/g, '').split(/\s+/).length;
     }
 
+    /* «Сойка-пересмешница. Часть 1» → «Сойка-пересмешница» / «Часть 1»:
+       номер части — во вторую строку, иначе в узкой плитке он срезается
+       многоточием, и две части читаются одинаково. */
+    var PART_RE = /^(.+?)[.,:]?\s+((?:Часть|Частина|Part)\s+[IVX\d]+)$/i;
+
+    function low(s) {
+      return str(s).toLowerCase();
+    }
+
     /* Общий префикс франшизы. Префикс — начало названия до первого «:» или
-       «.» (самое частое в ряду); снимается, если КАЖДОЕ название ряда либо
-       равно ему (первый фильм без подзаголовка сохраняет имя), либо
-       начинается с него и разделителя, и таких названий не меньше двух.
-       Остаток короче двух слов («Мстители: Финал» → «Финал») не
-       подставляется — название остаётся целым. «Эпизод N — …» в остатке
-       уходит во вторую строку: { t: «Империя наносит ответный удар»,
-       s: «Эпизод V» }. */
+       «.» (самое частое в ряду, без учёта регистра: «Звёздные Войны» и
+       «Звёздные войны» — одно). Снимается, если его несут не меньше
+       половины названий ряда и хотя бы два — с подзаголовком (сетка
+       «Звёздных войн» смешана с «Мандалорцем» и «Andor»: у них префикса
+       нет, им и нечего снимать). Фильм, названный ровно префиксом, имя
+       сохраняет. Остаток короче двух слов («Мстители: Финал» → «Финал») не
+       подставляется — название остаётся целым. «Эпизод N — …» и «… Часть
+       N» в остатке уходят во вторую строку: { t: «Империя наносит ответный
+       удар», s: «Эпизод V» }. */
     function stripPrefix(titles) {
       var list = [];
       var i;
@@ -147,27 +158,37 @@
       for (i = 0; i < list.length; i++) {
         var m = HEAD_RE.exec(list[i]);
         if (!m) continue;
-        count[m[1]] = (count[m[1]] || 0) + 1;
-        if (!best || count[m[1]] > count[best]) best = m[1];
+        var key = low(m[1]);
+        count[key] = (count[key] || 0) + 1;
+        if (!best || count[key] > count[best]) best = key;
       }
       if (!best || count[best] < 2) return out;
+      var carriers = 0;
+      for (i = 0; i < list.length; i++) {
+        if (low(list[i]) === best || low(list[i].slice(0, best.length)) === best) carriers++;
+      }
+      if (carriers * 2 < list.length) return out;
       for (i = 0; i < list.length; i++) {
         var t = list[i];
-        if (t === best) continue;
-        if (t.indexOf(best) !== 0 || !/^\s*[:.]\s/.test(t.slice(best.length))) return out;
-      }
-      for (i = 0; i < list.length; i++) {
-        if (list[i] === best) continue;
-        var rest = list[i].slice(best.length).replace(/^\s*[:.]\s*/, '');
+        if (low(t) === best || low(t.slice(0, best.length)) !== best) continue;
+        if (!/^\s*[:.]\s/.test(t.slice(best.length))) continue;
+        var rest = t.slice(best.length).replace(/^\s*[:.]\s*/, '');
+        var whole = rest;
         var sub = '';
         var ep = EPISODE_RE.exec(rest);
         if (ep && words(ep[3]) >= 2) {
           var num = /^\d+$/.test(ep[2]) ? (ROMAN[Number(ep[2])] || ep[2]) : ep[2].toUpperCase();
           sub = ep[1].replace(/\s+\S+$/, '') + ' ' + num;
           rest = ep[3];
+        } else {
+          var part = PART_RE.exec(rest);
+          if (part) {
+            sub = part[2];
+            rest = part[1];
+          }
         }
-        if (words(rest) < 2) continue;
-        out[i] = { t: rest, s: sub };
+        if (words(rest) < 2 && !sub) continue;
+        out[i] = { t: rest, s: sub, r: whole };
       }
       return out;
     }
@@ -188,7 +209,9 @@
         }
         var res = stripPrefix(titles);
         for (var k = 0; k < nodes.length; k++) {
-          var want = res[k].t;
+          /* В подписи плитки второй строки под часть нет (там «год · ★»):
+             номер части остаётся в названии — «Сойка-пересмешница. Часть 1». */
+          var want = res[k].r || res[k].t;
           var node = nodes[k].querySelector ? nodes[k].querySelector('.card__title') : null;
           if (!node) continue;
           if (node.textContent === want) continue;
