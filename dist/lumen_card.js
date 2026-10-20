@@ -2290,6 +2290,16 @@ css.push('.lumen-card .full-start-new__buttons .button--book:after{content:'+css
 css.push('.lumen-card .full-start-new__buttons .button--book.active:after{content:'+cssq(LC.lang('lumen_card_btn_fav_on'))+'}');
 css.push('.lumen-card .full-start-new__buttons .view--trailer:after{content:'+cssq(LC.lang('lumen_card_btn_trailer'))+'}');
 }
+var v2parts=(LC.v2css||[]).slice().sort(function(a,b){return(a.order||0)-(b.order||0);});
+var v2ctx={P:P,APPLE:APPLE,V2:V2,scale:scale,round2:round2,motion:LC.motionMode?LC.motionMode():''};
+for(var vi=0;vi<v2parts.length;vi++){
+try{
+var v2out=v2parts[vi].build(v2ctx);
+if(v2out)css.push(v2out);
+}catch(eV2){
+if(typeof warn==='function')warn('v2css '+(v2parts[vi].id||vi),eV2);
+}
+}
 css.push(LC.icons.css());
 return css.join('\n');
 };
