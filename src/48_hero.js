@@ -2845,9 +2845,10 @@
     var DESCR_CLIP = 150;
 
     /* Сколько знаков входит в две строки описания: ширина колонки и кегль
-       читаются один раз за показ главной (state.descrChars), средняя
-       ширина знака Golos/Inter 500 — .55em (замер на ТВ: 43 знака в строке
-       при 29 px и колонке ~690 px FHD). Колонка не разложена (скрыта на
+       читаются один раз за показ главной (state.descrChars); ширина знака
+       Golos/Inter 500 с запасом на перенос по словам — .6em и минус 6 знаков
+       (замер на ТВ: колонка 346 CSS px при кегле 14.4 — 38–43 знака в
+       строке, 85 знаков уже давали третью строку). Колонка не разложена (скрыта на
        время трейлера) — потолок DESCR_CLIP, дальше режет line-clamp. */
     function descrChars(descr) {
       if (state && state.descrChars) return state.descrChars;
@@ -2856,7 +2857,7 @@
         var w = el ? el.clientWidth : 0;
         var fs = el ? parseFloat(window.getComputedStyle(el).fontSize) : 0;
         if (w > 0 && fs > 0) {
-          var n = Math.floor(w / (fs * 0.55)) * 2 - 3;
+          var n = Math.floor(w / (fs * 0.6)) * 2 - 6;
           if (state) state.descrChars = n;
           return n;
         }
