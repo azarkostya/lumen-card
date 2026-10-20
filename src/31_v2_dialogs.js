@@ -11,18 +11,32 @@
      ≥ 4.5:1; гарнитура плагина; акцент темы не используется.
 
      Каскад. Правила живут в основной таблице плагина и уходят вместе с ней.
-     - Меню карточки (.selectbox.lumen-cardmenu) — своё, исключено через
-       :not(.lumen-cardmenu): ни одно правило здесь его не трогает.
+     - Настройка «Оформление меню и окон» (lumen_menus, src/64_menus.js):
+       'all' — класс body.lumen-menus-all, 'path' — только маркеры
+       .selectbox.lumen-select / .modal.lumen-modal на окнах пути
+       TorrServer, 'off' — ни того, ни другого. Каждое правило здесь —
+       пара селекторов «режим all ИЛИ маркер», как у пути
+       (src/65_torrents.js, scoped): при 'off' обычные Select и Modal
+       остаются штатными.
      - Путь TorrServer (src/65_torrents.js, свой <style> ПОСЛЕ основного).
        Веса — на примере пункта (.selectbox-item):
        body.lumen-menus-all .selectbox .selectbox-item — (0,3,1),
        .selectbox.lumen-select .selectbox-item — (0,3,0). Раскладку (поля,
-       кегли) пишем лёгким селектором G0: .selectbox:not(.lumen-cardmenu)
-       .selectbox-item — (0,3,0), не тяжелее пути, а при равенстве путь
-       побеждает порядком; цвета — тяжёлым G: html body
-       .selectbox:not(.lumen-cardmenu) .selectbox-item — (0,3,2), он
-       перекрывает путь, иначе в Apple TV там остаются тёплая панель и
-       акцент темы.
+       кегли) пишем селекторами G0 ровно того же веса (те же селекторы),
+       и путь побеждает порядком, а без его таблицы (lumen_torrents
+       выключен) раскладка наша; цвета — тяжёлым G:
+       html body.lumen-menus-all .selectbox:not(.lumen-cardmenu)
+       .selectbox-item — (0,4,2), html body .selectbox.lumen-select
+       :not(.lumen-cardmenu) .selectbox-item — (0,4,2); он перекрывает
+       путь, иначе в Apple TV там остаются тёплая панель и акцент темы.
+     - Меню карточки (.selectbox.lumen-cardmenu) — своё. Цвета G его
+       исключают через :not(.lumen-cardmenu). У G0 исключения нет: оно
+       сделало бы G0 тяжелее пути (класс весит больше body). Раскладку
+       меню карточки и так держат его правила (src/31_v2_torrents_menu.js,
+       body.selectbox--open .selectbox.lumen-cardmenu … — 0,4,1 у пункта),
+       они тяжелее G0 и задают все её свойства, кроме right галочки
+       выбранного (1.4em — то же значение, что путь ставит меню карточки
+       в режиме all); шапка меню скрыта. Проверено тестом.
      - Тема CUB «Neon» (cub.best/extensions/212, <link> в конце body):
        .selectbox-item.focus{background:transparent !important;
        color:#fff !important} и ::before с кольцом и белой вуалью. Заливка и
@@ -62,15 +76,24 @@
       var R = '.526em';
       var NOBLUR = '-webkit-backdrop-filter:none;backdrop-filter:none';
 
-      function sel(prefix, list) {
+      /* Режим «все меню» и маркеры окон пути — src/64_menus.js. */
+      var ALL = 'body.lumen-menus-all';
+      var MS = (LC.menus && LC.menus.MARK_SELECT) || 'lumen-select';
+      var MM = (LC.menus && LC.menus.MARK_MODAL) || 'lumen-modal';
+
+      /* prefixes — пара «режим all ИЛИ маркер»; каждый селектор списка
+         пишется с обоими. */
+      function sel(prefixes, list) {
         var out = [];
-        for (var i = 0; i < list.length; i++) out.push(prefix + list[i]);
+        for (var i = 0; i < list.length; i++) {
+          for (var j = 0; j < prefixes.length; j++) out.push(prefixes[j] + list[i]);
+        }
         return out.join(',');
       }
 
       /* ---------------- Select ---------------- */
-      var G0 = '.selectbox:not(.lumen-cardmenu) ';
-      var G = 'html body .selectbox:not(.lumen-cardmenu) ';
+      var G0 = [ALL + ' .selectbox ', '.selectbox.' + MS + ' '];
+      var G = ['html ' + ALL + ' .selectbox:not(.lumen-cardmenu) ', 'html body .selectbox.' + MS + ':not(.lumen-cardmenu) '];
       function g0(list) { return sel(G0, list); }
       function g(list) { return sel(G, list); }
 
@@ -81,7 +104,7 @@
       /* Заголовок: Bold вместо Light 2.2em (Light запрещён). */
       css.push(g0(['.selectbox__title']) + '{font-size:1.67em;font-weight:700;line-height:1.2}');
       css.push(g(['.selectbox__title']) + '{color:' + TEXT + '}');
-      css.push(g0(['.selectbox__text']) + '{color:' + SOFT + '}');
+      css.push(g(['.selectbox__text']) + '{color:' + SOFT + '}');
       /* Пункт: скруглённая строка с полями от кромки панели, а не полоса
          во всю ширину. */
       css.push(g0(['.selectbox-item']) + '{margin:0 1.4em .175em;padding:.7em 1.05em;border-radius:' + R + '}');
@@ -107,15 +130,19 @@
       css.push(g(['.selectbox-item.selected.focus:not(.nomark)::after', '.selectbox-item.picked.focus::after']) + '{color:' + ON + ' !important;border-color:' + ON + ' !important}');
 
       /* ---------------- Modal ---------------- */
-      /* .modal.modal — класс дважды: html body .modal.modal .modal__content
-         — (0,3,2), тяжелее оболочки пути TorrServer
-         (body.lumen-menus-all .modal .modal__content — 0,3,1). */
-      var M0 = 'body .modal ';
-      var M = 'html body .modal.modal ';
-      function m0(list) { return sel(M0, list); }
+      /* M0 (раскладка) — те же селекторы, что у пути; M (цвета) — с html:
+         html body.lumen-menus-all .modal .modal__content и
+         html body .modal.lumen-modal .modal__content — (0,3,2), тяжелее
+         оболочки пути TorrServer (body.lumen-menus-all .modal
+         .modal__content — 0,3,1; .modal.lumen-modal .modal__content —
+         0,3,0). */
+      var M0 = [ALL + ' .modal', '.modal.' + MM];
+      var M = ['html ' + ALL + ' .modal ', 'html body .modal.' + MM + ' '];
+      function m0(list) { return sel([M0[0] + ' ', M0[1] + ' '], list); }
       function m(list) { return sel(M, list); }
 
-      css.push('body .modal{background-color:rgba(' + P.bgRgb + ',.55);' + NOBLUR + '}');
+      /* Подложка — тем же весом, что у пути (он позже и побеждает). */
+      css.push(M0.join(',') + '{background-color:rgba(' + P.bgRgb + ',.55);' + NOBLUR + '}');
       css.push(m(['.modal__content']) + '{background-color:' + PANEL + ';border-radius:.79em;color:' + TEXT + ';' + FF + SHADOW + NOBLUR + '}');
       css.push(m0(['.modal__title']) + '{font-size:1.67em;font-weight:700;line-height:1.2}');
       css.push(m(['.modal__title']) + '{color:' + TEXT + '}');

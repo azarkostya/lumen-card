@@ -120,9 +120,16 @@ const PATH = {
   modal: ['body.lumen-menus-all .modal .modal__content', '.modal.lumen-modal .modal__content']
 };
 
-const G = 'html body .selectbox:not(.lumen-cardmenu) ';
-const G0 = '.selectbox:not(.lumen-cardmenu) ';
-const M = 'html body .modal.modal ';
+/* Каждое правило окон — пара «режим all ИЛИ маркер пути» (lumen_menus). */
+const G = 'html body.lumen-menus-all .selectbox:not(.lumen-cardmenu) ';
+const GM = 'html body .selectbox.lumen-select:not(.lumen-cardmenu) ';
+const G0 = 'body.lumen-menus-all .selectbox ';
+const G0M = '.selectbox.lumen-select ';
+const M = 'html body.lumen-menus-all .modal ';
+const MM = 'html body .modal.lumen-modal ';
+const M0 = 'body.lumen-menus-all .modal ';
+const M0M = '.modal.lumen-modal ';
+const PAIRS = [[G, GM], [G0, G0M], [M, MM], [M0, M0M], ['body.lumen-menus-all .modal', '.modal.lumen-modal']];
 const CM = 'body.selectbox--open .selectbox.lumen-cardmenu ';
 
 const STYLES = {
@@ -136,7 +143,7 @@ for (const [name, storage] of Object.entries(STYLES)) {
   const apple = !!storage.lumen_flat;
   const FILL = apple ? '#FFFFFF' : P.text;
   const PANEL = apple ? '#1C1C1E' : P.panel;
-  const ours = rules(css).filter((r) => r.selectors.some((s) => s.indexOf(G) === 0 || s.indexOf(G0) === 0 || s.indexOf('body .modal') === 0 || s.indexOf(M) === 0));
+  const ours = dialogRules(storage);
 
   test('v2 окна (' + name + '): Select — панель темы без размытия, фокус — заливка с !important', () => {
     const panel = eff(css, G + '.selectbox__content');
@@ -163,7 +170,7 @@ for (const [name, storage] of Object.entries(STYLES)) {
     const c = eff(css, M + '.modal__content');
     assert.equal(prop(c, 'background-color'), PANEL);
     assert.equal(prop(c, 'backdrop-filter'), 'none');
-    assert.equal(prop(eff(css, 'body .modal'), 'backdrop-filter'), 'none');
+    assert.equal(prop(eff(css, 'body.lumen-menus-all .modal'), 'backdrop-filter'), 'none');
     const btn = eff(css, M + '.modal__button');
     const face = hex(over(prop(btn, 'background'), PANEL));
     assert.ok(contrast(prop(btn, 'color'), face) >= 4.5, 'кнопка: ' + contrast(prop(btn, 'color'), face).toFixed(2));
@@ -173,8 +180,8 @@ for (const [name, storage] of Object.entries(STYLES)) {
     assert.equal(prop(f, 'box-shadow'), 'none !important', 'свечение .simple-button.focus темы');
     assert.ok(contrast(prop(eff(css, M + '.about'), 'color'), PANEL) >= 4.5, 'текст окна');
     assert.ok(contrast(prop(eff(css, M + '.modal__title'), 'color'), PANEL) >= 7);
-    assert.equal(prop(eff(css, 'body .modal .modal__title'), 'font-weight'), '700');
-    assert.equal(prop(eff(css, 'body .modal .about'), 'font-weight'), '500');
+    assert.equal(prop(eff(css, M0 + '.modal__title'), 'font-weight'), '700');
+    assert.equal(prop(eff(css, M0 + '.about'), 'font-weight'), '500');
   });
 
   test('v2 окна (' + name + '): без размытия и без оранжевого, акцента темы нет', () => {
@@ -233,11 +240,100 @@ test('v2 окна: каскад — меню карточки не задето,
       if (s.indexOf(G) === 0 || s.indexOf(G0) === 0) assert.equal(/lumen-cardmenu/.test(s.replace(':not(.lumen-cardmenu)', '')), false, s);
     }
   }
-  for (const p of PATH.item) assert.ok(cmp(spec(G0 + '.selectbox-item'), spec(p)) <= 0, 'раскладка пути: ' + p);
+  /* Раскладка: каждая форма G0 не тяжелее той же формы пути (режим all
+     — с режимом all, маркер — с маркером; на body без lumen-menus-all
+     форма all не подходит вовсе). */
+  assert.ok(cmp(spec(G0 + '.selectbox-item'), spec(PATH.item[0])) <= 0, 'раскладка пути: ' + PATH.item[0]);
   for (const p of PATH.item) assert.ok(cmp(spec(G + '.selectbox-item'), spec(p)) > 0, 'цвет пункта: ' + p);
   for (const p of PATH.focus) assert.ok(cmp(spec(G + '.selectbox-item.focus'), spec(p)) > 0, p);
   for (const p of PATH.content) assert.ok(cmp(spec(G + '.selectbox__content'), spec(p)) > 0, p);
   for (const p of PATH.modal) assert.ok(cmp(spec(M + '.modal__content'), spec(p)) > 0, p);
-  /* Меню карточки по-прежнему тяжелее любых общих правил. */
-  assert.ok(cmp(spec(CM + '.selectbox-item.focus'), spec(G + '.selectbox-item.focus')) > 0);
+  assert.ok(cmp(spec(G0M + '.selectbox-item'), spec(PATH.item[1])) <= 0, 'раскладка пути (маркер): ' + PATH.item[1]);
+  for (const p of PATH.item) assert.ok(cmp(spec(GM + '.selectbox-item'), spec(p)) > 0, 'цвет пункта (маркер): ' + p);
+  for (const p of PATH.modal) assert.ok(cmp(spec(MM + '.modal__content'), spec(p)) > 0, p);
+  assert.ok(cmp(spec(M0 + '.modal__title'), spec(PATH.modal[0].replace('__content', '__title'))) <= 0);
+  assert.ok(cmp(spec(M0M + '.modal__title'), spec(PATH.modal[1].replace('__content', '__title'))) <= 0);
+  /* Цвета G меню карточки не касаются: у каждого селектора Select — исключение. */
+  for (const r of dialogRules({ lumen_flat: 'true' })) {
+    for (const s of r.selectors) {
+      if (/\.selectbox/.test(s) && s.indexOf(G0) !== 0 && s.indexOf(G0M) !== 0) assert.ok(/:not\(\.lumen-cardmenu\)/.test(s), s);
+    }
+  }
+});
+
+/* Правила, которые добавляет именно src/31_v2_dialogs.js: разница таблиц
+   со стилем окон и без него. */
+function dialogRules(storage) {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (n, d) => (n in storage ? storage[n] : d), field: (n) => storage[n] } };
+  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
+  globalThis.Lampa = Lampa;
+  try {
+    for (const f of ['10_util.js', '20_icons.js', '80_settings.js', '81_prefs.js', '30_css.js', '31_v2_settings_menu.js', '31_v2_torrents_menu.js', '31_v2_dialogs.js']) loadInto(LC, module, f);
+    const all = LC.buildCss();
+    LC.v2css = LC.v2css.filter((x) => x.id !== 'dialogs');
+    const base = new Set(rules(LC.buildCss()).map((r) => r.selectors.join(',') + '{' + r.decl));
+    return rules(all).filter((r) => !base.has(r.selectors.join(',') + '{' + r.decl));
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+}
+
+/* Ревью окон v2 (п.1): «Оформление меню и окон» = «Выкл.» — на body нет
+   lumen-menus-all, на корнях нет маркеров; ни одно правило окон не должно
+   подходить к обычным .selectbox/.modal. Режим «Путь TorrServer» — только
+   окна с маркером. Селектор требует класс режима или маркер вне :not(). */
+test('v2 окна: lumen_menus=off — к обычным Select и Modal не подходит ни одно правило окон', () => {
+  for (const storage of Object.values(STYLES)) {
+    const ours = dialogRules(storage);
+    assert.ok(ours.length > 20, 'правила окон не найдены');
+    for (const r of ours) {
+      for (const s of r.selectors) {
+        const bare = s.replace(/:not\([^)]*\)/g, '');
+        assert.ok(/body\.lumen-menus-all\b/.test(bare) || /\.selectbox\.lumen-select\b/.test(bare) || /\.modal\.lumen-modal\b/.test(bare), 'правило без условия режима: ' + s);
+      }
+    }
+  }
+});
+
+test('v2 окна: каждое правило — пара «режим all» и «маркер пути» с одним объявлением', () => {
+  const { css } = build({ lumen_flat: 'true' });
+  for (const r of dialogRules({ lumen_flat: 'true' })) {
+    for (const s of r.selectors) {
+      for (const [all, mark] of PAIRS) {
+        if (s.indexOf(all) === 0) assert.ok(r.selectors.indexOf(mark + s.slice(all.length)) !== -1, 'нет пары-маркера: ' + s);
+      }
+    }
+  }
+  assert.equal(eff(css, GM + '.selectbox-item.focus'), eff(css, G + '.selectbox-item.focus'));
+  assert.equal(eff(css, MM + '.modal__content'), eff(css, M + '.modal__content'));
+});
+
+/* Без таблицы пути (lumen_torrents выкл.) G0 ложится и на меню карточки
+   (исключение сделало бы G0 тяжелее пути). Каждое его свойство меню
+   карточки задаёт своим, более тяжёлым правилом; шапка меню скрыта. */
+test('v2 окна: раскладка G0 не меняет меню карточки — его правила задают те же свойства и тяжелее', () => {
+  const { css } = build({});
+  assert.equal(prop(eff(css, CM + '.selectbox__head'), 'display'), 'none');
+  for (const r of dialogRules({})) {
+    for (const s of r.selectors) {
+      if (s.indexOf(G0) !== 0) continue;
+      const tail = s.slice(G0.length);
+      if (/^\.selectbox__(title|head)/.test(tail)) continue;
+      /* Галочка выбранного: right:1.4em — то же значение, что путь
+         (src/65_torrents.js, sortCheck) ставит меню карточки в режиме all
+         и сейчас; своё значение у меню карточки не задано. */
+      if (/::after$/.test(tail)) continue;
+      const own = CM + tail;
+      assert.ok(cmp(spec(own), spec(s)) > 0, own);
+      const d = eff(css, own);
+      for (const m of r.decl.split(';')) {
+        const name = m.split(':')[0];
+        if (!name) continue;
+        assert.ok(prop(d, name) !== null || (name === 'border-width' && prop(d, 'border') !== null), own + ': ' + name);
+      }
+    }
+  }
 });
