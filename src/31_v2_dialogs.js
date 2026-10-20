@@ -13,21 +13,25 @@
      Каскад. Правила живут в основной таблице плагина и уходят вместе с ней.
      - Меню карточки (.selectbox.lumen-cardmenu) — своё, исключено через
        :not(.lumen-cardmenu): ни одно правило здесь его не трогает.
-     - Путь TorrServer (src/65_torrents.js, свой <style> ПОСЛЕ основного):
-       body.lumen-menus-all .selectbox … (0,3,1) и .selectbox.lumen-select …
-       (0,3,0). Раскладку (поля, кегли) пишем лёгким селектором G0
-       (.selectbox:not(.lumen-cardmenu) — 0,2,0), и путь её перекрывает;
-       цвета — тяжёлым G (html body .selectbox:not(.lumen-cardmenu) — 0,2,2),
-       он перекрывает путь, иначе в Apple TV там остаются тёплая панель и
+     - Путь TorrServer (src/65_torrents.js, свой <style> ПОСЛЕ основного).
+       Веса — на примере пункта (.selectbox-item):
+       body.lumen-menus-all .selectbox .selectbox-item — (0,3,1),
+       .selectbox.lumen-select .selectbox-item — (0,3,0). Раскладку (поля,
+       кегли) пишем лёгким селектором G0: .selectbox:not(.lumen-cardmenu)
+       .selectbox-item — (0,3,0), не тяжелее пути, а при равенстве путь
+       побеждает порядком; цвета — тяжёлым G: html body
+       .selectbox:not(.lumen-cardmenu) .selectbox-item — (0,3,2), он
+       перекрывает путь, иначе в Apple TV там остаются тёплая панель и
        акцент темы.
      - Тема CUB «Neon» (cub.best/extensions/212, <link> в конце body):
        .selectbox-item.focus{background:transparent !important;
        color:#fff !important} и ::before с кольцом и белой вуалью. Заливка и
        цвета в фокусе — с !important (наш селектор специфичнее), ::before
        пункта снят: Lampa сама его пунктам Select не рисует.
-     - body.black--style красит .selectbox__content/.modal__content в #000
-       с !important — выбор пользователя, его не перебиваем (как у
-       настроек). */
+     - body.black--style на узком экране (@media max-width:480px,
+       vendor/lampa/css/app.css:231-236) красит .selectbox__content/
+       .modal__content в #000 с !important — выбор пользователя, его не
+       перебиваем (как у настроек). */
 
   LC.v2css = LC.v2css || [];
   LC.v2css.push({
@@ -103,8 +107,9 @@
       css.push(g(['.selectbox-item.selected.focus:not(.nomark)::after', '.selectbox-item.picked.focus::after']) + '{color:' + ON + ' !important;border-color:' + ON + ' !important}');
 
       /* ---------------- Modal ---------------- */
-      /* .modal.modal — класс дважды: вес выше оболочки пути TorrServer
-         (body.lumen-menus-all .modal .modal__content, 0,3,1). */
+      /* .modal.modal — класс дважды: html body .modal.modal .modal__content
+         — (0,3,2), тяжелее оболочки пути TorrServer
+         (body.lumen-menus-all .modal .modal__content — 0,3,1). */
       var M0 = 'body .modal ';
       var M = 'html body .modal.modal ';
       function m0(list) { return sel(M0, list); }
