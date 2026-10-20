@@ -953,6 +953,9 @@
        скрытие подсказки строку состояния не прячет. */
     function paintNoKey(holder) {
       paintStatus(holder, 'nokey', true);
+      /* v2, экран 36: панель не рисуется — строка о ключе стоит в шапке
+         «Комментариев» (src/31_v2_card_lower.js). */
+      if (LC.cardLower && LC.cardLower.quietKey) return;
       if (hintEnabled()) paintHint(holder);
     }
 

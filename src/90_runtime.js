@@ -1017,6 +1017,8 @@
       Lampa.Listener.follow('full', function (e) {
         try {
           if (!e || !activated) return;
+          /* v2, экран 36: метки рядов ниже первого экрана (src/31_v2_card_lower.js). */
+          if (e.type === 'build' && LC.cardLower) LC.cardLower.tag(e);
           if (e.type === 'start') {
             /* A6: ряды анализа Lampa не создаются вовсе — разбор, замеры и
                отвергнутые пути у dropMetaData выше. Событие уходит РОВНО

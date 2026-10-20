@@ -574,6 +574,14 @@
        1.0.2: только строкой шапки, без пояснения — путь до пункта даёт
        большая подсказка, пока её не скрыли. */
     lumen_reviews_st_nokey: { ru: 'ключ API не задан', en: 'API key not set', uk: 'ключ API не задано' },
+    /* v2, экран 36: строка о ключе в шапке «Комментариев» и подпись плитки
+       добавления комментария (src/31_v2_card_lower.js). */
+    lumen_lower_kp_line: {
+      ru: '· отзывы Кинопоиска — нужен ключ, Настройки → Lumen Card',
+      en: '· Kinopoisk reviews need a key, Settings → Lumen Card',
+      uk: '· відгуки Кінопошуку — потрібен ключ, Налаштування → Lumen Card'
+    },
+    lumen_lower_write: { ru: 'Написать', en: 'Write', uk: 'Написати' },
     lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
     lumen_reviews_st_key_note: {
       ru: 'Кинопоиск ответил «нет доступа»: в ключе опечатка, лишний символ или ключ отозван. Проверьте его:',
