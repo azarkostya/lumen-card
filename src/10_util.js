@@ -3,8 +3,9 @@
   /* Ни Lampa, ни jQuery, ни DOM модуль не трогает — он проверяется        */
   /* тестами (node --test) без браузера. Единственное исключение —         */
   /* screenPx() (Task 39): ширина экрана и devicePixelRatio берутся с      */
-  /* window по вызову, внутри try/catch, поэтому загрузка модуля по-       */
-  /* прежнему ничего снаружи не требует.                                   */
+  /* window внутри try/catch (размеры окна — из кэша, сбрасываемого        */
+  /* resize, viewportW), поэтому загрузка модуля по-прежнему ничего        */
+  /* снаружи не требует.                                                   */
   /* -------------------------------------------------------------------- */
 
   LC.util = (function () {
@@ -134,6 +135,60 @@
       return dpr > 2 ? 2 : dpr;
     }
 
+    /* Размеры окна (innerWidth/innerHeight) — из кэша. Замер на ТВ
+       (Philips, Chromium 154, 2026-10-20): чтение innerWidth после записи
+       в DOM — принудительный пересчёт стилей и раскладки, 1.2–3.7 мс на
+       каждое; на показе героя (applyLogo → emPx → baseEm, loadFrame →
+       screenPx) это 22 мс пересчёта стилей и 7 мс раскладки в одной
+       задаче. Окно меняет размер только событием resize (поворот —
+       orientationchange), поэтому число читается один раз и сбрасывается
+       этими событиями; следующее чтение берёт свежее. Подписка — на тот
+       объект window, с которого число взято: сменился объект (тесты
+       подменяют window целиком) — кэш перечитывается. Ноль не кэшируется:
+       WebView до первой раскладки может отдать 0. */
+    var viewWin = null;
+    var viewOk = false;
+    var viewW = 0;
+    var viewH = 0;
+
+    function viewDrop() {
+      viewOk = false;
+    }
+
+    function viewRead() {
+      var win = null;
+      try {
+        win = window;
+      } catch (e) { }
+      if (viewOk && win === viewWin) return;
+      if (win !== viewWin) {
+        viewWin = win;
+        try {
+          if (win && typeof win.addEventListener === 'function') {
+            win.addEventListener('resize', viewDrop);
+            win.addEventListener('orientationchange', viewDrop);
+          }
+        } catch (e) { }
+      }
+      viewW = 0;
+      viewH = 0;
+      try {
+        viewW = Number(win.innerWidth) || 0;
+        viewH = Number(win.innerHeight) || 0;
+      } catch (e) { }
+      viewOk = viewW > 0 && viewH > 0;
+    }
+
+    function viewportW() {
+      viewRead();
+      return viewW;
+    }
+
+    function viewportH() {
+      viewRead();
+      return viewH;
+    }
+
     /* Эффективная ширина экрана в ФИЗИЧЕСКИХ пикселях. Android TV WebView
        отдаёт CSS-ширину, которая на части моделей вдвое меньше физической
        (960 при DPR 2), а на других равна ей (1920 при DPR 1) — размер
@@ -146,10 +201,7 @@
        кегль (см. baseEm), а значит и все размеры наших элементов; две мерки
        от одного числа не расходятся. */
     function screenPx() {
-      var w = 0;
-      try {
-        w = Number(window.innerWidth) || 0;
-      } catch (e) { }
+      var w = viewportW();
       return Math.round(w * dprCapped());
     }
 
@@ -219,10 +271,7 @@
        Task 37 с горячего пути как раз убрал. Storage.field у Lampa отдаёт
        значение из своего кэша в памяти и раскладку не трогает. */
     function baseEm() {
-      var w = 0;
-      try {
-        w = Number(window.innerWidth) || 0;
-      } catch (e) { }
+      var w = viewportW();
       var px = w / 84.17 * lampaSizeK();
       return px > 10.6 ? px : 10.6;
     }
@@ -267,10 +316,7 @@
        зафиксированный в docs/plans/2026-09-22-lumen-final.md, здесь закрыт
        тем, что число берётся из baseEm, а не из литерала 84.17. */
     function emScreen() {
-      var w = 0;
-      try {
-        w = Number(window.innerWidth) || 0;
-      } catch (e) { }
+      var w = viewportW();
       var one = baseEm() * uiScale();
       return one > 0 ? w / one : 0;
     }
@@ -287,10 +333,7 @@
        в момент сборки таблицы, как и DPR у narrowWindowPx (src/30_css.js):
        окно телевизора своей ширины не меняет. */
     function screenBaseEm() {
-      var w = 0;
-      try {
-        w = Number(window.innerWidth) || 0;
-      } catch (e) { }
+      var w = viewportW();
       return w > 0 ? w / baseEm() : 84.17 / lampaSizeK();
     }
 
@@ -303,10 +346,7 @@
        кромку. Множителей поэтому два, а не три: доля окна и DPR с тем же
        потолком 2, что у screenPx/emPx. */
     function vhPx(vh) {
-      var h = 0;
-      try {
-        h = Number(window.innerHeight) || 0;
-      } catch (e) { }
+      var h = viewportH();
       return Math.round(h * (Number(vh) || 0) / 100 * dprCapped());
     }
 
@@ -614,6 +654,9 @@
       fmtRuntime: fmtRuntime,
       daysUntil: daysUntil,
       screenPx: screenPx,
+      viewportW: viewportW,
+      viewportH: viewportH,
+      viewportDrop: viewDrop,
       lampaSizeK: lampaSizeK,
       lampaCardK: lampaCardK,
       baseEm: baseEm,

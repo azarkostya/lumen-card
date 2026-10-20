@@ -232,6 +232,44 @@ test('baseEm/emPx: «Размер интерфейса» Lampa входит в �
   assert.equal(withScreen({ innerWidth: 200, devicePixelRatio: 1 }, () => u.baseEm()), 10.6);
 });
 
+/* 2026-10-20 (ТВ): размеры окна — из кэша. Чтение innerWidth после записи
+   в DOM на ТВ — принудительный пересчёт раскладки, поэтому число берётся
+   один раз и сбрасывается только событиями resize / orientationchange. */
+test('viewportW/H: окно читается один раз, resize и orientationchange сбрасывают кэш', () => {
+  const handlers = {};
+  let reads = 0;
+  const win = {
+    devicePixelRatio: 2,
+    addEventListener: (type, fn) => { (handlers[type] = handlers[type] || []).push(fn); },
+    get innerWidth() { reads++; return this._w; },
+    get innerHeight() { return this._h; },
+    _w: 960, _h: 540
+  };
+  withScreen(win, () => {
+    assert.equal(u.screenPx(), 1920);
+    assert.equal(u.viewportH(), 540);
+    assert.equal(Math.round(u.baseEm() * 100) / 100, 11.41);
+    u.emPx(10); u.emScreen(); u.screenBaseEm(); u.vhPx(50);
+    assert.equal(reads, 1, 'окно прочитано один раз: ' + reads);
+    win._w = 1920; win._h = 1080;
+    assert.equal(u.screenPx(), 1920, 'без resize — прежнее число');
+    for (const fn of handlers.resize) fn();
+    assert.equal(u.screenPx(), 3840, 'после resize — новое');
+    assert.equal(u.viewportH(), 1080);
+    win._w = 960; win._h = 540;
+    for (const fn of handlers.orientationchange) fn();
+    assert.equal(u.viewportW(), 960, 'после orientationchange — новое');
+    assert.equal(handlers.resize.length, 1, 'подписка одна на объект окна');
+  });
+  /* Ноль (WebView до первой раскладки) не кэшируется. */
+  const late = { innerWidth: 0, innerHeight: 0 };
+  withScreen(late, () => {
+    assert.equal(u.viewportW(), 0);
+    late.innerWidth = 960; late.innerHeight = 540;
+    assert.equal(u.viewportW(), 960, 'ноль не застревает');
+  });
+});
+
 test('emPx: масштаб интерфейса плагина умножает ширину элемента', () => {
   const screen = { innerWidth: 1920, devicePixelRatio: 1 };
   /* 9.2em: 210 px при обычном масштабе и 264 при «огромном» вместе с

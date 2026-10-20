@@ -1481,10 +1481,13 @@
      таблице. Окно сменило пропорцию посреди главной — основное правило
      узла перебивает полосы таблицы до ближайшей записи узла (следующая
      остановка фокуса), то есть обычный низ, а не чужой цвет. */
+  /* Размеры окна — из кэша LC.util (viewportW/H): узел пишется в тике
+     смены цвета, после записей в DOM, и живое чтение innerWidth там —
+     принудительный пересчёт раскладки (замер на ТВ, src/10_util.js). */
   function windowRatio() {
     try {
-      var w = Number(window.innerWidth) || 0;
-      var h = Number(window.innerHeight) || 0;
+      var w = LC.util.viewportW();
+      var h = LC.util.viewportH();
       return w > 0 && h > 0 ? w / h * 1000 : 0;
     } catch (e) {
       return 0;
