@@ -3127,3 +3127,32 @@ test('1.3: tsclean — включённый плагин, но activate() не �
   const thrown = tscleanLC({}, { buildThrowsOnce: true }).log;
   assert.equal(thrown[0], 'markOff', 'исключение в init: ' + thrown.join(','));
 });
+
+/* perf: 'toggle' приходит на каждый шаг пульта по рядам главной — без
+   запроса .lumen-card по всему документу. */
+test('perf: toggle на главной не ищет .lumen-card по документу', () => {
+  const { toggles } = initLC();
+  const queries = [];
+  globalThis.$ = (sel) => { queries.push(sel); return EMPTY; };
+  globalThis.Lampa.Activity = { active: () => ({ component: 'main' }) };
+  toggles[0]({ name: 'items_line' });
+  toggles[0]({ name: 'items_line' });
+  assert.deepEqual(queries.filter((q) => typeof q === 'string' && q.indexOf('.lumen-card') !== -1), []);
+});
+
+test('perf: toggle на карточке берёт корень из LC.active.body — поведение то же', () => {
+  const { LC, calls, toggles } = initLC();
+  const root = new FakeEl(['lumen-card']);
+  root.closest = () => new FakeEl(['activity', 'activity--active']);
+  const queries = [];
+  globalThis.$ = (sel) => { queries.push(sel); return EMPTY; };
+  globalThis.Lampa.Activity = { active: () => ({ component: 'full' }) };
+  LC.active = { body: { find: (sel) => (sel === '.lumen-card' ? root : EMPTY) } };
+  toggles[0]({ name: 'full_start' });
+  toggles[0]({ name: 'full_descr' });
+  assert.equal(root.hasClass('lumen-compact'), true);
+  assert.equal(calls.stop, 1, 'уход с кнопок снимает трейлер, как прежде');
+  toggles[0]({ name: 'full_start' });
+  assert.equal(root.hasClass('lumen-compact'), false);
+  assert.deepEqual(queries.filter((q) => typeof q === 'string' && q.indexOf('.lumen-card') !== -1), []);
+});

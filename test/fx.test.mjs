@@ -1151,3 +1151,26 @@ test('holB: пауза при листании — после нажатия п�
     fx.unmountAll();
   });
 });
+
+/* Гигиена: слушатель keydown на document снимается вместе с последним
+   слоем и возвращается со следующим праздничным монтажом — один. */
+test('holB: keydown снимается, когда слоёв не осталось, и не удваивается при новом монтаже', () => {
+  env(({ doc }) => {
+    const keys = [];
+    doc.addEventListener = (type, fn, cap) => { if (type === 'keydown') keys.push({ fn, cap }); };
+    doc.removeEventListener = (type, fn, cap) => {
+      const i = keys.findIndex((k) => k.fn === fn && k.cap === cap);
+      if (type === 'keydown' && i !== -1) keys.splice(i, 1);
+    };
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    fx._timers = fakeTimers().hook;
+    fx.mount(fakeNode(960, 360), 'winter');
+    assert.equal(keys.length, 1);
+    fx.unmountAll();
+    assert.equal(keys.length, 0, 'слушатель пульта пережил движок');
+    fx.mount(fakeNode(960, 360), 'winter');
+    assert.equal(keys.length, 1, 'новый монтаж возвращает слушатель');
+    fx.unmountAll();
+    assert.equal(keys.length, 0);
+  });
+});

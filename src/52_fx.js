@@ -1311,6 +1311,17 @@
       } catch (e) { }
     }
 
+    /* Гигиена: слоёв не осталось — слушатель снимается (drop ниже), его
+       вернёт следующий праздничный монтаж (bindKeys). */
+    function unbindKeys() {
+      if (!keyBound) return;
+      keyBound = false;
+      var d = doc();
+      try {
+        if (d && typeof d.removeEventListener === 'function') d.removeEventListener('keydown', onKey, true);
+      } catch (e) { }
+    }
+
     function nodeOf(layer) {
       if (!layer) return null;
       var node = layer[0] || layer;
@@ -1643,6 +1654,7 @@
         frame = 0;
         clearIdle();
         last = 0;
+        unbindKeys();
       }
     }
 

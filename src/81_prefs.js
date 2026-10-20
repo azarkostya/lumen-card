@@ -236,6 +236,9 @@
       /* Task 62a: три вида метки; старое значение переключателя читается
          как новое (badgesMode ниже, LC.migratePrefs). */
       { name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+      /* «Досмотреть»: у сериала серия вместо процента (src/62_badges.js,
+         episodeOf). Читается при построении главной. */
+      { name: 'lumen_next_ep_badge', type: 'trigger', 'default': true, label: 'lumen_next_ep_badge_name', descr: 'lumen_next_ep_badge_descr' },
       /* Дефолт 'lampa' — ни одного лишнего запроса у того, кто пункт не
          трогал (src/43_sources.js). */
       { name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' },

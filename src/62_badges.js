@@ -60,6 +60,59 @@
       return card.release_date || card.first_air_date || '';
     }
 
+    /* «Досмотреть», сериал: метка серии вместо процента — «S2·E5» (серия
+       досмотрена, следующая уже в эфире), «S2·E4 · 12 мин» (начата, есть
+       длительность) или «S2·E4 ▶» (начата, длительности нет). Списка серий
+       на главной нет, поэтому сканируется только ПОСЛЕДНИЙ сезон
+       (number_of_seasons, иначе last_episode_to_air) и не дальше
+       EP_SCAN серий; после найденной — до EP_GAP пустых подряд. Хэш серии —
+       формула LC.progress (src/70_progress.js, episodeHash). Следующая серия
+       предлагается, только если last_episode_to_air её не опровергает.
+       view/hash — обёртки над Lampa.Timeline.view и Lampa.Utils.hash,
+       words.epLeft — шаблон «{e} · {n} мин». Ничего не нашли → null, и
+       метка остаётся прежней. */
+    var EP_SCAN = 30;
+    var EP_GAP = 3;
+    var EP_DONE = 95;
+    var EP_PLAY = ' \u25B6\uFE0E';
+
+    function episodeBadge(card, view, hash, words) {
+      if (!card || !card.lumen_continue || typeof view !== 'function' || typeof hash !== 'function') return null;
+      if (card.original_title || !(card.original_name || card.name)) return null;
+      var key = card.original_name || card.name;
+      var last = card.last_episode_to_air || null;
+      var season = parseInt(card.number_of_seasons, 10) || (last ? parseInt(last.season_number, 10) || 0 : 0);
+      if (!(season > 0)) return null;
+      var best = null, bestEp = 0, gap = 0;
+      for (var ep = 1; ep <= EP_SCAN; ep++) {
+        var v = view(hash([season, season > 10 ? ':' : '', ep, key].join('')));
+        var percent = v ? Number(v.percent) || 0 : 0;
+        if (percent > 0) {
+          gap = 0;
+          if (!best || (Number(v.updated) || 0) >= (Number(best.updated) || 0)) { best = v; bestEp = ep; }
+        } else if (best && ++gap >= EP_GAP) {
+          break;
+        }
+      }
+      if (!best) return null;
+      var head = 'S' + season + '\u00B7E';
+      var pct = Number(best.percent) || 0;
+      if (pct >= EP_DONE) {
+        var next = bestEp + 1;
+        if (last && (parseInt(last.season_number, 10) || 0) === season && (parseInt(last.episode_number, 10) || 0) < next) return null;
+        return { kind: 'progress', text: head + next, percent: 0 };
+      }
+      var whole = Math.max(1, Math.round(pct));
+      var duration = Number(best.duration) || 0;
+      var time = Number(best.time) || 0;
+      var tpl = words && words.epLeft ? '' + words.epLeft : '';
+      if (duration > 0 && time >= 0 && time < duration && tpl) {
+        var left = Math.ceil((duration - time) / 60);
+        if (left >= 1) return { kind: 'progress', text: tpl.replace('{e}', head + bestEp).replace('{n}', left), percent: whole, left: true };
+      }
+      return { kind: 'progress', text: head + bestEp + EP_PLAY, percent: whole };
+    }
+
     /* Метка одной карточки. today — Date (или мс), ctx:
          progress(card) → процент просмотра или null,
          words → {soon, fresh, months} (строки собирает рантайм из
@@ -74,6 +127,13 @@
       var words = ctx.words || {};
 
       if (card.lumen_badge) return { kind: 'custom', text: '' + card.lumen_badge, percent: 0 };
+
+      /* «Досмотреть», сериал: серия вместо процента (episodeBadge выше).
+         ctx.episode(card) — рантайм с кэшем на экран; нет — прежний путь. */
+      if (card.lumen_continue && typeof ctx.episode === 'function') {
+        var epBadge = ctx.episode(card);
+        if (epBadge && epBadge.text) return epBadge;
+      }
 
       var percent = null;
       if (typeof ctx.progress === 'function') percent = Number(ctx.progress(card));
@@ -217,8 +277,36 @@
         soon: LC.lang('lumen_badge_soon'),
         fresh: LC.lang('lumen_badge_new'),
         left: left.indexOf('{n}') !== -1 ? left : '',
+        epLeft: epLeftWord(),
         months: ('' + LC.lang('lumen_card_months_short')).split(',')
       };
+    }
+
+    function epLeftWord() {
+      var tpl = '' + LC.lang('lumen_badge_ep_left');
+      return tpl.indexOf('{e}') !== -1 && tpl.indexOf('{n}') !== -1 ? tpl : '';
+    }
+
+    /* «Досмотреть», сериал: метка серии с кэшем на экран (сбрасывает mount).
+       Выключено настройкой lumen_next_ep_badge — null, метка прежняя. */
+    var ep_cache = {};
+
+    function episodeOf(card) {
+      try {
+        if (LC.pref && !LC.pref('lumen_next_ep_badge', true)) return null;
+        var id = card.id != null ? 'i' + card.id : null;
+        if (id && Object.prototype.hasOwnProperty.call(ep_cache, id)) return ep_cache[id];
+        var out = null;
+        if (window.Lampa && Lampa.Timeline && typeof Lampa.Timeline.view === 'function' &&
+            Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
+          out = episodeBadge(card, function (h) { return Lampa.Timeline.view(h); },
+            function (k) { return Lampa.Utils.hash(k); }, { epLeft: epLeftWord() });
+        }
+        if (id) ep_cache[id] = out;
+        return out;
+      } catch (e) {
+        return null;
+      }
     }
 
     /* Общее на пачку карточек: дата и строки метки. Мелочь ревью фазы 3
@@ -375,7 +463,7 @@
            («Новинка», прогресс) на постере, ни рейтинга в подписи. */
         if (data.lumen_advent) return;
         var ctx = shared || batch();
-        var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, words: ctx.words });
+        var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, episode: episodeOf, words: ctx.words });
         var view = $(el).find('.card__view');
         var hasBadge = !!(badge && badge.text && view && view.length);
         var view_mode = mode();
@@ -514,21 +602,68 @@
       for (var i = 0; i < lines.length; i++) LC.typo.stripCards(lines[i].querySelectorAll('.card'));
     }
 
+    /* perf (замер src/58_prefill.js: «наблюдатели DOM 20 мс, метки — 16»):
+       узлы, которые вставляет сам этот модуль (decorate), будили наблюдателя
+       снова, и каждая такая запись пересчитывала подписи всего ряда —
+       O(N²) на ряд. Свои узлы метки пропускаются, как и мутации внутри
+       кадра героя: карточек рядов там нет. */
+    var OWN = ['lumen-badge', 'lumen-badge-cap', 'lumen-badge-bar'];
+
+    function ownNode(n) {
+      var c = n && n.classList;
+      if (!c) return false;
+      for (var i = 0; i < OWN.length; i++) if (c.contains(OWN[i])) return true;
+      return false;
+    }
+
+    function inHero(target) {
+      try {
+        return !!(target && typeof target.closest === 'function' && target.closest('.lumen-hero, .lumen-hero-stage'));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function addLine(lines, line) {
+      if (line && lines.indexOf(line) === -1) lines.push(line);
+    }
+
+    /* Ряды, чьи карточки изменила запись: ряд, внутри которого она случилась,
+       либо ряды внутри добавленных узлов. Прежде вне ряда опрашивалось всё
+       поддерево цели — то есть каждая новая строка главной пересчитывала
+       все уже построенные; их карточки при этом не менялись, а stripCards
+       зависит только от карточек своего ряда. */
+    function linesOf(target, elems, lines) {
+      var line = target && typeof target.closest === 'function' ? target.closest('.items-line') : null;
+      if (line) { addLine(lines, line); return; }
+      for (var i = 0; i < elems.length; i++) {
+        var el = elems[i];
+        if (el.classList && el.classList.contains('items-line')) { addLine(lines, el); continue; }
+        if (typeof el.querySelectorAll !== 'function') continue;
+        var inner = el.querySelectorAll('.items-line');
+        for (var k = 0; k < inner.length; k++) addLine(lines, inner[k]);
+      }
+    }
+
     function onMutations(records) {
       if (!state) return;
       try {
         var shared = null;
+        var lines = [];
         for (var i = 0; i < records.length; i++) {
           var added = records[i] && records[i].addedNodes;
           if (!added || !added.length) continue;
-          if (!shared) shared = batch();
-          var elems = false;
+          var elems = [];
           for (var k = 0; k < added.length; k++) {
-            decorateAdded(added[k], shared);
-            if (added[k] && added[k].nodeType === 1) elems = true;
+            var n = added[k];
+            if (n && n.nodeType === 1 && !ownNode(n)) elems.push(n);
           }
-          if (elems && LC.typo) stripLines(records[i].target);
+          if (!elems.length || inHero(records[i].target)) continue;
+          if (!shared) shared = batch();
+          for (var j = 0; j < elems.length; j++) decorateAdded(elems[j], shared);
+          if (LC.typo) linesOf(records[i].target, elems, lines);
         }
+        for (var m = 0; m < lines.length; m++) LC.typo.stripCards(lines[m].querySelectorAll('.card'));
       } catch (e) {
         warn('badges: observer failed', e);
       }
@@ -550,6 +685,9 @@
     function mount(root) {
       try {
         if (!root || !root.length) return;
+        /* Кэш меток серий — на один показ главной: возврат на неё (тот же
+           корень) после плеера должен видеть новый прогресс. */
+        ep_cache = {};
         var want = mode();
         /* Тот же корень И тот же вид меток — повторное событие 'start' при
            возврате на главную: всё уже нарисовано как надо. */
@@ -686,6 +824,7 @@
 
     return {
       badgeFor: badgeFor,
+      episodeBadge: episodeBadge,
       countdown: countdown,
       decorate: decorate,
       mount: mount,
