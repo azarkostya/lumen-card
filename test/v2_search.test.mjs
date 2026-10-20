@@ -272,3 +272,15 @@ test('v2 экран 38: плашки «TV» и качества на посте�
     assert.equal(rules(css, 'body.search--open .search .search__results .card__type,body.search--open .search .search__results .card__quality{display:none}').length, 1);
   }
 });
+
+/* Ревью [75]: анимация фокуса Lampa (animation-card-focus / -trigger-enter,
+   кадры на transform) перебивала масштаб .card__view — снята, как на главной. */
+test('v2 экран 38: штатная анимация фокуса карточки в результатах снята', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const r = rules(css, 'body.search--open .search .search__results .card.focus .card__view,body.search--open .search .search__results .card.hover .card__view,');
+    assert.equal(r.length, 1);
+    assert.ok(r[0].indexOf('.search__results .card.animate-trigger-enter .card__view') !== -1, r[0]);
+    assert.match(r[0], /\{-webkit-animation:none !important;animation:none !important\}$/);
+  }
+});

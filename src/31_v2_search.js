@@ -216,6 +216,13 @@
       } else {
         css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
       }
+      /* Ревью: у Lampa на .card__view в фокусе своя анимация
+         (body.advanced--animation … .card.focus .card__view{animation:
+         animation-card-focus .2s}, по Enter — animation-trigger-enter
+         forwards; app.css, кадры — тот же transform) — она перебивала наш
+         масштаб, и постер прыгал без него, потом щёлкал. Снята, как на
+         главной (src/30_css.js). */
+      css.push(RES + ' .card.focus .card__view,' + RES + ' .card.hover .card__view,' + RES + ' .card.animate-trigger-enter .card__view{-webkit-animation:none !important;animation:none !important}');
       css.push('body.lumen-motion-full.search--open .search .search__results .card__view{' + tr(APPLE ? V2.durA : V2.durL) + '}');
 
       /* QA main (08-search-empty-field-stale-results): пустое поле — рядов нет.
