@@ -2390,6 +2390,12 @@ r.push('.lumen-backdrop--proc0 .lumen-backdrop__img,.lumen-backdrop--proc1 .lume
 r.push('html body .card__quality{background:rgba(28,28,30,.85);color:#FFFFFF}');
 r.push('html body .card__marker--viewed::before{background-color:rgba(235,235,245,.6)}');
 r.push('html body .full-start__tag.tag--quality{background:rgba(255,255,255,.16);color:#FFFFFF}');
+var MIST='176,168,196';
+var mist='radial-gradient(ellipse 38% 18% at 78% 100%,rgba('+MIST+',.3) 0%,rgba('+MIST+',.12) 55%,rgba('+MIST+',0) 100%),'+
+'radial-gradient(ellipse 32% 13% at 46% 102%,rgba('+MIST+',.2) 0%,rgba('+MIST+',.07) 55%,rgba('+MIST+',0) 100%),'+
+'radial-gradient(ellipse 26% 10% at 12% 103%,rgba('+MIST+',.07) 0%,rgba('+MIST+',0) 100%)';
+r.push('html body .lumen-backdrop.lumen-theme--halloween .lumen-fx,html body .lumen-hero.lumen-theme--halloween .lumen-fx{background-image:none}');
+r.push('html body .lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene,html body .lumen-hero.lumen-theme--halloween .lumen-fx.lumen-fx--scene,html body .lumen-hero .lumen-fx.lumen-fx--halloween{background-image:'+mist+'}');
 return r.join('\n');
 }
 });

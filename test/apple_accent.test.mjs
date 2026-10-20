@@ -152,3 +152,17 @@ test('Смена стиля Lumen → Apple TV → Lumen на одном LC: п�
     delete globalThis.Lampa;
   }
 });
+
+/* Решение владельца 21.10.2026: Хэллоуин в Apple TV — без тыквенного
+   зарева на фоне (дымка остаётся), летучие мыши — своим цветом. */
+test('Apple TV: Хэллоуин — фон без оранжевого зарева, дымка на месте; в Lumen зарево как было', () => {
+  const tail = apple.css.slice(apple.css.lastIndexOf('lumen-fx--halloween'));
+  const rule = apple.css.split('\n').filter((l) => l.indexOf('html body') === 0 && l.indexOf('lumen-fx--halloween') !== -1);
+  assert.equal(rule.length, 1, 'нет правила Apple TV для сцены Хэллоуина');
+  assert.ok(rule[0].indexOf('224,123,44') === -1, 'в Apple TV осталось тыквенное зарево');
+  assert.ok(rule[0].indexOf('176,168,196') !== -1, 'дымка пропала');
+  assert.ok(apple.css.split('\n').some((l) => l.indexOf('html body .lumen-backdrop.lumen-theme--halloween .lumen-fx,') === 0 && l.indexOf('background-image:none') !== -1));
+  assert.ok(tail.length > 0);
+  assert.ok(lumen.css.indexOf('html body .lumen-hero .lumen-fx.lumen-fx--halloween') === -1, 'правило Apple TV попало в Lumen');
+  assert.ok(lumen.css.indexOf('224,123,44') !== -1, 'в Lumen пропало зарево');
+});
