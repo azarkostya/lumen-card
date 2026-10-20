@@ -139,8 +139,10 @@ test('LC.v2search.scan: обходит карточки результатов',
 test('v2 экран 38: пустое поле — ряды результатов и счётчики вкладок скрыты', () => {
   for (const st of [{}, APPLE]) {
     const { css } = build(st);
-    const r = rules(css, '.search__input:not(.filled) ~ .search__results .items-line');
+    /* Ряды: прочие — целиком, первый — пустой рамкой под подсказку. */
+    const r = rules(css, '.search__input:not(.filled) ~ .search__results .items-line + .items-line,');
     assert.equal(r.length, 1);
+    assert.ok(r[0].indexOf('body.search--open .search .search__input:not(.filled) ~ .search__results .items-line > *') !== -1);
     assert.ok(r[0].indexOf('body.search--open .search .search__input:not(.filled) ~ .search__sources .search-source__count') !== -1);
     assert.ok(/\{display:none\}$/.test(r[0]), r[0]);
     /* «Начните вводить…» и «Ничего не найдено» (.search-looking) не трогаем. */
@@ -270,5 +272,203 @@ test('v2 экран 38: плашки «TV» и качества на посте�
   for (const st of [{}, APPLE, { lumen_badges: 'off' }]) {
     const { css } = build(st);
     assert.equal(rules(css, 'body.search--open .search .search__results .card__type,body.search--open .search .search__results .card__quality{display:none}').length, 1);
+  }
+});
+
+/* Ревью [75]: анимация фокуса Lampa (animation-card-focus / -trigger-enter,
+   кадры на transform) перебивала масштаб .card__view — снята, как на главной. */
+test('v2 экран 38: штатная анимация фокуса карточки в результатах снята', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const r = rules(css, 'body.search--open .search .search__results .card.focus .card__view,body.search--open .search .search__results .card.hover .card__view,');
+    assert.equal(r.length, 1);
+    assert.ok(r[0].indexOf('.search__results .card.animate-trigger-enter .card__view') !== -1, r[0]);
+    assert.match(r[0], /\{-webkit-animation:none !important;animation:none !important\}$/);
+  }
+});
+
+/* Ревью [perf]: слой will-change:transform Lampa на каждой карточке снят. */
+test('v2 экран 38: карточки результатов без will-change:transform', () => {
+  for (const st of [{}, APPLE]) {
+    assert.equal(rules(build(st).css, 'body.search--open .search .search__results .card{will-change:auto}').length, 1);
+  }
+});
+
+/* Ревью [65]: пустое поле — справа не пустота, а штатная подсказка Lampa
+   (ряды прошлого поиска recall('') заменяют её «Начните вводить…» и скрыты). */
+test('v2 экран 38: пустое поле — подсказка «Начните вводить…» в рамке первого скрытого ряда', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const pre = 'body.search--open .search .search__input:not(.filled) ~ .search__results .items-line:first-child';
+    assert.equal(rules(css, pre + '{padding:9.18em 0 0 1.5em}').length, 1);
+    const txt = rules(css, pre + ':after{');
+    assert.equal(txt.length, 1);
+    assert.match(txt[0], /content:"Начните вводить текст для поиска\.";display:block;max-width:20em;.*font-size:1\.67em/);
+    const icon = rules(css, pre + ':before{');
+    assert.equal(icon.length, 1);
+    assert.match(icon[0], /^@supports .*width:2\.45em;height:2\.45em;margin-bottom:0\.62em/);
+    /* Первый ряд сам не скрыт — иначе пропала бы и подсказка. */
+    assert.equal(css.split('\n').some((x) => /\.search__results \.items-line(:first-child)?[,{][^}]*display:none/.test(x.replace(/\.items-line \+ \.items-line,|\.items-line > \*,/g, ''))), false);
+  }
+});
+
+test('v2 экран 38: подсказка пустого поиска — перевод Lampa, кавычки экранированы', () => {
+  const LCx = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (n, d) => d, field: () => undefined }, Lang: { translate: (k) => (k === 'search_start_typing' ? 'Type "here"' : k) } };
+  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
+  globalThis.Lampa = Lampa;
+  try {
+    for (const f of ['10_util.js', '20_icons.js', '80_settings.js', '81_prefs.js', '30_css.js', '31_v2_search.js']) loadInto(LCx, module, f);
+    const css = LCx.buildCss();
+    assert.ok(css.indexOf('.items-line:first-child:after{content:"Type \\"here\\"";') !== -1);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});
+
+/* Ревью [60]: один источник. Модель — порядок Lampa (app.min.js):
+   Controller.toggle(name) ставит активный, зовёт его toggle(), потом шлёт
+   'toggle'; Sources.toggle(from_search) при одном источнике внутри своей
+   toggle() входит в ряды (Results.toggle → Controller.toggle('search_results'))
+   — событие рядов приходит раньше события вкладок, обёртка «вниз» вкладок не
+   участвует. Вкладки при одном источнике спрятаны (.hide). */
+function lampaModel(opts) {
+  const { LC } = build({});
+  const cls = (list) => ({ list: new Set(list), contains(c) { return this.list.has(c); } });
+  const input = { classList: cls(opts.filled ? ['search__input', 'filled'] : ['search__input']) };
+  const root = {
+    querySelector(sel) {
+      if (sel === '.search__input') return input;
+      if (sel === '.search__results .items-line') return opts.rows ? {} : null;
+      if (sel === '.search__history .search-history-key') return opts.history ? {} : null;
+      return null;
+    },
+    querySelectorAll() { return []; }
+  };
+  const controlls = {};
+  let active = null, activeName = '';
+  const follows = {};
+  const Controller = {
+    add(n, c) { controlls[n] = c; },
+    enabled: () => ({ name: activeName, controller: active }),
+    toggle(n) {
+      if (!controlls[n]) return;
+      active = controlls[n]; activeName = n;
+      if (active.toggle) active.toggle();
+      LC.v2search.onToggle(n);
+    }
+  };
+  const Lampa = { Controller, Search: { render: () => root, listener: { follow: (n, f) => { follows[n] = f; }, remove: (n) => { delete follows[n]; } } } };
+  const results = { any: () => !!opts.rows, toggle() { Controller.add('search_results', { invisible: true, toggle() { } }); Controller.toggle('search_results'); } };
+  const tabs = { classList: cls(['scroll', 'hide']) };
+  const keyboard = { toggle() { Controller.add('keybord', { down() { if (opts.history) history.toggle(); else sources.toggle(); }, right() { } }); Controller.toggle('keybord'); } };
+  const sources = {
+    tabs: () => tabs,
+    toggle(fromSearch) {
+      Controller.add('search_sources', {
+        toggle() { if (fromSearch && results.any()) results.toggle(); },
+        up() { if (opts.history) history.toggle(); else keyboard.toggle(); },
+        down() { if (results.any()) results.toggle(); }
+      });
+      Controller.toggle('search_sources');
+    }
+  };
+  const history = { toggle() { Controller.add('search_history', { toggle() { }, down() { sources.toggle(true); } }); Controller.toggle('search_history'); } };
+  globalThis.window = { Lampa: Lampa, Navigator: { canmove: () => false } };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { body: { classList: cls(['search--open']) } };
+  LC.v2search.install();
+  follows.sources({ sources: sources });
+  return {
+    name: () => activeName, keyboard, history, controller: () => active,
+    done() { LC.v2search.uninstall(); delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
+  };
+}
+
+test('LC.v2search.onToggle: один источник, «вниз» с недавних при пустом запросе — фокус остаётся в недавних', () => {
+  const env = lampaModel({ filled: false, rows: true, history: true });
+  try {
+    env.history.toggle();
+    env.controller().down();
+    assert.equal(env.name(), 'search_history');
+  } finally { env.done(); }
+  const env2 = lampaModel({ filled: true, rows: true, history: true });
+  try {
+    env2.history.toggle();
+    env2.controller().down();
+    assert.equal(env2.name(), 'search_results', 'запрос есть — штатно в ряды');
+  } finally { env2.done(); }
+});
+
+test('LC.v2search.onToggle: один источник без недавних — «вниз» с клавиатуры не оставляет фокус на скрытой вкладке', () => {
+  const env = lampaModel({ filled: false, rows: true, history: false });
+  try {
+    env.keyboard.toggle();
+    env.controller().down();
+    assert.equal(env.name(), 'keybord');
+  } finally { env.done(); }
+  const env2 = lampaModel({ filled: true, rows: true, history: false });
+  try {
+    env2.keyboard.toggle();
+    env2.controller().down();
+    assert.equal(env2.name(), 'search_results');
+  } finally { env2.done(); }
+  const env3 = lampaModel({ filled: true, rows: false, history: false });
+  try {
+    env3.keyboard.toggle();
+    env3.controller().down();
+    assert.equal(env3.name(), 'keybord', 'рядов нет — назад');
+  } finally { env3.done(); }
+});
+
+/* Ревью [perf]: наблюдатель поиска разбирает только добавленные элементы
+   внутри .search__results; свои записи (текст в .card__age) и узлы вне
+   результатов не трогают карточки. */
+function el(cls, kids, text) {
+  const n = {
+    nodeType: 1, parentNode: null, textContent: text || '', kids: kids || [],
+    className: cls, classList: { contains: (c) => cls.split(' ').indexOf(c) !== -1 },
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
+    querySelectorAll(sel) { const c = sel.slice(1); const out = []; (function walk(x) { for (const k of x.kids) { if (k.classList.contains(c)) out.push(k); walk(k); } })(this); return out; }
+  };
+  for (const k of n.kids) k.parentNode = n;
+  return n;
+}
+
+test('LC.v2search.onMutations: только добавленные элементы в результатах, свои записи пропускаются', () => {
+  const { LC } = build({});
+  const age = el('card__age', [], '2021');
+  const card = el('card selector', [el('card__view'), age]);
+  const line = el('items-line', [card]);
+  const res = el('search__results', [line]);
+  const otherCard = el('card', [el('card__vote', [], '9.0'), el('card__age', [], '2000')]);
+  const keypad = el('search__keypad', [otherCard]);
+  const root = el('search', [res, keypad]);
+  /* Плашка оценки пришла позже карточки — оценивается её карточка. */
+  const vote = el('card__vote', [], '7.8');
+  vote.parentNode = card; card.kids.push(vote);
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [vote] }], root), 1);
+  assert.equal(age.textContent, '2021 · ★ 7.8');
+  /* Своя запись — текстовый узел: ничего. */
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [{ nodeType: 3, parentNode: age }] }], root), 0);
+  /* Вне результатов — не трогаем, даже карточку. */
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [otherCard] }], root), 0);
+  assert.equal(otherCard.kids[1].textContent, '2000');
+  /* Новый ряд — карточки в нём. */
+  const a2 = el('card__age', [], '2024');
+  const line2 = el('items-line', [el('card', [el('card__vote', [], '8.1'), a2]), el('card', [el('card__age', [], '2026')])]);
+  line2.parentNode = res; res.kids.push(line2);
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [line2] }, { addedNodes: [] }], root), 1);
+  assert.equal(a2.textContent, '2024 · ★ 8.1');
+});
+
+/* Ревью [15]: значки состояния — в правом верхнем углу, как на главной. */
+test('v2 экран 38: значки .card__icons результатов — мельче, в правом верхнем углу', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__icons{top:.3em;left:auto;right:.3em;').length, 1);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__icon{width:1.25em;height:1.25em}').length, 1);
   }
 });

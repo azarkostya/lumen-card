@@ -193,6 +193,10 @@
          Apple TV). Видимый зазор — 32 px (1.4em). */
       css.push(RES + ' .items-line__head + .items-line__body{margin-top:-.59em}');
       css.push(RES + ' .card{width:9.52em;margin-right:1.75em}');
+      /* Ревью [perf]: Lampa даёт каждой .card will-change:transform
+         (app.css) — слой на карточку при масштабе у .card__view; снят, как
+         на главной (src/30_css.js). Отдельным правилом — ширину сторожит тест. */
+      css.push(RES + ' .card{will-change:auto}');
       css.push(RES + ' .card__view,' + RES + ' .card__img{border-radius:' + V2.rImg + 'em}');
       css.push(RES + ' .card__title{display:block;max-height:none;margin-top:.45em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + ';-webkit-line-clamp:none}');
       css.push(RES + ' .card__age{margin-top:.1em;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');
@@ -201,6 +205,11 @@
          (.card__quality) на постерах — те же «пёстрые» плашки, что сняты на
          главной; сериалы и так в своём ряду «Сериалы». */
       css.push(RES + ' .card__type,' + RES + ' .card__quality{display:none}');
+      /* Ревью [15]: значки состояния Lampa (.card__icons) штатно — плашкой
+         по центру верха постера и закрывают логотип; как на главной и в
+         сетке (src/30_css.js) — мельче, в правом верхнем углу. */
+      css.push(RES + ' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+      css.push(RES + ' .card__icon{width:1.25em;height:1.25em}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
          снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
@@ -216,6 +225,13 @@
       } else {
         css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
       }
+      /* Ревью: у Lampa на .card__view в фокусе своя анимация
+         (body.advanced--animation … .card.focus .card__view{animation:
+         animation-card-focus .2s}, по Enter — animation-trigger-enter
+         forwards; app.css, кадры — тот же transform) — она перебивала наш
+         масштаб, и постер прыгал без него, потом щёлкал. Снята, как на
+         главной (src/30_css.js). */
+      css.push(RES + ' .card.focus .card__view,' + RES + ' .card.hover .card__view,' + RES + ' .card.animate-trigger-enter .card__view{-webkit-animation:none !important;animation:none !important}');
       css.push('body.lumen-motion-full.search--open .search .search__results .card__view{' + tr(APPLE ? V2.durA : V2.durL) + '}');
 
       /* QA main (08-search-empty-field-stale-results): пустое поле — рядов нет.
@@ -225,7 +241,18 @@
          на вкладках. Поле и результаты — соседи в .search__body, класс
          filled поля ставит сама Lampa. Пульт в скрытые ряды не пускает
          LC.v2search.onToggle ниже. */
-      css.push(S + ' .search__input:not(.filled) ~ .search__results .items-line,' + S + ' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+      /* Ревью [65]: скрыть ряды целиком значило оставить справа пустоту —
+         Lampa уже заменила ими свою «Начните вводить…». Поэтому первый ряд
+         остаётся пустой рамкой (его содержимое и прочие ряды скрыты), а в
+         нём — та же подсказка псевдоэлементом, видом .search-looking__text
+         ниже (лупа 1.47em и отступ 5.5em пересчитаны из её кегля 1.67em).
+         Текст — штатный ключ Lampa search_start_typing. */
+      var EMPTY = S + ' .search__input:not(.filled) ~ .search__results';
+      var hint = typeof LC.lang === 'function' ? LC.lang('search_start_typing') : '';
+      css.push(EMPTY + ' .items-line + .items-line,' + EMPTY + ' .items-line > *,' + S + ' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
+      css.push(EMPTY + ' .items-line:first-child{padding:' + ctx.round2(5.5 * 1.67) + 'em 0 0 1.5em}');
+      css.push(EMPTY + ' .items-line:first-child:after{content:"' + ('' + hint).replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ') + '";display:block;max-width:20em;font-family:' + FB + ';font-weight:' + (APPLE ? '600' : '700') + ';font-size:1.67em;line-height:1.2;color:' + P.text + '}');
+      css.push(hasMask + '{' + EMPTY + ' .items-line:first-child:before{content:"";display:block;width:' + ctx.round2(1.47 * 1.67) + 'em;height:' + ctx.round2(1.47 * 1.67) + 'em;margin-bottom:' + ctx.round2(0.37 * 1.67) + 'em;color:' + MUTED + ';' + maskDecl(LC.icons.maskUrl('search')) + '}}');
 
       /* --- Пустые состояния и «Идёт поиск». ---
          Текст Lampa один («Начните вводить…», «Ничего не найдено…») —
@@ -278,6 +305,41 @@
       return n;
     }
 
+    function hasClass(n, c) {
+      return !!(n && n.classList && n.classList.contains(c));
+    }
+
+    /* Ревью [perf]: наблюдатель смотрит только на добавленные ЭЛЕМЕНТЫ
+       внутри .search__results — без пересканирования всех карточек на
+       каждую мутацию. Свои записи (age.textContent в rateCard) добавляют
+       текстовый узел — он пропускается. Добавлен узел внутри карточки
+       (плашка .card__vote приходит позже самой карточки) — оценивается она;
+       добавлен ряд или контейнер — карточки в нём. */
+    function onMutations(list, root) {
+      var n = 0;
+      for (var i = 0; list && i < list.length; i++) {
+        var added = list[i].addedNodes;
+        for (var j = 0; added && j < added.length; j++) {
+          var node = added[j];
+          if (!node || node.nodeType !== 1) continue;
+          var card = null;
+          var inRes = false;
+          for (var p = node; p && p !== root; p = p.parentNode) {
+            if (!card && hasClass(p, 'card')) card = p;
+            if (hasClass(p, 'search__results')) { inRes = true; break; }
+          }
+          if (!inRes) continue;
+          if (card) {
+            if (rateCard(card)) n++;
+            continue;
+          }
+          var cards = node.querySelectorAll ? node.querySelectorAll('.card') : [];
+          for (var k = 0; k < cards.length; k++) if (rateCard(cards[k])) n++;
+        }
+      }
+      return n;
+    }
+
     function rootNode() {
       try {
         var r = window.Lampa && Lampa.Search && Lampa.Search.render ? Lampa.Search.render(true) : null;
@@ -302,7 +364,7 @@
       scan(root);
       if (typeof window.MutationObserver !== 'function') return;
       try {
-        obs = new window.MutationObserver(function () { scan(root); });
+        obs = new window.MutationObserver(function (list) { onMutations(list, root); });
         obs.observe(root, { childList: true, subtree: true });
       } catch (e) {
         warn('v2search: observe failed', e);
@@ -347,11 +409,30 @@
                           пуст и ряды есть;
          search_sources — «вниз» при пустом запросе ничего не делает: ряды
                           прошлого поиска скрыты (CSS выше), фокус в них
-                          ушёл бы в невидимое. */
+                          ушёл бы в невидимое;
+         search_results — при пустом запросе фокус возвращается назад.
+       Один источник (детский профиль, поиск из плагина): вкладки Lampa
+       прячет (.hide у их скролла), и «вниз» с недавних зовёт
+       sources.toggle(true), чья toggle() сама входит в ряды (active.toggle(),
+       app.min.js Sources.toggle) — ещё ДО события 'toggle' вкладок, мимо
+       обёртки «вниз». Поэтому ловится сам вход в 'search_results': при
+       пустом запросе — назад в недавние (или в клавиатуру, если их нет).
+       «Вниз» с клавиатуры без недавних при одном источнике ведёт на
+       невидимую вкладку — оттуда сразу дальше: в ряды, если запрос не пуст
+       и они есть, иначе её же «вверх» (назад, штатным путём). */
+    function tabsHidden() {
+      try {
+        var t = sources && typeof sources.tabs === 'function' ? sources.tabs() : null;
+        return !!(t && t.classList && t.classList.contains('hide'));
+      } catch (e) {
+        return false;
+      }
+    }
+
     function onToggle(name) {
       try {
         if (!installed || !sources) return;
-        if (name !== 'keybord' && name !== 'search_sources') return;
+        if (name !== 'keybord' && name !== 'search_sources' && name !== 'search_results') return;
         var body = document.body;
         if (!body || !body.classList || !body.classList.contains('search--open')) return;
         /* Клавиатура ввода настроек (settings_input) — тот же 'keybord'. */
@@ -361,6 +442,10 @@
         if (!c || c.lumenSearchBound) return;
         var root = rootNode();
         if (!root) return;
+        if (name === 'search_results') {
+          if (!filled(root)) Lampa.Controller.toggle(root.querySelector('.search__history .search-history-key') ? 'search_history' : 'keybord');
+          return;
+        }
         c.lumenSearchBound = true;
         if (name === 'keybord' && typeof c.right === 'function') {
           var right = c.right;
@@ -384,6 +469,10 @@
             if (!filled(root)) return;
             return down.apply(this, arguments);
           };
+          if (tabsHidden()) {
+            if (filled(root) && hasRows(root)) c.down();
+            else if (typeof c.up === 'function') c.up();
+          }
         }
       } catch (e) {
         warn('v2search: toggle failed', e);
@@ -415,7 +504,7 @@
       sources = null;
     }
 
-    return { rateCard: rateCard, scan: scan, install: install, uninstall: uninstall, onToggle: onToggle };
+    return { rateCard: rateCard, scan: scan, onMutations: onMutations, install: install, uninstall: uninstall, onToggle: onToggle };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.v2search;
