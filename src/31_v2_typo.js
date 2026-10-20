@@ -188,7 +188,7 @@
           }
         }
         if (words(rest) < 2 && !sub) continue;
-        out[i] = { t: rest, s: sub, r: whole };
+        out[i] = { t: dash(rest), s: sub, r: dash(whole) };
       }
       return out;
     }

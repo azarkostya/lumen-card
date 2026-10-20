@@ -2741,7 +2741,8 @@
            по границе слова (LC.typo) — «20 / 000», «годы....», «Сант-…». */
         var typo = LC.typo;
         node.find('.lumen-hero__meta').text(typo ? typo.nbsp(metaLine.join(' · ')) : metaLine.join(' · '));
-        node.find('.lumen-hero__descr').text(typo ? typo.clip(typo.text(current.overview), DESCR_CLIP) : current.overview);
+        var descrNode = node.find('.lumen-hero__descr');
+        descrNode.text(typo ? typo.clip(typo.text(current.overview), descrChars(descrNode)) : current.overview);
         node.find('.lumen-hero__status').text(current.status);
         node.toggleClass('lumen-hero--status', !!current.status);
         node.toggleClass('lumen-hero--pending', !!current.pending);
@@ -2842,6 +2843,26 @@
        описания с запасом; длиннее режется по границе слова (LC.typo.clip),
        а не посреди слова многоточием line-clamp. */
     var DESCR_CLIP = 150;
+
+    /* Сколько знаков входит в две строки описания: ширина колонки и кегль
+       читаются один раз за показ главной (state.descrChars), средняя
+       ширина знака Golos/Inter 500 — .55em (замер на ТВ: 43 знака в строке
+       при 29 px и колонке ~690 px FHD). Колонка не разложена (скрыта на
+       время трейлера) — потолок DESCR_CLIP, дальше режет line-clamp. */
+    function descrChars(descr) {
+      if (state && state.descrChars) return state.descrChars;
+      try {
+        var el = descr && descr[0];
+        var w = el ? el.clientWidth : 0;
+        var fs = el ? parseFloat(window.getComputedStyle(el).fontSize) : 0;
+        if (w > 0 && fs > 0) {
+          var n = Math.floor(w / (fs * 0.55)) * 2 - 3;
+          if (state) state.descrChars = n;
+          return n;
+        }
+      } catch (e) { }
+      return DESCR_CLIP;
+    }
 
     function swapFrame(url, blur, slide) {
       if (!state) return;
