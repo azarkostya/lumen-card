@@ -143,3 +143,10 @@ test('Apple TV: без сохранённого акцента (или с неи
   assert.equal(read({}), sand);
   assert.equal(read({ lumen_card_accent: 'nope' }), sand);
 });
+
+test('Apple TV: меню карточки (удержание OK) — отметка выбранного пункта белая, Lumen без правила', () => {
+  const M = 'body.selectbox--open .selectbox.lumen-cardmenu ';
+  const rule = M + '.selectbox-item.selected:not(.nomark)::after,' + M + '.selectbox-item.picked::after{color:#FFFFFF !important;border-color:#FFFFFF !important}';
+  assert.ok(build(APPLE_PREFS).css.includes(rule));
+  assert.ok(!build({}).css.includes(rule));
+});

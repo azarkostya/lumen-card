@@ -258,6 +258,10 @@
       r.push(m(['.selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + ON + ' !important}');
       r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + ON + ' !important}');
       r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after']) + '{color:' + FILL + ' !important}');
+      /* Отметка выбранного пункта (галочка Lampa или маска пути TorrServer,
+         src/65_torrents.js — акцентом): в Apple TV белая. !important —
+         правила пути стоят в своём <style> после основного. */
+      if (A) r.push(m(['.selectbox-item.selected:not(.nomark)::after', '.selectbox-item.picked::after']) + '{color:#FFFFFF !important;border-color:#FFFFFF !important}');
       /* Замок — мелкий (20 px FHD), тихим цветом, у правого края. */
       r.push(m(['.selectbox-item__lock']) + '{right:.7em;margin-top:-.44em;opacity:1;color:' + MUTED + '}');
       r.push(m(['.selectbox-item__lock > svg']) + '{width:.877em !important;height:.877em !important}');
