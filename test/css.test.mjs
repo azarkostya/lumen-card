@@ -7481,7 +7481,7 @@ test('Task 44: кадр и вуаль накрывают и полосу шап�
   for (const sel of ['.lumen-roulette-screen .lumen-roulette__bg', '.lumen-roulette-screen .lumen-roulette__veil']) {
     const decl = findDecl(css, (s) => s === sel);
     assert.ok(decl, 'правило не найдено: ' + sel);
-    assert.ok(decl.indexOf('top:-4em') !== -1, sel + ': кадр начинается под шапкой Lampa: ' + decl);
+    assert.ok(/(^|;)top:0(;|$)/.test(decl), sel + ': кадр от верхней кромки обёртки: ' + decl);
     assert.ok(decl.indexOf('position:absolute') !== -1, sel + ': ' + decl);
     assert.ok(decl.indexOf('pointer-events:none') !== -1, sel + ': слой ловит нажатия: ' + decl);
   }
@@ -7491,6 +7491,11 @@ test('Task 44: кадр и вуаль накрывают и полосу шап�
     'обёртке нельзя давать масштаб плагина: -4em перестанет совпадать с полем шапки');
   const screen = findDecl(css, (sel) => sel === '.lumen-roulette-screen');
   assert.ok(screen.indexOf('height:100%') !== -1 && screen.indexOf('overflow:hidden') !== -1, screen);
+  /* QA v2 (P2-1): обрезка overflow:hidden начинается от верхней кромки
+     экрана — обёртка поднята под шапку полем, содержимое осталось на месте. */
+  assert.ok(/(^|;)margin-top:-4em(;|$)/.test(screen), 'обёртка поднята под шапку: ' + screen);
+  assert.ok(/(^|;)padding-top:4em(;|$)/.test(screen), 'содержимое опущено на то же поле: ' + screen);
+  assert.ok(/(^|;)box-sizing:content-box(;|$)/.test(screen), 'height:100% — у области содержимого: ' + screen);
 });
 
 /* Task 64: у героя нижней вуали-плашки больше нет — её заменила маска самих

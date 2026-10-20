@@ -6161,7 +6161,15 @@
        сделал обе пилюлями): «Крутить» — 3.16em с радиусом 1.58em, кнопки
        результата — 2.45em с радиусом 1.23em; это разные классы, а не один
        .full-start__button. */
-    css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden}');
+    /* QA v2 (P2-1): сам кадр стоял с top:-4em, но overflow:hidden обёртки
+       срезал его по ЕЁ верхней кромке — под прозрачной шапкой оставалась
+       тёмная полоса с жёстким краем. Теперь вверх на поле шапки поднята сама
+       обёртка: margin-top:-4em и то же padding-top, box-sizing:content-box —
+       область содержимого (height:100%) и всё внутри стоят где стояли, а
+       обрезка начинается от верхней кромки экрана. Кадр и вуаль — от top:0
+       обёртки. Так же поднят кадр карточки (body.lumen-card-on
+       .lumen-backdrop, ниже). */
+    css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden;margin-top:-4em;padding-top:4em;-webkit-box-sizing:content-box;box-sizing:content-box}');
     /* Прокрутка идёт ПОСЛЕ кадра и вуали в разметке, но сама не
        спозиционирована — а позиционированный сосед рисуется поверх любого
        потокового. Без position:relative кадр накрыл бы собой весь спокойный
@@ -6171,7 +6179,7 @@
        ровно там, где в режиме кадра стоит карточка результата. Снимаем её
        на это время: листать в режиме кадра всё равно нечего. */
     css.push('.lumen-roulette-screen.is-kadr>.scroll{-webkit-mask-image:none;mask-image:none}');
-    css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:-4em;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
+    css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
     /* Вуали — те же два градиента, что были у героя до Task 64 (у героя с
        волны 3 их заменило затемнение слоя кадра, AR.scrim*): слева под текст,
        снизу под карточку результата. Здесь они собственные, а не из
@@ -6179,7 +6187,7 @@
        рулетку не трогает, и перекрашивать тут нечего. Кадр рулетки остался
        фоном div (.lumen-roulette__bg выше) — на <img> его переводит не эта
        задача. */
-    css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:-4em;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
+    css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:0;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
     css.push('.lumen-roulette-screen .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}');
     css.push('.lumen-roulette-screen .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}');
     css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__bg,.lumen-roulette-screen.is-kadr .lumen-roulette__veil{opacity:1}');
@@ -7032,8 +7040,9 @@
     css.push('body .head .head__action.open--profile img{background:none}');
 
     /* Над экраном «Что посмотреть» оставалась полоса фона body Lampa
-       (серый #1D1F20): экран начинается под шапкой, а его слой кадра
-       обрезан своим overflow:hidden. На экранах плагина со своим заголовком
+       (серый #1D1F20): экран начинается под шапкой (с QA v2 обёртка
+       рулетки поднята под неё сама; правило остаётся для кадров без фона
+       и прочих экранов со своим заголовком). На экранах плагина со своим заголовком
        фон страницы — фон темы, и шапка лежит на нём, без плашки. Фон body
        Lampa пишет в style самого узла (как и её «чёрный стиль»), отсюда
        !important. */
