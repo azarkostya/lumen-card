@@ -8708,32 +8708,21 @@ test('C1: метка окошка адвента — в подписи: «Сег
 });
 
 /* Следующий раунд, п.5: цвет фильма ставится в тот же тик, что его кадр
-   (src/48_hero.js, settleAccent). В «Полном» кадр проявляется переходом
-   opacity — .35 с, с тяжёлыми эффектами .4 с (верхний слой кроссфейда);
-   фон корня главной, видный там, где кадра нет (первый кадр, нейтральный
-   фон вместо кадра), проявляется тем же переходом — длительность и кривая
-   те же. В «Лёгких» и «Выкл» перехода у большого слоя нет (волна perf, ТВ). */
-test('следующий раунд, п.5: переход фона главной в «Полном» — тот же, что у кадра; в «Лёгких» и «Выкл» его нет', () => {
-  const timing = (decl, prop) => {
-    const v = declProp(decl || '', 'transition') || '';
-    const part = v.split(',').map((x) => x.trim()).find((x) => x.indexOf(prop + ' ') === 0);
-    assert.ok(part, 'переход ' + prop + ': ' + decl);
-    return part.slice(prop.length + 1);
-  };
-  const frame = findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-motion-full .lumen-hero__bg');
-  const frameHeavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b');
-  const main = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main');
-  const mainHeavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy.lumen-motion-full .lumen-main');
-  assert.equal(timing(main, 'background-color'), timing(frame, 'opacity'), '«Полный»: как проявление кадра');
-  assert.equal(timing(mainHeavy, 'background-color'), timing(frameHeavy, 'opacity'), 'тяжёлые эффекты: как кроссфейд кадра');
-  assert.ok(/-webkit-transition:[^;]*background-color/.test(main), 'префиксная пара для старого WebKit');
-  /* .lumen-main — узел активности Lampa: её штатное проявление экрана
-     (.activity{transition:opacity .3s}, vendor/lampa/css/app.css) правило
-     обязано сохранить — свойство transition одно на узел. */
-  assert.equal(timing(main, 'opacity'), '.3s', 'штатный переход активности Lampa сохранён');
-  assert.equal(timing(mainHeavy, 'opacity'), '.3s', 'и с тяжёлыми эффектами');
-  const others = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.lumen-main$/.test(s) && !/lumen-motion-full/.test(s)));
-  for (const r of others) assert.ok(!/transition/.test(r.decl), 'у фона главной вне «Полного» переход: ' + r.selectors.join(',') + '{' + r.decl + '}');
+   (src/48_hero.js, settleAccent). Перехода background-color у фона корня
+   главной нет ни в одном режиме: на ТВ (2026-10-20) .lumen-main рисуется в
+   полноэкранный слой .wrap__content, и переход перерастеризовывал весь
+   экран ~0.5 с после каждой смены цвета. Своего transition у узла нет —
+   штатное проявление активности Lampa (.activity{transition:opacity .3s})
+   не перекрыто. */
+test('следующий раунд, п.5: у фона главной нет перехода background-color и не перекрыт штатный переход активности', () => {
+  const rules = ruleBodiesWithMedia(css).filter((r) => r.selectors.some((s) => /\.lumen-main$/.test(s)));
+  assert.ok(rules.length > 0, 'правила фона главной есть');
+  for (const r of rules) {
+    assert.ok(!/transition/.test(r.decl), 'transition у .lumen-main: ' + r.selectors.join(',') + '{' + r.decl + '}');
+  }
+  const ac = withTint({}, '#a84838', (LC) => LC.accentCss());
+  assert.ok(ac.indexOf('.lumen-main{') !== -1, 'фон главной в стилях акцента');
+  assert.ok(!/\.lumen-main\{[^}]*transition/.test(ac), 'и в стилях акцента');
 });
 
 /* ====================================================================== */
