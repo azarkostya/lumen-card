@@ -1963,7 +1963,7 @@ test('вид «как Apple TV»: барабан крутит кадры w300, �
   createdImages[createdImages.length - 1].onload();
 });
 
-test('вид «как Apple TV»: результат — описание под метой и место под логотип; прежний вид — без логотипа', (t) => {
+test('вид «как Apple TV»: результат — описание под метой и место под логотип; в стиле Lumen — тоже', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
   const env = openRoulette34([A], t, 1, 'off', null, null, { lumen_flat: true });
   env.comp.start();
@@ -1980,11 +1980,43 @@ test('вид «как Apple TV»: результат — описание под
   const plain = openRoulette34([A], t, 1, 'off');
   plain.comp.start();
   spinAndFlush(plain);
-  /* Дизайн-проход 2026-09-26: описание результата есть и в прежнем виде
-     (тест «дизайн C: результат в обоих видах»); логотипа там нет. */
-  assert.equal(plain.screen.find('.lumen-roulette__result').find('.lumen-roulette__rlogo').length, 0);
+  /* v2 «Единый стиль», экран 45: итог — компонент героя главной в обоих
+     стилях, место под логотип есть и в стиле Lumen. */
+  assert.equal(plain.screen.find('.lumen-roulette__result').find('.lumen-roulette__rlogo').length, 1);
   assert.equal(plain.screen.hasClass('is-atv'), false);
   assert.equal(plain.screen.find('.lumen-roulette__shelf').length, 0, 'в прежнем виде полки нет');
+});
+
+/* v2 «Единый стиль», экран 45: фон спокойного экрана из кадра — и в стиле
+   Lumen (было плоское чёрное); на вращении он не меняется, по остановке —
+   кадр результата, «Ещё раз» возвращает мягкий фон. */
+test('v2 экран 45: стиль Lumen — фон спокойного экрана из кадра, меняется один раз по остановке', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A], t, 1, 'full');
+  env.comp.start();
+  flushTimers();
+  const calm = 'url("https://img/w300/a-b.jpg")';
+  assert.equal(env.screen.hasClass('is-atv'), false);
+  assert.equal(env.bg.css('background-image'), calm, 'спокойный экран — фон из кадра, а не пустой');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.bg.css('background-image'), calm, 'на вращении фон не меняется');
+  flushTimers();
+  createdImages[createdImages.length - 1].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'по остановке — кадр результата');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.bg.css('background-image'), calm, '«Ещё раз» — снова мягкий фон');
+  flushTimers();
+});
+
+test('v2 экран 45: кнопки итога помечены по действию (иконка «Смотреть»)', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A], t, 1, 'off');
+  env.comp.start();
+  spinAndFlush(env);
+  const box = env.screen.find('.lumen-roulette__result');
+  assert.equal(box.find('.lumen-roulette__btn--watch').length, 1);
+  assert.equal(box.find('.lumen-roulette__btn--again').length, 1);
+  assert.equal(box.find('.lumen-roulette__btn--book').length, 1);
 });
 
 /* Ревью волны fx2: «Крутить» и «Ещё раз» в виде «как Apple TV» — за
@@ -2687,4 +2719,25 @@ test('kids: «Все подборки» в детском режиме — пу�
   } finally {
     MANIFEST34 = saved;
   }
+});
+
+/* v2 «Единый стиль», экран 45: CSS-модуль src/31_v2_roulette.js. */
+test('v2 экран 45: CSS — фон Lumen из кадра, описание 29/500, кнопки 64 px, гашение текста на вращении', () => {
+  const LC = {};
+  const mod = { exports: null, lumen: true };
+  const load = (name) => new Function('LC', 'module', readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8'))(LC, mod);
+  ['10_util.js', '20_icons.js', '80_settings.js', '81_prefs.js', '30_css.js', '31_v2_roulette.js'].forEach(load);
+  const css = LC.buildCss();
+  assert.ok(css.includes('.lumen-roulette-screen:not(.is-atv):not(.is-kadr) .lumen-roulette__bg{opacity:.6}'), 'фон спокойного экрана Lumen');
+  assert.ok(/\.lumen-roulette__rdescr\{font-size:1\.27em;font-weight:500/.test(css), 'описание 29/500 FHD');
+  /* 64 px FHD: 1.1em × 2.55em × 22.811 px ≈ 64. */
+  assert.ok(/\.lumen-roulette__btn\{font-size:1\.1em;font-weight:600;height:2\.55em/.test(css), 'кнопки итога 64 px');
+  assert.ok(Math.abs(1.1 * 2.55 * 22.811 - 64) < 1);
+  assert.ok(css.includes('.is-spinning .lumen-roulette__ltitle'), 'текст гаснет на вращении');
+  const spinRule = /\.is-spinning \.lumen-roulette__ldescr\{([^}]*)\}/g;
+  let m; const bodies = [];
+  while ((m = spinRule.exec(css))) bodies.push(m[1]);
+  assert.equal(bodies[bodies.length - 1], 'opacity:0', 'последнее правило — opacity 0');
+  assert.ok(!/lumen-motion-lite[^{]*lumen-roulette__l(title|meta|descr)\{[^}]*transition/.test(css), 'в «Лёгких» — без перехода');
+  assert.ok(!/__r(logo|descr|meta)[^{]*\{[^}]*blur/.test(css), 'без blur');
 });

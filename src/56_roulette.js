@@ -1551,6 +1551,12 @@
           countBox.find('.lumen-roulette__count-value').text(String(list.length));
           countBox.find('.lumen-roulette__count-label').text(LC.lang('lumen_roulette_pick'));
           var head0 = list[0] || null;
+          /* v2 «Единый стиль», экран 45: фон спокойного экрана — из кадра
+             главной карточки выборки и в стиле Lumen (было плоское чёрное),
+             тем же w300, что у вида «как Apple TV». */
+          var soft0 = head0 ? imageUrl(backdropOf(head0), 'w300') : '';
+          calmBg = soft0 ? 'url("' + soft0 + '")' : '';
+          if (!kadr) bg.css('background-image', calmBg);
           var url = head0 ? imageUrl(head0.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))) : '';
           var frameNode = reelBox.find('.lumen-roulette__frame');
           if (url) frameNode.css('background-image', 'url("' + url + '")');
@@ -1754,11 +1760,11 @@
         resultBox.empty();
         resultBox.removeClass('is-live');
         leaveKadr();
-        /* Вид «как Apple TV»: вместо кадра результата — снова мягкий фон
+        /* Оба вида (v2, экран 45): вместо кадра результата — снова мягкий фон
            спокойного экрана, сразу, а не через PREVIEW_DELAY: на «Ещё раз»
            барабан крутится на этом фоне, а показ выборки на вращении не
            поднимается вовсе (schedulePreview). */
-        try { bg.css('background-image', atv ? calmBg : ''); } catch (e) { }
+        try { bg.css('background-image', calmBg); } catch (e) { }
         /* «Ещё раз» и возврат с карточки результата возвращают спокойный
            экран — значит и выборку в барабане. Пул к этому моменту уже
            собран, loadPool отдаст его по кешу без сети. */
@@ -1799,7 +1805,7 @@
       }
 
       function actionNode(key, handler) {
-        var node = watchFocus($('<div class="lumen-roulette__btn selector">' + esc(LC.lang(key)) + '</div>'));
+        var node = watchFocus($('<div class="lumen-roulette__btn lumen-roulette__btn--' + key.replace('lumen_roulette_', '') + ' selector">' + esc(LC.lang(key)) + '</div>'));
         node.on('hover:enter', handler);
         return node;
       }
@@ -1902,11 +1908,11 @@
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.removeClass('has-logo is-logo-wait');
-        if (atv) {
-          var logo = $('<div class="lumen-roulette__rlogo"></div>');
-          resultBox.append(logo);
-          paintResultLogo(card, logo);
-        }
+        /* v2, экран 45: итог — компонент героя главной в обоих стилях:
+           название логотипом (правила героя), мета, описание. */
+        var logo = $('<div class="lumen-roulette__rlogo"></div>');
+        resultBox.append(logo);
+        paintResultLogo(card, logo);
         resultBox.append($('<div class="lumen-roulette__rtitle"></div>').text(cardTitle(card)));
         var metaNode = $('<div class="lumen-roulette__rmeta"></div>').text(cardMeta(card));
         resultBox.append(metaNode);
@@ -2144,7 +2150,7 @@
                переход «барабан → кадр» стартует без паузы. */
             prepareFrame(final);
             warmDetails(final);
-            if (atv) warmLogo(final);
+            warmLogo(final);
             var strip = [];
             var i;
             for (i = 0; i < REEL_SIZE - 1; i++) {
