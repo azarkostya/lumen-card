@@ -90,11 +90,46 @@ dpr=1;
 if(!(dpr>0))dpr=1;
 return dpr>2?2:dpr;
 }
-function screenPx(){
-var w=0;
+var viewWin=null;
+var viewOk=false;
+var viewW=0;
+var viewH=0;
+function viewDrop(){
+viewOk=false;
+}
+function viewRead(){
+var win=null;
 try{
-w=Number(window.innerWidth)||0;
+win=window;
 }catch(e){}
+if(viewOk&&win===viewWin)return;
+if(win!==viewWin){
+viewWin=win;
+try{
+if(win&&typeof win.addEventListener==='function'){
+win.addEventListener('resize',viewDrop);
+win.addEventListener('orientationchange',viewDrop);
+}
+}catch(e){}
+}
+viewW=0;
+viewH=0;
+try{
+viewW=Number(win.innerWidth)||0;
+viewH=Number(win.innerHeight)||0;
+}catch(e){}
+viewOk=viewW>0&&viewH>0;
+}
+function viewportW(){
+viewRead();
+return viewW;
+}
+function viewportH(){
+viewRead();
+return viewH;
+}
+function screenPx(){
+var w=viewportW();
 return Math.round(w*dprCapped());
 }
 var LAMPA_SIZES={normal:1,small:0.9,bigger:1.05};
@@ -115,10 +150,7 @@ function lampaCardK(){
 return LAMPA_CARD_SIZES[lampaSize()]||1;
 }
 function baseEm(){
-var w=0;
-try{
-w=Number(window.innerWidth)||0;
-}catch(e){}
+var w=viewportW();
 var px=w/84.17*lampaSizeK();
 return px>10.6?px:10.6;
 }
@@ -134,25 +166,16 @@ if(!(s>0))s=1;
 return Math.round(baseEm()*(Number(em)||0)*s*dprCapped());
 }
 function emScreen(){
-var w=0;
-try{
-w=Number(window.innerWidth)||0;
-}catch(e){}
+var w=viewportW();
 var one=baseEm()*uiScale();
 return one>0?w/one:0;
 }
 function screenBaseEm(){
-var w=0;
-try{
-w=Number(window.innerWidth)||0;
-}catch(e){}
+var w=viewportW();
 return w>0?w/baseEm():84.17/lampaSizeK();
 }
 function vhPx(vh){
-var h=0;
-try{
-h=Number(window.innerHeight)||0;
-}catch(e){}
+var h=viewportH();
 return Math.round(h*(Number(vh)||0)/100*dprCapped());
 }
 var POSTERS=[185,342,500,780];
@@ -283,6 +306,9 @@ fmtWatched:fmtWatched,
 fmtRuntime:fmtRuntime,
 daysUntil:daysUntil,
 screenPx:screenPx,
+viewportW:viewportW,
+viewportH:viewportH,
+viewportDrop:viewDrop,
 lampaSizeK:lampaSizeK,
 lampaCardK:lampaCardK,
 baseEm:baseEm,
@@ -813,8 +839,8 @@ return list;
 }
 function windowRatio(){
 try{
-var w=Number(window.innerWidth)||0;
-var h=Number(window.innerHeight)||0;
+var w=LC.util.viewportW();
+var h=LC.util.viewportH();
 return w>0&&h>0?w/h*1000:0;
 }catch(e){
 return 0;
