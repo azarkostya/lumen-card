@@ -18,6 +18,7 @@
 //       «feat%2Flumen-v2»); такие строки сводятся в одну «feat/lumen-v2».
 // Ответ — { total, dates: { 'YYYY-MM-DD': хиты } }; последние 1–2 дня
 // jsDelivr ещё не посчитал.
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const REPO = 'azarkostya/lumen-card';
@@ -134,5 +135,5 @@ async function main() {
 }
 
 let isMain = false;
-try { isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]; } catch (e) { }
+try { isMain = !!process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch (e) { }
 if (isMain) main();

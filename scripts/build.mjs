@@ -31,7 +31,7 @@
 // node scripts/build.mjs --pretty — пишет ещё dist/lumen_card.pretty.js: без
 // комментариев, но с нумерацией строк src/ (строка K модуля — K-я после
 // маркера), для отладки на стенде. Файл в .gitignore, в выпуск не идёт.
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, existsSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -159,5 +159,5 @@ function main() {
 }
 
 let isMain = false;
-try { isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]; } catch (e) { }
+try { isMain = !!process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch (e) { }
 if (isMain) main();

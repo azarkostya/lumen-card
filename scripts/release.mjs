@@ -30,7 +30,7 @@
 // Pages берёт файлы из той ветки, что выбрана в настройках репозитория
 // (Settings → Pages); с релиза 1.0.0 это main. Порядок выпуска — README,
 // раздел «Выпуск версии»: тег → --tag → ветки → --purge → --remote.
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -274,5 +274,5 @@ async function main() {
 }
 
 let isMain = false;
-try { isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]; } catch (e) { }
+try { isMain = !!process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch (e) { }
 if (isMain) main();

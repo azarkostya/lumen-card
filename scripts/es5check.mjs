@@ -13,7 +13,7 @@
 //     полностью ES5-валидном синтаксисе (Object.assign, Promise и т.д.).
 //
 // CLI — тонкая обёртка над check(src): печатает находки и код возврата.
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as acorn from './lib/acorn.mjs';
@@ -203,5 +203,5 @@ function main() {
 }
 
 var isMain = false;
-try { isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]; } catch (e) { }
+try { isMain = !!process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch (e) { }
 if (isMain) main();

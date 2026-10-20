@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FakeEl, EMPTY } from './_fakedom.mjs';
@@ -37,6 +37,10 @@ function fresh(deps) {
 const MONTHS = 'янв,фев,мар,апр,мая,июн,июл,авг,сен,окт,ноя,дек'.split(',');
 const WORDS = { soon: 'Скоро', fresh: 'Новинка', cont: 'Продолжить', months: MONTHS };
 const TODAY = new Date(2026, 8, 17); /* 17 сентября 2026 */
+/* batch() в рантайме берёт new Date() — фиксируем часы на TODAY,
+   иначе «Новинка»/«Скоро» протухают по календарю. */
+before(() => mock.timers.enable({ apis: ['Date'], now: TODAY }));
+after(() => mock.timers.reset());
 
 /* ====================================================================== */
 /* badgeFor                                                               */
