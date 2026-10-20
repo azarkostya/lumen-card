@@ -327,3 +327,98 @@ test('v2 экран 38: подсказка пустого поиска — пе�
     delete globalThis.Lampa;
   }
 });
+
+/* Ревью [60]: один источник. Модель — порядок Lampa (app.min.js):
+   Controller.toggle(name) ставит активный, зовёт его toggle(), потом шлёт
+   'toggle'; Sources.toggle(from_search) при одном источнике внутри своей
+   toggle() входит в ряды (Results.toggle → Controller.toggle('search_results'))
+   — событие рядов приходит раньше события вкладок, обёртка «вниз» вкладок не
+   участвует. Вкладки при одном источнике спрятаны (.hide). */
+function lampaModel(opts) {
+  const { LC } = build({});
+  const cls = (list) => ({ list: new Set(list), contains(c) { return this.list.has(c); } });
+  const input = { classList: cls(opts.filled ? ['search__input', 'filled'] : ['search__input']) };
+  const root = {
+    querySelector(sel) {
+      if (sel === '.search__input') return input;
+      if (sel === '.search__results .items-line') return opts.rows ? {} : null;
+      if (sel === '.search__history .search-history-key') return opts.history ? {} : null;
+      return null;
+    },
+    querySelectorAll() { return []; }
+  };
+  const controlls = {};
+  let active = null, activeName = '';
+  const follows = {};
+  const Controller = {
+    add(n, c) { controlls[n] = c; },
+    enabled: () => ({ name: activeName, controller: active }),
+    toggle(n) {
+      if (!controlls[n]) return;
+      active = controlls[n]; activeName = n;
+      if (active.toggle) active.toggle();
+      LC.v2search.onToggle(n);
+    }
+  };
+  const Lampa = { Controller, Search: { render: () => root, listener: { follow: (n, f) => { follows[n] = f; }, remove: (n) => { delete follows[n]; } } } };
+  const results = { any: () => !!opts.rows, toggle() { Controller.add('search_results', { invisible: true, toggle() { } }); Controller.toggle('search_results'); } };
+  const tabs = { classList: cls(['scroll', 'hide']) };
+  const keyboard = { toggle() { Controller.add('keybord', { down() { if (opts.history) history.toggle(); else sources.toggle(); }, right() { } }); Controller.toggle('keybord'); } };
+  const sources = {
+    tabs: () => tabs,
+    toggle(fromSearch) {
+      Controller.add('search_sources', {
+        toggle() { if (fromSearch && results.any()) results.toggle(); },
+        up() { if (opts.history) history.toggle(); else keyboard.toggle(); },
+        down() { if (results.any()) results.toggle(); }
+      });
+      Controller.toggle('search_sources');
+    }
+  };
+  const history = { toggle() { Controller.add('search_history', { toggle() { }, down() { sources.toggle(true); } }); Controller.toggle('search_history'); } };
+  globalThis.window = { Lampa: Lampa, Navigator: { canmove: () => false } };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { body: { classList: cls(['search--open']) } };
+  LC.v2search.install();
+  follows.sources({ sources: sources });
+  return {
+    name: () => activeName, keyboard, history, controller: () => active,
+    done() { LC.v2search.uninstall(); delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
+  };
+}
+
+test('LC.v2search.onToggle: один источник, «вниз» с недавних при пустом запросе — фокус остаётся в недавних', () => {
+  const env = lampaModel({ filled: false, rows: true, history: true });
+  try {
+    env.history.toggle();
+    env.controller().down();
+    assert.equal(env.name(), 'search_history');
+  } finally { env.done(); }
+  const env2 = lampaModel({ filled: true, rows: true, history: true });
+  try {
+    env2.history.toggle();
+    env2.controller().down();
+    assert.equal(env2.name(), 'search_results', 'запрос есть — штатно в ряды');
+  } finally { env2.done(); }
+});
+
+test('LC.v2search.onToggle: один источник без недавних — «вниз» с клавиатуры не оставляет фокус на скрытой вкладке', () => {
+  const env = lampaModel({ filled: false, rows: true, history: false });
+  try {
+    env.keyboard.toggle();
+    env.controller().down();
+    assert.equal(env.name(), 'keybord');
+  } finally { env.done(); }
+  const env2 = lampaModel({ filled: true, rows: true, history: false });
+  try {
+    env2.keyboard.toggle();
+    env2.controller().down();
+    assert.equal(env2.name(), 'search_results');
+  } finally { env2.done(); }
+  const env3 = lampaModel({ filled: true, rows: false, history: false });
+  try {
+    env3.keyboard.toggle();
+    env3.controller().down();
+    assert.equal(env3.name(), 'keybord', 'рядов нет — назад');
+  } finally { env3.done(); }
+});

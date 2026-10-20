@@ -369,11 +369,30 @@
                           пуст и ряды есть;
          search_sources — «вниз» при пустом запросе ничего не делает: ряды
                           прошлого поиска скрыты (CSS выше), фокус в них
-                          ушёл бы в невидимое. */
+                          ушёл бы в невидимое;
+         search_results — при пустом запросе фокус возвращается назад.
+       Один источник (детский профиль, поиск из плагина): вкладки Lampa
+       прячет (.hide у их скролла), и «вниз» с недавних зовёт
+       sources.toggle(true), чья toggle() сама входит в ряды (active.toggle(),
+       app.min.js Sources.toggle) — ещё ДО события 'toggle' вкладок, мимо
+       обёртки «вниз». Поэтому ловится сам вход в 'search_results': при
+       пустом запросе — назад в недавние (или в клавиатуру, если их нет).
+       «Вниз» с клавиатуры без недавних при одном источнике ведёт на
+       невидимую вкладку — оттуда сразу дальше: в ряды, если запрос не пуст
+       и они есть, иначе её же «вверх» (назад, штатным путём). */
+    function tabsHidden() {
+      try {
+        var t = sources && typeof sources.tabs === 'function' ? sources.tabs() : null;
+        return !!(t && t.classList && t.classList.contains('hide'));
+      } catch (e) {
+        return false;
+      }
+    }
+
     function onToggle(name) {
       try {
         if (!installed || !sources) return;
-        if (name !== 'keybord' && name !== 'search_sources') return;
+        if (name !== 'keybord' && name !== 'search_sources' && name !== 'search_results') return;
         var body = document.body;
         if (!body || !body.classList || !body.classList.contains('search--open')) return;
         /* Клавиатура ввода настроек (settings_input) — тот же 'keybord'. */
@@ -383,6 +402,10 @@
         if (!c || c.lumenSearchBound) return;
         var root = rootNode();
         if (!root) return;
+        if (name === 'search_results') {
+          if (!filled(root)) Lampa.Controller.toggle(root.querySelector('.search__history .search-history-key') ? 'search_history' : 'keybord');
+          return;
+        }
         c.lumenSearchBound = true;
         if (name === 'keybord' && typeof c.right === 'function') {
           var right = c.right;
@@ -406,6 +429,10 @@
             if (!filled(root)) return;
             return down.apply(this, arguments);
           };
+          if (tabsHidden()) {
+            if (filled(root) && hasRows(root)) c.down();
+            else if (typeof c.up === 'function') c.up();
+          }
         }
       } catch (e) {
         warn('v2search: toggle failed', e);
