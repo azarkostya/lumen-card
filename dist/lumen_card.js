@@ -2542,6 +2542,75 @@ return css.join('\n');
 }
 });
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.cardLower;
+/* ---- 31_v2_episodes.js ---- */
+if(LC.episodeEm){
+LC.episodeEm.width=15.79;
+LC.episodeEm.gap=1.75;
+}
+LC.v2css=LC.v2css||[];
+LC.v2css.push({
+id:'episodes',
+order:37,
+build:function(ctx){
+var P=ctx.P;
+var V2=ctx.V2;
+var APPLE=ctx.APPLE;
+var tokens=typeof LC.tokens==='function'?LC.tokens():{};
+var A=tokens.accent||P.text;
+var H=8.88;
+var css=[];
+var check='content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.96em;height:.96em;margin-right:.44em;background-color:'+A+';-webkit-mask-image:'+LC.icons.maskUrl('check')+';mask-image:'+LC.icons.maskUrl('check')+';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain';
+var rowH=APPLE?H+3.6:H+2.3;
+css.push('.lumen-card .lumen-episodes__viewport{height:'+ctx.round2(rowH)+'em}');
+css.push('.lumen-card .lumen-episodes__track{height:'+H+'em}');
+css.push('.lumen-card .lumen-episode{height:'+H+'em;overflow:visible}');
+css.push('.lumen-card .lumen-episode__still{border-radius:inherit}');
+css.push('.lumen-card .lumen-episode__top{background:none;border-top-left-radius:inherit;border-top-right-radius:inherit}');
+css.push('.lumen-card .lumen-episode--watched .lumen-episode__top,.lumen-card .lumen-episode--watching .lumen-episode__top{background:-webkit-linear-gradient(top,rgba('+P.bgRgb+',.72) 0%,rgba('+P.bgRgb+',0) 100%);background:linear-gradient(180deg,rgba('+P.bgRgb+',.72) 0%,rgba('+P.bgRgb+',0) 100%)}');
+css.push('.lumen-card .lumen-episode__num{display:none}');
+css.push('.lumen-card .lumen-episode__name:before{content:attr(data-n) ".\\00a0"}');
+css.push('.lumen-card .lumen-episode__bottom,.lumen-card .lumen-episode.focus .lumen-episode__bottom,.lumen-card .lumen-episode--cut.focus .lumen-episode__bottom{position:absolute;top:100%;left:0;right:0;padding:.53em 0 0;background:none}');
+css.push('.lumen-card .lumen-episode__name{font-size:1.01em;line-height:1.25;color:'+P.text+'}');
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__name,.lumen-card .lumen-episode--soon .lumen-episode__name{color:'+P.text+'}');
+css.push('.lumen-card .lumen-episode__caption,.lumen-card .lumen-episode__timecode{font-size:1.01em;line-height:1.25;margin-top:0;color:'+P.muted+'}');
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:block;color:'+P.soft+'}');
+css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state{display:none}');
+css.push('.lumen-card .lumen-episodes .lumen-episode--past:not(.focus){opacity:0}');
+if(!APPLE){
+css.push('.lumen-card .lumen-episode__bottom{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline}');
+css.push('.lumen-card .lumen-episode__name{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0}');
+css.push('.lumen-card .lumen-episode__caption{-webkit-flex-shrink:0;flex-shrink:0;max-width:55%;margin-left:.53em}');
+css.push('.lumen-card .lumen-episode__bar,.lumen-card .lumen-episode.focus .lumen-episode__bar{position:absolute;left:0;right:0;top:-.26em;height:.26em;margin:0;border-radius:0 0 .42em .42em;background:none}');
+css.push('.lumen-card .lumen-episode__bar > div,.lumen-card .lumen-episode.focus .lumen-episode__bar > div{border-radius:0;background:'+A+'}');
+}else{
+css.push('.lumen-card .lumen-episode__caption{margin-top:.09em;color:rgba(235,235,245,.64)}');
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{color:rgba(235,235,245,.8)}');
+css.push('.lumen-card .lumen-episode__bar,.lumen-card .lumen-episode.focus .lumen-episode__bar{position:absolute;left:.61em;right:.61em;top:-.75em;height:.22em;margin:0;border-radius:.13em;background:rgba(255,255,255,.28)}');
+css.push('.lumen-card .lumen-episode__bar > div,.lumen-card .lumen-episode.focus .lumen-episode__bar > div{border-radius:.13em;background:#FFFFFF}');
+}
+css.push('.lumen-card .lumen-episodes__head{-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:1.2em}');
+css.push('.lumen-card .lumen-episodes--seasons .lumen-episodes__title{display:none}');
+css.push('.lumen-card .lumen-episodes__count{text-transform:none;letter-spacing:0;color:'+P.muted+';margin-left:.44em}');
+css.push('.lumen-card .lumen-seasons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
+css.push('.lumen-card .lumen-seasons.hide{display:none}');
+css.push('.lumen-card .lumen-season{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-shrink:0;flex-shrink:0;white-space:nowrap;font-size:1.01em;font-weight:500;line-height:1}');
+if(!APPLE){
+css.push('.lumen-card .lumen-season{height:2.26em;padding:0 1.04em;margin-right:.61em;border-radius:1.13em;background:'+P.buttonBg+';color:'+P.soft+'}');
+css.push('.lumen-card .lumen-season--on{color:'+P.text+'}');
+css.push('.lumen-card .lumen-season--on:before{'+check+'}');
+css.push('.lumen-card .lumen-season.focus{background:'+P.text+';color:'+P.bg+'}');
+css.push('.lumen-card .lumen-season--on.focus:before{background-color:'+P.bg+'}');
+}else{
+css.push('.lumen-card .lumen-season{font-size:1.1em;font-weight:600;padding:.3em .5em;margin-right:.7em;border-radius:.3em;color:rgba(235,235,245,.64)}');
+css.push('.lumen-card .lumen-seasons .lumen-season:first-child{margin-left:-.5em}');
+css.push('.lumen-card .lumen-season--on{color:#FFFFFF;-webkit-box-shadow:inset 0 -.13em 0 #FFFFFF;box-shadow:inset 0 -.13em 0 #FFFFFF}');
+css.push('.lumen-card .lumen-season.focus{background:'+V2.fillA+';color:#000000;-webkit-box-shadow:none;box-shadow:none}');
+css.push('.lumen-card .lumen-episodes__count{color:rgba(235,235,245,.64)}');
+}
+css.push(LC.icons.NO_MASK+'{.lumen-card .lumen-season--on:before{display:none}}');
+return css.join('\n');
+}
+});
 /* ---- 31_v2_roulette.js ---- */
 LC.v2css=LC.v2css||[];
 LC.v2css.push({
@@ -2954,7 +3023,7 @@ return''+
 '<div class="hide buttons--container">'+pool+'</div>'+
 '</div>'+
 '<div class="lumen-episodes hide">'+
-'<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>'+
+'<div class="lumen-episodes__head"><div class="lumen-seasons hide"></div><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>'+
 '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>'+
 '</div>'+
 '</div>'+
@@ -28415,7 +28484,7 @@ return''+
 '<div class="lumen-episode__play"></div>'+
 '</div>'+
 '<div class="lumen-episode__bottom">'+
-'<div class="lumen-episode__name">'+esc(ep.name||'')+'</div>'+
+'<div class="lumen-episode__name" data-n="'+esc(ep.episode_number)+'">'+esc(ep.name||'')+'</div>'+
 (caption?'<div class="lumen-episode__caption">'+esc(caption)+'</div>':'')+timecode+
 (st.state==='watching'?'<div class="lumen-episode__bar"><div style="width:'+st.percent+'%"></div></div>':'')+
 '</div>';
@@ -28529,7 +28598,11 @@ if(had){
 var cur=root.find('.selector.focus');
 if(cur.length&&!cur.hasClass('lumen-episode'))keep=cur[0];
 }
-if(buildEpisodes(root,data)&&had)recollectEpisodes(root,keep);
+if(!had){
+var now=root.find('.selector.focus');
+if(now.length&&!now.hasClass('lumen-episode'))keep=now[0];
+}
+if(buildEpisodes(root,data)&&(had||keep))recollectEpisodes(root,keep);
 }
 function buildEpisodes(root,data){
 var row=root.find('.lumen-episodes');
@@ -28565,7 +28638,7 @@ still:LC.cardinfo.imageUrl(ep.still_path,stillW,tmdbImageFn(),apiImgFn())
 if(!eps.length)return true;
 var nodes=[];
 for(i=0;i<eps.length;i++)nodes.push(null);
-var info={list:list,eps:eps,nodes:nodes,sign:sign,track:track,half:episodeHalf(),from:0,to:-1};
+var info={list:list,eps:eps,nodes:nodes,sign:sign,track:track,half:episodeHalf(),from:0,to:-1,season:season,movie:movie};
 mountWindow(info,0,Math.min(eps.length-1,info.half*2));
 row[0].lumenEpisodes=info;
 loadStills(nodes,0);
@@ -28608,11 +28681,13 @@ for(i=info.from;i<=info.to;i++){
 var node=nodes[i];
 if(!node||!node.length)continue;
 var left=node[0].offsetLeft;
-marks.push([node,left<shift-0.5||left+node[0].offsetWidth>shift+view+0.5]);
+marks.push([node,left<shift-0.5||left+node[0].offsetWidth>shift+view+0.5,left<shift-0.5]);
 }
 for(i=0;i<marks.length;i++){
 if(marks[i][1])marks[i][0].addClass('lumen-episode--cut');
 else marks[i][0].removeClass('lumen-episode--cut');
+if(marks[i][2])marks[i][0].addClass('lumen-episode--past');
+else marks[i][0].removeClass('lumen-episode--past');
 }
 }
 function scrollToEpisode(root,node,still){
@@ -28629,13 +28704,9 @@ dropStills(info.nodes,node.lumenPos,info.from,info.to);
 var view=viewWidth(viewport);
 if(view<=0)return;
 var current=track[0].lumenShift||0;
-var shift=current;
 var left=node.offsetLeft;
 var width=node.offsetWidth;
-var reserve=Math.round(width/2);
-if(left-reserve<shift)shift=left-reserve;
-else if(left+width+reserve>shift+view)shift=left+width+reserve-view;
-shift=Math.max(0,Math.min(shift,track[0].scrollWidth-view));
+var shift=left+width<=view?0:left;
 if(shift!==current&&!still)setShift(track,shift);
 markClipped(info,track,view);
 }
@@ -28676,6 +28747,90 @@ target=node[0];
 if(target)scrollToEpisode(root,target,false);
 return true;
 }
+function seasonTotal(movie,data,season){
+var n=parseInt(movie&&movie.number_of_seasons,10)||parseInt(data&&data.episodes&&data.episodes.seasons_count,10)||0;
+return n>season?n:season;
+}
+function renderSeasons(root,data){
+var row=root.find('.lumen-episodes');
+var box=row.find('.lumen-seasons');
+if(!box.length)return;
+var info=row[0].lumenEpisodes;
+var season=info?info.season:0;
+if(!season){
+box.addClass('hide').empty();
+row.removeClass('lumen-episodes--seasons');
+box[0].lumenSign='';
+return;
+}
+var total=seasonTotal(info.movie,data,season);
+var sign=total+'|'+season;
+if(box[0].lumenSign===sign)return;
+var many=total>1;
+var chips=box.find('.lumen-season');
+var i;
+if(box[0].lumenTotal===total&&chips.length){
+for(i=0;i<chips.length;i++){
+if(parseInt(chips[i].getAttribute('data-season'),10)===season)$(chips[i]).addClass('lumen-season--on');
+else $(chips[i]).removeClass('lumen-season--on');
+}
+}else{
+var html='';
+var word=LC.lang('lumen_card_season');
+for(i=1;i<=total;i++){
+if(!many&&i!==season)continue;
+html+='<div class="lumen-season'+(many?' selector':'')+(i===season?' lumen-season--on':'')+
+'" data-season="'+i+'">'+LC.util.esc(i===1||!many?word+' '+i:''+i)+'</div>';
+}
+box.html(html);
+box[0].lumenTotal=total;
+}
+box[0].lumenSign=sign;
+box.removeClass('hide');
+row.addClass('lumen-episodes--seasons');
+}
+function showSeason(root,chip){
+var box=root.find('.lumen-seasons');
+if(!box.length||!chip)return;
+var view=viewWidth(box.parent()[0]);
+if(!(view>0))return;
+var shift=box[0].lumenShift||0;
+var left=chip.offsetLeft;
+var right=left+chip.offsetWidth;
+if(right-shift>view-chip.offsetWidth)shift=right+chip.offsetWidth-view;
+else if(left<shift)shift=left;
+if(shift<0)shift=0;
+if(shift===(box[0].lumenShift||0))return;
+setShift(box,shift);
+}
+function pickSeason(root,chip){
+var n=parseInt(chip&&chip.getAttribute&&chip.getAttribute('data-season'),10);
+var row=root.find('.lumen-episodes');
+var info=row.length?row[0].lumenEpisodes:null;
+if(!(n>0)||!info||info.season===n)return;
+var movie=info.movie;
+var cache=root[0].lumenSeasons||(root[0].lumenSeasons={});
+root[0].lumenWant=n;
+var apply=function(list){
+if(root[0].lumenWant!==n||!list||!list.length)return;
+var data={movie:movie,episodes:{season_number:n,episodes:list}};
+renderEpisodes(root,data);
+renderSeasons(root,data);
+};
+if(cache[n])return apply(cache[n]);
+if(!window.Lampa||!Lampa.Api||typeof Lampa.Api.seasons!=='function')return;
+Lampa.Api.seasons(movie,[n],function(v){
+try{
+var got=v&&v[n]&&v[n].episodes;
+if(!got||!got.length)return;
+cache[n]=got;
+if(!LC.util.onScreen(root))return;
+apply(got);
+}catch(e){
+warn('season load failed',e);
+}
+});
+}
 function bindEpisodes(root){
 var el=root[0];
 if(!el||typeof el.addEventListener!=='function'||el.lumenEpisodesBound)return;
@@ -28683,8 +28838,8 @@ el.lumenEpisodesBound=true;
 LC.focus.capture(el,function(e){
 try{
 var node=$(e.target).closest('.lumen-episode',el);
+if((node.length||$(e.target).hasClass('lumen-season'))&&LC.trailer&&typeof LC.trailer.stopActive==='function')LC.trailer.stopActive();
 if(node.length){
-root.addClass('lumen-compact');
 if(el.lumenEpisodesBusy)return;
 el.lumenEpisodesBusy=true;
 try{
@@ -28694,6 +28849,8 @@ el.lumenEpisodesBusy=false;
 }
 }else if($(e.target).closest('.full-start-new__buttons',el).length){
 root.removeClass('lumen-compact');
+}else if($(e.target).hasClass('lumen-season')){
+showSeason(root,e.target);
 }
 }catch(err){
 warn('episode focus failed',err);
@@ -28713,6 +28870,10 @@ el.addEventListener('wheel',onWheel);
 el.addEventListener('mousewheel',onWheel);
 el.addEventListener('hover:enter',function(e){
 try{
+if($(e.target).hasClass('lumen-season')){
+pickSeason(root,e.target);
+return;
+}
 if(!$(e.target).closest('.lumen-episode',el).length)return;
 root.find('.full-start-new__buttons').find('.button--play').not('.hide').eq(0).trigger('hover:enter');
 }catch(err){
@@ -28766,8 +28927,37 @@ warn('episode up failed',e);
 }
 return up.apply(this,arguments);
 };
+var down=controller&&controller.down;
+if(typeof down!=='function')return;
+controller.down=function(){
+try{
+if(downToEpisodes(root))return;
+}catch(e){
+warn('episode down failed',e);
+}
+return down.apply(this,arguments);
+};
 }
 });
+}
+function downToEpisodes(root){
+var nav=window.Navigator;
+if(!nav||typeof nav.canmove!=='function'||typeof nav.move!=='function'||typeof nav.getFocusedElement!=='function')return false;
+var from=nav.getFocusedElement();
+if(!from||$(from).closest('.full-start-new')[0]!==root[0])return false;
+if($(from).hasClass('lumen-episode')||$(from).hasClass('lumen-season'))return false;
+if(nav.canmove('down'))return false;
+var row=root.find('.lumen-episodes');
+if(!row.length||!row[0].lumenEpisodes)return false;
+if(root.hasClass('lumen-trailer-on')&&LC.trailer&&typeof LC.trailer.stopActive==='function')LC.trailer.stopActive();
+if(row.hasClass('hide')||root.hasClass('lumen-trailer-on'))return false;
+if(!window.Lampa||!Lampa.Controller||typeof Lampa.Controller.collectionSet!=='function')return false;
+var focus=nav.getFocusedElement();
+Lampa.Controller.collectionSet(root);
+if(typeof Lampa.Controller.collectionFocus==='function')Lampa.Controller.collectionFocus(focus&&focus.parentNode?focus:false,root);
+if(!nav.canmove('down'))return false;
+nav.move('down');
+return true;
 }
 function refreshEpisode(hash){
 hash=''+(hash||'');
@@ -29062,6 +29252,7 @@ try{renderReactionsChip(root,data);}catch(e){warn('reactions chip failed',e);}
 try{renderQualityChips(root,movie);}catch(e){warn('quality chips failed',e);}
 try{renderProgress(root,movie,(data&&data.episodes&&data.episodes.episodes)||null);}catch(e){warn('progress failed',e);}
 try{renderEpisodes(root,data);}catch(e){warn('episodes failed',e);}
+try{renderSeasons(root,data);}catch(e){warn('seasons failed',e);}
 try{bindEpisodes(root);}catch(e){warn('episodes bind failed',e);}
 }
 var _fullOriginal=null;
@@ -29190,6 +29381,36 @@ e.data.metadata=null;
 return true;
 }catch(err){
 warn('meta drop failed',err);
+return false;
+}
+}
+var EPISODES_STASH='lumen_episodes';
+function dropEpisodesRow(e){
+try{
+var d=e&&e.data;
+var list=d&&d.episodes&&d.episodes.episodes;
+if(!list||!list.length||!LC.cardinfo||!LC.cardinfo.isSerial(d.movie||{}))return false;
+var any=false;
+for(var i=0;i<list.length;i++){
+if(list[i]&&list[i].episode_number>0){any=true;break;}
+}
+if(!any)return false;
+d[EPISODES_STASH]=d.episodes;
+d.episodes=null;
+return true;
+}catch(err){
+warn('episodes drop failed',err);
+return false;
+}
+}
+function restoreEpisodesRow(e){
+try{
+if(!e||!e.data||!e.data[EPISODES_STASH])return false;
+e.data.episodes=e.data[EPISODES_STASH];
+e.data[EPISODES_STASH]=null;
+return true;
+}catch(err){
+warn('episodes restore failed',err);
 return false;
 }
 }
@@ -29608,6 +29829,7 @@ if(!e||!activated)return;
 if(e.type==='build'&&LC.cardLower)LC.cardLower.tag(e);
 if(e.type==='start'){
 dropMetaData(e);
+dropEpisodesRow(e);
 }else if(e.type==='build'&&e.name==='start'){
 var startRoot=findRoot(e);
 LC.header.decorate(startRoot,e.data);
@@ -29620,6 +29842,7 @@ LC.franchise.render(descrRow,e.data);
 LC.header.bindDescr(e.item,descrRow,e.link);
 }else if(e.type==='complite'){
 restoreMetaData(e);
+restoreEpisodesRow(e);
 var root=findRoot(e);
 LC.header.decorate(root,e.data);
 var doneRow=findDescrRow(e);
