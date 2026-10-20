@@ -94,20 +94,53 @@ for (const [name, storage] of Object.entries(STYLES)) {
 
   test('v2, экран 41 (' + name + '): фокус — заливка, описание на ней 70 % чернил (≥ 4.5:1), у пунктов Lampa и плагина', () => {
     const fill = apple ? '#FFFFFF' : P.text;
+    /* QA v2 (P2): заливка и цвет — с !important, иначе тема CUB «Neon»
+       (background:transparent !important; color:#fff !important) их снимает. */
+    const imp = (v) => (v || '').replace(/\s*!important$/, '');
     for (const sel of ['body .settings .settings-param.focus', 'body .settings .settings-folder.focus', 'body .settings .settings-param[data-name^="lumen_"].focus']) {
       const d = eff(css, sel);
-      assert.equal(prop(d, 'background-color'), fill, sel);
-      assert.equal(prop(d, 'color'), P.bg, sel);
+      assert.equal(prop(d, 'background'), fill + ' !important', sel);
+      assert.equal(prop(d, 'color'), P.bg + ' !important', sel);
     }
     for (const sel of ['body .settings .settings-param.focus .settings-param__descr', 'body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr']) {
       const d = eff(css, sel);
-      assert.equal(prop(d, 'color'), 'rgba(0,0,0,.7)', sel);
+      assert.equal(imp(prop(d, 'color')), 'rgba(0,0,0,.7)', sel);
       assert.equal(prop(d, 'opacity'), '1', sel);
       assert.ok(contrast('rgba(0,0,0,.7)', fill) >= 4.5, 'описание на заливке: ' + contrast('rgba(0,0,0,.7)', fill).toFixed(2));
     }
     /* Было #353535 на #262829 — 1.2:1. Заливка против панели — видна. */
     const panel = apple ? '#1C1C1E' : P.panel;
     assert.ok(contrast(fill, panel) >= 10, 'фокус корня на панели: ' + contrast(fill, panel).toFixed(2));
+  });
+
+  /* QA v2 (P2, основная Lampa с темой CUB «Neon»): тема рисует пункту в
+     фокусе ::before с отступами 1em, кольцом и белой вуалью .2 — кольцо уже
+     пункта, буквы и значение уходили под него («ерез», «Д»), текст P.bg
+     оставался на сером. Правила темы — копия её CSS (cub.best/extensions/212). */
+  test('v2, экран 41 (' + name + '): тема CUB «Neon» не перебивает фокус пункта', () => {
+    const NEON = [
+      '.settings-folder.focus,.settings-param.focus,.selectbox-item.focus{background:transparent !important;color:#fff !important}',
+      ".settings-folder.focus::before,.settings-param.focus::before,.selectbox-item.focus::before{content:'';position:absolute;top:0;left:1em;right:1em;bottom:0;box-shadow:inset 0 0 1.5em,0 0 1.5em;outline:.2em solid;border-radius:.5em;background:rgba(255,255,255,0.2)}",
+      '.settings-folder.focus .settings-folder__icon,.settings-param.focus .settings-folder__icon{-webkit-filter:unset !important;filter:unset !important}'
+    ];
+    /* Специфичность: у темы 2 класса, у нас body + .settings + 2 класса —
+       при !important с обеих сторон побеждаем мы. */
+    assert.ok(/background\s*:\s*transparent\s*!important/.test(NEON[0]));
+    for (const sel of ['body .settings .settings-param.focus', 'body .settings .settings-folder.focus']) {
+      const d = eff(css, sel);
+      assert.ok(/!important$/.test(prop(d, 'background')), sel + ': заливка без !important');
+      assert.ok(/!important$/.test(prop(d, 'color')), sel + ': цвет без !important');
+    }
+    for (const sel of ['body .settings .settings-param.focus:before', 'body .settings .settings-folder.focus:before']) {
+      const d = eff(css, sel);
+      assert.equal(prop(d, 'content'), 'none !important', sel + ': чужой ::before не снят');
+      assert.equal(prop(d, 'display'), 'none !important', sel);
+    }
+    const ico = eff(css, 'body .settings .settings-param.focus .settings-folder__icon');
+    assert.equal(prop(ico, 'filter'), 'invert(1) !important', 'иконка корня на светлой заливке инвертируется и под темой');
+    for (const sel of ['body .settings .settings-param.focus .settings-param__value', 'body .settings .settings-param.focus .settings-param__descr']) {
+      assert.ok(/!important$/.test(prop(eff(css, sel), 'color')), sel + ': цвет без !important — тема перекрасит в #fff на белом');
+    }
   });
 
   test('v2, экран 41 (' + name + '): заголовок секции и описания — ≥ 4.5:1 на панели, заголовок светлее описания', () => {

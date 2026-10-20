@@ -82,12 +82,23 @@
          делает и её собственный стеклянный стиль). Правило пунктов плагина
          (src/30_css.js, [data-name^="lumen_"]) перекрыто тем же
          селектором ниже по таблице. */
+      /* QA v2 (P2, основная Lampa): тема CUB «Neon» (Расширения → Темы,
+         <link id="cub-theme"> в конце body) ставит пунктам
+         background:transparent !important и color:#fff !important, а
+         поверх пункта — ::before с отступами 1em, кольцом, свечением и
+         белой вуалью .2. Наша заливка пропадала, текст P.bg оставался на
+         сером, кольцо стояло уже пункта: первые буквы описания и значение
+         справа уходили под кромку («ерез», «Д»). Поэтому заливка, цвет и
+         иконка — с !important (селектор у нас специфичнее, чем у темы:
+         body + .settings + 2 класса), а чужой ::before в панели снят —
+         Lampa сама псевдоэлементы пунктам настроек не рисует. */
       var FOCUS = 'body .settings .settings-param.focus,body .settings .settings-folder.focus,body .settings .settings-param[data-name^="lumen_"].focus';
-      css.push(FOCUS + '{background-color:' + FILL + ';color:' + P.bg + ';outline:0;-webkit-box-shadow:none;box-shadow:none}');
+      css.push(FOCUS + '{background:' + FILL + ' !important;color:' + P.bg + ' !important;outline:0;-webkit-box-shadow:none;box-shadow:none}');
+      css.push('body .settings .settings-param.focus:before,body .settings .settings-folder.focus:before{content:none !important;display:none !important}');
       css.push('body .settings .settings-param.focus .settings-param__name,body .settings .settings-folder.focus .settings-folder__name{font-weight:600}');
-      css.push('body .settings .settings-param.focus .settings-param__value,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:' + P.bg + '}');
-      css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:' + V2.sub + '}');
-      css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:' + P.bg + ';-webkit-filter:invert(1);filter:invert(1)}');
+      css.push('body .settings .settings-param.focus .settings-param__value,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:' + P.bg + ' !important}');
+      css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:' + V2.sub + ' !important}');
+      css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:' + P.bg + ';-webkit-filter:invert(1) !important;filter:invert(1) !important}');
 
       /* ---------------- 42 · Левое меню ---------------- */
 
