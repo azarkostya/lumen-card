@@ -2229,11 +2229,12 @@
       warn('accent override failed', e);
     }
     if (auto) return auto;
-    /* Apple TV без сохранённого (или с неизвестным) акцентом — графит, как
-       в пресете стиля, а не тёплый «песок» Lumen. */
-    var fallback = appleLook() ? 'graphite' : 'sand';
-    var key = LC.pref(PLUGIN + '_accent', fallback);
-    return ACCENTS[key] || ACCENTS[fallback];
+    /* Дефолт чтения — только литерал из LC.prefs.LIST: Storage.get(name, def)
+       запоминает переданный дефолт, и разный дефолт в Apple TV/Lumen вернул бы
+       баг «стиль сбрасывается при перезаходе». Пресет Apple TV пишет акцент
+       явно (graphite), так что песок здесь — только у стиля «Свой». */
+    var key = LC.pref(PLUGIN + '_accent', 'sand');
+    return ACCENTS[key] || ACCENTS.sand;
   }
 
   /* Task 10: выключенный плагин не должен оставлять за собой <link> на Google

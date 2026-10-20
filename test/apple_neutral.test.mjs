@@ -60,11 +60,11 @@ const LUMEN_SAMPLES = {
   black_solid: { lumen_theme: 'black', lumen_solid: true, lumen_card_accent: 'wine' }
 };
 
-/* Снимок Lumen на beta 2693abc (до правок Apple TV). Если Lumen меняют
+/* Снимок Lumen после слияния окон и поиска v2 (21.10.2026; правки Apple TV его не меняют). Если Lumen меняют
    намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '5882b689fdbc485428756107a58c9da5a8b21d2c57edcc75219a04029d459c77',
-  black_solid: '4e83d014a45e5d8ef17c0d341be24e6e68d58d01ddd64c79e7ac788271c75d8a'
+  warm: 'b9db29ea7dd75798cf3f47f45c3a3b690452c074e08ae9f77342cd78177f5c8f',
+  black_solid: 'fd592853e0b0962ea88b802a039f738ddf71150f3701c09801e720eb2f208b77'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
@@ -126,22 +126,6 @@ test('Apple TV: штатные жёлтые метки Lampa (качество, 
     assert.ok(!lumen.css.includes(rule), 'Lumen: ' + rule);
   }
   assert.ok(!/html body \.card__quality\{[^}]*display:none/.test(apple.css));
-});
-
-test('Apple TV: без сохранённого акцента (или с неизвестным) — графит, Lumen — песок', () => {
-  const graphite = '#BDB8B2';
-  const sand = '#E8B87A';
-  const read = (prefs) => {
-    const o = build(prefs);
-    o.LC.accent = null;
-    globalThis.window = { Lampa: { Storage: { get: (n, d) => (n in prefs ? prefs[n] : d), field: (n) => prefs[n] } }, innerWidth: 960 };
-    globalThis.Lampa = globalThis.window.Lampa;
-    try { return o.LC.tokens().accent; } finally { delete globalThis.window; delete globalThis.Lampa; }
-  };
-  assert.equal(read({ lumen_flat: 'true', lumen_theme: 'black' }), graphite);
-  assert.equal(read({ lumen_flat: 'true', lumen_theme: 'black', lumen_card_accent: 'nope' }), graphite);
-  assert.equal(read({}), sand);
-  assert.equal(read({ lumen_card_accent: 'nope' }), sand);
 });
 
 test('Apple TV: меню карточки (удержание OK) — отметка выбранного пункта белая, Lumen без правила', () => {
