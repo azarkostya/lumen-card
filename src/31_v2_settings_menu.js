@@ -128,8 +128,29 @@
       css.push('body .menu .menu__ico > svg,body .menu .menu__ico > img,body .menu .menu__ico .lumen-ico{width:1.23em;height:1.23em}');
       css.push('body .menu .menu__text{font-size:1.14em;font-weight:500;line-height:1.2;margin-top:0}');
       /* Фокус — заливка темы вместо белой плашки; иконка — цветом подписи. */
-      css.push('body .menu .menu__item.focus,body .menu .menu__item.hover,body .menu .menu__item.traverse{background-color:' + FILL + ';color:' + P.bg + '}');
+      /* Тема CUB «Neon»: .menu__item.focus{background:transparent !important;
+         color:#fff !important}, ::after с кольцом и вуалью и fill/stroke
+         #fff !important у svg иконки — белая иконка на светлой заливке.
+         Заливка и цвета — с !important (наш селектор специфичнее). ::after
+         пункта Lampa рисует сама только в режиме правки меню (.editable:
+         значок, стрелки .traverse) — там снимаем лишь кольцо темы, вне
+         правки — псевдоэлемент целиком. */
+      var MI = ['body .menu .menu__item.focus', 'body .menu .menu__item.hover', 'body .menu .menu__item.traverse'];
+      css.push(MI.join(',') + '{background:' + FILL + ' !important;color:' + P.bg + ' !important}');
       css.push('body .menu .menu__item.focus .menu__ico,body .menu .menu__item.hover .menu__ico,body .menu .menu__item.traverse .menu__ico{color:' + P.bg + '}');
+      var ICO = [];
+      for (var mi = 0; mi < MI.length; mi++) {
+        ICO.push(MI[mi] + ' .menu__ico path[fill]:not([fill="none"])', MI[mi] + ' .menu__ico rect[fill]:not([fill="none"])', MI[mi] + ' .menu__ico circle[fill]:not([fill="none"])');
+      }
+      css.push(ICO.join(',') + '{fill:' + P.bg + ' !important}');
+      var NOFILL = [];
+      for (var mn = 0; mn < MI.length; mn++) NOFILL.push(MI[mn] + ' .menu__ico [fill="none"]');
+      css.push(NOFILL.join(',') + '{fill:none !important}');
+      var STROKE = [];
+      for (var ms = 0; ms < MI.length; ms++) STROKE.push(MI[ms] + ' .menu__ico [stroke]:not([stroke="none"])');
+      css.push(STROKE.join(',') + '{stroke:' + P.bg + ' !important}');
+      css.push('body .menu:not(.editable) .menu__item.focus:not(.traverse):after{content:none !important;display:none !important}');
+      css.push('body .menu .menu__item.focus:after{-webkit-box-shadow:none !important;box-shadow:none !important;outline:0 !important;background:none !important}');
       css.push('body .menu .menu__item.focus .menu__text,body .menu .menu__item.hover .menu__text{font-weight:600}');
 
       return css.join('\n');

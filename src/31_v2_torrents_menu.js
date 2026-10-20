@@ -241,8 +241,13 @@
       r.push(m(['.selectbox-item']) + '{margin:0 0 .175em;padding:.55em .7em;min-height:2.455em;-webkit-box-sizing:border-box;box-sizing:border-box;border-radius:.526em;background:none;color:' + P.text + ';-webkit-transform:none !important;transform:none !important;-webkit-transition:none;transition:none}');
       r.push(m(['.selectbox-item__title']) + '{font-size:1.096em;font-weight:500;line-height:1.25}');
       r.push(m(['.selectbox-item__subtitle']) + '{color:' + MUTED + '}');
-      r.push(m(['.selectbox-item.focus']) + '{background-color:' + FILL + ';color:' + ON + '}');
-      r.push(m(['.selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + ON_SUB + ';opacity:1}');
+      /* Тема CUB «Neon»: .selectbox-item.focus{background:transparent
+         !important;color:#fff !important} и ::before с кольцом и вуалью —
+         заливка и цвета в фокусе с !important (селектор у нас тяжелее),
+         ::before пункта снят (Lampa его пунктам Select не рисует). */
+      r.push(m(['.selectbox-item.focus']) + '{background:' + FILL + ' !important;color:' + ON + ' !important}');
+      r.push(m(['.selectbox-item.focus::before']) + '{content:none !important;display:none !important}');
+      r.push(m(['.selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + ON_SUB + ' !important;opacity:1}');
       /* Чекбокс слева, рамка видна: 28 px, 2.5 px P.muted (5.8:1) в Lumen,
          круг secondary .6 в Apple TV; отмеченный — заливка с галочкой. */
       var CHECK_ON = A ? '#FFFFFF' : (k.accent || P.text);
@@ -250,13 +255,13 @@
       r.push(m(['.selectbox-item__checkbox']) + '{top:50%;left:.7em;right:auto;width:1.227em;height:1.227em;margin-top:-.614em;border:.11em solid ' + (A ? 'rgba(235,235,245,.6)' : P.muted) + ';border-radius:' + (A ? '50%' : '.307em') + ';background:none;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-filter:none;filter:none}');
       r.push(m(['.selectbox-item--checked .selectbox-item__checkbox']) + '{border-color:' + CHECK_ON + ';background-color:' + CHECK_ON + '}');
       r.push(m(['.selectbox-item--checked .selectbox-item__checkbox::after']) + '{color:' + (A ? '#000000' : (k.onac || P.bg)) + '}');
-      r.push(m(['.selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + ON + '}');
-      r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + ON + '}');
-      r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after']) + '{color:' + FILL + '}');
+      r.push(m(['.selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + ON + ' !important}');
+      r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + ON + ' !important}');
+      r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after']) + '{color:' + FILL + ' !important}');
       /* Замок — мелкий (20 px FHD), тихим цветом, у правого края. */
       r.push(m(['.selectbox-item__lock']) + '{right:.7em;margin-top:-.44em;opacity:1;color:' + MUTED + '}');
       r.push(m(['.selectbox-item__lock > svg']) + '{width:.877em !important;height:.877em !important}');
-      r.push(m(['.selectbox-item.focus .selectbox-item__lock']) + '{color:' + ON_SUB + '}');
+      r.push(m(['.selectbox-item.focus .selectbox-item__lock']) + '{color:' + ON_SUB + ' !important}');
 
       return r.join('\n');
     }

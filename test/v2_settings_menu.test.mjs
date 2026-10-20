@@ -168,8 +168,9 @@ for (const [name, storage] of Object.entries(STYLES)) {
   test('v2, экран 42 (' + name + '): левое меню — заливка фокуса, без белой плашки и черт, ширина и сдвиг совпадают', () => {
     const fill = apple ? '#FFFFFF' : P.text;
     const focus = eff(css, 'body .menu .menu__item.focus');
-    assert.equal(prop(focus, 'background-color'), fill);
-    assert.equal(prop(focus, 'color'), P.bg);
+    /* С !important — тема CUB «Neon» ставит пункту transparent/#fff !important. */
+    assert.equal(prop(focus, 'background'), fill + ' !important');
+    assert.equal(prop(focus, 'color'), P.bg + ' !important');
     assert.equal(prop(eff(css, 'body .menu .menu__item.focus .menu__ico'), 'color'), P.bg, 'иконка — цветом подписи');
     assert.equal(prop(eff(css, 'body .menu .menu__split'), 'border-top'), '0');
     const left = eff(css, 'body:not(.light--version):not(.menu--always) .wrap__left');
