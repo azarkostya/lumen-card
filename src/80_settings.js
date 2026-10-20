@@ -508,7 +508,12 @@
     lumen_card_trailer_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
     /* Подпись кнопки остановки и метка-чип поверх кадра (экран 02). */
     lumen_card_stop: { ru: 'Стоп', en: 'Stop', uk: 'Стоп' },
-    lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' },
+    /* v2, экран 35: подсказка обычным регистром, тихим текстом в углу. */
+    lumen_card_trailer_badge: { ru: 'Трейлер · звук выкл.', en: 'Trailer · sound off', uk: 'Трейлер · звук вимк.' },
+    lumen_card_hours: { ru: 'ч', en: 'h', uk: 'год' },
+    lumen_card_btn_trailer: { ru: 'Трейлер', en: 'Trailer', uk: 'Трейлер' },
+    lumen_card_btn_fav: { ru: 'В избранное', en: 'Add to Favorites', uk: 'В обране' },
+    lumen_card_btn_fav_on: { ru: 'В избранном', en: 'In Favorites', uk: 'В обраному' },
     /* Task 9 (экраны 07/08/13): отзывы Кинопоиска. Метка источника и метки
        тона заданы верхним регистром прямо в строке — как «ПОДРОБНО» и
        «ТРЕЙЛЕР · БЕЗ ЗВУКА»: на экране это letter-spacing без

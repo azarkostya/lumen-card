@@ -5472,7 +5472,9 @@ test('cardLogoBox: тот же видимый размер, что у героя
   /* Рамка героя в em его текста (×1.1 к базовому), рамка карточки — в em
      заголовка (3.33 базовых): один и тот же логотип обязан выйти одного
      размера в пикселях на обоих экранах. */
-  for (const r of [3.3, 4.59, 7.96]) {
+  /* v2, экран 35: под потолками 640×170 FHD (8.43 × 2.24 em заголовка) —
+     тот же размер; шире потолка — см. тест ниже. */
+  for (const r of [3.3, 4.59]) {
     const hero = H.logoBox(r);
     const card = H.cardLogoBox(r);
     assert.ok(Math.abs(card.h * 3.33 - hero.h * 1.1) < 0.02, r + ': высота разошлась — ' + JSON.stringify([hero, card]));
@@ -5480,16 +5482,16 @@ test('cardLogoBox: тот же видимый размер, что у героя
   }
 });
 
-test('cardLogoBox: потолок — высота двухуровневого названия, пропорция при упоре сохраняется', () => {
-  /* Двухуровневое название: ведущая строка 1.26 + вторая .63 × 1.17. */
-  const TWO_LEVEL = 1.26 + 0.63 * 1.17;
-  for (const r of [1, 1.46, 2.12, 2.7]) {
+test('cardLogoBox: потолок v2 — 640×170 FHD (SPEC 35, --lc-logo-max), пропорция при упоре сохраняется', () => {
+  /* В em заголовка: 3.33 × 22.811 = 75.96 px; 170 / 75.96 = 2.24, 640 / 75.96 = 8.43. */
+  const EM = 3.33 * 22.811;
+  for (const r of [1, 1.46, 2.12, 2.7, 7.96, 12]) {
     const b = H.cardLogoBox(r);
-    assert.ok(b.h <= 2 + 1e-9, r + ': логотип выше потолка — ' + b.h);
-    assert.ok(Math.abs(b.w / b.h - r) < 0.02, r + ': рамка не по пропорции — ' + JSON.stringify(b));
+    assert.ok(b.h <= 2.24 + 1e-9 && b.h * EM <= 170.5, r + ': логотип выше потолка — ' + b.h);
+    assert.ok(b.w <= 8.43 + 1e-9 && b.w * EM <= 640.5, r + ': логотип шире потолка — ' + b.w);
+    assert.ok(Math.abs(b.w / b.h - r) / r < 0.01, r + ': рамка не по пропорции — ' + JSON.stringify(b));
   }
-  assert.equal(H.cardLogoBox(1).h, 2);
-  assert.ok(Math.abs(2 - TWO_LEVEL) < 0.01, 'потолок разошёлся с высотой двухуровневого названия');
+  assert.equal(H.cardLogoBox(12).w, 8.43);
   assert.equal(H.cardLogoBox(0), null, 'пропорции нет — размер отдаётся CSS');
   assert.equal(H.cardLogoBox(NaN), null);
 });

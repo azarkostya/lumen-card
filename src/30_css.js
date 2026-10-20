@@ -2506,10 +2506,9 @@
       'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
       'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
       'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
-    /* Пока играет ролик, вуали приглушаются (экран 02 держит их заметно
-       светлее обычных: .34/.55/.28 против .96/.98/.70) — текст остаётся
-       читаемым, но кадр видно. */
-    css.push('.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil{opacity:.45}');
+    /* v2, экран 35 (--lc-veil-trailer): пока играет ролик, вуали те же, что
+       без него. Прежнее приглушение до .45 (экран 02) роняло мету на светлом
+       кадре до 1.7:1 (ревью Lumen п.2). */
     css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.88) 30%,rgba(' + P.bgRgb + ',0.35) 58%,rgba(' + P.bgRgb + ',0) 82%)}');
     css.push('.lumen-backdrop__veil--b{background:linear-gradient(0deg,rgba(' + P.bgRgb + ',0.98) 0%,rgba(' + P.bgRgb + ',0.60) 28%,rgba(' + P.bgRgb + ',0) 60%)}');
@@ -3044,15 +3043,14 @@
     css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:' + EDGE + 'em;z-index:6;font-family:' + FB + ';font-size:1.01em;line-height:1;letter-spacing:.05em;color:' + P.text + ';background:' + P.glass + ';border:.04em solid rgba(' + P.textRgb + ',.2);border-radius:1.31em;padding:.44em .78em;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.95em;height:.95em;margin-right:.52em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
-    /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, лента
-       рейтингов и ряд серий убраны — на экране их нет. Последний .lumen-in
-       (реакции + кнопки + ряд серий) становится строкой, чтобы «Стоп» встал
-       рядом с рядом кнопок, а не под ним. */
-    css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
-    css.push('.lumen-card.lumen-trailer-on .lumen-logo{font-size:1.84em;opacity:.92}');
+    /* v2, экран 35: при ролике шапка НЕ сжимается — логотип в том же боксе,
+       заголовок тем же кеглем, ничего не сдвигается (было 1.84em по экрану
+       02). Ряд серий по-прежнему убран (экран 37 — отдельно). Последний
+       .lumen-in (реакции + кнопки + ряд серий) становится строкой, чтобы
+       «Стоп» встал рядом с рядом кнопок, а не под ним. */
     /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
        только заголовок, мета-строка и ряд кнопок. */
-    css.push('.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
     css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
     /* --- Точка статуса (design-spec §8): красится только маркер, текст всегда
@@ -7057,6 +7055,92 @@
        LAMPA_HEAD делится на масштаб. */
     var headUp = round2(LAMPA_HEAD / scale);
     css.push('body.lumen-card-on .lumen-backdrop{top:-' + headUp + 'em}');
+
+    /* --- v2 «Единый стиль», экран 35: первый экран карточки ---
+       Порядок: логотип → мета через «·» → описание → кнопки (шаблон,
+       src/40_template.js; мета и описание — LC.header renderMeta /
+       renderShortDescr). Значения — из SPEC 35 (4K) ÷ 2 на FHD ÷ 22.811 px
+       базового em карточки:
+         мета 52/500 → 26 px = 1.14em; зазор логотип→мета .9em (её кегля);
+         разделитель «·» P.muted, поле .3em; значки (Apple) 38/600, рамка 3,
+         r 10 → 19 px, 1.5 px, 5 px в em значка;
+         описание 58/500 → 29 px = 1.27em, line-height 1.4, ширина 880 px
+         (30.3em своего кегля), 2 строки Lumen / 3 Apple;
+         кнопки 128 → 64 px = 2.8em (63.9 px), r 12 → .53em, поле 32 → 1.4em, зазор
+         20 → .88em, отступ от описания 53 px макета → 2.3em.
+       Плитки «8.0 TMDB» и «1,6 тыс. реакций» убраны с первого экрана —
+       рейтинг теперь текстом в мете; лента остаётся только под статус и
+       чип следующей серии сериала (экран 37 — отдельно). */
+    var TRAILER_HINT_UP = round2(headUp + 2.5 + 2.63 + 1.01);
+    css.push('.lumen-card .lumen-meta{font-size:1.14em;font-weight:500;letter-spacing:0;line-height:1.3;color:' + P.soft + ';margin-top:.9em}');
+    css.push('.lumen-card .lumen-meta > *{margin:0}');
+    css.push('.lumen-card .lumen-meta__sep{color:' + P.muted + ';margin:0 .3em}');
+    css.push('.lumen-card .lumen-meta__rate{white-space:nowrap}');
+    /* Значок: кегль не 19 px макета, а минимум плагина 23 px (1.01em
+       базового = .89em меты, тест Task 63 «ни один текст не мельче
+       минимума tvOS»); рамка 1.5 px и r 5 px — в em значка. */
+    css.push('.lumen-card .lumen-meta > .lumen-meta__badge{font-size:.89em;font-weight:600;line-height:1.2;letter-spacing:.02em;white-space:nowrap;border:.065em solid ' + P.muted + ';border-radius:.22em;padding:0 .3em;margin-left:.52em}');
+    css.push('.lumen-card .full-start-new__rate-line{margin-top:0}');
+    css.push('.lumen-card .full-start-new__rate-line .full-start__rate,.lumen-card .full-start-new__rate-line .lumen-reactions-chip,.lumen-card .full-start-new__rate-line .lumen-tags{display:none !important}');
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line{margin-top:.9em}');
+    css.push('.lumen-card .lumen-descr-short{font-size:1.27em;font-weight:500;line-height:1.4;color:' + P.text + ';max-width:30.3em;margin-top:.55em;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+    css.push('.lumen-card.lumen-compact .lumen-descr-short{display:none}');
+    css.push('.lumen-card .full-start-new__buttons{margin-top:2.3em}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button,.lumen-card .lumen-stop{height:2.8em;min-width:2.8em;padding:0 1.4em;margin:0 .88em .6em 0;border-radius:.53em}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span,.lumen-card .lumen-stop span{font-size:1.1em}');
+    css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:2.8em}');
+    css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .button--reaction.focus,.lumen-card .full-start-new__buttons .button--subscribe.focus,.lumen-card .full-start-new__buttons .button--options.focus{width:auto;padding:0 1.05em}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-stop,.lumen-card .lumen-franchise{margin-top:2.3em}');
+    css.push('.lumen-card .lumen-franchise{height:2.8em;padding:0 1.4em;margin-right:.88em;border-radius:.53em}');
+    css.push('.lumen-card .lumen-franchise span{font-size:1.1em}');
+    /* «Стоп» встаёт в тот же ряд: перенос на новую строку поднимал всю
+       шапку (прижата к низу кадра) — замер на «Добыче» с «Франшизой»:
+       −130 px FHD при старте ролика. */
+    css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in.lumen-actions{max-width:none;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
+    /* Подсказка «Трейлер · звук выкл.» — тихий текст в правом нижнем углу
+       (макет 35-L·T: right 80, bottom 60, 23/500 muted), без плашки и
+       иконки. Корень карточки выше экрана (min-height 100vh под шапкой
+       Lampa), поэтому угол считается от верха корня: 100vh минус высота
+       шапки Lampa минус поле прокрутки и 60 px макета. */
+    css.push('.lumen-card .lumen-trailer-badge{top:auto;bottom:auto;top:-webkit-calc(100vh - ' + TRAILER_HINT_UP + 'em);top:calc(100vh - ' + TRAILER_HINT_UP + 'em);font-weight:500;letter-spacing:0;color:' + P.muted + ';background:none;border:0;border-radius:0;padding:0}');
+    css.push('.lumen-card .lumen-trailer-badge:before{display:none}');
+    /* Трейлер под текстом: слой ролика — ровно экран (поля ±10 % от старой
+       раскладки оставляли видимыми полосы и UI YouTube), сам iframe 16:9
+       покрывает экран и кадрирован ×1.12 — заголовок и логотип YouTube
+       уходят за кромку (SPEC 35, «кадрирование 1.12»). Трансформ статичный,
+       без перехода. */
+    /* Левая вуаль — плотнее в середине: мета у длинных названий тянется
+       до ~63 % ширины («★ 8.0 TMDB» у «Одиссеи»), а прежняя вуаль там уже
+       сходила на нет. Замер на ТВ с белым кадром под вуалями (худший случай,
+       для трейлера и без него — вуаль одна): прежняя давала 3.3:1 на конце
+       меты, эта — не ниже 4.5:1 по всей строке (SPEC 35: мета ≥ 4.5:1). */
+    css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.9) 34%,rgba(' + P.bgRgb + ',0.7) 55%,rgba(' + P.bgRgb + ',0) 85%)}');
+    css.push('.lumen-backdrop .lumen-bg__trailer{top:0;bottom:0}');
+    css.push('.lumen-backdrop .lumen-bg__trailer iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;-webkit-transform:translate(-50%,-50%) scale(1.12);transform:translate(-50%,-50%) scale(1.12)}');
+
+    /* Apple TV: кнопки ровно «Смотреть» (инверсия) · «Трейлер» · «В
+       избранное» — подписи текстом, без иконок; «Нравится», подписка и «…»
+       скрыты (их пункты — в меню по удержанию OK, экран 40). Текст кнопок
+       Lampa не трогается (хэш приоритета, план 0.2): подпись выводит
+       ::after, исходный span скрыт. */
+    if (APPLE) {
+      css.push('.lumen-card .lumen-meta{color:rgba(235,235,245,.8)}');
+      css.push('.lumen-card .lumen-meta__sep,.lumen-card .lumen-trailer-badge{color:rgba(235,235,245,.64)}');
+      css.push('.lumen-card .lumen-meta > .lumen-meta__badge{border-color:rgba(235,235,245,.8)}');
+      css.push('.lumen-card .lumen-descr-short{-webkit-line-clamp:3;line-clamp:3}');
+      var cssq = function (t) { return '"' + ('' + t).replace(/[\\"]/g, '\\$&') + '"'; };
+      css.push('.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{display:none !important}');
+      css.push('.lumen-card .full-start-new__buttons .button--play{padding:0 1.58em}');
+      css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .view--trailer{width:auto;padding:0 1.4em}');
+      /* Иконки — :before маской (LC.icons.css, 3 класса, ниже по таблице) или
+         исходный svg на движке без масок: здесь 4 класса, чтобы победить оба. */
+      var BV = '.lumen-card .full-start-new__buttons .full-start__button';
+      css.push(BV + '.button--book:before,' + BV + '.view--trailer:before,' + BV + '.button--book > svg,' + BV + '.view--trailer > svg,.lumen-card .full-start-new__buttons .button--book span,.lumen-card .full-start-new__buttons .view--trailer span{display:none !important}');
+      css.push('.lumen-card .full-start-new__buttons .button--book:after,.lumen-card .full-start-new__buttons .view--trailer:after{font-size:1.1em;line-height:1;white-space:nowrap}');
+      css.push('.lumen-card .full-start-new__buttons .button--book:after{content:' + cssq(LC.lang('lumen_card_btn_fav')) + '}');
+      css.push('.lumen-card .full-start-new__buttons .button--book.active:after{content:' + cssq(LC.lang('lumen_card_btn_fav_on')) + '}');
+      css.push('.lumen-card .full-start-new__buttons .view--trailer:after{content:' + cssq(LC.lang('lumen_card_btn_trailer')) + '}');
+    }
 
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());

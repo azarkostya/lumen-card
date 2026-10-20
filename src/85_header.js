@@ -54,11 +54,9 @@
     return false;
   }
 
+  /* v2, экран 35: «1,6 тыс.» вместо «1.6K» Lampa (LC.util.shortNum). */
   function bigNumber(n) {
-    try {
-      if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.bigNumberToShort === 'function') return Lampa.Utils.bigNumberToShort(n);
-    } catch (e) { }
-    return '' + n;
+    return LC.util.shortNum(n, typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
   }
 
   /* -------------------------------------------------------------------- */
@@ -91,52 +89,82 @@
      Инлайн-чип качества/«СЕРИАЛ» из v1 убран — лишний узел, дизайну не
      соответствует (design-spec-card.md §2); раздельные чипы качества теперь
      в ленте рейтингов (renderQualityChips). */
+  /* v2 «Единый стиль», экран 35 (docs/design/v2-unify/SPEC.txt): мета
+     переехала ПОД логотип, блоки — через «·», рейтинг — текстом в конце
+     строки («★ 8.0 TMDB») вместо плиток. Стиль Apple TV — порядок tvOS:
+     жанры · год · «2 ч 52 мин», затем значки рамкой (16+, 4K, HDR) и
+     «★ 8.0»; стран у Apple нет. Значки качества у обоих стилей — в мете
+     (раньше — чипами в ленте рейтингов, renderQualityChips). */
+  function cardApple() {
+    try { return !!LC.pref('lumen_flat', false); } catch (e) { return false; }
+  }
+
+  function ratingText(movie, apple) {
+    var v = Number(movie && movie.vote_average);
+    if (!(v > 0)) return '';
+    var nb = LC.util.NBSP;
+    return '★' + nb + v.toFixed(1) + (apple ? '' : nb + 'TMDB');
+  }
+
   function renderMeta(root, movie) {
     var parts = [];
     var serial = isSerial(movie);
+    var apple = cardApple();
+    var esc = LC.util.esc;
+    var typo = LC.util.typo;
+    function span(text) { return '<span>' + esc(typo(text)) + '</span>'; }
 
     var release = (movie.release_date || movie.first_air_date || '') + '';
     var year = release ? release.slice(0, 4) : '';
-    if (year) parts.push('<span>' + LC.util.esc(year) + '</span>');
 
     /* Штатный .full-start-new__head заполняется Lampa (start.js) ДО complite
        форматом «2024, США» — cardinfo.country сам отрезает год и падает на
        словарь ISO/английское имя, если head пуст (план 0.2, Task 5 3b.2). */
     var headText = root.find('.full-start-new__head').text();
-    var countryText = LC.cardinfo.country(headText, movie.production_countries,
+    var countryText = apple ? '' : LC.cardinfo.country(headText, movie.production_countries,
       typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
-    if (countryText) parts.push('<span>' + LC.util.esc(countryText) + '</span>');
 
+    var length = '';
     if (serial) {
       var counts = [];
-      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + LC.seasonsWord(movie.number_of_seasons));
-      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + LC.episodesWord(movie.number_of_episodes));
-      if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(', ')) + '</span>');
+      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + LC.util.NBSP + LC.seasonsWord(movie.number_of_seasons));
+      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + LC.util.NBSP + LC.episodesWord(movie.number_of_episodes));
+      length = counts.join(', ');
     } else if (movie.runtime > 0) {
-      parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
+      length = apple
+        ? LC.util.fmtRuntimeLong(movie.runtime, LC.lang('lumen_card_hours'), LC.lang('lumen_card_min'))
+        : LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'));
     }
 
     var genres = getGenres(movie);
-    if (genres.length) parts.push('<span>' + LC.util.esc(genres.join(', ')) + '</span>');
-
     var pg = getPG(movie, root);
-    if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
+    var badges = [];
+    if (apple && pg) badges.push(pg);
+    if (!serial) {
+      var quality = LC.cardinfo.qualityChips(movie.release_quality || movie.quality);
+      for (var q = 0; q < quality.length; q++) badges.push(quality[q]);
+    }
+
+    if (apple) {
+      /* Apple TV — два жанра, как в макете 35-A: строка tvOS короткая. */
+      for (var g = 0; g < genres.length && g < 2; g++) parts.push(span(genres[g]));
+      if (year) parts.push(span(year));
+      if (length) parts.push(span(length));
+    } else {
+      if (year) parts.push(span(year));
+      if (countryText) parts.push(span(countryText));
+      if (length) parts.push(span(length));
+      if (genres.length) parts.push(span(genres.join(', ')));
+      if (pg) parts.push(span(pg));
+    }
 
     /* Task 5c Step 2: у сериала в конце строки — студия/сеть («· Amazon Prime»,
-       экран 05).
-       Правка 2026-09-23 (решение координатора по п.2.2 разбора): у фильма
-       здесь стоял режиссёр — «· реж. Ирвин Кершнер», — и он же дублировался
-       ниже по странице отдельной карточкой с портретом (лента людей Lampa).
-       Мета-строка отвечает на «что это»; всё, у чего есть свой блок с
-       портретом, живёт там. Замер на стенде 960×540@2 («Звёздные войны:
-       Эпизод 5», интерфейс «обычный»): строка была 510.3 CSS px из 960
-       (53.2 % ширины), стала 369.7 (38.5 %) — минус 140.6 px, и заголовок
-       больше не делит горизонталь со служебной строкой.
-       Цена названа разбором и принята: режиссёр перестаёт быть виден без
-       прокрутки. */
-    if (serial) {
+       экран 05). Режиссёра у фильма здесь нет с правки 2026-09-23 (п.2.2
+       разбора): у него свой блок с портретом ниже по странице. У Apple TV
+       сети в строке нет: на ТВ строка со значками иначе уходила в перенос. */
+    if (serial && !apple) {
       var studio = LC.cardinfo.network(movie);
-      if (studio) parts.push('<span>' + LC.util.esc(studio) + '</span>');
+      if (studio) parts.push(span(studio));
     }
 
     var html = [];
@@ -144,9 +172,27 @@
       if (i) html.push('<span class="lumen-meta__sep">·</span>');
       html.push(parts[i]);
     }
+    /* Значки идут вплотную к последнему блоку, без «·» (макет 35-A). */
+    for (var b = 0; b < badges.length; b++) html.push('<span class="lumen-meta__badge">' + esc(badges[b]) + '</span>');
+
+    var rating = ratingText(movie, apple);
+    if (rating) {
+      if (html.length) html.push('<span class="lumen-meta__sep">·</span>');
+      html.push('<span class="lumen-meta__rate">' + esc(rating) + '</span>');
+    }
 
     root.find('.lumen-meta').html(html.join(''));
     root.addClass('lumen--meta');
+  }
+
+  /* v2, экран 35: описание на первом экране — 2 строки (Lumen) / 3 (Apple),
+     кламп — в CSS. Полный текст по-прежнему в ряду описания Lampa ниже. */
+  function renderShortDescr(root, movie) {
+    var node = root.find('.lumen-descr-short');
+    if (!node.length) return;
+    var text = LC.util.typo((movie && movie.overview) || '').replace(/^\s+|\s+$/g, '');
+    node.text(text);
+    node.toggleClass('hide', !text);
   }
 
   /* Правка пользователя 2026-09-16 (п.2): строки оригинального названия в
@@ -1969,6 +2015,7 @@
     try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
     try { renderLogo(root, movie); } catch (e) { warn('logo failed', e); }
     try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
+    try { renderShortDescr(root, movie); } catch (e) { warn('short descr failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
     try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
     try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }

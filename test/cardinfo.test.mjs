@@ -583,3 +583,7 @@ test('network: networks[0].name, иначе первая студия production
   assert.equal(cardinfo.network({}), '');
   assert.equal(cardinfo.network(null), '');
 });
+
+test('v2 экран 35: страны из шапки Lampa — через запятую, а не через « | »', () => {
+  assert.equal(cardinfo.country('2010, Великобритания | США', []), 'Великобритания, США');
+});

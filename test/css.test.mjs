@@ -1448,10 +1448,11 @@ test('buildCss: .lumen-bg__trailer.is-live — opacity:1, iframe не перех
   assert.ok(frame.indexOf('pointer-events:none') !== -1, 'iframe не должен ловить фокус/клики');
 });
 
-test('buildCss: пока играет ролик, вуали слоя приглушаются (переход 1 с задан на самой вуали)', () => {
+/* v2, экран 35 (--lc-veil-trailer): вуали при ролике те же, что без него —
+   приглушение до .45 роняло мету на светлом кадре до 1.7:1. */
+test('v2 экран 35: пока играет ролик, вуали слоя не приглушаются', () => {
   const dim = findDecl(css, (sel) => sel === '.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil');
-  assert.ok(dim, 'правило приглушения вуалей не найдено');
-  assert.ok(/opacity\s*:\s*\.45/.test(dim));
+  assert.equal(dim, null, 'правило приглушения вуалей вернулось');
   const base = findDecl(css, (sel) => sel === '.lumen-backdrop__veil');
   assert.ok(base && base.indexOf('transition:opacity 1s') !== -1, 'без transition на вуали приглушение было бы мгновенным');
 });
@@ -1526,16 +1527,19 @@ test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — прав�
   assert.ok(ico && ico.indexOf('mask-image') !== -1, 'иконка «без звука» — маской');
 });
 
-test('buildCss: режим трейлера сжимает шапку — заголовок 42px, рейтинги и серии убраны', () => {
-  const title = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title');
-  assert.ok(title && title.indexOf('font-size:1.84em') !== -1, 'заголовок экрана 02: 42px ÷ 22.811 = 1.84em');
-  assert.ok(title.indexOf('opacity:.92') !== -1, 'на экране 02 заголовок слегка приглушён (opacity .92)');
+/* v2, экран 35: при ролике ничего не сдвигается — логотип в том же боксе,
+   заголовок тем же кеглем, лента под логотипом не прячется. */
+test('v2 экран 35: режим трейлера шапку не сжимает, скрыт только ряд серий', () => {
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title'), null,
+    'заголовок при ролике снова меняет кегль');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-logo'), null,
+    'логотип при ролике снова меняет бокс');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'), null,
+    'лента под логотипом при ролике прячется — шапка прыгает');
 
-  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'));
-  assert.ok(hidden, 'правило скрытия блоков в режиме трейлера не найдено');
+  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-episodes'));
+  assert.ok(hidden, 'правило скрытия ряда серий в режиме трейлера не найдено');
   assert.ok(/display\s*:\s*none\s*!important/.test(hidden.decl));
-  assert.ok(hidden.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-episodes') !== -1,
-    'в режиме трейлера должен скрываться ряд серий');
 });
 
 /* Task 59 (фаза 5): описание из шапки убрано вместе с узлом — правил для
@@ -1876,14 +1880,13 @@ test('buildCss: Task 18 — показ кнопки не завязан на р�
   assert.equal(wrong.length, 0, 'кнопка не должна зависеть от того, играет ли фоновый ролик');
 });
 
-test('buildCss: в режиме трейлера подписи на кнопке нет и строка прогресса скрыта (экран 02)', () => {
+test('buildCss: в режиме трейлера подписи на кнопке нет, строка прогресса остаётся (v2, экран 35)', () => {
   const after = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.button--play:after') !== -1));
   assert.ok(after.selectors.every((s) => s.indexOf(':not(.lumen-trailer-on)') !== -1),
     'на экране 02 кнопка называется «Смотреть» — подпись обязана отключаться');
 
-  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'));
-  assert.ok(hidden.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-progress') !== -1,
-    'строки прогресса на экране 02 нет');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-progress'), null,
+    'строка прогресса при ролике прячется — шапка сдвигается (SPEC 35)');
 });
 
 test('buildCss: надписи сжатой шапки (экран 06) видны только при фокусе на серии и включённой настройке', () => {
@@ -7639,6 +7642,14 @@ test('Task 63: ни один текст интерфейса не мельче �
     .filter((v) => v !== null && /^[\d.]+em$/.test(v.trim()))
     .map((v) => parseFloat(v)));
   assert.ok(rowTitleMin > 1 && rowTitleMin < 4, 'кегль заголовка ряда не найден: ' + rowTitleMin);
+  /* v2, экран 35: значки меты (.lumen-meta__badge) заданы долей кегля меты. */
+  /* Действует последнее правило (блок v2 стоит в конце таблицы). */
+  const metaMin = [].concat(ruleBodiesWithMedia(css)
+    .filter((r) => r.selectors.some((s) => s === '.lumen-card .lumen-meta'))
+    .map((r) => declProp(r.decl, 'font-size'))
+    .filter((v) => v !== null && /^[\d.]+em$/.test(v.trim()))
+    .map((v) => parseFloat(v))).pop();
+  assert.ok(metaMin >= 1.01 && metaMin < 2, 'кегль меты не найден: ' + metaMin);
 
   const small = [];
   let checked = 0;
@@ -7661,7 +7672,8 @@ test('Task 63: ни один текст интерфейса не мельче �
          Считаем по САМОЙ МЕЛКОЙ ступени: она и даёт худший случай. */
       const inTitle = sel.indexOf('lumen-title__') !== -1;
       const inRowTitle = /\.items-line__title\s/.test(sel);
-      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1);
+      const inMeta = sel.indexOf('.lumen-meta__') !== -1;
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1) * (inMeta ? metaMin : 1);
       checked++;
       if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
     }
@@ -8107,7 +8119,9 @@ test('Task 73: плоский вид только дописывает прав�
      правила узнаются по селектору: фокус, переход «Полных», приглушение
      соседей, шапка Lampa, плашка описания. */
   const V2_SEL = (sel) => /\.focus\b/.test(sel) || /lumen-motion-full/.test(sel) || /\.lumen-dim /.test(sel) ||
-    sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text';
+    sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text' ||
+    /* экран 35: цвет меты, кламп описания, подсказка трейлера, кнопки Apple */
+    /^\.lumen-card (\.lumen-meta|\.lumen-descr-short$|\.lumen-trailer-badge$|\.full-start-new__buttons )/.test(sel);
   for (const rule of added) {
     for (const sel of rule.selectors) {
       assert.ok(ROOTS.some((root) => sel.indexOf(root) === 0) || V2_SEL(sel), 'плоский вид трогает чужой корень: ' + sel);
@@ -8222,9 +8236,10 @@ test('логотип карточки: кегль узла совпадает с
   const fs = (decl) => (/(?:^|;)font-size:([\d.]+)em/.exec(decl || '') || [])[1];
   const pairs = [
     ['.lumen-card .full-start-new__title', '.lumen-card .lumen-logo'],
-    ['.lumen-card.lumen-compact .full-start-new__title', '.lumen-card.lumen-compact .lumen-logo'],
-    ['.lumen-card.lumen-trailer-on .full-start-new__title', '.lumen-card.lumen-trailer-on .lumen-logo']
+    ['.lumen-card.lumen-compact .full-start-new__title', '.lumen-card.lumen-compact .lumen-logo']
   ];
+  /* v2, экран 35: при ролике бокс тот же — своей ветки кегля нет вовсе. */
+  assert.equal(findDecl(css, (s) => s === '.lumen-card.lumen-trailer-on .lumen-logo'), null);
   for (const [t, l] of pairs) {
     const title = fs(findDecl(css, (s) => s === t));
     const logo = fs(findDecl(css, (s) => s === l));

@@ -79,6 +79,52 @@
       return m + ' ' + unit;
     }
 
+    /* v2 «Единый стиль», экран 35 (docs/design/v2-unify/SPEC.txt): общая
+       типографика чисел и строк — экран 43 её расширит. Неразрывный пробел
+       — U+00A0: число не отрывается от своей единицы и от соседних
+       разрядов при переносе строки. */
+    var NB = ' ';
+
+    /* Минуты -> «2 ч 52 мин» (длинная форма Apple TV), «52 мин», «2 ч».
+       Единицы — параметрами, как у fmtRuntime. */
+    function fmtRuntimeLong(minutes, hUnit, mUnit) {
+      minutes = Math.max(0, Math.round(Number(minutes) || 0));
+      if (!minutes) return '';
+      var h = Math.floor(minutes / 60);
+      var m = minutes % 60;
+      var out = [];
+      if (h) out.push(h + NB + hUnit);
+      if (m) out.push(m + NB + mUnit);
+      return out.join(' ');
+    }
+
+    /* Крупный счётчик: «1,6 тыс.», «2 тыс.», «1,2 млн» (ru/uk), «1.6K» (en).
+       Вместо «1.6K» Lampa (bigNumberToShort): «K» на русском экране читалось
+       как разрешение («2K РЕАКЦИЙ», ревью Lumen п.9). До тысячи — число как
+       есть. Одна цифра после запятой, «,0» отбрасывается. */
+    function shortNum(n, lang) {
+      n = Math.round(Number(n) || 0);
+      var abs = Math.abs(n);
+      if (abs < 1000) return '' + n;
+      var big = abs >= 1e6;
+      var v = Math.round(n / (big ? 1e5 : 1e2)) / 10;
+      if (!big && Math.abs(v) >= 1000) { big = true; v = Math.round(n / 1e5) / 10; }
+      var s = ('' + v);
+      if (lang === 'en') return s + (big ? 'M' : 'K');
+      var word = big ? 'млн' : (lang === 'uk' ? 'тис.' : 'тыс.');
+      return s.replace('.', ',') + NB + word;
+    }
+
+    /* Типографика строки текста: « - » -> « — » (тире с неразрывным
+       пробелом слева, чтобы не начинало строку), разряды «1 600 000» —
+       неразрывными пробелами. Пусто/не строка -> ''. */
+    function typo(str) {
+      if (str === null || typeof str === 'undefined') return '';
+      return ('' + str)
+        .replace(/ +[-–] +/g, NB + '— ')
+        .replace(/(\d) (?=\d{3}(?!\d))/g, '$1' + NB);
+    }
+
     /* Task 5c: календарная разница в днях от локальной даты now до 'YYYY-MM-DD'
        (air_date TMDB). Строку не разбираем через new Date(str) — тот считает её
        полночью UTC, и вечером западнее Гринвича дата съезжает на день. Обе даты
@@ -652,6 +698,10 @@
       initials: initials,
       fmtWatched: fmtWatched,
       fmtRuntime: fmtRuntime,
+      fmtRuntimeLong: fmtRuntimeLong,
+      shortNum: shortNum,
+      typo: typo,
+      NBSP: NB,
       daysUntil: daysUntil,
       screenPx: screenPx,
       viewportW: viewportW,

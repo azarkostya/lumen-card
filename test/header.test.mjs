@@ -902,6 +902,78 @@ test('мета-строка: режиссёра нет у фильма, студ
   assert.ok(c.meta.html().indexOf('HBO') !== -1, 'у сериала пропала студия: ' + c.meta.html());
 });
 
+/* v2 «Единый стиль», экран 35: мета — блоки через «·», страны через запятую,
+   рейтинг текстом в конце («★ 8.0 TMDB»), значки качества — в мете. Apple TV:
+   жанры · год · «2 ч 52 мин», значки рамкой (16+, 4K), «★ 8.0» без TMDB, без
+   стран. Короткое описание — с типографикой (« — »). */
+function odyssey() {
+  return {
+    title: 'Одиссея', release_date: '2026-07-17', runtime: 172, vote_average: 8.04,
+    overview: 'Одиссей - царь Итаки - плывёт домой.',
+    release_quality: '4K',
+    genres: [{ name: 'приключения' }, { name: 'фэнтези' }],
+    production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
+  };
+}
+function cardWithDescr() {
+  const c = makeCard();
+  const descr = new FakeEl(['lumen-descr-short', 'hide']);
+  const head = new FakeEl(['full-start-new__head']);
+  head.text('2026, США | Великобритания');
+  const pg = new FakeEl(['full-start__pg']);
+  pg.text('16+');
+  c.root._children.push(descr, head, pg);
+  descr._parentEl = c.root; head._parentEl = c.root; pg._parentEl = c.root;
+  return Object.assign(c, { descr });
+}
+const NB = ' ';
+function withFlat(flat, fn) {
+  const prev = Lampa.Storage.get;
+  Lampa.Storage.get = (name, def) => (name === 'lumen_flat' ? flat : def);
+  try { fn(); } finally { Lampa.Storage.get = prev; }
+}
+function metaText(html) { return html.replace(/<[^>]+>/g, ' ').replace(/ +/g, ' ').trim(); }
+
+test('v2 экран 35: мета Lumen — «·», страны через запятую, ★ TMDB текстом, значок качества', () => {
+  withFlat(false, () => {
+    const c = cardWithDescr();
+    LC.header.decorate(c.root, { movie: odyssey() });
+    const html = c.meta.html();
+    const text = metaText(html);
+    assert.ok(text.indexOf('2026 · США, Великобритания · 2:52 · Приключения, Фэнтези') === 0, text);
+    assert.ok(html.indexOf('<span class="lumen-meta__rate">★' + NB + '8.0' + NB + 'TMDB</span>') !== -1, 'рейтинг текстом: ' + html);
+    assert.ok(html.indexOf('<span class="lumen-meta__badge">4K</span>') !== -1, 'значок 4K: ' + html);
+    assert.equal(html.indexOf('|'), -1, 'черта между странами осталась');
+    assert.equal(c.descr.hasClass('hide'), false);
+    assert.equal(c.descr.text(), 'Одиссей' + NB + '— царь Итаки' + NB + '— плывёт домой.');
+  });
+});
+
+test('v2 экран 35: мета Apple TV — жанры · год · «2 ч 52 мин», значки рамкой, ★ без TMDB, без стран', () => {
+  withFlat(true, () => {
+    const c = cardWithDescr();
+    LC.header.decorate(c.root, { movie: odyssey() });
+    const html = c.meta.html();
+    assert.ok(metaText(html).indexOf('Приключения · Фэнтези · 2026 · 2' + NB + 'ч 52' + NB + 'мин') === 0, metaText(html));
+    assert.ok(html.indexOf('<span class="lumen-meta__badge">16+</span><span class="lumen-meta__badge">4K</span>') !== -1, html);
+    assert.ok(/★ 8\.0<\/span>$/.test(html), 'рейтинг без TMDB в конце: ' + html);
+    assert.equal(html.indexOf('США'), -1, 'у Apple стран в мете нет');
+    const m = odyssey(); m.genres.push({ name: 'драма' });
+    LC.header.decorate(c.root, { movie: m });
+    assert.equal(c.meta.html().indexOf('Драма'), -1, 'у Apple в мете два жанра');
+  });
+});
+
+test('v2 экран 35: без оценки и описания — ни «★», ни пустого узла описания', () => {
+  withFlat(false, () => {
+    const c = cardWithDescr();
+    const m = odyssey(); m.vote_average = 0; m.overview = '  ';
+    LC.header.decorate(c.root, { movie: m });
+    assert.equal(c.meta.html().indexOf('★'), -1);
+    assert.ok(c.descr.hasClass('hide'), 'пустое описание не прячется');
+  });
+});
+
 /* Правка 2026-09-23 (разбор композиции, п.2.1): длинное название режется по
    своему разделителю, а не по ширине колонки. Доля названий с разделителем
    и разбор правила — у LC.cardinfo.titleParts. */

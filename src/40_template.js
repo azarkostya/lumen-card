@@ -153,14 +153,7 @@
         '</div>' +
         '<div class="full-start-new__right lumen-content">' +
 
-        /* 1: мета (год · страна · хронометраж/сезоны · жанры · 18+ · реж.) */
-        '<div class="lumen-in">' +
-        '<div class="full-start-new__head"></div>' +
-        '<div class="lumen-meta"></div>' +
-        '<div class="full-start__pg hide"></div>' +
-        '</div>' +
-
-        /* 2: заголовок. Правка пользователя 2026-09-16 (п.2): оригинального
+        /* 1: заголовок. Правка пользователя 2026-09-16 (п.2): оригинального
            названия здесь больше нет — оно дублировало строку «Оригинал»
            таблицы «ПОДРОБНО», которая и есть нужное для него место. */
         '<div class="lumen-in">' +
@@ -171,6 +164,15 @@
            он же выводится, когда логотипа нет или он не доехал. */
         '<div class="lumen-logo"></div>' +
         '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
+        '</div>' +
+
+        /* 2: мета (год · страна · хронометраж/сезоны · жанры · 18+ · ★ TMDB).
+           v2, экран 35: стоит ПОД заголовком/логотипом (SPEC 35, «DOM:
+           Переставить»), а не над ним. */
+        '<div class="lumen-in">' +
+        '<div class="full-start-new__head"></div>' +
+        '<div class="lumen-meta"></div>' +
+        '<div class="full-start__pg hide"></div>' +
         '</div>' +
 
         /* 3: рейтинги + статус + чип следующей серии + чип реакций + чипы
@@ -194,6 +196,10 @@
         '<div class="full-start__tag tag--quality hide"><div></div></div>' +
         '</div>' +
         '</div>' +
+        /* v2, экран 35: короткое описание над кнопками (2 строки Lumen,
+           3 — Apple TV; LC.header renderShortDescr). Не .selector: полный
+           текст — в ряду описания Lampa ниже, он и открывается по OK. */
+        '<div class="lumen-descr-short hide"></div>' +
         '</div>' +
 
         /* 4: продолжить просмотр */

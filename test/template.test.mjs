@@ -227,10 +227,20 @@ test('правка 2026-09-16 (п.1): статус скрыт разметкой
    2026-09-21). Описание в шапке было обрезано двумя строками с многоточием
    и повторяло начало полного текста, который Lampa показывает ниже своим
    рядом описания. Оставлен один носитель — нижний, полный. */
-test('Task 59: описания в шапке нет — оно живёт в ряду описания целиком', () => {
+/* v2 «Единый стиль», экран 35: описание вернулось на первый экран коротким
+   (2/3 строки) — по SPEC 35 порядок «логотип → мета → описание → кнопки».
+   Узел заполняет рантайм (renderShortDescr), ключа подстановки в шаблоне нет;
+   прежний обрезанный .lumen-descr с {descr} не возвращается. */
+test('v2 экран 35: короткое описание — свой узел над кнопками, мета под заголовком', () => {
   const result = template.build(fixture);
-  assert.equal(result.indexOf('lumen-descr'), -1, 'блок описания в шапке убран');
-  assert.equal(result.indexOf('{descr}'), -1, 'ключ подстановки тоже убран');
+  assert.equal(result.indexOf('{descr}'), -1, 'ключ подстановки не возвращается');
+  assert.equal(result.indexOf('class="lumen-descr"'), -1, 'прежний узел .lumen-descr не возвращается');
+  const d = result.indexOf('lumen-descr-short');
+  assert.ok(d !== -1, 'узла короткого описания нет');
+  assert.ok(d < result.indexOf('full-start-new__buttons'), 'описание стоит над кнопками');
+  assert.ok(result.indexOf('full-start-new__title') < result.indexOf('lumen-meta'), 'мета — под заголовком/логотипом');
+  assert.ok(result.indexOf('lumen-logo') < result.indexOf('lumen-meta'), 'мета — под логотипом');
+  assert.ok(result.indexOf('lumen-meta') < d, 'описание — под метой');
 });
 
 test('правка 2026-09-16 (п.2): оригинального названия в шапке нет', () => {

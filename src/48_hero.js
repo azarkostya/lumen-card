@@ -217,7 +217,13 @@
        (тело до 508.2), и логотип добавляет к этому 33.7 px — ровно столько
        же, сколько добавило бы двухуровневое название. */
     var CARD_TITLE_EM = 3.33;
-    var CARD_LOGO_H_MAX = 2;
+    /* v2 «Единый стиль», экран 35 (--lc-logo-max: 1280×340 на 4K, то есть
+       640×170 FHD): бокс логотипа — до 170 px высотой и 640 шириной. В em
+       логотипа (кегль 3.33 от базового 22.811 px): 170 / 75.96 = 2.24,
+       640 / 75.96 = 8.43. Высота подросла с 2 (152 px) — описание первого
+       экрана заняло место плиток рейтингов, а не логотипа. */
+    var CARD_LOGO_H_MAX = 2.24;
+    var CARD_LOGO_W_MAX = 8.43;
 
     var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
@@ -433,6 +439,10 @@
       if (h > CARD_LOGO_H_MAX) {
         h = CARD_LOGO_H_MAX;
         w = h * r;
+      }
+      if (w > CARD_LOGO_W_MAX) {
+        w = CARD_LOGO_W_MAX;
+        h = w / r;
       }
       return { w: round2(w), h: round2(h) };
     }

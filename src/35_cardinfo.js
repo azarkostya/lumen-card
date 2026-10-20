@@ -55,7 +55,9 @@
        английское имя страны из TMDB. */
     function country(headText, productionCountries, lang) {
       var text = trim(headText).replace(/^\d{4}\s*,?\s*/, '');
-      text = trim(text);
+      /* v2, экран 35: страны через запятую — Lampa пишет их через « | »
+         («Великобритания | США»), и черта читалась как разделитель блоков. */
+      text = trim(text).replace(/\s*\|\s*/g, ', ');
       if (text) return text;
 
       if (productionCountries && productionCountries.length) {

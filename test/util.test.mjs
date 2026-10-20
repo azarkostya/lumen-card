@@ -508,3 +508,26 @@ test('overlayOpen: нет document, body или querySelector — «не отк�
     assert.equal(u.overlayOpen(), false);
   } finally { if (had) globalThis.document = prev; else delete globalThis.document; }
 });
+
+/* v2 «Единый стиль», экран 35: общая типографика чисел (экран 43 расширит). */
+test('v2: fmtRuntimeLong — «2 ч 52 мин» с неразрывными пробелами', () => {
+  assert.equal(u.fmtRuntimeLong(172, 'ч', 'мин'), '2 ч 52 мин');
+  assert.equal(u.fmtRuntimeLong(120, 'ч', 'мин'), '2 ч');
+  assert.equal(u.fmtRuntimeLong(48, 'ч', 'мин'), '48 мин');
+  assert.equal(u.fmtRuntimeLong(0, 'ч', 'мин'), '');
+});
+test('v2: shortNum — «1,6 тыс.», «2 тыс.», «1,2 млн», en «1.6K»', () => {
+  assert.equal(u.shortNum(999, 'ru'), '999');
+  assert.equal(u.shortNum(1600, 'ru'), '1,6 тыс.');
+  assert.equal(u.shortNum(2000, 'ru'), '2 тыс.');
+  assert.equal(u.shortNum(3449, 'uk'), '3,4 тис.');
+  assert.equal(u.shortNum(1234567, 'ru'), '1,2 млн');
+  assert.equal(u.shortNum(999960, 'ru'), '1 млн', 'округление до тысячи тысяч — уже миллион');
+  assert.equal(u.shortNum(1600, 'en'), '1.6K');
+});
+test('v2: typo — « - » в тире с неразрывным пробелом, разряды неразрывно', () => {
+  assert.equal(u.typo('Начало - фильм'), 'Начало — фильм');
+  assert.equal(u.typo('сборы 1 600 000'), 'сборы 1 600 000');
+  assert.equal(u.typo('во-первых, 2026 год'), 'во-первых, 2026 год', 'дефис в слове и год не трогаются');
+  assert.equal(u.typo(null), '');
+});
