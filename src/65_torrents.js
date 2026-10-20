@@ -567,6 +567,138 @@
       if (!object || !object.activity || typeof object.activity.render !== 'function') return;
       var root = object.activity.render();
       if (root && root.length && typeof root.addClass === 'function') root.addClass(MARK);
+      if (root && root.length && typeof root.find === 'function') {
+        dotMeta(root.find('.explorer-card__head-create')[0]);
+        frame(root, object.movie || object.card);
+      }
+    }
+
+    /* v2, экран 39: кадр-вуаль над шапкой фильма — задник фильма из TMDB
+       (размер затемнения, как у рулетки), вуаль рисует CSS
+       (src/31_v2_torrents_menu.js). Нет задника — нет и кадра: фон темы. */
+    function frame(root, movie) {
+      try {
+        if (!movie || !movie.backdrop_path || root.find('.lumen-tframe').length) return;
+        var size = LC.util.scrimSize(LC.util.screenPx());
+        var tmdb = window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function' ? function (url) { return Lampa.TMDB.image(url); } : null;
+        var img = window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function' ? function (p, sz) { return Lampa.Api.img(p, sz); } : null;
+        var url = LC.cardinfo && LC.cardinfo.imageUrl ? LC.cardinfo.imageUrl(movie.backdrop_path, size, tmdb, img) : '';
+        if (!url) return;
+        var box = document.createElement('div');
+        box.className = 'lumen-tframe';
+        var pic = document.createElement('div');
+        pic.className = 'lumen-tframe__img';
+        pic.style.backgroundImage = 'url("' + String(url).replace(/["\\]/g, '') + '")';
+        box.appendChild(pic);
+        root[0].insertBefore(box, root[0].firstChild);
+      } catch (e) {
+        warn('torrents frame failed', e);
+      }
+    }
+
+    /* v2 «Единый стиль», экран 39: «2012 · США» вместо «2012 - США» — строку
+       год/страна Lampa пишет сама (Explorer.movie, text()), правим текст. */
+    function dotMeta(node) {
+      if (!node || typeof node.textContent !== 'string') return;
+      var t = node.textContent;
+      if (t.indexOf(' - ') >= 0) node.textContent = t.split(' - ').join(' \u00B7 ');
+    }
+
+    /* v2, экран 39: важная часть названия раздачи выделена. Правило макета —
+       всё после последнего « / » (качество, контейнер, озвучка), остальное
+       тише. « / » внутри скобок не считается: «(Мартин Скорсезе / Martin
+       Scorsese)» — режиссёр, а не хвост раздачи. Названия в духе rutracker
+       («… [2006, США, триллер, BDRip-AVC] Dub + AVO») хвоста через « / » не
+       имеют вовсе — у них важное начинается с последнего пункта в
+       квадратных скобках (качество) и идёт до конца (озвучка). Делит на два
+       span — голый текст узла, без разметки: название приходит с трекера. */
+    function splitTitle(text) {
+      if (!text) return null;
+      var depth = 0;
+      var slash = -1;
+      var bracket = -1;
+      var open = -1;
+      for (var i = 0; i < text.length; i++) {
+        var ch = text.charAt(i);
+        if (ch === '(' || ch === '[') {
+          if (!depth && ch === '[') open = i + 1;
+          depth++;
+        } else if ((ch === ')' || ch === ']') && depth > 0) {
+          depth--;
+          if (!depth && ch === ']' && open > 0) {
+            var comma = text.lastIndexOf(', ', i);
+            bracket = comma >= open ? comma + 2 : open;
+            open = -1;
+          }
+        } else if (!depth && ch === '/' && text.charAt(i - 1) === ' ' && text.charAt(i + 1) === ' ') {
+          slash = i + 2;
+        }
+      }
+      var cut = bracket > slash ? bracket : slash;
+      if (cut <= 0 || cut >= text.length) return null;
+      return [text.slice(0, cut), text.slice(cut)];
+    }
+
+    function emphasize(item) {
+      var node = item && item.find ? item.find('.torrent-item__title')[0] : null;
+      if (!node || node.getAttribute('data-lumen-split')) return;
+      var parts = splitTitle(node.textContent || '');
+      if (!parts) return;
+      node.setAttribute('data-lumen-split', '1');
+      node.textContent = '';
+      var a = document.createElement('span');
+      a.className = 'lumen-tt-a';
+      a.textContent = parts[0];
+      var b = document.createElement('span');
+      b.className = 'lumen-tt-b';
+      b.textContent = parts[1];
+      node.appendChild(a);
+      node.appendChild(b);
+    }
+
+    /* v2, экран 39: сиды и пиры — числа в колонках со стрелками (рисует
+       CSS), подписи «Раздают:»/«Качают:» сняты; размер с запятой «18,4 ГБ»
+       для русского и украинского. */
+    function numbers(item) {
+      var cells = item.find('.torrent-item__seeds, .torrent-item__grabs');
+      for (var i = 0; i < cells.length; i++) {
+        var kids = cells[i].childNodes;
+        for (var j = kids.length - 1; j >= 0; j--) {
+          if (kids[j].nodeType === 3) cells[i].removeChild(kids[j]);
+        }
+      }
+      var lang = '';
+      try { lang = Lampa.Storage.get('language', 'ru'); } catch (e) { }
+      var size = item.find('.torrent-item__size')[0];
+      if (size && (lang === 'ru' || lang === 'uk')) size.textContent = size.textContent.replace(/(\d)\.(\d)/, '$1,$2');
+    }
+
+    /* v2, экран 39·F: строка серии «Сезон - 1 · Выход - 1 апреля» —
+       дефисы шаблона Lampa сняты: «Сезон 1 · Выход 1 апреля». */
+    function onFile(e) {
+      try {
+        if (!e || e.type !== 'render' || !e.item || !document.body.classList.contains(BODY_ON)) return;
+        var spans = e.item.find('.torrent-serial__line > span');
+        for (var i = 0; i < spans.length; i++) {
+          var kids = spans[i].childNodes;
+          for (var j = 0; j < kids.length; j++) {
+            if (kids[j].nodeType === 3) kids[j].data = kids[j].data.replace(' - ', ' ');
+          }
+        }
+      } catch (err) {
+        warn('torrents file line failed', err);
+      }
+    }
+
+    function onTorrent(e) {
+      try {
+        if (e && e.type === 'render' && e.item && document.body.classList.contains(BODY_ON)) {
+          emphasize(e.item);
+          numbers(e.item);
+        }
+      } catch (err) {
+        warn('torrents title failed', err);
+      }
     }
 
     /* Lampa 3.3.4: 'start' приходит и при Activity.push, и при возврате
@@ -590,7 +722,11 @@
       }
       installed = true;
       try {
-        if (Lampa.Listener && typeof Lampa.Listener.follow === 'function') Lampa.Listener.follow('activity', onActivity);
+        if (Lampa.Listener && typeof Lampa.Listener.follow === 'function') {
+          Lampa.Listener.follow('activity', onActivity);
+          Lampa.Listener.follow('torrent', onTorrent);
+          Lampa.Listener.follow('torrent_file', onFile);
+        }
       } catch (e) {
         warn('torrents listener failed', e);
       }
@@ -633,7 +769,7 @@
       }
     }
 
-    return { css: css, scoped: scoped, install: install, toggle: toggle };
+    return { css: css, scoped: scoped, install: install, toggle: toggle, splitTitle: splitTitle };
   })();
 
   /* В браузере "module" не определён — ветка не выполняется. Метка

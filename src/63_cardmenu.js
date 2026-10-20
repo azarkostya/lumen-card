@@ -536,6 +536,51 @@
       return pending;
     }
 
+    /* v2 «Единый стиль», экран 40: меню карточки — плавающая панель рядом
+       с постером, а не шторка во всю высоту. Select у Lampa один на всё
+       приложение (.selectbox — синглтон), поэтому метка ставится на каждом
+       preshow заново: меню карточки — класс PLATTER и якорь, любое другое
+       меню — снять. Якорь — левая кромка панели в px окна (--lc-anchor-x):
+       справа от постера в фокусе, а если панель туда не влезает — слева от
+       него. Ширину и поля панели знает CSS (src/31_v2_torrents_menu.js),
+       сюда они приходят теми же долями экрана: панель 600 и поле 60 px FHD.
+       Нет узла или rect — класс без якоря: CSS прижимает панель к правому
+       полю. */
+    var PLATTER = 'lumen-cardmenu';
+    var PLATTER_W = 600 / 1920;
+    var PLATTER_INSET = 60 / 1920;
+    var PLATTER_GAP = 30 / 1920;
+
+    function platterX(rect, width) {
+      if (!rect || !width) return null;
+      var w = width * PLATTER_W;
+      var inset = width * PLATTER_INSET;
+      var gap = width * PLATTER_GAP;
+      var right = rect.right + gap;
+      if (right + w <= width - inset) return Math.round(right);
+      var left = rect.left - gap - w;
+      if (left >= inset) return Math.round(left);
+      return null;
+    }
+
+    function platter(hit) {
+      try {
+        if (!window.Lampa || !Lampa.Select || typeof Lampa.Select.render !== 'function') return;
+        var root = Lampa.Select.render(true);
+        if (!root || !root.classList) return;
+        var x = null;
+        if (hit && hit.el && typeof hit.el.getBoundingClientRect === 'function') {
+          x = platterX(hit.el.getBoundingClientRect(), window.innerWidth || 0);
+        }
+        root.classList.toggle(PLATTER, !!hit);
+        root.classList.toggle(PLATTER + '--anchored', x !== null);
+        if (x !== null) root.style.setProperty('--lc-anchor-x', x + 'px');
+        else root.style.removeProperty('--lc-anchor-x');
+      } catch (e) {
+        warn('cardmenu: platter failed', e);
+      }
+    }
+
     /* Дописываем пункты в объект параметров ДО отрисовки списка. Штатные
        onSelect/onCheck меню не подменяются: у наших пунктов свой onSelect,
        и Select зовёт его вместо общего (app.min.js bind/goclose: element.
@@ -545,9 +590,10 @@
       try {
         if (!enabled()) return;
         var active = e && e.active;
+        var hit = active && (active.lumen_own || isCardMenu(active, actionTitle())) ? fresh() : null;
+        platter(hit);
         if (!active || active.lumen_own) return;
         if (!isCardMenu(active, actionTitle())) return;
-        var hit = fresh();
         if (!hit || !hit.card) return;
         var card = hit.card;
         var items = extraItems(card, context(card));
@@ -691,6 +737,7 @@
       if (!installed) return;
       installed = false;
       pending = null;
+      platter(null);
       try {
         if (longHandler) document.removeEventListener('hover:long', longHandler, true);
       } catch (e) {
@@ -718,6 +765,7 @@
       extraItems: extraItems,
       videosParams: videosParams,
       similarTarget: similarTarget,
+      platterX: platterX,
       install: install,
       uninstall: uninstall,
       open: open,

@@ -917,7 +917,9 @@
     lumen_minimap_row: { ru: 'Ряд', en: 'Row', uk: 'Ряд' },
 
     /* Заголовок-разделитель наших пунктов внутри штатного меню. */
-    lumen_menu_section: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
+    /* v2 «Единый стиль», экран 40: секция плагина в меню карточки —
+       «Ещё», обычным регистром; слова «Lumen Card» в меню нет. */
+    lumen_menu_section: { ru: 'Ещё', en: 'More', uk: 'Ще' },
     lumen_menu_trailer: { ru: 'Трейлер', en: 'Trailer', uk: 'Трейлер' },
     lumen_menu_franchise: { ru: 'Вся франшиза', en: 'Whole franchise', uk: 'Вся франшиза' },
     lumen_menu_similar: { ru: 'Похожие', en: 'Similar', uk: 'Схожі' },

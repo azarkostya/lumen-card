@@ -583,6 +583,14 @@
             note('stop', ticket);
             return;
           }
+          /* v2 «Единый стиль», экран 40: поверх карточки открыто меню по
+             удержанию OK (или другой список выбора, настройки, окно) —
+             ролик под ним не стартует: отсчёт заводится заново и ждёт,
+             пока оверлей закроют. */
+          if (LC.util.overlayOpen()) {
+            timer = setTimeout(begin, START_DELAY_MS);
+            return;
+          }
 
           control = player(ensureHost(layer), video.key, function () {
             if (!alive) return;
