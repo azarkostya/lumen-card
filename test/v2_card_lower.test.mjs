@@ -104,6 +104,73 @@ test('36: две колонки — «Комментарии» | «Актеры�
   assert.equal(body, rule(lumen, L + '.lumen-lower--right'));
 });
 
+/* QA v2 (P2-2): Lampa ограничивает прокрутку лентой + двумя ЛЕВЫМИ полями
+   (maxOffset) — поля ленты в колонке обязаны быть равны, иначе лента
+   уезжает дальше нужного и «Написать» срезается левой кромкой. */
+test('36: колонки — поля ленты симметричны, разницу до макета даёт ширина прокрутки', () => {
+  for (const css of [lumen, apple]) {
+    const left = rule(css, L + '.lumen-lower--left .scroll--horizontal .scroll__content');
+    assert.equal(left, null, 'у левой колонки своих полей ленты нет — общие 3.51em с обеих сторон');
+    assert.match(rule(css, L + ' .scroll--horizontal .scroll__content'), /padding-left:3\.51em;padding-right:3\.51em/);
+    assert.match(rule(css, L + '.lumen-lower--right .scroll--horizontal .scroll__content'), /padding-left:1\.75em;padding-right:1\.75em/);
+    assert.match(rule(css, L + '.lumen-lower--left .scroll--horizontal'), /margin-right:-1\.76em/);
+    assert.match(rule(css, L + '.lumen-lower--right .scroll--horizontal'), /margin-right:1\.76em/);
+  }
+});
+
+/* QA v2 (P2-2): → с последнего комментария — в «Актеры», ← с первого
+   актёра — обратно; внутри ряда — как было (Navigator). */
+test('36: пульт между колонками — → с края левой и ← с края правой уходят в соседа', () => {
+  withStorage({}, (LC) => {
+    let can = false;
+    const moved = [];
+    globalThis.window.Navigator = { canmove: () => can, move: (d) => moved.push(d) };
+    function lineItem() {
+      const mods = [];
+      return { mods, use: (m) => mods.push(m), emit(name, c) { mods.forEach((m) => m['on' + name] && m['on' + name].call(this, c)); } };
+    }
+    function ctl(log) {
+      return {
+        right: () => log.push('right'), left: () => log.push('left'),
+        down: () => log.push('down'), up: () => log.push('up')
+      };
+    }
+    const leftItem = lineItem();
+    LC.cardLower.bindPair(leftItem, 'left');
+    LC.cardLower.bindPair(leftItem, 'left');
+    assert.equal(leftItem.mods.length, 1, 'модуль ставится один раз');
+    let log = [];
+    let c = ctl(log);
+    leftItem.emit('Controller', c);
+    can = true; c.right();
+    can = false; c.right();
+    c.left();
+    assert.deepEqual(log, ['right', 'down', 'left'], 'левая: внутри ряда штатно, с края → вниз (в «Актеры»), ← не тронут');
+
+    const rightItem = lineItem();
+    LC.cardLower.bindPair(rightItem, 'right');
+    log = [];
+    c = ctl(log);
+    rightItem.emit('Controller', c);
+    can = true; c.left();
+    can = false; c.left();
+    c.right();
+    assert.deepEqual(log, ['left', 'up', 'right'], 'правая: с края ← вверх (в «Комментарии»), → не тронут');
+
+    /* Без Navigator и без item.use — не исключение, штатный шаг. */
+    delete globalThis.window.Navigator;
+    log = [];
+    c = ctl(log);
+    const third = lineItem();
+    LC.cardLower.bindPair(third, 'left');
+    third.emit('Controller', c);
+    c.right();
+    assert.deepEqual(log, ['right']);
+    LC.cardLower.bindPair({}, 'left');
+    LC.cardLower.bindPair(null, 'left');
+  });
+});
+
 test('36: «Комментарии» без пунктира; «Написать» — плитка (L) или чип (A)', () => {
   const D = L + '.lumen-lower--discuss';
   for (const css of [lumen, apple]) assert.match(rule(css, D + ' .full-review-add'), /border:0/);

@@ -132,6 +132,39 @@
       return line.length && line.hasClass('items-line') ? line : null;
     }
 
+    /* QA v2 (P2-2): пульт между колонками. Колонки стоят в одну строку, но
+       для Lampa это два ряда подряд: «вправо» с последней плитки левой
+       колонки уходило в пустоту (контроллер items_line двигает только
+       Navigator внутри ряда, app.min.js:36096-36101), а «влево» с первой
+       плитки правой — в меню. Контроллер ряд собирает заново на каждом
+       toggle и перед Controller.add отдаёт модулям событием 'controller' —
+       та же точка расширения, что у bindStart (src/85_header.js). Там, где
+       Navigator шага не находит, левая колонка делает шаг «вниз», правая —
+       «вверх»: это и есть соседняя колонка (пара — соседи в списке рядов),
+       а фокус в ней Lampa возвращает туда, где он стоял в прошлый раз (last). */
+    function bindPair(item, side) {
+      if (!item || typeof item.use !== 'function' || item.lumenPairBound) return;
+      item.lumenPairBound = true;
+      item.use({
+        onController: function (controller) {
+          if (!controller) return;
+          var key = side === 'left' ? 'right' : 'left';
+          var step = side === 'left' ? controller.down : controller.up;
+          var move = controller[key];
+          if (typeof move !== 'function' || typeof step !== 'function') return;
+          controller[key] = function () {
+            var nav = window.Navigator;
+            try {
+              if (nav && typeof nav.canmove === 'function' && !nav.canmove(key)) return step.apply(this, arguments);
+            } catch (err) {
+              warn('card lower pair move failed', err);
+            }
+            return move.apply(this, arguments);
+          };
+        }
+      });
+    }
+
     /* e — событие Lampa 'full' (type 'build'). */
     function tag(e) {
       try {
@@ -141,7 +174,10 @@
         line.addClass('lumen-lower lumen-lower--' + e.name);
         var side = sideOf(e.link && e.link.rows, e.data, e.name);
         line.removeClass('lumen-lower--left lumen-lower--right');
-        if (side) line.addClass('lumen-lower--' + side);
+        if (side) {
+          line.addClass('lumen-lower--' + side);
+          bindPair(e.item, side);
+        }
         if (e.name === 'discuss') {
           decorateDiscuss(line, e.body);
           /* Плитку «Написать» ряд может дорисовать после build. */
@@ -160,6 +196,7 @@
       tag: tag,
       refresh: refresh,
       sideOf: sideOf,
+      bindPair: bindPair,
       needsKeyLine: needsKeyLine,
       quietKey: true
     };
@@ -183,6 +220,8 @@
       var L = 'body .items-line.lumen-lower';
       var EDGE = '3.51em';
       var HALF = '1.75em';
+      /* Кромка минус половина зазора: 80 − 40 px FHD. */
+      var SEAM = '1.76em';
       var MUTED = A ? 'rgba(235,235,245,.64)' : P.muted;
       var LINE = 'rgba(255,255,255,.16)';
       function tf(v) { return '-webkit-transform:' + v + ';transform:' + v; }
@@ -209,9 +248,20 @@
       /* Две колонки: «Комментарии» | «Актеры». */
       css.push(L + '.lumen-lower--left,' + L + '.lumen-lower--right{display:inline-block;vertical-align:top;width:50%;overflow:hidden;-webkit-box-sizing:border-box;box-sizing:border-box}');
       css.push(L + '.lumen-lower--left .items-line__head{padding-right:' + HALF + '}');
-      css.push(L + '.lumen-lower--left .scroll--horizontal .scroll__content{padding-right:' + HALF + '}');
       css.push(L + '.lumen-lower--right .items-line__head{padding-left:' + HALF + '}');
-      css.push(L + '.lumen-lower--right .scroll--horizontal .scroll__content{padding-left:' + HALF + '}');
+      /* QA v2 (P2-2): поля ленты в колонке симметричны. Предел прокрутки
+         Lampa считает как ширина ленты + ДВА левых поля (maxOffset,
+         app.min.js:32714-32721), а у левой колонки правое поле вдвое уже
+         левого — лента уезжала на 1.76em дальше нужного, и плитка «Написать»
+         при двух комментариях, влезавших целиком, срезалась левой кромкой.
+         Поэтому поле ленты с обеих сторон одно (левая колонка — кромка,
+         правая — половина зазора), а разницу до макета даёт ширина самой
+         прокрутки: у левой она заходит за шов колонок (там её режет
+         overflow колонки), у правой на столько же не доходит до кромки
+         экрана. Плитки на месте покоя стоят там же, где стояли. */
+      css.push(L + '.lumen-lower--left .scroll--horizontal{margin-right:-' + SEAM + '}');
+      css.push(L + '.lumen-lower--right .scroll--horizontal{margin-right:' + SEAM + '}');
+      css.push(L + '.lumen-lower--right .scroll--horizontal .scroll__content{padding-left:' + HALF + ';padding-right:' + HALF + '}');
       /* Колонки режутся по своей половине, а не маской Lampa по краям. */
       css.push(L + '.lumen-lower--left .scroll--mask,' + L + '.lumen-lower--right .scroll--mask{-webkit-mask-image:none;mask-image:none}');
 
