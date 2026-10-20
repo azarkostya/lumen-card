@@ -835,6 +835,23 @@ test('↓ штатный: Navigator сам находит цель, с плит�
   assert.deepEqual(warnLog, []);
 });
 
+test('v2 экран 37: фокус на серии снимает фоновый трейлер, фокус на кнопке — нет', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const prev = LC.trailer;
+  let stops = 0;
+  LC.trailer = { stopActive() { stops++; } };
+  try {
+    fire(c.root, 'hover:focus', c.book);
+    assert.equal(stops, 0, 'кнопка карточки трейлер не трогает');
+    fire(c.root, 'hover:focus', c.track._children[0]);
+    assert.equal(stops, 1, 'трейлер стартовал бы под фокусом на плитке и спрятал ряд');
+  } finally {
+    LC.trailer = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 test('v2 экран 37: ряд, собранный после снимка (фокус уже на кнопке карточки), пересобирает коллекцию', () => {
   const c = makeCard();
   const calls = [];
