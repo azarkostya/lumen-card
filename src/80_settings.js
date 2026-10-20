@@ -502,6 +502,18 @@
       en: 'Removes TorrServer torrents not opened from Lampa for over a day. Active ones are kept.',
       uk: 'Прибирає з TorrServer роздачі, не відкриті з Lampa понад добу. Активні не чіпає.'
     },
+    /* «Запасной парсер» (src/66_parserfb.js). */
+    lumen_parser_fallback_name: { ru: 'Запасной парсер', en: 'Backup parser', uk: 'Запасний парсер' },
+    lumen_parser_fallback_descr: {
+      ru: 'Основной Jackett молчит 8 с или пуст — поиск по второму адресу парсера Lampa.',
+      en: 'Main Jackett silent for 8 s or empty: search the second Lampa parser address.',
+      uk: 'Основний Jackett мовчить 8 с або порожній — пошук за другою адресою парсера Lampa.'
+    },
+    lumen_parser_fallback_noty: {
+      ru: 'Основной парсер не ответил — раздачи с запасного',
+      en: 'Main parser did not respond — torrents from the backup',
+      uk: 'Основний парсер не відповів — роздачі із запасного'
+    },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
        поверх карточки стоит дороже выигрыша). */
@@ -1470,6 +1482,9 @@
     /* 1.3: «Автоочистка TorrServer» — включили: первый проход через 30 с;
        выключили: таймер снят, начатый проход останавливается перед
        следующим удалением (src/66_tsclean.js, apply). */
+    /* «Запасной парсер» читается на каждом поиске раздач
+       (src/66_parserfb.js) — применять на лету нечего. */
+    if (name === 'lumen_parser_fallback') return true;
     if (name === 'lumen_tsclean') {
       try { if (LC.tsclean) LC.tsclean.apply(); } catch (eTsclean) {}
       return true;
