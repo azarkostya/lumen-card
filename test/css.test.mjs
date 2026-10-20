@@ -5304,7 +5304,10 @@ test('волна 3: ролик героя — 16:9-бокс, накрывающ�
   assert.ok(still && /(^|;)transition:none/.test(still), 'приглушение под роликом без перехода: ' + still);
   const stillLqip = findDecl(css, (s) => s === 'body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active');
   assert.ok(stillLqip && /(^|;)transition:none/.test(stillLqip), 'и у подложки: ' + stillLqip);
-  assert.ok(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr').indexOf('display:none') !== -1, 'под роликом описание уходит');
+  /* QA main (06-home-header-focus-hero-shift): описание под роликом
+     остаётся — снятое, оно опускало логотип и мету (текст прижат к низу). */
+  assert.equal(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr'), null, 'под роликом описание не прячется');
+  assert.equal(/\.lumen-hero--trailer[^{]*\{[^}]*display:none/.test(css), false, 'класс ролика ничего в тексте героя не скрывает');
 });
 
 /* Правка пользователя 2026-09-17 (п.2): четыре размера героя. Task 36: доли

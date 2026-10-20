@@ -4786,8 +4786,8 @@
        сразу, как и смена кадра. is-live ставит сам плеер (src/55_trailer.js),
        когда ролик РЕАЛЬНО пошёл; pointer-events на iframe сняты — слой не
        кликается. Пока ролик играет, кадр под ним приглушён до .25 (класс
-       слоя lumen-hero-stage--trailer), а у текста героя уходит описание
-       (класс lumen-hero--trailer) — экран 02 карточки решает ту же задачу. */
+       слоя lumen-hero-stage--trailer); текст героя остаётся прежним (класс
+       lumen-hero--trailer его не меняет — см. ниже). */
     css.push('.lumen-hero-stage .lumen-hero__trailer{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;' +
       '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
@@ -4806,7 +4806,12 @@
        (0,5,1) — выше правил кроссфейда тяжёлых эффектов выше (0,4,1 у
        --b), иначе переход верхнего слоя перебил бы это правило. */
     css.push('body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active,body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active{-webkit-transition:none;transition:none}');
-    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
+    /* QA main (06-home-header-focus-hero-shift): описание под роликом больше
+       не уходит. Текст героя прижат к низу, и снятое описание опускало
+       логотип с метой на две строки — герой «прыгал» на старте ролика
+       (чаще всего его видно, пока фокус в шапке: ролик стартует, когда
+       пульт стоит). Композиция главной (огр. 8) — логотип → мета →
+       описание — одна и с роликом, и без, как у карточки на экране 35·T. */
 
     /* Task 70: при уходе фокуса в ряды кадр не гаснет (решение пользователя
        2026-09-21). С волны 3 он и не уезжает — слой неподвижен, — а под
