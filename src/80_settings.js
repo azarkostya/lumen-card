@@ -412,7 +412,15 @@
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
-    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
+    /* v2, экран 43: подпись чипа — обычным регистром («2 тыс. реакций»). */
+    lumen_card_reactions: { ru: 'реакций', en: 'reactions', uk: 'реакцій' },
+    /* v2, экран 43: слова чисел LC.typo (src/31_v2_typo.js) — «2 тыс.»,
+       «3,4 тыс.», «1,2 млн»; en — «2K», «3.4K». %s — число. */
+    lumen_typo_thousand: { ru: '%s\u00A0тыс.', en: '%sK', uk: '%s\u00A0тис.' },
+    lumen_typo_million: { ru: '%s\u00A0млн', en: '%sM', uk: '%s\u00A0млн' },
+    lumen_typo_decimal: { ru: ',', en: '.', uk: ',' },
+    /* v2, экран 44: число фильмов под плиткой франшизы в хабе. */
+    lumen_typo_films: { ru: 'фильм|фильма|фильмов', en: 'film|films', uk: 'фільм|фільми|фільмів' },
     lumen_card_season: { ru: 'Сезон', en: 'Season', uk: 'Сезон' },
     lumen_card_ep_watched: { ru: 'просмотрена', en: 'watched', uk: 'переглянута' },
     lumen_card_ep_watching: { ru: 'смотрите', en: 'watching', uk: 'дивитесь' },
@@ -1011,13 +1019,13 @@
     /* Подпись кнопки поиска в шапке хаба (design-spec-main §0.8) — верхним
        регистром, как остальные метки-капсы плагина. Task 27 сделал её
        рабочей: кнопка открывает штатную клавиатуру Lampa. */
-    lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
+    lumen_hub_search: { ru: 'Поиск по подборкам', en: 'Search collections', uk: 'Пошук по підбірках' },
     /* Правка 2026-09-23 (долг Task 23): вход в рулетку из шапки хаба и из
        сетки подборки. В шапке — тем же капсом, что у поиска рядом, и тем же
        именем, что у пункта левого меню и у заголовка самой рулетки, — одна
        цель, одно имя. В сетке — действием: там рулетка открывается уже с
        этой подборкой, и подпись обязана это сказать. */
-    lumen_hub_roulette: { ru: 'ЧТО ПОСМОТРЕТЬ', en: 'WHAT TO WATCH', uk: 'ЩО ПОДИВИТИСЯ' },
+    lumen_hub_roulette: { ru: 'Что посмотреть', en: 'What to watch', uk: 'Що подивитися' },
     lumen_grid_roulette: { ru: 'Крутить по этой подборке', en: 'Spin this collection', uk: 'Крутити цю підбірку' },
     /* Заголовок штатной клавиатуры и списка найденного (Task 27 Step 4). */
     lumen_hub_search_title: { ru: 'Название подборки', en: 'Collection name', uk: 'Назва підбірки' },

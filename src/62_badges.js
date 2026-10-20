@@ -483,6 +483,7 @@
         var nodes = root.find('.card');
         var shared = nodes.length ? batch() : null;
         for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null, shared);
+        stripLines(root[0]);
       } catch (e) {
         warn('badges: scan failed', e);
       }
@@ -500,6 +501,19 @@
       for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null, shared);
     }
 
+    /* v2, экраны 44/46: в ряду франшизы общий префикс снят из подписей
+       («Голодные игры: И вспыхнет пламя» → «И вспыхнет пламя»; правило —
+       LC.typo.stripPrefix, src/31_v2_typo.js). Ряд пересчитывается целиком:
+       догруженные карточки могут префикс и отменить. */
+    function stripLines(el) {
+      if (!LC.typo || !el || el.nodeType !== 1) return;
+      var lines = [];
+      var line = typeof el.closest === 'function' ? el.closest('.items-line') : null;
+      if (line) lines.push(line);
+      else if (typeof el.querySelectorAll === 'function') lines = el.querySelectorAll('.items-line');
+      for (var i = 0; i < lines.length; i++) LC.typo.stripCards(lines[i].querySelectorAll('.card'));
+    }
+
     function onMutations(records) {
       if (!state) return;
       try {
@@ -508,7 +522,12 @@
           var added = records[i] && records[i].addedNodes;
           if (!added || !added.length) continue;
           if (!shared) shared = batch();
-          for (var k = 0; k < added.length; k++) decorateAdded(added[k], shared);
+          var elems = false;
+          for (var k = 0; k < added.length; k++) {
+            decorateAdded(added[k], shared);
+            if (added[k] && added[k].nodeType === 1) elems = true;
+          }
+          if (elems && LC.typo) stripLines(records[i].target);
         }
       } catch (e) {
         warn('badges: observer failed', e);

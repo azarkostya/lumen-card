@@ -64,6 +64,10 @@
 
   LC.hub = (function () {
 
+    /* v2, экран 44: число фильмов франшизы по id подборки — на сессию,
+       чтобы возврат во вкладку не повторял запросы (loadCount). */
+    var filmCounts = {};
+
     /* Колонок в сетке — 6 (поправка контроллера к Task 17). Число задано и
        в CSS: раскладку делает CSS, а здесь по нему определяется последняя
        строка карточек, на которой пора грузить следующую страницу. */
@@ -1689,7 +1693,62 @@
         return out;
       }
 
+      /* v2, экран 44: число фильмов франшизы — total_results первой
+         страницы её фильмов (тот же запрос и кэш Lampa, что у сетки).
+         Только плитки в окне кадров и по одному запросу за раз: на слабом
+         ТВ вкладка не должна разом поднимать десяток запросов. */
+      function countTab(item) {
+        if (!LC.typo || !item || !item.group || !manifest || !Array.isArray(manifest.hubGroups)) return false;
+        for (var i = 0; i < manifest.hubGroups.length; i++) {
+          var g = manifest.hubGroups[i];
+          if (g && g.id === activeGroup) return !!(g.groups && g.groups.length === 1 && g.groups[0] === item.group && item.sources && item.sources.movie);
+        }
+        return false;
+      }
+      var countQueue = [];
+      var countBusy = false;
+      function loadCount(item, node) {
+        if (!countTab(item) || filmCounts[item.id] || node.lumen_count) return;
+        node.lumen_count = true;
+        countQueue.push({ item: item, node: node, gen: gen });
+        nextCount();
+      }
+      function nextCount() {
+        if (countBusy) return;
+        var job = null;
+        while (countQueue.length && !job) {
+          job = countQueue.shift();
+          if (job.gen !== gen) job = null;
+        }
+        if (!job) return;
+        countBusy = true;
+        var finished = false;
+        /* Сторож: ответ, который не пришёл вовсе, не держит очередь. */
+        var guard = setTimeout(function () { done(0); }, 15000);
+        function done(n) {
+          if (finished) return;
+          finished = true;
+          clearTimeout(guard);
+          countBusy = false;
+          if (n > 0 && job.gen === gen) {
+            filmCounts[job.item.id] = n;
+            try { $(job.node).find('.lumen-tile__sub').text(LC.typo.films(n)); } catch (e) { }
+          } else if (!(n > 0)) {
+            job.node.lumen_count = false;
+          }
+          nextCount();
+        }
+        try {
+          LC.sources.fetchOne(job.item.sources.movie, 'movie', 1, function (data) {
+            done(Number(data && data.total_results) || 0);
+          }, function () { done(0); });
+        } catch (e) {
+          done(0);
+        }
+      }
+
       function loadBanner(item, node) {
+        loadCount(item, node);
         if (node.lumen_banner) return;
         node.lumen_banner = true;
         var captured = gen;
@@ -1796,6 +1855,10 @@
           if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
         }
         var sub = item.badge || titleOf(group, lang()) || (item.lumen_mood ? LC.lang('lumen_hub_moods') : '');
+        /* v2, экран 44: во вкладке одной группы («Франшизы») её название под
+           каждой плиткой ничего не говорит — там число фильмов (loadCount). */
+        var counted = countTab(item);
+        if (counted) sub = filmCounts[item.id] ? LC.typo.films(filmCounts[item.id]) : '';
         /* Task 21: подборка своего сезона поднята наверх — метка объясняет,
            почему она здесь. */
         var season = inSeason(item, month())
@@ -2490,6 +2553,9 @@
           itemsRow.append(node);
           cardNodes.push(node);
         }
+        /* v2, экран 44: общий префикс франшизы в подписях сетки снят
+           («Звёздные войны: …»), по всем загруженным страницам. */
+        if (LC.typo) LC.typo.stripCards(cardNodes);
       }
 
       function renderSub() {

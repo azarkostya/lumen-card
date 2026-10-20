@@ -54,7 +54,10 @@
     return false;
   }
 
+  /* v2, экран 43: «2 тыс.», «3,4 тыс.» вместо «2K/3.4K» Lampa — латинская K
+     в чипе читалась как разрешение (LC.typo.bigNumber, src/31_v2_typo.js). */
   function bigNumber(n) {
+    if (LC.typo) return LC.typo.bigNumber(n);
     try {
       if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.bigNumberToShort === 'function') return Lampa.Utils.bigNumberToShort(n);
     } catch (e) { }

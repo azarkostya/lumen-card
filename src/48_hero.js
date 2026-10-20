@@ -2624,8 +2624,16 @@
       }
       stopTimer('titleTimer');
       if (waiting) state.titleForced = true;
-      title.text(model.title);
+      putTitle(title, model.title);
       revealText();
+    }
+
+    /* v2, экран 43: название без логотипа — ступень кегля по длине
+       (data-lc-step, src/31_v2_typo.js: 1 строка до 14 знаков, дальше до
+       двух строк меньшим кеглем). */
+    function putTitle(node, text) {
+      node.text(text);
+      if (LC.typo) node.attr('data-lc-step', LC.typo.titleStep(text));
     }
 
     /* Текст героя виден (снят .lumen-hero--await первого вывода). */
@@ -2680,7 +2688,7 @@
         return;
       }
       state.titleForced = true;
-      if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
+      if (state.model) putTitle(state.node.find('.lumen-hero__title'), state.model.title);
       revealText();
     }
 
@@ -2729,8 +2737,11 @@
            оценка известна сразу из карточки ряда — приклей её в модели, и
            она оказалась бы в середине строки, между годом и жанрами. */
         var metaLine = current.rating ? current.meta.concat(['★ ' + current.rating]) : current.meta;
-        node.find('.lumen-hero__meta').text(metaLine.join(' · '));
-        node.find('.lumen-hero__descr').text(current.overview);
+        /* v2, экран 43: неразрывные пробелы, тире, «…» и обрезка описания
+           по границе слова (LC.typo) — «20 / 000», «годы....», «Сант-…». */
+        var typo = LC.typo;
+        node.find('.lumen-hero__meta').text(typo ? typo.nbsp(metaLine.join(' · ')) : metaLine.join(' · '));
+        node.find('.lumen-hero__descr').text(typo ? typo.clip(typo.text(current.overview), DESCR_CLIP) : current.overview);
         node.find('.lumen-hero__status').text(current.status);
         node.toggleClass('lumen-hero--status', !!current.status);
         node.toggleClass('lumen-hero--pending', !!current.pending);
@@ -2827,12 +2838,21 @@
        первый кадр в покое идёт в верхний слой — он и проявляется. */
     var CROSSFADE_CALM_MS = 1000;
 
+    /* v2, экран 43: потолок описания героя в знаках — две строки колонки
+       описания с запасом; длиннее режется по границе слова (LC.typo.clip),
+       а не посреди слова многоточием line-clamp. */
+    var DESCR_CLIP = 150;
+
     function swapFrame(url, blur, slide) {
       if (!state) return;
       var a = state.stage.find('.lumen-hero__bg--a');
       var b = state.stage.find('.lumen-hero__bg--b');
       var activeIsA = a.hasClass('is-active');
-      if (!fxHeavy() || (!slide && Date.now() - state.focusAt < CROSSFADE_CALM_MS)) {
+      /* v2, экран 46: в «Лёгких» кадр меняется fade 220 мс вместо мигания —
+         теми же двумя слоями (переход только у --b, src/31_v2_typo.js), без
+         оглядки на тяжёлые эффекты и паузу фокуса. */
+      var liteFade = motionMode() === 'lite' && !!LC.typo;
+      if (!liteFade && (!fxHeavy() || (!slide && Date.now() - state.focusAt < CROSSFADE_CALM_MS))) {
         /* Слой, который уже на экране; на первом кадре карточки активного
            ещё нет — тогда это всегда --a, и --b остаётся пустым навсегда. */
         var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
