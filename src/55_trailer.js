@@ -62,6 +62,13 @@
     var START_DELAY_MS = 3000;
     var LOAD_MS = 20000;
     var WAIT_MS = 12000;
+    /* QA main (02-trailer-youtube-chrome): первые секунды после старта
+       YouTube рисует поверх кадра свою обвязку — значок паузы по центру,
+       «Другие видео», логотип справа внизу; playerVars её не снимают.
+       Ролик остаётся невидимым (без is-live) ещё CLEAN_MS после первого
+       PLAYING, onStart звучит тогда же — герой и карточка меняют вид
+       одновременно с появлением чистого кадра. */
+    var CLEAN_MS = 2500;
     /* Период сторожа «карточка ещё на экране» (см. startWatchdog ниже).
        Тикает только пока ролик реально играет. */
     var WATCH_MS = 1000;
@@ -323,6 +330,8 @@
          и тогда он не должен ни взводить таймаут ожидания старта (ролик
          снимался бы на 12-й секунде воспроизведения), ни затирать «play». */
       var started = false;
+      /* Ролик проявлен (прошли CLEAN_MS от первого PLAYING). */
+      var shown = false;
 
       owner = mine;
       mark('api');
@@ -409,11 +418,26 @@
               onStateChange: function (ev) {
                 if (dead || !ev) return;
                 if (ev.data === 1) {
-                  started = true;
-                  if (timeout) { clearTimeout(timeout); timeout = null; }
-                  try { $host.addClass('is-live'); } catch (e) { }
-                  mark('play');
-                  onStart();
+                  /* Первый PLAYING: ожидание старта снято, проявление — через
+                     CLEAN_MS (таймер в том же timeout, его снимает kill).
+                     Повторный PLAYING до проявления ничего не делает, после —
+                     как раньше. */
+                  if (!started) {
+                    started = true;
+                    if (timeout) clearTimeout(timeout);
+                    mark('play');
+                    timeout = setTimeout(function () {
+                      timeout = null;
+                      if (dead) return;
+                      try { $host.addClass('is-live'); } catch (e) { }
+                      shown = true;
+                      onStart();
+                    }, CLEAN_MS);
+                  } else if (shown) {
+                    try { $host.addClass('is-live'); } catch (e) { }
+                    mark('play');
+                    onStart();
+                  }
                 }
                 if (ev.data === 0) kill('end');
               },
@@ -809,6 +833,7 @@
       letterboxZoom: letterboxZoom,
       mode: mode,
       player: player,
+      CLEAN_MS: CLEAN_MS,
       reveal: reveal,
       schedule: schedule,
       stopActive: stopActive,

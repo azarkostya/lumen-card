@@ -2375,7 +2375,10 @@
        ±10 %, чтобы чёрные поля кадра 16:9 ушли за край экрана. Без inset —
        план запрещает (top/bottom/left/right по отдельности). Появление —
        1 с, как гаснут вуали (design-spec §12, «старт трейлера»). */
-    css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
+    css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0}');
+    /* Проявление за 1 с — только в полном режиме; в lite ролик встаёт сразу
+       (как у героя), уже чистым кадром — см. CLEAN_MS в 55_trailer.js. */
+    css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-backdrop .lumen-bg__trailer.is-live{opacity:1}');
     css.push('.lumen-backdrop .lumen-bg__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
     /* Task 21 (фаза 3): слой тематической атмосферы. В разметке он ПОСЛЕ

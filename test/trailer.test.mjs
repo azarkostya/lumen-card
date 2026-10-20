@@ -207,6 +207,15 @@ function freshEnv(opts) {
     },
     /* последний созданный плеер и его колбэки из cfg.events */
     last: () => players[players.length - 1],
+    /* PLAYING + выдержка CLEAN_MS (обвязка YouTube первых секунд) — ролик
+       проявлен. */
+    playing: (p) => {
+      p.cfg.events.onStateChange({ data: 1, target: p });
+      for (let i = timers.length - 1; i >= 0; i--) {
+        const x = timers[i];
+        if (!x.cleared && !x.done && x.ms === mod.CLEAN_MS) { x.done = true; x.fn(); break; }
+      }
+    },
     make: () => mod.player(host, 'KEY1', () => events.start++, () => events.end++)
   };
 }
@@ -230,15 +239,53 @@ test('player: старт воспроизведения -> onStart, таймау
   assert.equal(p.played, true);
   assert.ok(p.unloaded && p.unloaded.indexOf('captions') >= 0, 'модуль субтитров выгружен на onReady');
 
-  /* состояние 1 = playing */
+  /* состояние 1 = playing: первые CLEAN_MS ролик ещё невидим — поверх
+     кадра обвязка YouTube (QA main, 02-trailer-youtube-chrome) */
   p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.host.hasClass('is-live'), false, 'сразу после PLAYING слой не проявлен');
+  assert.equal(env.events.start, 0, 'onStart — вместе с проявлением');
+  assert.equal(env.mod.status(), 'play');
+  env.advanceTo(env.mod.CLEAN_MS - 1);
+  assert.equal(env.host.hasClass('is-live'), false);
+  env.advanceTo(env.mod.CLEAN_MS);
   assert.equal(env.events.start, 1);
   assert.equal(env.events.end, 0);
   assert.equal(env.host.hasClass('is-live'), true);
-  assert.equal(env.timers.filter((x) => !x.cleared).length, 0, 'таймауты ожидания сняты при старте');
+  assert.equal(env.timers.filter((x) => !x.cleared && !x.done).length, 0, 'таймауты ожидания сняты при старте');
 
   ctl.destroy();
   assert.deepEqual(warnLog, []);
+});
+
+test('player: снят в окне CLEAN_MS после PLAYING — ни проявления, ни onStart, onEnd один раз', () => {
+  const env = freshEnv();
+  const ctl = env.make();
+  const p = env.last();
+  p.cfg.events.onReady({ target: p });
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  ctl.destroy();
+  env.advanceTo(env.mod.CLEAN_MS * 4);
+  assert.equal(env.host.hasClass('is-live'), false);
+  assert.equal(env.events.start, 0);
+  assert.equal(env.events.end, 1);
+  assert.equal(env.timers.filter((x) => !x.cleared && !x.done).length, 0, 'таймер проявления снят');
+});
+
+test('player: повторный PLAYING до проявления не ускоряет его, после — как раньше', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.advanceTo(1000);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.host.hasClass('is-live'), false);
+  assert.equal(env.events.start, 0);
+  env.advanceTo(env.mod.CLEAN_MS);
+  assert.equal(env.events.start, 1, 'отсчёт — от первого PLAYING');
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.events.start, 2);
+  assert.equal(env.host.hasClass('is-live'), true);
 });
 
 test('player: ошибка YT -> тихо убираем и onEnd (слой очищен, is-live снят)', () => {
@@ -246,7 +293,7 @@ test('player: ошибка YT -> тихо убираем и onEnd (слой оч
   env.make();
   const p = env.last();
 
-  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.playing(p);
   assert.equal(env.host.hasClass('is-live'), true);
 
   p.cfg.events.onError({ data: 5 });
@@ -260,7 +307,7 @@ test('player: конец ролика (state 0) -> onEnd', () => {
   const env = freshEnv();
   env.make();
   const p = env.last();
-  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.playing(p);
   p.cfg.events.onStateChange({ data: 0, target: p });
   assert.equal(env.events.end, 1);
   assert.equal(env.host.hasClass('is-live'), false);
@@ -279,7 +326,7 @@ test('player: onReady на 7-й секунде, игра на 9-й -> onStart (�
   assert.equal(env.events.end, 0, 'до onReady плеер жив и на 7-й секунде');
   p.cfg.events.onReady({ target: p });
   env.advanceTo(9000);
-  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.playing(p);
   assert.equal(env.events.start, 1);
   assert.equal(env.events.end, 0);
   assert.equal(env.mod.status(), 'play');
@@ -322,7 +369,7 @@ test('player: onStateChange(1) раньше onReady — onReady не взвод�
   env.make();
   const p = env.last();
   env.advanceTo(1000);
-  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.playing(p);
   assert.equal(env.events.start, 1);
   p.cfg.events.onReady({ target: p });
   assert.equal(env.mod.status(), 'play', 'поздний onReady статус «play» не затирает');
@@ -344,7 +391,7 @@ test('player: статус — конец ролика «end», снятие с�
   const env = freshEnv();
   const first = env.make();
   const p1 = env.last();
-  p1.cfg.events.onStateChange({ data: 1, target: p1 });
+  env.playing(p1);
   p1.cfg.events.onStateChange({ data: 0, target: p1 });
   assert.equal(env.mod.status(), 'end');
 
@@ -352,7 +399,7 @@ test('player: статус — конец ролика «end», снятие с�
   const second = env.make();
   const p2 = env.last();
   p2.cfg.events.onReady({ target: p2 });
-  p2.cfg.events.onStateChange({ data: 1, target: p2 });
+  env.playing(p2);
   third.destroy();
   assert.equal(env.mod.status(), 'play', 'снятый старый плеер статус нового не трогает');
   second.destroy();
@@ -609,7 +656,15 @@ function scheduleEnv(opts) {
     LC, mod, root, body, layer, trailerHost, slideshow, timers, intervals, cfgs, data, play, controllerCalls,
     run: () => mod.schedule(root, body, data),
     fire: (i) => { const x = timers[i - 1]; if (x && !x.cleared) x.fn(); },
-    tick: (i) => { const x = intervals[i - 1]; if (x && !x.cleared) x.fn(); }
+    tick: (i) => { const x = intervals[i - 1]; if (x && !x.cleared) x.fn(); },
+    /* PLAYING первого плеера + выдержка CLEAN_MS — ролик проявлен. */
+    playing: () => {
+      cfgs[0].events.onStateChange({ data: 1 });
+      for (let i = timers.length - 1; i >= 0; i--) {
+        const x = timers[i];
+        if (!x.cleared && x.ms === mod.CLEAN_MS) { x.cleared = true; x.fn(); break; }
+      }
+    }
   };
 }
 
@@ -726,7 +781,7 @@ test('schedule: полный цикл — старт ролика ставит �
   assert.equal(env.slideshow.pauseCalls, 0, 'до фактического старта слайдшоу не паузим');
 
   /* Ролик пошёл. */
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
   assert.equal(env.slideshow.pauseCalls, 1);
   assert.equal(env.root.hasClass('lumen-trailer-on'), true);
   assert.equal(env.layer.hasClass('lumen-trailer-live'), true);
@@ -758,7 +813,7 @@ test('schedule: сторож гасит ролик, когда карточка 
   const env = scheduleEnv({ foregroundFn: () => foreground });
   const api = env.run();
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
 
   assert.equal(env.intervals.length, 1, 'на время ролика заводится ровно один сторож');
   assert.equal(env.intervals[0].ms, 1000);
@@ -789,7 +844,7 @@ test('schedule: сторож гасит ролик и когда слой воо
   const env = scheduleEnv({ mountedFn: () => mounted });
   const api = env.run();
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
 
   mounted = false;
   env.tick(1);
@@ -820,7 +875,7 @@ test('recollect: карточка ушла с экрана — коллекци�
   const env = scheduleEnv({ foregroundFn: () => fg });
   const api = env.run();
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
 
   assert.ok(env.controllerCalls.set.length >= 1, 'на видимой карточке кнопка «Стоп» коллекцию обновляет');
   env.controllerCalls.set.length = 0;
@@ -842,7 +897,7 @@ test('removeStop: фокус переводится ровно один раз �
   const env = scheduleEnv();
   const api = env.run();
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
 
   env.root.find('.lumen-stop').addClass('focus'); // пульт стоит на «Стоп»
   env.controllerCalls.set.length = 0;
@@ -863,7 +918,7 @@ test('слайдшоу паузится и возвращается ИМЕННО
 
   const api = env.run();
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
   assert.equal(env.slideshow.pauseCalls, 1);
   assert.equal(other.pauseCalls, 0, 'пауза ушла бы чужой карточке');
 
@@ -951,7 +1006,7 @@ test('schedule: stopActive снимает трейлер текущей карт
   const api = env.run();
   env.LC.active.trailer = api;
   env.fire(1);
-  env.cfgs[0].events.onStateChange({ data: 1 });
+  env.playing();
   assert.equal(env.root.hasClass('lumen-trailer-on'), true);
 
   env.mod.stopActive();

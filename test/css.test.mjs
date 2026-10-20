@@ -1429,14 +1429,16 @@ test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .
 /* (сосед .lumen-card), кнопка «Стоп» и метка — внутри .lumen-card.       */
 /* -------------------------------------------------------------------- */
 
-test('buildCss: .lumen-bg__trailer — слой ролика внутри .lumen-backdrop, ±10% по вертикали, без inset, проявление 1s', () => {
+test('buildCss: .lumen-bg__trailer — слой ролика внутри .lumen-backdrop, ±10% по вертикали, без inset, проявление 1s только в full', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__trailer');
   assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__trailer не найдено');
   assert.ok(decl.indexOf('top:-10%') !== -1 && decl.indexOf('bottom:-10%') !== -1, 'кадр 16:9 растягивается за края по вертикали');
   assert.ok(decl.indexOf('left:0') !== -1 && decl.indexOf('right:0') !== -1);
   assert.equal(/inset\s*:/.test(decl), false, 'inset запрещён планом — только top/bottom/left/right');
   assert.ok(/opacity\s*:\s*0\b/.test(decl), 'до старта слой прозрачен');
-  assert.ok(decl.indexOf('transition:opacity 1s') !== -1, 'проявление 1 с (design-spec §12, старт трейлера)');
+  assert.equal(/transition/.test(decl), false, 'в lite ролик встаёт сразу, без проявления');
+  const full = findDecl(css, (sel) => sel === '.lumen-backdrop.lumen-motion-full .lumen-bg__trailer');
+  assert.ok(full && full.indexOf('transition:opacity 1s') !== -1, 'проявление 1 с — только в полном режиме (design-spec §12, старт трейлера)');
 });
 
 test('buildCss: .lumen-bg__trailer.is-live — opacity:1, iframe не перехватывает пульт', () => {
