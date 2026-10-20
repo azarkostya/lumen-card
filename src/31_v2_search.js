@@ -193,6 +193,10 @@
          Apple TV). Видимый зазор — 32 px (1.4em). */
       css.push(RES + ' .items-line__head + .items-line__body{margin-top:-.59em}');
       css.push(RES + ' .card{width:9.52em;margin-right:1.75em}');
+      /* Ревью [perf]: Lampa даёт каждой .card will-change:transform
+         (app.css) — слой на карточку при масштабе у .card__view; снят, как
+         на главной (src/30_css.js). Отдельным правилом — ширину сторожит тест. */
+      css.push(RES + ' .card{will-change:auto}');
       css.push(RES + ' .card__view,' + RES + ' .card__img{border-radius:' + V2.rImg + 'em}');
       css.push(RES + ' .card__title{display:block;max-height:none;margin-top:.45em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + ';-webkit-line-clamp:none}');
       css.push(RES + ' .card__age{margin-top:.1em;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');

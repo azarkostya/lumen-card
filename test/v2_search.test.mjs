@@ -284,3 +284,10 @@ test('v2 экран 38: штатная анимация фокуса карто�
     assert.match(r[0], /\{-webkit-animation:none !important;animation:none !important\}$/);
   }
 });
+
+/* Ревью [perf]: слой will-change:transform Lampa на каждой карточке снят. */
+test('v2 экран 38: карточки результатов без will-change:transform', () => {
+  for (const st of [{}, APPLE]) {
+    assert.equal(rules(build(st).css, 'body.search--open .search .search__results .card{will-change:auto}').length, 1);
+  }
+});
