@@ -1961,11 +1961,11 @@ css.push('.lumen-hub .lumen-tile__media.lumen-skeleton{border-radius:.6em}');
 css.push('.lumen-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;pointer-events:none;overflow:hidden}');
 css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:.31em;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform,opacity}');
 css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
-css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden}');
+css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden;margin-top:-4em;padding-top:4em;-webkit-box-sizing:content-box;box-sizing:content-box}');
 css.push('.lumen-roulette-screen>.scroll{position:relative}');
 css.push('.lumen-roulette-screen.is-kadr>.scroll{-webkit-mask-image:none;mask-image:none}');
-css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:-4em;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
-css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:-4em;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
+css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
+css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:0;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
 css.push('.lumen-roulette-screen .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba('+P.bgRgb+',.85) 0%,rgba('+P.bgRgb+',.45) 30%,rgba('+P.bgRgb+',0) 65%);background:linear-gradient(90deg,rgba('+P.bgRgb+',.85) 0%,rgba('+P.bgRgb+',.45) 30%,rgba('+P.bgRgb+',0) 65%)}');
 css.push('.lumen-roulette-screen .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,'+P.bg+' 0%,rgba('+P.bgRgb+',.92) 10%,rgba('+P.bgRgb+',.6) 24%,rgba('+P.bgRgb+',.25) 42%,rgba('+P.bgRgb+',0) 62%);background:linear-gradient(0deg,'+P.bg+' 0%,rgba('+P.bgRgb+',.92) 10%,rgba('+P.bgRgb+',.6) 24%,rgba('+P.bgRgb+',.25) 42%,rgba('+P.bgRgb+',0) 62%)}');
 css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__bg,.lumen-roulette-screen.is-kadr .lumen-roulette__veil{opacity:1}');
@@ -2447,6 +2447,28 @@ if(!node)return null;
 var line=$(node);
 return line.length&&line.hasClass('items-line')?line:null;
 }
+function bindPair(item,side){
+if(!item||typeof item.use!=='function'||item.lumenPairBound)return;
+item.lumenPairBound=true;
+item.use({
+onController:function(controller){
+if(!controller)return;
+var key=side==='left'?'right':'left';
+var step=side==='left'?controller.down:controller.up;
+var move=controller[key];
+if(typeof move!=='function'||typeof step!=='function')return;
+controller[key]=function(){
+var nav=window.Navigator;
+try{
+if(nav&&typeof nav.canmove==='function'&&!nav.canmove(key))return step.apply(this,arguments);
+}catch(err){
+warn('card lower pair move failed',err);
+}
+return move.apply(this,arguments);
+};
+}
+});
+}
 function tag(e){
 try{
 if(!e||e.type!=='build'||!NAMES[e.name])return;
@@ -2455,7 +2477,10 @@ if(!line)return;
 line.addClass('lumen-lower lumen-lower--'+e.name);
 var side=sideOf(e.link&&e.link.rows,e.data,e.name);
 line.removeClass('lumen-lower--left lumen-lower--right');
-if(side)line.addClass('lumen-lower--'+side);
+if(side){
+line.addClass('lumen-lower--'+side);
+bindPair(e.item,side);
+}
 if(e.name==='discuss'){
 decorateDiscuss(line,e.body);
 setTimeout(function(){
@@ -2470,6 +2495,7 @@ var api={
 tag:tag,
 refresh:refresh,
 sideOf:sideOf,
+bindPair:bindPair,
 needsKeyLine:needsKeyLine,
 quietKey:true
 };
@@ -2487,6 +2513,7 @@ var css=[];
 var L='body .items-line.lumen-lower';
 var EDGE='3.51em';
 var HALF='1.75em';
+var SEAM='1.76em';
 var MUTED=A?'rgba(235,235,245,.64)':P.muted;
 var LINE='rgba(255,255,255,.16)';
 function tf(v){return'-webkit-transform:'+v+';transform:'+v;}
@@ -2504,9 +2531,10 @@ css.push(L+' .items-line__more{background:none;color:'+MUTED+';font-size:1.01em;
 css.push(L+' .items-line__more.focus{background:'+(A?V2.fillA:P.text)+';color:'+(A?'#000':P.bg)+'}');
 css.push(L+'.lumen-lower--left,'+L+'.lumen-lower--right{display:inline-block;vertical-align:top;width:50%;overflow:hidden;-webkit-box-sizing:border-box;box-sizing:border-box}');
 css.push(L+'.lumen-lower--left .items-line__head{padding-right:'+HALF+'}');
-css.push(L+'.lumen-lower--left .scroll--horizontal .scroll__content{padding-right:'+HALF+'}');
 css.push(L+'.lumen-lower--right .items-line__head{padding-left:'+HALF+'}');
-css.push(L+'.lumen-lower--right .scroll--horizontal .scroll__content{padding-left:'+HALF+'}');
+css.push(L+'.lumen-lower--left .scroll--horizontal{margin-right:-'+SEAM+'}');
+css.push(L+'.lumen-lower--right .scroll--horizontal{margin-right:'+SEAM+'}');
+css.push(L+'.lumen-lower--right .scroll--horizontal .scroll__content{padding-left:'+HALF+';padding-right:'+HALF+'}');
 css.push(L+'.lumen-lower--left .scroll--mask,'+L+'.lumen-lower--right .scroll--mask{-webkit-mask-image:none;mask-image:none}');
 css.push(L+' .lumen-lower__kp{margin-left:.78em;font-size:1.01em;font-weight:500;line-height:1.2;color:'+MUTED+';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;min-width:0}');
 css.push('body .lumen-lower-kp .lumen-descr-row .lumen-reviews[data-lumen-state="nokey"]{display:none}');
@@ -3207,7 +3235,7 @@ return str(s).replace(/^\s+|\s+$/g,'').split(/\s+/).length;
 }
 var PART_RE=/^(.+?)[.,:]?\s+((?:Часть|Частина|Part)\s+[IVX\d]+)$/i;
 function low(s){
-return str(s).toLowerCase();
+return str(s).toLowerCase().replace(/ё/g,'е');
 }
 function stripPrefix(titles){
 var list=[];
@@ -15482,7 +15510,8 @@ height:'100%',
 host:'https://www.youtube-nocookie.com',
 playerVars:{
 autoplay:1,mute:1,controls:0,rel:0,modestbranding:1,
-playsinline:1,start:4,iv_load_policy:3,disablekb:1,fs:0
+playsinline:1,start:4,iv_load_policy:3,cc_load_policy:0,
+disablekb:1,fs:0
 },
 events:{
 onReady:function(ev){
@@ -15493,6 +15522,7 @@ timeout=setTimeout(function(){kill('timeout ready');},WAIT_MS);
 mark('ready');
 }
 try{ev.target.mute();ev.target.playVideo();}catch(e){}
+try{if(ev.target.unloadModule){ev.target.unloadModule('captions');ev.target.unloadModule('cc');}}catch(e){}
 },
 onStateChange:function(ev){
 if(dead||!ev)return;
