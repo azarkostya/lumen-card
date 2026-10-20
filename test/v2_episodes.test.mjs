@@ -83,3 +83,13 @@ test('v2 экран 37: сезоны — выбранный с галочкой 
   assert.ok(/inset 0 -\.13em 0 #FFFFFF/.test(last(apple.css, '.lumen-card .lumen-season--on', 'box-shadow')));
   assert.equal(last(lumen.css, '.lumen-card .lumen-episodes--seasons .lumen-episodes__title', 'display'), 'none');
 });
+
+test('QA v2: при построенном ряде серий короткое описание первого экрана снято (ряд с подписью влезает в экран)', () => {
+  for (const style of ['lumen', 'appletv']) {
+    const { css } = build({ lumen_style: style });
+    assert.equal(last(css, '.lumen-card.lumen-has-episodes .lumen-descr-short', 'display'), 'none');
+  }
+  const header = readFileSync(new URL('../src/85_header.js', import.meta.url), 'utf8');
+  assert.match(header, /row\.addClass\('hide'\);[\s\S]{0,200}root\.removeClass\('lumen-has-episodes'\)/);
+  assert.match(header, /row\.removeClass\('hide'\);\s*root\.addClass\('lumen-has-episodes'\)/);
+});

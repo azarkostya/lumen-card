@@ -1114,6 +1114,9 @@
 
     var track = row.find('.lumen-episodes__track');
     row.addClass('hide');
+    /* QA v2: признак «ряд серий на первом экране» — по нему CSS экрана 37
+       снимает короткое описание (src/31_v2_episodes.js). */
+    root.removeClass('lumen-has-episodes');
     track.empty();
     setShift(track, 0);
     setSpacer(track, 0, 0);
@@ -1167,6 +1170,7 @@
     row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
     row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
     row.removeClass('hide');
+    root.addClass('lumen-has-episodes');
     /* Правило кромки — сразу на первой отрисовке: до первого шага фокуса ряд
        стоит на сдвиге 0, и правая кромка режет плитку уже тогда. Зовётся
        ПОСЛЕ removeClass('hide'): у скрытого ряда offsetLeft плиток нулевой,

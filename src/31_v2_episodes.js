@@ -68,6 +68,15 @@
       css.push('.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:block;color:' + P.soft + '}');
       css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state{display:none}');
 
+      /* QA v2 (ТВ, 20.10): короткое описание первого экрана (экран 35) и
+         ряд серий с подписью ПОД кадром (экран 37) вместе не влезают в
+         540 px — низ плиток и вся подпись «N. Название · длительность»
+         уходили за край экрана (низ плитки 549 px при фокусе на серии).
+         На макете 37 описания на первом экране нет — оно ниже, «↓
+         Описание». Снимается, только когда ряд серий построен
+         (.lumen-has-episodes ставит buildEpisodes, src/85_header.js). */
+      css.push('.lumen-card.lumen-has-episodes .lumen-descr-short{display:none}');
+
       /* Плитка за левой кромкой ряда (класс ставит markClipped) — скрыта:
          фокус стоит у кромки первой видимой плиткой, срезанной слева нет. */
       css.push('.lumen-card .lumen-episodes .lumen-episode--past:not(.focus){opacity:0}');
