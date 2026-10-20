@@ -2880,6 +2880,33 @@ test('фон подборок: body.lumen-screen-on — на старте хаб
   assert.deepEqual(warnLog, []);
 });
 
+/* v2 «Единый стиль», экран 34: заголовок шапки Lampa скрыт на экранах со
+   своим крупным заголовком — хаб, сетка подборки, «Что посмотреть»; метка
+   от режима анимаций не зависит. Главная и карточка — по своим меткам. */
+test('v2, экран 34: body.lumen-head-own — на хабе, сетке и «Что посмотреть», и в «Выкл»; снимается стартом другого экрана и выключением', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  const bodyEl = new FakeEl(['body']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyEl : EMPTY);
+
+  for (const component of ['lumen_hub', 'lumen_grid', 'lumen_roulette']) {
+    LC.onActivityEvent({ type: 'start', component, object: makeActivityObj('X', false, null) });
+    assert.equal(bodyEl.hasClass('lumen-head-own'), true, component + ': заголовок шапки не скрыт');
+  }
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: makeActivityObj('Каталог', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-head-own'), false, 'штатный каталог — заголовок шапки виден');
+  const was = LC.motionMode;
+  LC.motionMode = () => 'off';
+  LC.onActivityEvent({ type: 'start', component: 'lumen_hub', object: makeActivityObj('Подборки', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-head-own'), true, '«Выкл»: заголовок экрана есть — шапочный скрыт');
+  LC.motionMode = was;
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  assert.equal(bodyEl.hasClass('lumen-head-own'), false, 'выключенный плагин метку не держит');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Этап 2б: штатная сетка Lampa, открытая плагином (метка FULL_MARK на
    объекте активности, src/46_hub.js), получает тот же фон, что хаб и сетка
    подборки: метка body, старт фона на её 'start' и пауза фона на старте

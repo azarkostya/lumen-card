@@ -266,9 +266,9 @@
        посмотреть». */
     lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
     lumen_flat_descr: {
-      ru: 'Содержимое лежит прямо на фоне, без коробок и рамок: карточка, отзывы, серии, экраны торрентов. «Что посмотреть» — в виде Apple TV.',
-      en: 'Content sits right on the background, without boxes and frames: the card, reviews, episodes, torrent screens. "What to watch" gets the Apple TV layout.',
-      uk: 'Вміст лежить просто на тлі, без коробок і рамок: картка, відгуки, серії, екрани торентів. «Що подивитися» — у вигляді Apple TV.'
+      ru: 'Содержимое лежит прямо на фоне, без коробок и рамок: карточка, отзывы, серии, экраны торрентов. «Что посмотреть» — в виде Apple TV. Фокус — подъём и тень без рамки, заливка белая.',
+      en: 'Content sits right on the background, without boxes and frames: the card, reviews, episodes, torrent screens. "What to watch" gets the Apple TV layout. Focus lifts with a shadow, no frame, white fill.',
+      uk: 'Вміст лежить просто на тлі, без коробок і рамок: картка, відгуки, серії, екрани торентів. «Що подивитися» — у вигляді Apple TV. Фокус — підйом і тінь без рамки, заливка біла.'
     },
     /* Фаза 3: масштаб интерфейса плагина. Оговорка про потолок: ряд в
        фокусе обязан целиком помещаться под кадром (rowScaleCap в

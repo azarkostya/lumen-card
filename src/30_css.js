@@ -589,6 +589,69 @@
   function focusHaloCss(P, k) {
     return 'outline:' + emCss(FOCUS_RING / (k || 1)) + ' solid ' + P.text + ';outline-offset:' + emCss(FOCUS_GAP / (k || 1));
   }
+  /* v2 «Единый стиль», экран 33 (docs/design/v2-unify/SPEC.txt): ровно два
+     способа показать фокус на всех экранах плагина и на узлах Lampa, которые
+     плагин уже красит:
+       - картинка (постер, кадр, плитка, серия) — масштаб, в Lumen ещё и
+         рамка P.text СНАРУЖИ кромки с зазором, плюс статичная тень; в Apple
+         TV — подъём и тень без рамки (белая рамка на светлых постерах
+         сливалась с краем, 1.1:1);
+       - текст, кнопка, чип, строка, пункт — заливка (FILL в buildCss).
+     Числа макета даны для FHD; em — от базового кегля Lampa 22.811 px
+     (3 px = .13em, 11 px = .46em). Тень статичная: появляется вместе с
+     классом .focus и не анимируется (переход — только transform). В
+     «Лёгких» и «Выкл» переходов нет вовсе; масштаб картинки при этом
+     остаётся — фокус обязан быть виден и без движения.
+     Масштаб постера в рядах ГЛАВНОЙ — прежний ROW_FOCUS (1.10) в обоих
+     стилях: под рост 1.14 у ряда нет запаса высоты (ROW_HEAD_GAP), а
+     композицию главной v2 не меняет. */
+  var V2 = {
+    rImg: 0.46,
+    ring: 0.13,
+    ringGap: 0.13,
+    scalePosterL: 1.10,
+    scaleWideL: 1.08,
+    scalePosterA: 1.14,
+    scaleWideA: 1.09,
+    shadowL: '0 .6em 1.25em rgba(0,0,0,.5)',
+    shadowA: '0 .75em 1.35em rgba(0,0,0,.55)',
+    buttonScaleA: 1.04,
+    buttonShadowA: '0 .44em .96em rgba(0,0,0,.5)',
+    fillA: '#FFFFFF',
+    sub: 'rgba(0,0,0,.7)',
+    blockA: 'rgba(255,255,255,.12)',
+    durL: 220,
+    durA: 240,
+    /* «Приглушение соседних плиток … в L не ниже .75»: плашка фоном темы
+       не плотнее .25. В Apple TV соседей не приглушаем. */
+    dimL: 0.25
+  };
+
+  /* Вид «как Apple TV» — плоский вид (lumen_flat): его включает стиль Apple
+     TV, и по нему же рулетка выбирает свою раскладку. */
+  function appleLook() {
+    try { return !!LC.pref('lumen_flat', false); } catch (e) { return false; }
+  }
+
+  /* Токены фокуса текущего стиля — тестам и экранам вне этого файла. */
+  LC.focusTokens = function () {
+    var apple = appleLook();
+    return {
+      apple: apple,
+      rImg: emCss(V2.rImg),
+      ring: apple ? '' : emCss(V2.ring),
+      ringGap: apple ? '' : emCss(V2.ringGap),
+      scalePoster: apple ? V2.scalePosterA : V2.scalePosterL,
+      scaleWide: apple ? V2.scaleWideA : V2.scaleWideL,
+      shadow: apple ? V2.shadowA : V2.shadowL,
+      fill: apple ? V2.fillA : null,
+      sub: V2.sub,
+      block: apple ? V2.blockA : null,
+      dur: apple ? V2.durA : V2.durL,
+      dim: apple ? 0 : V2.dimL
+    };
+  };
+
   /* Кольцо для правил, собранных вне этого файла (src/65_torrents.js):
      цвет текста темы берётся у вызывающего — там свой набор токенов. */
   LC.focusRingCss = function (text) {
@@ -2257,6 +2320,12 @@
     var fonts = useFonts();
     var set = fontSet();
     var FB = fonts ? bodyStack(set) : FONT_BODY_OFF;
+    /* v2 «Единый стиль», экран 33: заливка фокуса текста, кнопок, чипов и
+       пунктов — P.text в Lumen, чистый белый в Apple TV (вид «как Apple TV»
+       — плоский вид, тот же признак, что у рулетки: src/56_roulette.js,
+       atvLook). Подпись на заливке — P.bg в обоих стилях. */
+    var APPLE = appleLook();
+    var FILL = APPLE ? V2.fillA : P.text;
 
     var css = [];
 
@@ -4143,7 +4212,7 @@
        рамка 1 px). Второй набор снят. */
     css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.soft + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
-    css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+    css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Правка 2026-09-23 (долг Task 23): вход в рулетку — вторая пилюля
        шапки, справа от поиска. Вид тот же, что у поиска, и собран из его
        же чисел; отличие одно — поле слева вместо margin-left:auto: к правому
@@ -4152,7 +4221,7 @@
        что между чипами под шапкой. */
     css.push('.lumen-hub__roulette{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:.27em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.soft + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
-    css.push('.lumen-hub__roulette.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+    css.push('.lumen-hub__roulette.focus{background:' + P.text + ';color:' + P.bg + '}');
     css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.soft + ';padding:2em 0}');
     css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -4168,7 +4237,7 @@
        подложка из цвета текста с малой непрозрачностью — она не спорит с
        акцентом, которым красится фокус. */
     css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.14);color:' + P.text + '}');
-    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus,.lumen-hub.lumen-motion-lite .lumen-hub__roulette.focus,.lumen-hub.lumen-motion-off .lumen-hub__roulette.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search,.lumen-hub.lumen-motion-off .lumen-hub__roulette{-webkit-transition:none;transition:none}');
 
@@ -6780,6 +6849,214 @@
       css.push('.lumen-grid .lumen-gcard .card__img{background-color:transparent}');
       css.push('.lumen-hub__tiles .lumen-tile{background:none}');
     }
+
+    /* --- v2 «Единый стиль», экран 33: система фокуса ---
+       Разбор и токены — у V2 выше. Блок стоит после плоского вида и, как
+       он, берёт верх ПОРЯДКОМ у тех же селекторов; где у прежнего правила
+       специфичность выше (узел подсветки акцента, правила «Лёгких»), здесь
+       она поднята на один элемент. Сначала — значения Lumen (общие для
+       обоих стилей), затем отличия Apple TV одним дописанным куском (как и
+       плоский вид, стиль Apple TV только дописывает правила). */
+    if (APPLE) {
+      /* Заливка фокуса Apple TV — чистый белый у КАЖДОГО правила таблицы с
+         заливкой P.text под .focus: список собирается из уже записанных
+         правил, и новое правило с той же заливкой не потеряется. Стоит
+         ДО блока v2 — его правила (плитка серии без заливки) идут позже. */
+      var fillSel = [];
+      for (var fi = 0; fi < css.length; fi++) {
+        var rule = css[fi];
+        var brace = rule.indexOf('{');
+        if (brace < 1 || rule.charAt(0) === '@') continue;
+        var head = rule.slice(0, brace);
+        var decl = rule.slice(brace);
+        if (!/\.focus\b/.test(head)) continue;
+        if (decl.indexOf('background:' + P.text + ';color:' + P.bg) === -1 && decl.indexOf('background-color:' + P.text + ';color:' + P.bg) === -1) continue;
+        fillSel.push(head);
+      }
+      if (fillSel.length) css.push(fillSel.join(',') + '{background-color:' + FILL + '}');
+    }
+
+    var V2_RING = 'outline:' + emCss(V2.ring) + ' solid ' + P.text + ';outline-offset:' + emCss(V2.ringGap);
+    var V2_IMG = V2_RING + ';-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL;
+    var V2_IMG_A = 'outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA;
+    var V2_R = emCss(V2.rImg);
+    var V2_TF = function (s) { return '-webkit-transform:scale(' + s + ');transform:scale(' + s + ')'; };
+    var V2_S = function (ms) { return ('' + ms / 1000).replace(/^0\./, '.') + 's'; };
+    var V2_TR = function (ms) { return '-webkit-transition:-webkit-transform ' + V2_S(ms) + ' ease-out;transition:transform ' + V2_S(ms) + ' ease-out'; };
+    var V2_EP_TR = function (ms) { return '-webkit-transition:opacity .2s,-webkit-transform ' + V2_S(ms) + ' ease-out;transition:opacity .2s,transform ' + V2_S(ms) + ' ease-out'; };
+
+    /* Картинка: постер ряда главной. Масштаб — прежний (ROW_FOCUS, разбор у
+       V2), кольцо внутри кромки уходит: рамка снаружи с зазором. Тень — на
+       самом постере; «body» поднимает правило над подсветкой акцента (узел
+       lumen-accent-focus, cardFocusRule) — вторая подложка под постером
+       была лишним способом фокуса. Подпись под постером встаёт над тенью:
+       постер — свой слой (transform), и непозиционированный текст
+       рисовался бы под его тенью. */
+    css.push('.lumen-main .card__view,.lumen-main .card__img{border-radius:' + V2_R + '}');
+    css.push('.lumen-main .card.focus .card__view:after{display:none}');
+    css.push('body .lumen-main .card.focus .card__view{' + V2_IMG + '}');
+    css.push('.lumen-main .card.focus .card__title,.lumen-main .card.focus .card__age{position:relative}');
+
+    /* Плитки хаба (16:9): рамка и тень — на самой плитке (её overflow:hidden
+       свой контур не режет), псевдоплашка остаётся только приглушением
+       соседей — не плотнее .25. */
+    css.push('.lumen-hub__tiles .lumen-tile{border-radius:' + V2_R + '}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleWideL) + ';' + V2_IMG + '}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus:after{display:none}');
+    css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after{background:rgba(' + P.bgRgb + ',' + alphaCss(V2.dimL) + ')}');
+    css.push('.lumen-hub.lumen-motion-full .lumen-tile{' + V2_TR(V2.durL) + '}');
+
+    /* Сетка подборки и штатная сетка, открытая плагином (.lumen-full). */
+    css.push('.lumen-grid .lumen-gcard .card__view,.lumen-grid .lumen-gcard .card__img{border-radius:' + V2_R + '}');
+    css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scalePosterL) + '}');
+    css.push('.lumen-grid__items .lumen-gcard.focus .card__view{' + V2_IMG + '}');
+    css.push('.lumen-grid__items .lumen-gcard.focus .card__view:after{display:none}');
+    css.push('.lumen-grid__items.lumen-dim .lumen-gcard:not(.focus) .card__view:after{background:rgba(' + P.bgRgb + ',' + alphaCss(V2.dimL) + ')}');
+    css.push('.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durL) + '}');
+    css.push('.lumen-full .card.focus .card__view{' + V2_IMG + '}');
+    css.push('.lumen-full .card.focus .card__view:after{display:none}');
+    css.push('.lumen-full.lumen-dim .card:not(.focus) .card__view:after{background:rgba(' + P.bgRgb + ',' + alphaCss(V2.dimL) + ')}');
+
+    /* «Смотреть по порядку» на карточке. */
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{' + V2_IMG + '}');
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after{display:none}');
+
+    /* Плитки «Ещё фильмы» в рулетке Apple TV (вид .is-atv есть только при
+       плоском виде): подъём и тень без рамки, масштаб — и в «Лёгких», без
+       перехода. Правила лежат под .is-atv и в стиле Lumen не срабатывают. */
+    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img:before{display:none}');
+    css.push(ATV + ' .lumen-roulette .lumen-roulette__tile.focus .lumen-roulette__tile-img{' + V2_TF(V2.scaleWideA) + ';-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
+    css.push(ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__tile.focus .lumen-roulette__tile-img{' + V2_TF(V2.scaleWideA) + '}');
+    css.push('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img{' + V2_TR(V2.durA) + '}');
+
+    /* Плитка серии — картинка: масштаб (и в «Лёгких», без перехода), рамка,
+       тень; заливки нет — плитка остаётся в своих цветах, название, подпись
+       и длительность не перекрашиваются. Значок «▶» в фокусе — как был. */
+    css.push('.lumen-card .lumen-episode{border-radius:' + V2_R + '}');
+    css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideL) + ';' + V2_IMG + ';color:' + P.text + ';border:.04em solid ' + P.line + ';background:' + P.gradSlate + '}');
+    css.push('.lumen-card .lumen-episodes .lumen-episode--watching.focus{background:' + P.gradWatching + ';border-color:#303552}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__bottom{background:-webkit-linear-gradient(bottom,rgba(' + P.bgRgb + ',.92) 0%,rgba(' + P.bgRgb + ',.62) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,rgba(' + P.bgRgb + ',.92) 0%,rgba(' + P.bgRgb + ',.62) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
+    css.push('.lumen-card .lumen-episode--cut.focus .lumen-episode__bottom{background:none}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{color:' + P.text + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.muted + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar{background:rgba(' + P.textRgb + ',.16)}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar > div{background:' + A + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{background:' + A + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play:before{background-color:' + P.dark + '}');
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{' + V2_EP_TR(V2.durL) + '}');
+    /* «Длительность и подпись видны в фокусе»: в сжатой шапке с прогрессом
+       фокус подменял подпись таймкодом — но таймкод есть только у начатой
+       серии. Без него (подпись — последний узел низа плитки) она остаётся. */
+    css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption:last-child{display:block}');
+
+    /* Кнопки карточки, «Стоп», «Франшиза», отзыв, кнопка рулетки: только
+       заливка — без масштаба и без акцентной полосы под кнопкой. Кнопка
+       поиска и «Что посмотреть» хаба и его чипы — так же (их правила выше
+       уже без масштаба). */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus{-webkit-transform:none;transform:none;-webkit-box-shadow:none;box-shadow:none}');
+    css.push('.lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none;-webkit-box-shadow:none;box-shadow:none}');
+    css.push('.lumen-roulette .lumen-roulette__btn.focus{-webkit-box-shadow:none;box-shadow:none}');
+
+    /* «Крутить»: без акцентной заливки в покое и без кольца в фокусе —
+       обычная кнопка, фокус заливкой. */
+    css.push('.lumen-roulette .lumen-roulette__spin{background:' + P.buttonBg + ';color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__spin.focus{outline:0;background:' + P.text + ';color:' + P.bg + '}');
+
+    /* Выбранный чип — галочка, а не заливка: заливка занята фокусом.
+       Галочка добавляет чипу ширину (.75em + .3em), а ряд групп хаба
+       заполнен впритык (замер на ТВ: «Настроение» уходило на вторую
+       строку). Поля чипов хаба и сетки — .84em, как у чипов рулетки:
+       десять чипов возвращают ряду больше, чем берёт галочка. */
+    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{padding:0 .84em}');
+    var V2_CHECK = 'content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.75em;height:.75em;margin-right:.3em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain';
+    css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{background:transparent;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{background:' + R_CHIP + ';color:' + P.text + '}');
+    css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:' + ATV_GLASS + ';color:' + P.text + '}');
+    css.push('.lumen-hub .lumen-chip.lumen-chip--on:before,.lumen-grid .lumen-chip.lumen-chip--on:before,.lumen-roulette .lumen-roulette__chip.lumen-chip--on:before{' + V2_CHECK + '}');
+    css.push('.lumen-hub .lumen-chip.lumen-chip--on.focus,.lumen-grid .lumen-chip.lumen-chip--on.focus,.lumen-roulette .lumen-roulette__chip.lumen-chip--on.focus,' + ATV + ' .lumen-roulette__chip.lumen-chip--on.focus{background:' + P.text + ';color:' + P.bg + '}');
+    css.push(LC.icons.NO_MASK + '{.lumen-hub .lumen-chip.lumen-chip--on:before,.lumen-grid .lumen-chip.lumen-chip--on:before,.lumen-roulette .lumen-roulette__chip.lumen-chip--on:before{display:none}}');
+
+    /* Описание: без кольца поверх подложки — заливка, как у любого
+       текстового блока. */
+    css.push('.lumen-descr-row .full-descr__text.focus{outline:0;background:' + P.text + ';color:' + P.bg + ';-webkit-mask-image:none;mask-image:none}');
+
+    /* «Комментарии» — сплошная плитка без пунктира (Lampa рисует его
+       border:dashed; узел — вне .lumen-card, в нижней части карточки). */
+    css.push('body.lumen-card-on .full-review-add{border:.04em solid ' + P.line + ';border-radius:' + V2_R + ';background:' + P.panel + '}');
+
+    /* Пункты настроек плагина: подпись на заливке — 70 % чернил (у Lampa
+       описание полупрозрачное, и на заливке выходило 3.9:1). */
+    css.push('body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:' + V2.sub + '}');
+    css.push('body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:' + P.bg + '}');
+
+    /* Отличия Apple TV: картинка — подъём и тень без рамки (×1.14 постер,
+       ×1.09 кадр и серия; постер ряда главной — прежний, разбор у V2),
+       соседей не приглушаем, переходы 240 мс; кнопки — ×1.04 и тень только
+       в «Полных» (правила «Лёгких» и «Выкл» выше гасят transform
+       специфичнее или через !important); описание — без подложки в покое
+       и светлым блоком .12 в фокусе, текст остаётся белым. */
+    if (APPLE) {
+      css.push('body .lumen-main .card.focus .card__view,.lumen-hub__tiles .lumen-tile.focus,.lumen-grid__items .lumen-gcard.focus .card__view,.lumen-full .card.focus .card__view,.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{' + V2_IMG_A + '}');
+      css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleWideA) + '}');
+      css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scalePosterA) + '}');
+      css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after,.lumen-grid__items.lumen-dim .lumen-gcard:not(.focus) .card__view:after,.lumen-full.lumen-dim .card:not(.focus) .card__view:after{display:none}');
+      css.push('.lumen-hub.lumen-motion-full .lumen-tile,.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durA) + '}');
+      css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideA) + ';' + V2_IMG_A + ';border-color:transparent;background:none;background-color:' + P.panel + '}');
+      css.push('.lumen-card.lumen-motion-full .lumen-episode{' + V2_EP_TR(V2.durA) + '}');
+      css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{' + V2_TF(V2.buttonScaleA) + ';-webkit-box-shadow:' + V2.buttonShadowA + ';box-shadow:' + V2.buttonShadowA + '}');
+      css.push(ATV + ' .lumen-roulette__spin.focus{' + V2_TF(V2.buttonScaleA) + '}');
+      css.push('.lumen-descr-row .full-descr__text{background:none}');
+      css.push('.lumen-descr-row .full-descr__text.focus{background:' + V2.blockA + ';color:' + P.text + '}');
+      css.push('.lumen-hub .lumen-chip.lumen-chip--on.focus,.lumen-grid .lumen-chip.lumen-chip--on.focus,.lumen-roulette .lumen-roulette__chip.lumen-chip--on.focus,' + ATV + ' .lumen-roulette__chip.lumen-chip--on.focus,.lumen-roulette .lumen-roulette__spin.focus{background-color:' + FILL + '}');
+    }
+
+    /* --- v2 «Единый стиль», экран 34: шапка Lampa ---
+       Одна прозрачная шапка на всех экранах, пока плагин включён (таблица
+       снимается целиком при выключении — LC.removeCss): своей подложки у
+       .head нет, сверху — мягкая маска фоном темы 120 px на FHD (5.26em),
+       .62 → 0, псевдоэлементом под содержимым шапки (у .head z-index 15,
+       это свой контекст наложения). Часы — 29 px (58 на 4K) Medium, тихим
+       цветом; дата, день недели и точки-индикаторы скрыты; иконки — цветом
+       P.soft; заголовок — наш шрифт 500, а на экранах со своим крупным
+       заголовком (главная, карточка, хаб, сетка, «Что посмотреть») скрыт
+       visibility, а не display: у него margin-right:auto, и без него
+       иконки уехали бы влево. Левый край — поле экрана EDGE (80 px FHD). */
+    css.push('body .head:before{content:"";position:absolute;top:0;left:0;right:0;height:5.26em;z-index:-1;pointer-events:none;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.62) 0%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.62) 0%,rgba(' + P.bgRgb + ',0) 100%)}');
+    css.push('body .head{background:none}');
+    css.push('body .head .head__body{padding-left:' + EDGE + 'em}');
+    css.push('body .head .head__time{margin-top:0}');
+    css.push('body .head .head__time-now{font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1;margin-right:0;color:' + P.soft + '}');
+    css.push('body .head .head__time-date,body .head .head__time-week,body .head .head__markers{display:none}');
+    css.push('body .head .head__title{font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.4;color:' + P.text + '}');
+    css.push('body.lumen-main-on .head .head__title,body.lumen-card-on .head .head__title,body.lumen-head-own .head .head__title{visibility:hidden}');
+    css.push('body .head .head__action:not(.focus):not(.hover){color:' + P.soft + '}');
+    css.push('body .head .head__action.open--profile:not(.focus):not(.hover){background:none}');
+    css.push('body .head .head__action.open--profile img{background:none}');
+
+    /* Над экраном «Что посмотреть» оставалась полоса фона body Lampa
+       (серый #1D1F20): экран начинается под шапкой, а его слой кадра
+       обрезан своим overflow:hidden. На экранах плагина со своим заголовком
+       фон страницы — фон темы, и шапка лежит на нём, без плашки. Фон body
+       Lampa пишет в style самого узла (как и её «чёрный стиль»), отсюда
+       !important. */
+    css.push('body.lumen-head-own{background-color:' + P.bg + ' !important}');
+
+    /* Apple TV: часы и иконки — вторичным цветом tvOS. */
+    if (APPLE) {
+      css.push('body .head .head__time-now{color:rgba(235,235,245,.8)}');
+      css.push('body .head .head__action:not(.focus):not(.hover){color:rgba(255,255,255,.88)}');
+    }
+
+    /* Тёмная полоса над карточкой: экраны Lampa начинаются под шапкой
+       (.wrap__content, padding-top LAMPA_HEAD), и над кадром карточки
+       оставалась полоса фона body — та самая «полоса 90 px» во время
+       трейлера. Слой кадра карточки поднят под шапку и встаёт ровно на
+       экран (высота прежняя, 100vh): так же лёг кадр героя и фон подборок,
+       и слой трейлера (±10 % под поля ролика 16:9) режет поля ровно по
+       кромкам экрана. Его font-size — с масштабом интерфейса, поэтому
+       LAMPA_HEAD делится на масштаб. */
+    var headUp = round2(LAMPA_HEAD / scale);
+    css.push('body.lumen-card-on .lumen-backdrop{top:-' + headUp + 'em}');
 
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());

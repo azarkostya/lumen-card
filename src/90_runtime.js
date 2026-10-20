@@ -220,6 +220,31 @@
     }
   }
 
+  /* v2 «Единый стиль», экран 34: на экранах плагина со своим крупным
+     заголовком (хаб «Подборки», сетка подборки, штатная сетка, открытая
+     плагином, «Что посмотреть») заголовок шапки Lampa скрыт — правило
+     body.lumen-head-own .head__title в src/30_css.js. Главная и карточка
+     узнаются по своим меткам (lumen-main-on, lumen-card-on). В отличие от
+     lumen-screen-on, метка не зависит от режима анимаций: заголовок
+     экрана есть и в «Выкл». */
+  var HEAD_OWN = 'lumen-head-own';
+  function headOwnScreen(component, object) {
+    if (component === 'category_full') {
+      var mark = LC.hub && LC.hub.FULL_MARK;
+      return !!(mark && object && object[mark]);
+    }
+    return component === 'lumen_hub' || component === 'lumen_grid' || component === 'lumen_roulette';
+  }
+  function markHeadBody(on) {
+    var body = bodyRoot();
+    if (!body || !body.length) return;
+    try {
+      body.toggleClass(HEAD_OWN, !!on);
+    } catch (e) {
+      warn('head body mark failed', e);
+    }
+  }
+
   /* Этап 2б: и штатная сетка Lampa, если её открыл плагин (метка на
      объекте активности, FULL_MARK в src/46_hub.js), — у неё тот же фон. */
   function stageScreen(component, object) {
@@ -621,6 +646,7 @@
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
         markCardBody(e.component === 'full');
         markScreenBody(stageScreen(e.component, e.object));
+        markHeadBody(headOwnScreen(e.component, e.object));
         /* Этап 2б: фон штатной сетки, открытой плагином (src/46_hub.js,
            fullStart): уходящие сетки — на паузу, эта — свой фон и кольцо. */
         try {
@@ -1753,7 +1779,7 @@
       /* Task 40: класс тяжёлых эффектов снимается вместе с классом режима —
          выключенный плагин не оставляет на body ни одной своей метки.
          Волна 2 (D1): метка карточки lumen-card-on — туда же. */
-      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON).removeClass(SCREEN_ON);
+      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON).removeClass(SCREEN_ON).removeClass(HEAD_OWN);
     } catch (e3) {
       warn('motion class off failed', e3);
     }
