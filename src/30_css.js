@@ -2209,10 +2209,16 @@
      LC.accent.current() отдаёт четвёрку той же формы, что записи ACCENTS
      (src/57_color.js), и null, когда переопределения нет, — поэтому ни одно
      правило ниже не знает, откуда взялся акцент. */
+  /* Стиль Apple TV: акцент — только выбранный в настройках (пресет ставит
+     графит). Цвет кадра/постера (LC.accent.current: переопределение карточки
+     и героя главной) и акцент сезонной темы на него не влияют — иначе
+     фокус, прогресс и метки становились оранжевыми от тёплого кадра. Цвет
+     кадра в Apple TV остаётся только на фоне (подкраска в palette выше —
+     «Где виден цвет кадра: Только фон»). */
   function theme() {
     var auto = null;
     try {
-      if (LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
+      if (!appleLook() && LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
     } catch (e) {
       warn('accent override failed', e);
     }

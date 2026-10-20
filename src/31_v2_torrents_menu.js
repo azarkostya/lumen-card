@@ -263,6 +263,41 @@
       r.push(m(['.selectbox-item__lock > svg']) + '{width:.877em !important;height:.877em !important}');
       r.push(m(['.selectbox-item.focus .selectbox-item__lock']) + '{color:' + ON_SUB + ' !important}');
 
+      /* ================= Apple TV: путь TorrServer без акцента ================= */
+      /* Правила src/65_torrents.js красят спиннер, предзагрузку, отметки и
+         полосы акцентом со свечением — в Apple TV там нейтральные белый и
+         серый без ореола. Их <style> стоит ПОСЛЕ основного, поэтому здесь
+         селектор на элемент тяжелее (html …). */
+      if (A) {
+        var H = 'html body.lumen-torrents-on ';
+        var HA = H + '.lumen-torrents ';
+        var NO_MASK = LC.icons && LC.icons.NO_MASK;
+        var MODAL = (LC.menus && LC.menus.MARK_MODAL) || 'lumen-modal';
+        /* Круг ошибки в Modal — системный красный вместо «спайса». */
+        r.push('html body.lumen-menus-all .modal .error__ico,html .modal.' + MODAL + ' .error__ico{background:#FF453A}');
+        /* Загрузка Modal: без радиального свечения, значок — белый. */
+        r.push(H + '.modal-loading:before{background:none}');
+        r.push(H + '.modal-loading:after{background-color:#FFFFFF}');
+        if (NO_MASK) r.push(NO_MASK + '{' + H + '.modal-loading:after{background-color:transparent;border-color:#FFFFFF}}');
+        /* Предзагрузка: яркая копия названия/логотипа — белая, без свечения;
+           значок пиров — тихим цветом, как подпись пилюли. */
+        r.push(H + '.media-loading__mark-fill .media-loading__title{color:#FFFFFF;text-shadow:none}');
+        r.push(H + '.media-loading__mark-fill .media-loading__logo{-webkit-filter:none;filter:none}');
+        r.push(H + '.media-loading__peers:before{background-color:' + MUTED + '}');
+        if (NO_MASK) r.push(NO_MASK + '{' + H + '.media-loading__peers-icon{color:' + MUTED + '}}');
+        /* «Просмотрено» — белый круг с чёрной галочкой; «Продолжить» —
+           значок тихим цветом; точка «применён фильтр» — белая. */
+        r.push(H + '.torrent-item__viewed{background-color:#FFFFFF;color:#000000}');
+        r.push(HA + '.watched-history__icon{border-color:' + MUTED + ';background-color:transparent;color:' + MUTED + '}');
+        r.push(HA + '.torrent-filter .filter--filter > div:not(.hide){background-color:#FFFFFF}');
+        /* Файлы: папка в фокусе, полоска автостарта, прогресс проверки,
+           кнопка «Далее» — белым, без подложки glow. */
+        r.push(H + '.torrnet-folder-name.focus{color:#FFFFFF}');
+        r.push(H + '.torrent-serial__progress{background-color:#FFFFFF;-webkit-box-shadow:none;box-shadow:none}');
+        r.push(H + '.torrent-checklist__progress-bar > div{background-color:#FFFFFF}');
+        r.push(H + '.torrent-checklist__footer .simple-button.focus{-webkit-box-shadow:none;box-shadow:none}');
+      }
+
       return r.join('\n');
     }
   });
