@@ -1176,7 +1176,7 @@ return'https://fonts.googleapis.com/css2?family='+set.body.replace(/ /g,'+')+
 function theme(){
 var auto=null;
 try{
-if(LC.accent&&typeof LC.accent.current==='function')auto=LC.accent.current();
+if(!appleLook()&&LC.accent&&typeof LC.accent.current==='function')auto=LC.accent.current();
 }catch(e){
 warn('accent override failed',e);
 }
@@ -2372,6 +2372,22 @@ link.href=href;
 warn('fonts inject failed',e);
 }
 };
+/* ---- 31_v2_apple_accent.js ---- */
+LC.v2css=LC.v2css||[];
+LC.v2css.push({
+id:'apple-accent',
+order:99,
+build:function(ctx){
+if(!ctx.APPLE)return'';
+var P=ctx.P;
+var RED='#FF453A';
+var r=[];
+r.push('.lumen-descr-row .lumen-review--bad .lumen-review__tone,.lumen-descr-row .lumen-review--bad.focus .lumen-review__tone,.lumen-review-modal--bad .lumen-review-modal__tone{background:'+RED+'}');
+r.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:'+P.soft+'}');
+r.push('.lumen-card .lumen-progress__bar > div,.lumen-grid .lumen-gcard__bar > div,.lumen-main .lumen-badge-bar > div{background:#FFFFFF}');
+return r.join('\n');
+}
+});
 /* ---- 31_v2_card_lower.js ---- */
 LC.cardLower=(function(){
 var NAMES={discuss:1,persons:1,cards:1,metadata_chart:1,metadata_tags:1};
@@ -3327,6 +3343,27 @@ r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after'])+'{
 r.push(m(['.selectbox-item__lock'])+'{right:.7em;margin-top:-.44em;opacity:1;color:'+MUTED+'}');
 r.push(m(['.selectbox-item__lock > svg'])+'{width:.877em !important;height:.877em !important}');
 r.push(m(['.selectbox-item.focus .selectbox-item__lock'])+'{color:'+ON_SUB+' !important}');
+if(A){
+var H='html body.lumen-torrents-on ';
+var HA=H+'.lumen-torrents ';
+var NO_MASK=LC.icons&&LC.icons.NO_MASK;
+var MODAL=(LC.menus&&LC.menus.MARK_MODAL)||'lumen-modal';
+r.push('html body.lumen-menus-all .modal .error__ico,html .modal.'+MODAL+' .error__ico{background:#FF453A}');
+r.push(H+'.modal-loading:before{background:none}');
+r.push(H+'.modal-loading:after{background-color:#FFFFFF}');
+if(NO_MASK)r.push(NO_MASK+'{'+H+'.modal-loading:after{background-color:transparent;border-color:#FFFFFF}}');
+r.push(H+'.media-loading__mark-fill .media-loading__title{color:#FFFFFF;text-shadow:none}');
+r.push(H+'.media-loading__mark-fill .media-loading__logo{-webkit-filter:none;filter:none}');
+r.push(H+'.media-loading__peers:before{background-color:'+MUTED+'}');
+if(NO_MASK)r.push(NO_MASK+'{'+H+'.media-loading__peers-icon{color:'+MUTED+'}}');
+r.push(H+'.torrent-item__viewed{background-color:#FFFFFF;color:#000000}');
+r.push(HA+'.watched-history__icon{border-color:'+MUTED+';background-color:transparent;color:'+MUTED+'}');
+r.push(HA+'.torrent-filter .filter--filter > div:not(.hide){background-color:#FFFFFF}');
+r.push(H+'.torrnet-folder-name.focus{color:#FFFFFF}');
+r.push(H+'.torrent-serial__progress{background-color:#FFFFFF;-webkit-box-shadow:none;box-shadow:none}');
+r.push(H+'.torrent-checklist__progress-bar > div{background-color:#FFFFFF}');
+r.push(H+'.torrent-checklist__footer .simple-button.focus{-webkit-box-shadow:none;box-shadow:none}');
+}
 return r.join('\n');
 }
 });
