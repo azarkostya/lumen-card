@@ -95,3 +95,20 @@ test('Apple TV: фон и фон рядов не подкрашиваются к
   assert.equal(lumen.stage.tone, ROWS);
   assert.equal(apple.stage.tone, '#000000');
 });
+
+test('Apple TV: процедурные фоны без кадра (proc0/1/2) — нейтральный тёмный градиент последним правилом, Lumen — «закат»', () => {
+  const lumen = build({});
+  const apple = build(APPLE_PREFS);
+  const NEUTRAL = 'background:linear-gradient(180deg,#0B0B0D 0%,#1D1D21 55%,#0B0B0D 100%)';
+  for (const i of [0, 1, 2]) {
+    const sel = '.lumen-backdrop--proc' + i + ' .lumen-backdrop__img';
+    /* Последнее правило с этим селектором побеждает (вес один). */
+    const at = apple.css.lastIndexOf(sel);
+    const open = apple.css.indexOf('{', at);
+    assert.equal(apple.css.slice(open + 1, apple.css.indexOf('}', open)), NEUTRAL, sel);
+    const lt = lumen.css.lastIndexOf(sel);
+    assert.ok(lumen.css.slice(lt, lumen.css.indexOf('}', lt)).indexOf('radial-gradient') >= 0, 'Lumen: ' + sel);
+  }
+  assert.ok(lumen.css.includes('#D9622B 60%,#E8B87A 78%'));
+  assert.ok(!lumen.css.includes(NEUTRAL));
+});
