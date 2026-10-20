@@ -1659,6 +1659,37 @@
     }
   }
 
+  /* Баг 2026-10-20: сверка при старте. Профиль, где Apple TV выбрали
+     сборкой до правки, держит три пункта набора НЕЗАПИСАННЫМИ (см.
+     applyPreset ниже), и их значение решает кэш Lampa — сверка тогда
+     писала «Свой». Если в localStorage явно лежит «Стиль: Apple TV», пункты
+     набора, которых в localStorage НЕТ вовсе, дописываются значениями
+     стиля (без события: применять на экране ещё нечего — таблица стилей
+     соберётся в activate() уже по записанному). То, что в localStorage
+     ЕСТЬ, не трогается: это чья-то запись (ручная правка, откат на
+     прежнюю версию), и расхождение с ней по-прежнему честно показывается
+     «Своим» (syncStyle). У Lumen отсутствующий ключ и есть его значение. */
+  function bootStyle() {
+    try {
+      if (!window.Lampa || !Lampa.Storage) return;
+      if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+      if (presetStored('lumen_style') === 'appletv') {
+        var values = LC.prefs.presetValues('appletv');
+        var keys = LC.prefs.PRESET_KEYS;
+        for (var i = 0; i < keys.length; i++) {
+          if (!Object.prototype.hasOwnProperty.call(values, keys[i])) continue;
+          if (presetStored(keys[i]) !== '') continue;
+          var want = values[keys[i]];
+          Lampa.Storage.set(keys[i], typeof want === 'boolean' ? (want ? 'true' : 'false') : String(want), true);
+          releaseMerged(keys[i]);
+        }
+      }
+      syncStyle();
+    } catch (e) {
+      warn('style boot failed', e);
+    }
+  }
+
   /* 1.0.2: слитые пункты (LC.prefs.MERGED). Человек тронул новый пункт —
      старые ключи получают его значение (LC.prefs.mergedOn): выключил —
      'false', включил — 'true'. Дальше решает только новый пункт, а откат
@@ -1707,6 +1738,36 @@
     }
   }
 
+  /* Баг 2026-10-20 («Apple TV сбрасывается при перезаходе»): что ЛЕЖИТ в
+     localStorage — Lampa.Storage.value (app.min.js:50030-50032, мимо кэша
+     readed); '' — ключа нет. null — прочитать нельзя (нет функции), тогда
+     решает только эффективное значение, как до правки. */
+  function presetStored(key) {
+    try {
+      if (typeof Lampa.Storage.value === 'function') return String(Lampa.Storage.value(key, '') || '');
+    } catch (e) {
+      warn('preset stored read failed', e);
+    }
+    return null;
+  }
+
+  /* Баг 2026-10-20: стиль Apple TV пишется ЦЕЛИКОМ. Раньше писались только
+     отличия от текущего, и три пункта (размер кадра, логотип, цвет фона от
+     кадра — в Apple TV они равны дефолтам) оставались НЕЗАПИСАННЫМИ. Их
+     значение после перезапуска тогда решал кэш Lampa: Storage.get(name,
+     empty) у вендора кладёт в readed дефолт ТОГО, КТО СПРОСИЛ, если ключа в
+     localStorage нет (get$1, app.min.js:49990-50016, «value = value ||
+     empty || ''; … readed[name] = value»), — любой чужой читатель со своим
+     дефолтом подменял значение, сверка при старте (syncStyle) видела не
+     Apple TV и навсегда писала в «Стиль» «Свой». Механизм виден на ТВ
+     2026-10-20: после чужого Storage.get('lumen_flat', '(unset)') из
+     отладочного скрипта Lampa DEBUG отдавала '(unset)' при null в
+     localStorage, и styleOf давал 'custom'.
+     Lumen — значения по умолчанию, у него отсутствующий ключ и ЕСТЬ его
+     значение, поэтому Lumen по-прежнему пишет только то, что лежит не так
+     (дефолт пункта продолжает доходить до тех, кто стиль не менял).
+     Применение, уведомление и releaseMerged — как раньше, только по
+     пунктам, чьё значение действительно поменялось. */
   function applyPreset(id) {
     try {
       if (!window.Lampa || !Lampa.Storage) return;
@@ -1719,8 +1780,14 @@
         var key = keys[i];
         if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
         var want = values[key];
-        if (presetCurrent(key) === want) continue;
-        Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want, true);
+        var text = typeof want === 'boolean' ? (want ? 'true' : 'false') : String(want);
+        var differs = presetCurrent(key) !== want;
+        if (!differs) {
+          var stored = presetStored(key);
+          if (stored === null || stored === text || (id === 'lumen' && stored === '')) continue;
+        }
+        Lampa.Storage.set(key, text, true);
+        if (!differs) continue;
         releaseMerged(key);
         written.push(key);
         refreshParamRow(key);
@@ -1919,7 +1986,7 @@
       LC.settingsAdded = true;
       /* Сохранённый «Стиль» мог устареть (миграция 1.0.2 перевела шрифт,
          пункты правили в прежних версиях) — сверяем один раз при старте. */
-      syncStyle();
+      bootStyle();
     } catch (e) {
       warn('settings failed', e);
     }
