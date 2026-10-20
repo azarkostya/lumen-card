@@ -71,13 +71,49 @@
       } catch (e) { return false; }
     }
 
-    function decorateDiscuss(line, body) {
+    /* Строка о ключе в шапке ряда — ровно по needsKeyLine(): нужна и её
+       нет — дописать, не нужна — снять. Возвращает «строка в шапке есть». */
+    function syncKeyLine(line) {
       var head = line.find('.items-line__head').eq(0);
-      if (head.length && !head.find('.lumen-lower__kp').length && needsKeyLine()) {
-        head.find('.items-line__title').eq(0).after('<div class="lumen-lower__kp">' + LC.util.esc(LC.lang('lumen_lower_kp_line')) + '</div>');
-        if (body && body.length) body.addClass('lumen-lower-kp');
+      if (!head.length) return false;
+      var had = head.find('.lumen-lower__kp');
+      if (!needsKeyLine()) {
+        had.remove();
+        return false;
       }
+      if (!had.length) head.find('.items-line__title').eq(0).after('<div class="lumen-lower__kp">' + LC.util.esc(LC.lang('lumen_lower_kp_line')) + '</div>');
+      return true;
+    }
+
+    /* Класс на теле активности прячет панель «нет ключа» в ряду описания —
+       только пока строка о ключе стоит в шапке «Комментариев». */
+    function markBody(body, on) {
+      if (!body || !body.length) return;
+      if (on) body.addClass('lumen-lower-kp');
+      else body.removeClass('lumen-lower-kp');
+    }
+
+    function decorateDiscuss(line, body) {
+      markBody(body, syncKeyLine(line));
       labelAdd(line);
+    }
+
+    /* Ключ Кинопоиска ввели или стёрли в настройках поверх открытой
+       карточки: 'full' повторно не приходит, и строку о ключе вместе с
+       классом на теле перечитывает LC.applyReviewsPref (src/90_runtime.js).
+       body — тело активности карточки (e.body события 'full'). */
+    function refresh(body) {
+      try {
+        if (!body || !body.length) return;
+        var lines = body.find('.items-line.lumen-lower--discuss');
+        var on = false;
+        for (var i = 0; i < lines.length; i++) {
+          if (syncKeyLine(lines.eq(i))) on = true;
+        }
+        markBody(body, on);
+      } catch (err) {
+        warn('card lower refresh failed', err);
+      }
     }
 
     /* Подпись «Написать» у плитки добавления комментария: у Lampa там
@@ -122,6 +158,7 @@
        ключе — в шапке «Комментариев» (SPEC 36). Читает src/60_reviews.js. */
     var api = {
       tag: tag,
+      refresh: refresh,
       sideOf: sideOf,
       needsKeyLine: needsKeyLine,
       quietKey: true
@@ -153,7 +190,12 @@
       var RING = 'outline:.13em solid ' + P.text + ';outline-offset:.13em';
       var IMG_FOCUS = A ? (tf('scale(' + V2.scalePosterA + ')') + ';' + shadow(V2.shadowA) + ';outline:0')
         : (tf('scale(' + V2.scalePosterL + ')') + ';' + shadow(V2.shadowL) + ';' + RING);
-      var TR = ctx.motion === 'full' ? '-webkit-transition:-webkit-transform ' + (A ? V2.durA : V2.durL) + 'ms ease-out;transition:transform ' + (A ? V2.durA : V2.durL) + 'ms ease-out' : '';
+      /* Переход масштаба — только в «Полных» анимациях, гейтом по классу
+         режима на body: смена lumen_motion таблицу стилей не пересобирает
+         (LC.applyMotionMode переставляет лишь классы), как в
+         src/31_v2_search.js. */
+      var TR = '-webkit-transition:-webkit-transform ' + (A ? V2.durA : V2.durL) + 'ms ease-out;transition:transform ' + (A ? V2.durA : V2.durL) + 'ms ease-out';
+      var LM = 'body.lumen-motion-full .items-line.lumen-lower';
 
       /* Ряд: кромка, воздух между рядами, заголовок как у рядов главной. */
       css.push(L + '{padding-bottom:2.1em}');
@@ -181,7 +223,8 @@
       var C = L + '.lumen-lower--cards';
       css.push(C + ' .mapping--line > * + *{margin-left:' + HALF + '}');
       css.push(C + ' .card{width:8.81em}');
-      css.push(C + ' .card__view{border-radius:' + V2.rImg + 'em;' + TR + '}');
+      css.push(C + ' .card__view{border-radius:' + V2.rImg + 'em}');
+      css.push(LM + '.lumen-lower--cards .card__view{' + TR + '}');
       css.push(C + ' .card__img{border-radius:' + V2.rImg + 'em}');
       css.push(C + ' .card.focus .card__view{' + IMG_FOCUS + '}');
       css.push(C + ' .card.focus .card__view:after,' + C + ' .card.hover .card__view:after{display:none}');
@@ -193,7 +236,8 @@
       css.push(Pp + ' .mapping--line > * + *{margin-left:.88em}');
       css.push(Pp + ' .full-person{font-size:1em;width:8.55em;padding:.6em 0 0;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;text-align:center;background:none;border-radius:0;color:' + P.text + '}');
       css.push(Pp + ' .full-person.focus,' + Pp + ' .full-person.hover{background:none;color:' + P.text + '}');
-      css.push(Pp + ' .full-person__photo{width:4.82em;height:4.82em;margin:0 0 .44em;border-radius:50%;' + TR + '}');
+      css.push(Pp + ' .full-person__photo{width:4.82em;height:4.82em;margin:0 0 .44em;border-radius:50%}');
+      css.push(LM + '.lumen-lower--persons .full-person__photo{' + TR + '}');
       css.push(Pp + ' .full-person.focus .full-person__photo{' + IMG_FOCUS + '}');
       css.push(Pp + ' .full-person__body{-webkit-box-flex:0;-webkit-flex:none;flex:none;width:100%}');
       css.push(Pp + ' .full-person__name{font-size:1.01em;font-weight:500;line-height:1.2}');

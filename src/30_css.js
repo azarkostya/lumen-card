@@ -7144,9 +7144,11 @@
 
     /* --- v2-модули: экраны редизайна «Единый стиль» (src/3x_v2_*.js) ---
        Каждый модуль регистрирует { id, order, build(ctx) } в LC.v2css и
-       возвращает строку CSS (или ''). Сбой одного модуля не ломает таблицу. */
+       возвращает строку CSS (или ''). Сбой одного модуля не ломает таблицу.
+       Режима анимаций в ctx нет намеренно: смена lumen_motion таблицу не
+       пересобирает, поэтому переходы гейтятся классом body.lumen-motion-*. */
     var v2parts = (LC.v2css || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-    var v2ctx = { P: P, APPLE: APPLE, V2: V2, scale: scale, round2: round2, motion: LC.motionMode ? LC.motionMode() : '' };
+    var v2ctx = { P: P, APPLE: APPLE, V2: V2, scale: scale, round2: round2 };
     for (var vi = 0; vi < v2parts.length; vi++) {
       try {
         var v2out = v2parts[vi].build(v2ctx);

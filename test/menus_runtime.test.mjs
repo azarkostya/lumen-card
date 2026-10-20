@@ -908,6 +908,104 @@ test('v2 экран 37: фильм, пустой сезон и сезон без
   }
 });
 
+/* Ревью v2 (п.3а): поле серий Lampa не видела, значит и не дописала того,
+   что делает сразу после 'start' при постройке своего ряда
+   (app.min.js:39661-39698). Возврат на 'complite' повторяет это: имя сезона
+   у многосезонного, original_name у вышедших и первой невышедшей, comeing
+   у невышедших. */
+test('v2 экран 37: complite дописывает серии так же, как Lampa при своём ряде', () => {
+  const { LC, fulls } = setup({});
+  LC.cardinfo = { isSerial: () => true };
+  globalThis.Lampa.Lang.translate = (k) => (k === 'torrent_serial_season' ? 'Сезон' : k);
+  globalThis.Lampa.Utils = { splitEpisodesIntoSeasons: (list) => ({ 1: list.slice(0, 1), 2: list.slice(1) }) };
+  LC.init();
+  const old = { episode_number: 1, air_date: '2001-01-01' };
+  const aired = { episode_number: 2, air_date: '2020-05-01' };
+  const next = { episode_number: 3, air_date: '2999-01-01' };
+  const later = { episode_number: 4, air_date: '2999-02-01' };
+  const data = {
+    movie: { id: 5, name: 'Сериал', original_name: 'Show', number_of_seasons: 2 },
+    episodes: { seasons_count: 2, episodes_original: [old, aired, next, later], episodes: [aired, next, later] }
+  };
+  const eps = data.episodes;
+  fulls[0]({ type: 'start', body: EMPTY, object: {}, data: data });
+  assert.equal(data.episodes, null);
+  fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+  assert.equal(data.episodes, eps);
+  assert.equal(eps.name, 'Сезон 2', 'имя сезона многосезонного');
+  assert.equal(aired.original_name, 'Show');
+  assert.equal(next.original_name, 'Show', 'первая невышедшая — тоже');
+  assert.equal(later.original_name, undefined, 'дальше первой невышедшей — нет');
+  assert.equal(old.original_name, undefined, 'чужой сезон не трогаем');
+  assert.equal(next.comeing, true);
+  assert.equal(later.comeing, true);
+  assert.equal(aired.comeing, undefined);
+});
+
+test('v2 экран 37: односезонный — имя сезона не ставится, original_name из name', () => {
+  const { LC, fulls } = setup({});
+  LC.cardinfo = { isSerial: () => true };
+  LC.init();
+  const ep = { episode_number: 1, air_date: '2020-01-01' };
+  const data = { movie: { id: 6, name: 'Пингвин' }, episodes: { episodes: [ep] } };
+  fulls[0]({ type: 'start', body: EMPTY, object: {}, data: data });
+  fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+  assert.equal(data.episodes.name, undefined);
+  assert.equal(ep.original_name, 'Пингвин');
+});
+
+/* Ревью v2 (п.3б): Lampa упала между 'start' и 'complite' — серии
+   возвращаются уходом с карточки ('destroy' её активности) или
+   выключением плагина. */
+test('v2 экран 37: без complite серии возвращает destroy своей активности', () => {
+  const { LC, fulls } = setup({});
+  LC.cardinfo = { isSerial: () => true };
+  LC.init();
+  const object = {};
+  const data = serialData();
+  const eps = data.episodes;
+  fulls[0]({ type: 'start', body: EMPTY, object: object, data: data });
+  assert.equal(data.episodes, null);
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: {} });
+  assert.equal(data.episodes, null, 'чужая активность серии не возвращает');
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: object });
+  assert.equal(data.episodes, eps, 'серии не вернулись при уходе с карточки');
+  assert.ok(!data.lumen_episodes);
+  /* Поздний complite после возврата ничего не ломает. */
+  fulls[0]({ type: 'complite', body: EMPTY, object: object, data: data });
+  assert.equal(data.episodes, eps);
+});
+
+test('v2 экран 37: без complite серии возвращает выключение плагина', () => {
+  const { LC, fulls, storage, storageCbs } = setup({});
+  LC.cardinfo = { isSerial: () => true };
+  LC.init();
+  const data = serialData();
+  const eps = data.episodes;
+  fulls[0]({ type: 'start', body: EMPTY, object: {}, data: data });
+  assert.equal(data.episodes, null);
+  storage.lumen_enabled = 'false';
+  storageCbs[0]({ name: 'lumen_enabled' });
+  assert.equal(data.episodes, eps, 'выключенный плагин оставил данные Lampa без серий');
+  assert.ok(!data.lumen_episodes);
+});
+
+/* Ревью v2 (п.1): ключ Кинопоиска ввели/стёрли поверх открытой карточки —
+   строку «нужен ключ» в шапке «Комментариев» перечитывает и эта точка. */
+test('v2 экран 36: LC.applyReviewsPref перечитывает строку о ключе на открытой карточке', () => {
+  const { LC } = setup({});
+  LC.init();
+  const seen = [];
+  const cardBody = { length: 1 };
+  LC.cardLower = { refresh: (b) => seen.push(b) };
+  LC.active = { object: {}, body: cardBody, data: {} };
+  LC.applyReviewsPref();
+  assert.deepEqual(seen, [cardBody]);
+  LC.active = null;
+  LC.applyReviewsPref();
+  assert.equal(seen.length, 1, 'без открытой карточки — не зовётся');
+});
+
 test('A6: карточка без анализа (сериал, не-русский язык, анализ не готов) ничего не ломает', () => {
   const { LC, fulls } = setup({ storage: { lumen_hide_meta: 'true' } });
   LC.init();

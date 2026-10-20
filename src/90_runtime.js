@@ -119,6 +119,10 @@
      Снимаем, только если наш ряд точно будет: сериал и в списке есть
      серия с номером — ровно условие buildEpisodes (src/85_header.js). */
   var EPISODES_STASH = 'lumen_episodes';
+  /* Снятые, но ещё не возвращённые серии: { object, data }. Если Lampa
+     упадёт между 'start' и 'complite', поле вернут 'destroy' этой
+     активности (LC.onActivityEvent) или выключение плагина (deactivate). */
+  var episodesPending = [];
 
   function dropEpisodesRow(e) {
     try {
@@ -132,6 +136,7 @@
       if (!any) return false;
       d[EPISODES_STASH] = d.episodes;
       d.episodes = null;
+      episodesPending.push({ object: e.object, data: d });
       return true;
     } catch (err) {
       warn('episodes drop failed', err);
@@ -139,15 +144,75 @@
     }
   }
 
-  function restoreEpisodesRow(e) {
+  /* Тот же разбор дат, что у Lampa (Utils.parseToDate, app.min.js:4011). */
+  function episodeDate(str) {
+    if (typeof str == 'string') str = str.toLowerCase().split('t')[0].replace(/-/g, '/');
+    return new Date(str);
+  }
+
+  /* Снятое поле Lampa не видела, а значит не дописала того, что делает
+     сразу после 'start' при постройке своего ряда (app.min.js:39661-39698):
+     у многосезонного — имя сезона data.episodes.name, у вышедших серий и
+     первой невышедшей — original_name, у невышедших — comeing. Повторяем
+     это над снятыми сериями до возврата; при adult_block Lampa ряд не
+     строит и ничего не дописывает (data.movie.adult, :39651). */
+  function decorateEpisodes(d, eps) {
+    var movie = d.movie || {};
+    if (!eps || !eps.episodes || movie.adult === true) return;
+    var list = eps.episodes;
+    if (eps.seasons_count && eps.seasons_count > 1 && eps.episodes_original) {
+      var U = window.Lampa && Lampa.Utils;
+      if (U && typeof U.splitEpisodesIntoSeasons === 'function') {
+        var seasons = U.splitEpisodesIntoSeasons(eps.episodes_original);
+        list = seasons[eps.seasons_count] || seasons[1];
+      }
+      var word = '';
+      try { word = Lampa.Lang.translate('torrent_serial_season'); } catch (eLang) { }
+      if (word) eps.name = word + ' ' + eps.seasons_count;
+    }
+    if (!list || !list.length) return;
+    var today = new Date();
+    var time = episodeDate([today.getFullYear(), today.getMonth() + 1, today.getDate()].join('-')).getTime();
+    var cameout = [];
+    var comeing = [];
+    for (var i = 0; i < list.length; i++) {
+      var ep = list[i];
+      if (!ep || !ep.air_date) continue;
+      if (episodeDate(ep.air_date).getTime() <= time) cameout.push(ep);
+      else comeing.push(ep);
+    }
+    for (var j = 0; j < comeing.length; j++) comeing[j].comeing = true;
+    if (comeing.length) cameout.push(comeing[0]);
+    var original = movie.original_name || movie.name;
+    for (var k = 0; k < cameout.length; k++) cameout[k].original_name = original;
+  }
+
+  function restoreEpisodesData(d) {
     try {
-      if (!e || !e.data || !e.data[EPISODES_STASH]) return false;
-      e.data.episodes = e.data[EPISODES_STASH];
-      e.data[EPISODES_STASH] = null;
+      if (!d || !d[EPISODES_STASH]) return false;
+      for (var i = episodesPending.length - 1; i >= 0; i--) {
+        if (episodesPending[i].data === d) episodesPending.splice(i, 1);
+      }
+      var eps = d[EPISODES_STASH];
+      d[EPISODES_STASH] = null;
+      d.episodes = eps;
+      try { decorateEpisodes(d, eps); } catch (eDecor) { warn('episodes decorate failed', eDecor); }
       return true;
     } catch (err) {
       warn('episodes restore failed', err);
       return false;
+    }
+  }
+
+  function restoreEpisodesRow(e) {
+    return !!(e && restoreEpisodesData(e.data));
+  }
+
+  /* object — активность, чьи серии вернуть; null — все незавершённые. */
+  function restorePendingEpisodes(object) {
+    var left = episodesPending.slice();
+    for (var i = 0; i < left.length; i++) {
+      if (object === null || left[i].object === object) restoreEpisodesData(left[i].data);
     }
   }
 
@@ -667,6 +732,11 @@
          Lampa (parts_limit=6) не завершалась, и главная переставала
          достраиваться до перезапуска Lampa (проверено живьём).
          Используем существующую подписку — вторая не заводится. */
+      /* v2, экран 37: Lampa упала между 'start' и 'complite' карточки —
+         снятые серии возвращаются в её данные при уходе с неё. */
+      if (e.type === 'destroy' && e.component === 'full') {
+        try { restorePendingEpisodes(e.object); } catch (eEpisodes) { warn('episodes pending failed', eEpisodes); }
+      }
       if (e.type === 'destroy' && e.component === 'main') {
         try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
         /* Task 16: то же поколение поднимает LC.personal — вторая подписка не нужна. */
@@ -1263,6 +1333,13 @@
      из истории, для которой complite не приходил) молча ждёт следующего
      открытия, как включение трейлера. */
   LC.applyReviewsPref = function () {
+    /* v2, экран 36: строка «нужен ключ» в шапке «Комментариев» открытой
+       карточки — по новому значению ключа (src/31_v2_card_lower.js). */
+    try {
+      if (LC.cardLower && LC.active && LC.active.body) LC.cardLower.refresh(LC.active.body);
+    } catch (eLower) {
+      warn('card lower refresh failed', eLower);
+    }
     try {
       var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
       if (!row || !row.length) return;
@@ -1799,6 +1876,8 @@
        (src/57_color.js), так что порядок важен только ради отмены
        незавершённого расчёта по постеру. */
     try { if (LC.accent) LC.accent.destroy(); } catch (eAccentOff) {}
+    /* v2, экран 37: выключенный плагин не оставляет данные Lampa без серий. */
+    try { restorePendingEpisodes(null); } catch (eEpisodesOff) {}
     /* Task 29: выключенный плагин не имеет права держать ни отложенного
        кадра замера, ни слоя перехода поверх экрана. Обе уборки идемпотентны
        и при отсутствии живых ресурсов не делают ничего. */

@@ -153,14 +153,76 @@ test('36: селекторы модуля — под корнями плагин
   withStorage({ lumen_flat: 'true' }, (LC) => {
     const part = LC.v2css.filter((p) => p.id === 'card-lower')[0];
     for (const flat of [false, true]) {
-      const out = part.build({ P: LC.tokens(), APPLE: flat, V2: { rImg: 0.46, scalePosterL: 1.1, scalePosterA: 1.14, shadowL: 's', shadowA: 's', fillA: '#FFFFFF', blockA: 'b', durL: 220, durA: 240 }, motion: 'full' });
+      const out = part.build({ P: LC.tokens(), APPLE: flat, V2: { rImg: 0.46, scalePosterL: 1.1, scalePosterA: 1.14, shadowL: 's', shadowA: 's', fillA: '#FFFFFF', blockA: 'b', durL: 220, durA: 240 } });
       for (const line of out.split('\n')) {
         const body = /^@supports/.test(line) ? line.slice(line.indexOf('{') + 1) : line;
         for (const sel of body.split('{')[0].split(',')) {
           const s = sel.trim();
-          assert.ok(s.indexOf('body ') === 0 || s.indexOf('.lumen-descr-row ') === 0, 'корень: ' + s);
+          assert.ok(s.indexOf('body ') === 0 || s.indexOf('body.lumen-motion-full ') === 0 || s.indexOf('.lumen-descr-row ') === 0, 'корень: ' + s);
         }
       }
     }
   });
+});
+
+/* Ревью v2 (п.1): ключ Кинопоиска ввели или стёрли в настройках поверх
+   открытой карточки — 'full' повторно не приходит, строку «нужен ключ» и
+   класс на теле активности перечитывает LC.cardLower.refresh(body). */
+test('36: refresh — строка о ключе и класс тела следуют за ключом без переоткрытия', async () => {
+  const { FakeEl } = await import('./_fakedom.mjs');
+  const storage = {};
+  globalThis.$ = (x) => x;
+  try { withStorage(storage, (LC) => {
+    const title = new FakeEl(['items-line__title']);
+    const head = new FakeEl(['items-line__head'], [title]);
+    const line = new FakeEl(['items-line', 'lumen-lower', 'lumen-lower--discuss'], [head]);
+    const body = new FakeEl(['activity__body'], [line]);
+    const item = { render: () => line };
+    LC.cardLower.tag({ type: 'build', name: 'discuss', item: item, body: body, link: { rows: [] }, data: {} });
+    assert.equal(head.find('.lumen-lower__kp').length, 1, 'без ключа строка в шапке');
+    assert.ok(body.hasClass('lumen-lower-kp'));
+
+    storage.lumen_kp_key = 'abc';
+    LC.cardLower.refresh(body);
+    assert.equal(head.find('.lumen-lower__kp').length, 0, 'ключ ввели — строка снята');
+    assert.ok(!body.hasClass('lumen-lower-kp'), 'ключ ввели — класс снят');
+
+    storage.lumen_kp_key = '';
+    LC.cardLower.refresh(body);
+    LC.cardLower.refresh(body);
+    assert.equal(head.find('.lumen-lower__kp').length, 1, 'ключ стёрли — строка вернулась, одна');
+    assert.ok(body.hasClass('lumen-lower-kp'));
+
+    storage.lumen_reviews = false;
+    LC.cardLower.refresh(body);
+    assert.equal(head.find('.lumen-lower__kp').length, 0, 'отзывы выключены — строки нет');
+    assert.ok(!body.hasClass('lumen-lower-kp'));
+
+    /* Пустое тело и мусор — не исключение. */
+    LC.cardLower.refresh(null);
+    LC.cardLower.refresh({ length: 0 });
+  }); } finally { delete globalThis.$; }
+});
+
+/* Ревью v2 (п.2): смена lumen_motion таблицу стилей не пересобирает —
+   переход масштаба гейтится классом body.lumen-motion-full, а не режимом
+   на момент сборки. */
+test('36: переходы постеров и портретов — только под body.lumen-motion-full', () => {
+  for (const motion of ['full', 'lite', 'off']) {
+    const css = withStorage({ lumen_motion: motion }, (LC) => LC.buildCss());
+    const cards = rule(css, 'body.lumen-motion-full .items-line.lumen-lower.lumen-lower--cards .card__view');
+    const photo = rule(css, 'body.lumen-motion-full .items-line.lumen-lower.lumen-lower--persons .full-person__photo');
+    assert.match(cards, /transition:transform \d+ms ease-out/, motion);
+    assert.match(photo, /transition:transform \d+ms ease-out/, motion);
+    assert.doesNotMatch(rule(css, L + '.lumen-lower--cards .card__view'), /transition/, motion);
+    assert.doesNotMatch(rule(css, L + '.lumen-lower--persons .full-person__photo'), /transition/, motion);
+  }
+});
+
+test('v2: модули экранов не читают режим анимаций при сборке таблицы', () => {
+  const files = ['30_css.js', '31_v2_card_lower.js', '31_v2_episodes.js', '31_v2_roulette.js', '31_v2_search.js', '31_v2_settings_menu.js', '31_v2_torrents_menu.js'];
+  for (const f of files) {
+    const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /ctx\.motion|motion:\s*LC\.motionMode/, f);
+  }
 });
