@@ -514,21 +514,68 @@
       for (var i = 0; i < lines.length; i++) LC.typo.stripCards(lines[i].querySelectorAll('.card'));
     }
 
+    /* perf (замер src/58_prefill.js: «наблюдатели DOM 20 мс, метки — 16»):
+       узлы, которые вставляет сам этот модуль (decorate), будили наблюдателя
+       снова, и каждая такая запись пересчитывала подписи всего ряда —
+       O(N²) на ряд. Свои узлы метки пропускаются, как и мутации внутри
+       кадра героя: карточек рядов там нет. */
+    var OWN = ['lumen-badge', 'lumen-badge-cap', 'lumen-badge-bar'];
+
+    function ownNode(n) {
+      var c = n && n.classList;
+      if (!c) return false;
+      for (var i = 0; i < OWN.length; i++) if (c.contains(OWN[i])) return true;
+      return false;
+    }
+
+    function inHero(target) {
+      try {
+        return !!(target && typeof target.closest === 'function' && target.closest('.lumen-hero, .lumen-hero-stage'));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function addLine(lines, line) {
+      if (line && lines.indexOf(line) === -1) lines.push(line);
+    }
+
+    /* Ряды, чьи карточки изменила запись: ряд, внутри которого она случилась,
+       либо ряды внутри добавленных узлов. Прежде вне ряда опрашивалось всё
+       поддерево цели — то есть каждая новая строка главной пересчитывала
+       все уже построенные; их карточки при этом не менялись, а stripCards
+       зависит только от карточек своего ряда. */
+    function linesOf(target, elems, lines) {
+      var line = target && typeof target.closest === 'function' ? target.closest('.items-line') : null;
+      if (line) { addLine(lines, line); return; }
+      for (var i = 0; i < elems.length; i++) {
+        var el = elems[i];
+        if (el.classList && el.classList.contains('items-line')) { addLine(lines, el); continue; }
+        if (typeof el.querySelectorAll !== 'function') continue;
+        var inner = el.querySelectorAll('.items-line');
+        for (var k = 0; k < inner.length; k++) addLine(lines, inner[k]);
+      }
+    }
+
     function onMutations(records) {
       if (!state) return;
       try {
         var shared = null;
+        var lines = [];
         for (var i = 0; i < records.length; i++) {
           var added = records[i] && records[i].addedNodes;
           if (!added || !added.length) continue;
-          if (!shared) shared = batch();
-          var elems = false;
+          var elems = [];
           for (var k = 0; k < added.length; k++) {
-            decorateAdded(added[k], shared);
-            if (added[k] && added[k].nodeType === 1) elems = true;
+            var n = added[k];
+            if (n && n.nodeType === 1 && !ownNode(n)) elems.push(n);
           }
-          if (elems && LC.typo) stripLines(records[i].target);
+          if (!elems.length || inHero(records[i].target)) continue;
+          if (!shared) shared = batch();
+          for (var j = 0; j < elems.length; j++) decorateAdded(elems[j], shared);
+          if (LC.typo) linesOf(records[i].target, elems, lines);
         }
+        for (var m = 0; m < lines.length; m++) LC.typo.stripCards(lines[m].querySelectorAll('.card'));
       } catch (e) {
         warn('badges: observer failed', e);
       }

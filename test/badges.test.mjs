@@ -952,3 +952,119 @@ test('сверка: decorate — в Timeline нет длительности и�
     assert.equal(badge.text(), '43 %', JSON.stringify(view));
   }
 });
+
+/* ====================================================================== */
+/* perf: наблюдатель главной (src/58_prefill.js — «наблюдатели DOM 20 мс, */
+/* метки 62_badges — 16»). Свои узлы метки не будят пересчёт ряда, а      */
+/* пачка мутаций пересчитывает каждый ряд один раз.                       */
+/* ====================================================================== */
+
+/* Мини-DOM: classList, closest (по классам, через запятую), querySelector/
+   querySelectorAll (по одному классу), textContent у подписи. */
+function dnode(classes, kids) {
+  const n = {
+    nodeType: 1,
+    _cls: classes,
+    _kids: [],
+    parentNode: null,
+    classList: { contains: (c) => n._cls.indexOf(c) !== -1 },
+    closest(sel) {
+      const want = sel.split(',').map((s) => s.trim().replace(/^\./, ''));
+      for (let p = n; p; p = p.parentNode) if (want.some((c) => p._cls.indexOf(c) !== -1)) return p;
+      return null;
+    },
+    querySelectorAll(sel) {
+      const c = sel.replace(/^\./, '');
+      const out = [];
+      (function walk(x) { x._kids.forEach((k) => { if (k._cls.indexOf(c) !== -1) out.push(k); walk(k); }); })(n);
+      return out;
+    },
+    querySelector(sel) { return n.querySelectorAll(sel)[0] || null; },
+    textContent: ''
+  };
+  (kids || []).forEach((k) => dadd(n, k));
+  return n;
+}
+function dadd(parent, kid) { kid.parentNode = parent; parent._kids.push(kid); return kid; }
+function dcard(title) {
+  const t = dnode(['card__title']);
+  t.textContent = title;
+  const c = dnode(['card'], [dnode(['card__view']), t]);
+  c.card_data = { title: title, release_date: '2000-01-01' };
+  return c;
+}
+
+function observed(extra) {
+  let cb = null;
+  class FakeObserver { constructor(f) { cb = f; } observe() {} disconnect() {} }
+  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  const calls = [];
+  const LCtypo = {};
+  loadInto(LCtypo, { exports: null, lumen: true }, '31_v2_typo.js');
+  const typo = Object.assign({}, LCtypo.typo, {
+    stripCards: function (els) { calls.push(els.length); return LCtypo.typo.stripCards(els); }
+  });
+  const { api } = runtime(Object.assign({ typo: typo }, extra || {}));
+  api.mount(makeRoot([]));
+  return { cb: (recs) => cb(recs), calls: calls, api: api };
+}
+function cleanupObserved() {
+  delete globalThis.window;
+  delete globalThis.MutationObserver;
+}
+
+test('perf: свои узлы метки (.lumen-badge*, .lumen-badge-bar) не будят пересчёт ряда', () => {
+  const o = observed();
+  try {
+    const line = dnode(['items-line'], [dcard('A'), dcard('B')]);
+    const recs = [];
+    line._kids.forEach((card) => {
+      const view = card._kids[0];
+      recs.push({ target: view, addedNodes: [dadd(view, dnode(['lumen-badge', 'lumen-badge--new']))] });
+      recs.push({ target: view, addedNodes: [dadd(view, dnode(['lumen-badge-bar']))] });
+      recs.push({ target: card._kids[1], addedNodes: [dadd(card._kids[1], dnode(['lumen-badge-cap']))] });
+    });
+    o.cb(recs);
+    assert.deepEqual(o.calls, [], 'stripCards звался на собственных метках: ' + o.calls.length);
+  } finally { cleanupObserved(); }
+});
+
+test('perf: мутации внутри кадра героя пропускаются', () => {
+  const o = observed();
+  try {
+    const hero = dnode(['lumen-hero'], [dnode(['lumen-hero__meta'])]);
+    const line = dadd(hero._kids[0], dnode(['items-line'], [dcard('A')]));
+    o.cb([{ target: hero._kids[0], addedNodes: [dnode(['lumen-hero__title'])] },
+          { target: line, addedNodes: [line._kids[0]] }]);
+    assert.deepEqual(o.calls, []);
+    assert.ok(!line._kids[0].lumen_badged, 'карточку внутри героя трогать незачем');
+  } finally { cleanupObserved(); }
+});
+
+test('perf: пачка из N карточек одного ряда — stripCards один раз, подписи те же', () => {
+  const o = observed();
+  try {
+    const titles = ['Голодные игры: И вспыхнет пламя', 'Голодные игры: Последняя глава', 'Голодные игры: Баллада о змеях'];
+    const line = dnode(['items-line']);
+    const body = dadd(line, dnode(['items-line__body']));
+    const recs = titles.map((t) => ({ target: body, addedNodes: [dadd(body, dcard(t))] }));
+    /* Плюс метки, которые decorate вставил бы по ходу. */
+    body._kids.slice().forEach((c) => recs.push({ target: c._kids[0], addedNodes: [dadd(c._kids[0], dnode(['lumen-badge']))] }));
+    o.cb(recs);
+    assert.deepEqual(o.calls, [3], 'ряд пересчитан не один раз: ' + JSON.stringify(o.calls));
+    const got = body.querySelectorAll('.card').map((c) => c.querySelector('.card__title').textContent);
+    assert.deepEqual(got, ['И вспыхнет пламя', 'Последняя глава', 'Баллада о змеях']);
+    body.querySelectorAll('.card').forEach((c) => assert.equal(c.lumen_badged, true, 'карточка не обработана'));
+  } finally { cleanupObserved(); }
+});
+
+test('perf: новый ряд вне ряда — пересчитывается только он, а не все ряды корня', () => {
+  const o = observed();
+  try {
+    const scroll = dnode(['scroll__body'], [dnode(['items-line'], [dcard('X'), dcard('Y')])]);
+    const fresh = dnode(['items-line'], [dcard('P'), dcard('Q'), dcard('R')]);
+    o.cb([{ target: scroll, addedNodes: [dadd(scroll, fresh)] }]);
+    assert.deepEqual(o.calls, [3]);
+  } finally { cleanupObserved(); }
+});
