@@ -248,3 +248,20 @@ test('LC.v2search.onToggle: клавиатура ввода настроек и 
     assert.deepEqual(env2.log, ['keybord.right'], 'после close вкладок нет — штатный «вправо»');
   } finally { env2.done(); }
 });
+
+/* QA main: в фокусе растёт только картинка — подпись кегля и места не меняет. */
+test('v2 экран 38: фокус результата масштабирует .card__view, а не всю карточку с подписью', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const card = rules(css, 'body.search--open .search .search__results .card.focus{');
+    assert.equal(card.length, 1);
+    assert.equal(/transform/.test(card[0]), false, card[0]);
+    const view = rules(css, 'body.search--open .search .search__results .card.focus .card__view{');
+    assert.equal(view.length, 1);
+    assert.ok(/transform:scale\(1\.\d+\)/.test(view[0]), view[0]);
+    assert.equal(rules(css, '.search__results .card{-webkit-transition').length, 0, 'переход — у картинки');
+    assert.equal(rules(css, 'body.lumen-motion-full.search--open .search .search__results .card__view{').length, 1);
+    /* Подпись в фокусе ничем не масштабируется. */
+    assert.equal(css.split('\n').some((r) => /search__results \.card\.focus \.card__(title|age)[^{]*\{[^}]*(transform|font-size)/.test(r)), false);
+  }
+});

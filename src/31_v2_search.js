@@ -202,13 +202,17 @@
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
          переход — только в «Полных». */
       css.push(RES + ' .card.focus .card__view:after,' + RES + ' .card.hover .card__view:after{display:none}');
-      css.push(RES + ' .card.focus{-webkit-transform:scale(' + (APPLE ? V2.scalePosterA : V2.scalePosterL) + ');transform:scale(' + (APPLE ? V2.scalePosterA : V2.scalePosterL) + ');z-index:2}');
+      /* QA main: масштаб — у картинки, не у всей карточки. Прежде .card.focus
+         масштабировался целиком, и подпись под постером росла и съезжала;
+         теперь она остаётся своего кегля и на месте (как на главной). */
+      var SC = APPLE ? V2.scalePosterA : V2.scalePosterL;
+      css.push(RES + ' .card.focus{z-index:2}');
       if (APPLE) {
-        css.push(RES + ' .card.focus .card__view{outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
+        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
       } else {
-        css.push(RES + ' .card.focus .card__view{outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
+        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
       }
-      css.push('body.lumen-motion-full.search--open .search .search__results .card{' + tr(APPLE ? V2.durA : V2.durL) + '}');
+      css.push('body.lumen-motion-full.search--open .search .search__results .card__view{' + tr(APPLE ? V2.durA : V2.durL) + '}');
 
       /* QA main (08-search-empty-field-stale-results): пустое поле — рядов нет.
          На пустой запрос Lampa вызывает recall('') и заново строит ряды
