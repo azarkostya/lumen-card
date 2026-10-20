@@ -835,6 +835,84 @@ test('↓ штатный: Navigator сам находит цель, с плит�
   assert.deepEqual(warnLog, []);
 });
 
+/* QA v2 (P2, «Медленные лошади», прогресс S6E3): ↓ с кнопок Navigator
+   по геометрии отдавал чипу «Сезон 1» под кнопкой «Продолжить», следующий
+   ↓ — серии 1. Порядок экрана 37 «кнопки → сезоны → серии» ведёт сам
+   контроллер: кнопки → чип ВЫБРАННОГО сезона → серия «Продолжить»; ↑ с
+   серии — на тот же чип. В фейковом DOM у узлов нет раскладки, поэтому
+   видимость (offsetParent) задаётся явно. */
+function shown(c) { walk(c.root, (el) => { el.offsetParent = c.root; }); }
+
+test('QA v2 P2: ↓ с кнопок — чип выбранного сезона, ↓ с чипа — серия «Продолжить», ↑ с серии — снова чип', () => {
+  const c = seasonsCard();
+  views[hashOf(2, 3)] = { percent: 30, time: 900, duration: 3060 };
+  try {
+    LC.header.decorate(c.root, serial(8));
+    shown(c);
+    const chips = c.seasons.find('.lumen-season');
+    assert.equal(chips.length, 2);
+    assert.ok(chips[1].hasClass('lumen-season--on'), 'выбран сезон 2');
+    const item = downItem();
+    LC.header.bindStart(item, c.root);
+    withDownNav(c, c.play, (nav, log) => {
+      const { ctrl, calls } = item.controller();
+      ctrl.down();
+      assert.deepEqual(calls, [], 'шаг не отдан Navigator (он выбрал бы «Сезон 1»)');
+      assert.equal(nav.focus, chips[1], '↓ с кнопок — чип выбранного сезона');
+      assert.deepEqual(log, ['set', 'focus']);
+      ctrl.down();
+      assert.ok(nav.focus.hasClass('lumen-episode'), '↓ с чипа — в ряд серий');
+      assert.equal(nav.focus.lumenPos, 2, '↓ с чипа — серия «Продолжить» S2E3, а не первая');
+      assert.deepEqual(calls, []);
+      ctrl.up();
+      assert.equal(nav.focus, chips[1], '↑ с серии — чип выбранного сезона');
+      assert.deepEqual(calls, []);
+    });
+  } finally {
+    delete views[hashOf(2, 3)];
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('QA v2 P2: ↓ с кнопок при ролике — ролик снят до перевода фокуса; без прогресса — первая непросмотренная', () => {
+  const c = seasonsCard();
+  views[hashOf(2, 1)] = { percent: 100, time: 3060, duration: 3060 };
+  try {
+    LC.header.decorate(c.root, serial(8));
+    shown(c);
+    const item = downItem();
+    LC.header.bindStart(item, c.root);
+    c.root.addClass('lumen-trailer-on');
+    withDownNav(c, c.play, (nav, log) => {
+      const { ctrl } = item.controller();
+      ctrl.down();
+      assert.deepEqual(log, ['trailer-stop', 'set', 'focus'], 'ролик снимается ДО collectionFocus');
+      assert.ok(nav.focus.hasClass('lumen-season--on'));
+      ctrl.down();
+      assert.equal(nav.focus.lumenPos, 1, 'серия 1 просмотрена — фокус на серии 2');
+    });
+  } finally {
+    delete views[hashOf(2, 1)];
+  }
+  /* Один сезон: чипа-.selector нет — с кнопок сразу в ряд. */
+  const one = seasonsCard();
+  const data = serial(4);
+  data.movie.number_of_seasons = 1;
+  data.episodes.season_number = 1;
+  data.episodes.episodes.forEach((e) => { e.season_number = 1; });
+  LC.header.decorate(one.root, data);
+  shown(one);
+  const item1 = downItem();
+  LC.header.bindStart(item1, one.root);
+  withDownNav(one, one.play, (nav) => {
+    const { ctrl } = item1.controller();
+    ctrl.down();
+    assert.ok(nav.focus.hasClass('lumen-episode'), 'один сезон — с кнопок сразу серия');
+    assert.equal(nav.focus.lumenPos, 0);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
 test('v2 экран 37: фокус на серии снимает фоновый трейлер, фокус на кнопке — нет', () => {
   const c = makeCard();
   LC.header.decorate(c.root, serial(8));

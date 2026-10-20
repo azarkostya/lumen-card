@@ -2907,9 +2907,16 @@
        карточки (LC.header). Штатный span гасится ТОЛЬКО там, где переменные
        поддерживаются: на старом WebView без них :after не покажет ничего, и
        кнопка обязана остаться с родным текстом. В режиме трейлера (экран 02)
-       подписи нет — там кнопка снова «Смотреть», поэтому :not(.lumen-trailer-on). */
-    css.push('.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
-    css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play span{display:none}}');
+       подписи не было — кнопка снова становилась «Смотреть» (:not(.lumen-
+       trailer-on)). QA v2 (P2, «Медленные лошади» S6E3): v2, экран 35 —
+       «при ролике ничего не сдвигается», а смена подписи меняла ширину
+       кнопки и смысл: «Продолжить S6 E3» → «Смотреть». Подпись теперь та же
+       и при ролике. Вес правил — прежний (5 классов): :not() давал +1, и
+       без него правило фокуса «.full-start__button.focus span{display:block}»
+       ниже по таблице перебивало гашение штатного «Смотреть» — на кнопке
+       в фокусе стояло «Смотреть Продолжить S6 E3». */
+    css.push('.lumen-card.lumen-continue .full-start-new__buttons .full-start__button.button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
+    css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue .full-start-new__buttons .full-start__button.button--play span{display:none}}');
 
     /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, раскрытие подписи в фокусе) ---
        Блюра подложки, который §7a рисовал у карты кнопки, здесь нет с Task 38:
@@ -3050,8 +3057,17 @@
        «Стоп» встал рядом с рядом кнопок, а не под ним. */
     /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
        только заголовок, мета-строка и ряд кнопок. */
-    css.push('.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
-    css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    /* QA v2 (P2, «Медленные лошади»): ряд серий при ролике больше НЕ
+       прячется. Шапка прижата к низу кадра, и снятый ряд (~180 px FHD)
+       опускал весь первый экран вниз, а сезоны и серии исчезали до первого
+       «вниз» — против «ничего не сдвигается» экрана 35. Ряд остаётся на
+       своей строке: .lumen-actions — флекс с переносом (как у «Франшизы»
+       ниже), реакции и ряд серий — во всю ширину, ряд серий — последним
+       (order), так что «Стоп» (его src/55_trailer.js кладёт в конец
+       .lumen-actions) встаёт в строку кнопок, а не под ряд серий. */
+    css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-actions > .full-start-new__reactions,.lumen-card.lumen-trailer-on .lumen-actions > .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-actions > .lumen-episodes{-webkit-box-ordinal-group:2;-webkit-order:1;order:1}');
 
     /* --- Точка статуса (design-spec §8): красится только маркер, текст всегда
        нейтральный. Сама карта статуса описана выше, в ленте рейтингов. --- */
@@ -7111,7 +7127,10 @@
     /* «Стоп» встаёт в тот же ряд: перенос на новую строку поднимал всю
        шапку (прижата к низу кадра) — замер на «Добыче» с «Франшизой»:
        −130 px FHD при старте ролика. */
-    css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in.lumen-actions{max-width:none;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
+    /* QA v2 (P2): перенос остаётся — ряд серий (flex-basis 100 %) обязан
+       уйти на свою строку; «Стоп» при этом в строке кнопок: ширина колонки
+       без max-width — весь экран минус поля, кнопок с «Стопом» меньше. */
+    css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in.lumen-actions{max-width:none}');
     /* Подсказка «Трейлер · звук выкл.» — тихий текст в правом нижнем углу
        (макет 35-L·T: right 80, bottom 60, 23/500 muted), без плашки и
        иконки. Корень карточки выше экрана (min-height 100vh под шапкой
@@ -7119,6 +7138,11 @@
        шапки Lampa минус поле прокрутки и 60 px макета. */
     css.push('.lumen-card .lumen-trailer-badge{top:auto;bottom:auto;top:-webkit-calc(100vh - ' + TRAILER_HINT_UP + 'em);top:calc(100vh - ' + TRAILER_HINT_UP + 'em);font-weight:500;letter-spacing:0;color:' + P.muted + ';background:none;border:0;border-radius:0;padding:0}');
     css.push('.lumen-card .lumen-trailer-badge:before{display:none}');
+    /* QA v2 (P2): у сериала ряд серий при ролике теперь остаётся, и нижний
+       правый угол занят его плитками — подсказка легла бы на кадр серии.
+       Там она уходит в верхний правый угол, под шапку (место метки
+       экрана 02, top 112 px FHD). */
+    css.push('.lumen-card.lumen-has-episodes .lumen-trailer-badge{top:4.91em}');
     /* Трейлер под текстом: слой ролика — ровно экран (поля ±10 % от старой
        раскладки оставляли видимыми полосы и UI YouTube), сам iframe 16:9
        покрывает экран и кадрирован ×1.12 — заголовок и логотип YouTube

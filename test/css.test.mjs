@@ -1529,7 +1529,7 @@ test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — прав�
 
 /* v2, экран 35: при ролике ничего не сдвигается — логотип в том же боксе,
    заголовок тем же кеглем, лента под логотипом не прячется. */
-test('v2 экран 35: режим трейлера шапку не сжимает, скрыт только ряд серий', () => {
+test('v2 экран 35: режим трейлера шапку не сжимает, ряд серий остаётся на месте', () => {
   assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title'), null,
     'заголовок при ролике снова меняет кегль');
   assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-logo'), null,
@@ -1537,9 +1537,22 @@ test('v2 экран 35: режим трейлера шапку не сжимае
   assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'), null,
     'лента под логотипом при ролике прячется — шапка прыгает');
 
-  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-episodes'));
-  assert.ok(hidden, 'правило скрытия ряда серий в режиме трейлера не найдено');
-  assert.ok(/display\s*:\s*none\s*!important/.test(hidden.decl));
+  /* QA v2 (P2, «Медленные лошади»): скрытый при ролике ряд серий опускал
+     весь первый экран на ~180 px FHD (шапка прижата к низу), сезоны и
+     серии пропадали до «вниз». Ряд остаётся — на своей строке под
+     кнопками, «Стоп» — в строке кнопок. */
+  const hidden = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-trailer-on') !== -1 && /\.lumen-episodes(?![-\w])/.test(s)) && /display\s*:\s*none/.test(r.decl));
+  assert.deepEqual(hidden.map((r) => r.selectors.join(',')), [], 'ряд серий при ролике снова прячется — экран прыгает');
+  const actions = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('.lumen-trailer-on') !== -1 && /\.lumen-actions$/.test(s)));
+  assert.ok(actions.some((r) => /flex-wrap\s*:\s*wrap/.test(r.decl)), 'строка .lumen-actions при ролике обязана переносить ряд серий');
+  assert.ok(!actions.some((r) => /flex-wrap\s*:\s*nowrap/.test(r.decl)), 'nowrap поставил бы ряд серий справа от кнопок');
+  const row = ruleBodies(css).filter((r) => r.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-actions > .lumen-episodes') !== -1).map((r) => r.decl).join(';');
+  assert.ok(/(^|;)flex-basis\s*:\s*100%/.test(row), 'ряд серий — во всю ширину');
+  assert.ok(/(^|;)order\s*:\s*1/.test(row), 'ряд серий — последним, после «Стопа»');
+  /* Нижний правый угол занят плитками ряда — подсказка «Трейлер · звук
+     выкл.» у сериала с рядом уходит наверх. */
+  const hint = findDecl(css, (sel) => sel === '.lumen-card.lumen-has-episodes .lumen-trailer-badge');
+  assert.ok(hint && /(^|;)top\s*:\s*4\.91em/.test(hint), 'подсказка трейлера ложится на плитки серий');
 });
 
 /* Task 59 (фаза 5): описание из шапки убрано вместе с узлом — правил для
@@ -1880,10 +1893,20 @@ test('buildCss: Task 18 — показ кнопки не завязан на р�
   assert.equal(wrong.length, 0, 'кнопка не должна зависеть от того, играет ли фоновый ролик');
 });
 
-test('buildCss: в режиме трейлера подписи на кнопке нет, строка прогресса остаётся (v2, экран 35)', () => {
+test('buildCss: в режиме трейлера подпись «Продолжить» и строка прогресса остаются (v2, экран 35)', () => {
+  /* QA v2 (P2): при старте ролика «Продолжить S6 E3» превращалась в
+     «Смотреть» — менялись ширина кнопки и её смысл. */
   const after = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.button--play:after') !== -1));
-  assert.ok(after.selectors.every((s) => s.indexOf(':not(.lumen-trailer-on)') !== -1),
-    'на экране 02 кнопка называется «Смотреть» — подпись обязана отключаться');
+  assert.ok(after.selectors.every((s) => s.indexOf('lumen-trailer-on') === -1),
+    'подпись «Продолжить» при ролике пропадает');
+  const span = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.lumen-continue') !== -1 && s.indexOf('.button--play span') !== -1));
+  assert.ok(span.selectors.every((s) => s.indexOf('lumen-trailer-on') === -1), 'штатный «Смотреть» при ролике возвращается');
+  /* Гашение span обязано перевешивать «.full-start__button.focus span
+     {display:block}» (ТВ: «Смотреть Продолжить S6 E3» на кнопке в фокусе). */
+  const focusSpan = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__buttons .full-start__button.focus span'));
+  assert.ok(focusSpan && /display\s*:\s*block/.test(focusSpan.decl), 'правило фокуса span не найдено — проверка веса устарела');
+  assert.ok(span.selectors.every((s) => classWeight(s) > classWeight('.lumen-card .full-start-new__buttons .full-start__button.focus span')),
+    'гашение «Смотреть» легче правила фокуса — в фокусе обе подписи');
 
   assert.equal(findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-progress'), null,
     'строка прогресса при ролике прячется — шапка сдвигается (SPEC 35)');

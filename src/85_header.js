@@ -491,6 +491,9 @@
         ? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes, new Date())
         : LC.progress.movieProgress(movie, timelineView, utilsHash);
     }
+    /* QA v2 (P2): серия «Продолжить» — цель «вниз» с чипа сезона
+       (resumeEpisode ниже); без прогресса ряд выбирает сам. */
+    if (root[0]) root[0].lumenResume = found && found.view && found.season ? { season: parseInt(found.season, 10) || 0, episode: parseInt(found.episode, 10) || 0 } : null;
     if (!found || !found.view) {
       setPlayLabel(root, '');
       return;
@@ -1594,8 +1597,14 @@
     var nav = window.Navigator;
     if (!nav || typeof nav.getFocusedElement !== 'function' || typeof nav.canmove !== 'function') return null;
     var from = nav.getFocusedElement();
-    if (!from || !$(from).hasClass('lumen-episode')) return null;
+    if (!from || !($(from).hasClass('lumen-episode') || $(from).hasClass('lumen-season'))) return null;
     if ($(from).closest('.full-start-new')[0] !== root[0]) return null;
+    /* QA v2 (P2): ↑ с серии — на чип ВЫБРАННОГО сезона (порядок экрана 37
+       «кнопки → сезоны → серии»), а не на тот, что ближе по геометрии. */
+    if ($(from).hasClass('lumen-episode')) {
+      var chip = activeChip(root);
+      if (chip) return chip;
+    }
     if (nav.canmove('up')) return null;
 
     var box = root.find('.full-start-new__buttons')[0];
@@ -1642,6 +1651,7 @@
         if (typeof down !== 'function') return;
         controller.down = function () {
           try {
+            if (downStep(root)) return;
             if (downToEpisodes(root)) return;
           } catch (e) {
             warn('episode down failed', e);
@@ -1650,6 +1660,73 @@
         };
       }
     });
+  }
+
+  /* QA v2 (P2, «Медленные лошади», прогресс S6E3): «вниз» с кнопок
+     Navigator отдавал по геометрии — чипу под кнопкой «Продолжить», то есть
+     «Сезону 1», хотя выбран шестой; следующий «вниз» — серии 1, а не той,
+     что продолжать. Порядок экрана 37 «кнопки → сезоны → серии» теперь
+     ведёт сам контроллер: с кнопок (и «Стопа», «Франшизы») — чип
+     выбранного сезона, с чипа — серия «Продолжить» этого сезона (или
+     первая непросмотренная). Сериал в один сезон чипа-.selector не имеет —
+     с кнопок сразу серия. Фоновый ролик снимается ДО перевода фокуса: его
+     снятие пересобирает коллекцию (кнопка «Стоп» уходит), и посреди
+     Navigator.focus это увело бы внутренний фокус Navigator обратно на
+     кнопки. */
+  function activeChip(root) {
+    var box = root.find('.lumen-seasons');
+    if (!box.length || box.hasClass('hide')) return null;
+    var chip = box.find('.lumen-season--on.selector')[0];
+    return chip && chip.offsetParent ? chip : null;
+  }
+
+  function resumeEpisode(root) {
+    var row = root.find('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    if (!info || row.hasClass('hide') || !info.eps.length) return null;
+    var pos = -1;
+    var i;
+    var resume = root[0].lumenResume;
+    if (resume && resume.season === info.season) {
+      for (i = 0; i < info.eps.length; i++) {
+        if (info.eps[i].ep.episode_number === resume.episode) { pos = i; break; }
+      }
+    }
+    if (pos < 0) {
+      for (i = info.from; i <= info.to; i++) {
+        if (info.nodes[i] && info.nodes[i].hasClass('lumen-episode--watching')) { pos = i; break; }
+      }
+    }
+    if (pos < 0) {
+      for (i = info.from; i <= info.to; i++) {
+        if (info.nodes[i] && !info.nodes[i].hasClass('lumen-episode--watched')) { pos = i; break; }
+      }
+    }
+    if (pos < 0) pos = info.from;
+    /* Серия за окном узлов (Task 67) — окно едет к ней; снимок коллекции
+       пересобирает downStep. */
+    if (!info.nodes[pos]) slideWindow(info, pos);
+    return info.nodes[pos] ? info.nodes[pos][0] : null;
+  }
+
+  function downStep(root) {
+    var nav = window.Navigator;
+    if (!nav || typeof nav.getFocusedElement !== 'function') return false;
+    if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionSet !== 'function' || typeof Lampa.Controller.collectionFocus !== 'function') return false;
+    var from = nav.getFocusedElement();
+    if (!from || $(from).closest('.full-start-new')[0] !== root[0]) return false;
+    var src = $(from);
+    var fromSeason = src.hasClass('lumen-season');
+    var fromButtons = !fromSeason && (src.closest('.full-start-new__buttons', root[0]).length || src.hasClass('lumen-stop') || src.hasClass('lumen-franchise'));
+    if (!fromSeason && !fromButtons) return false;
+    var row = root.find('.lumen-episodes');
+    if (!row.length || !row[0].lumenEpisodes || row.hasClass('hide')) return false;
+    if (root.hasClass('lumen-trailer-on') && LC.trailer && typeof LC.trailer.stopActive === 'function') LC.trailer.stopActive();
+    var target = (fromButtons ? activeChip(root) : null) || resumeEpisode(root);
+    if (!target || !target.offsetParent) return false;
+    Lampa.Controller.collectionSet(root);
+    Lampa.Controller.collectionFocus(target, root);
+    return nav.getFocusedElement() === target;
   }
 
   /* v2, экран 37 — «вниз» с кнопок перескакивал ряд серий в описание
