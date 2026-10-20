@@ -1647,8 +1647,6 @@ css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg,.lumen-hero-stage.
 css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b{-webkit-transition:opacity .4s ease-in-out;transition:opacity .4s ease-in-out}');
 css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a{-webkit-transition:opacity 0s linear .4s;transition:opacity 0s linear .4s}');
 css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a.is-active{-webkit-transition:none;transition:none}');
-css.push('body.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .35s ease;transition:opacity .3s,background-color .35s ease}');
-css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .4s ease-in-out;transition:opacity .3s,background-color .4s ease-in-out}');
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg--blur{-webkit-transform:scale(1.1);transform:scale(1.1)}');
 css.push('.lumen-hero-stage .lumen-hero__trailer{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;'+
 '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
