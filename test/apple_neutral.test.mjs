@@ -112,3 +112,18 @@ test('Apple TV: процедурные фоны без кадра (proc0/1/2) �
   assert.ok(lumen.css.includes('#D9622B 60%,#E8B87A 78%'));
   assert.ok(!lumen.css.includes(NEUTRAL));
 });
+
+test('Apple TV: штатные жёлтые метки Lampa (качество, «Просмотрено», tag--quality) — нейтральные и видимые', () => {
+  const lumen = build({});
+  const apple = build(APPLE_PREFS);
+  const rules = [
+    'html body .card__quality{background:rgba(28,28,30,.85);color:#FFFFFF}',
+    'html body .card__marker--viewed::before{background-color:rgba(235,235,245,.6)}',
+    'html body .full-start__tag.tag--quality{background:rgba(255,255,255,.16);color:#FFFFFF}'
+  ];
+  for (const rule of rules) {
+    assert.ok(apple.css.includes(rule), rule);
+    assert.ok(!lumen.css.includes(rule), 'Lumen: ' + rule);
+  }
+  assert.ok(!/html body \.card__quality\{[^}]*display:none/.test(apple.css));
+});
