@@ -266,10 +266,14 @@
             host: 'https://www.youtube-nocookie.com',
             /* mute:1 обязателен — без звука это ещё и единственный способ
                получить autoplay в браузерах. start:4 пропускает заставку
-               студии, controls/disablekb/fs убирают всю обвязку плеера. */
+               студии, controls/disablekb/fs убирают всю обвязку плеера.
+               cc_load_policy:0 и iv_load_policy:3 — без субтитров и
+               аннотаций YouTube: ролик фоновый, его текст под рядами
+               читается как «призрачный» (QA v2). */
             playerVars: {
               autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1,
-              playsinline: 1, start: 4, iv_load_policy: 3, disablekb: 1, fs: 0
+              playsinline: 1, start: 4, iv_load_policy: 3, cc_load_policy: 0,
+              disablekb: 1, fs: 0
             },
             events: {
               /* Task 11: iframe_api зовёт колбэки, когда ему удобно — в том
@@ -288,6 +292,9 @@
                   mark('ready');
                 }
                 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
+                /* cc_load_policy:0 YouTube не всегда слушает (автосубтитры по
+                   языку устройства) — модуль субтитров выгружаем явно. */
+                try { if (ev.target.unloadModule) { ev.target.unloadModule('captions'); ev.target.unloadModule('cc'); } } catch (e) { }
               },
               onStateChange: function (ev) {
                 if (dead || !ev) return;

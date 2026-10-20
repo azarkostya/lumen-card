@@ -178,6 +178,7 @@ function freshEnv(opts) {
   FakePlayer.prototype.destroy = function () { this.destroyed = true; };
   FakePlayer.prototype.mute = function () { this.muted = true; };
   FakePlayer.prototype.playVideo = function () { this.played = true; };
+  FakePlayer.prototype.unloadModule = function (m) { (this.unloaded = this.unloaded || []).push(m); };
 
   globalThis.window = {
     YT: opts.ytReady === false ? undefined : { Player: FakePlayer },
@@ -220,11 +221,14 @@ test('player: старт воспроизведения -> onStart, таймау
   assert.equal(p.cfg.playerVars.mute, 1, 'трейлер обязан быть без звука');
   assert.equal(p.cfg.playerVars.autoplay, 1);
   assert.equal(p.cfg.playerVars.controls, 0);
+  assert.equal(p.cfg.playerVars.cc_load_policy, 0, 'без субтитров YouTube (QA v2)');
+  assert.equal(p.cfg.playerVars.iv_load_policy, 3, 'без аннотаций');
 
   /* onReady — глушим и запускаем */
   p.cfg.events.onReady({ target: p });
   assert.equal(p.muted, true);
   assert.equal(p.played, true);
+  assert.ok(p.unloaded && p.unloaded.indexOf('captions') >= 0, 'модуль субтитров выгружен на onReady');
 
   /* состояние 1 = playing */
   p.cfg.events.onStateChange({ data: 1, target: p });
