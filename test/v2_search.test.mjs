@@ -463,3 +463,12 @@ test('LC.v2search.onMutations: только добавленные элемен�
   assert.equal(LC.v2search.onMutations([{ addedNodes: [line2] }, { addedNodes: [] }], root), 1);
   assert.equal(a2.textContent, '2024 · ★ 8.1');
 });
+
+/* Ревью [15]: значки состояния — в правом верхнем углу, как на главной. */
+test('v2 экран 38: значки .card__icons результатов — мельче, в правом верхнем углу', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__icons{top:.3em;left:auto;right:.3em;').length, 1);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__icon{width:1.25em;height:1.25em}').length, 1);
+  }
+});

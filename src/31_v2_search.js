@@ -205,6 +205,11 @@
          (.card__quality) на постерах — те же «пёстрые» плашки, что сняты на
          главной; сериалы и так в своём ряду «Сериалы». */
       css.push(RES + ' .card__type,' + RES + ' .card__quality{display:none}');
+      /* Ревью [15]: значки состояния Lampa (.card__icons) штатно — плашкой
+         по центру верха постера и закрывают логотип; как на главной и в
+         сетке (src/30_css.js) — мельче, в правом верхнем углу. */
+      css.push(RES + ' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+      css.push(RES + ' .card__icon{width:1.25em;height:1.25em}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
          снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
