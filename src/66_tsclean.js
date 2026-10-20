@@ -49,6 +49,12 @@
   /* (network.clear). Сервер недоступен — тишина; лог в консоль — только   */
   /* при включённом «Показать FPS». Уведомлений нет.                       */
   /*                                                                       */
+  /* Срок — пункт lumen_tsclean_days (1 / 3 / 7 дней, по умолчанию сутки).  */
+  /* Раздача сериала из «Досмотреть» (Favorite.continues 'tv'/'anime') или */
+  /* из первых 20 записей истории лежит до 14 дней. Сериал раздачи — по    */
+  /* карточке в поле data (её пишет Lampa); раздача без data не защищена.  */
+  /* «Очистить сейчас» (runNow) — проход сразу и Noty с числом удалённых.   */
+  /*                                                                       */
   /* Чистые функции: hashOf, cardKey, movieOf, touch, lastSeen, removable,  */
   /* plan, prune. Рантайм: install/uninstall (activate/deactivate), apply  */
   /* (пункт настроек), onPlay/onStop/onTorrent (из src/71_resume.js),      */
@@ -63,8 +69,19 @@
        могут перезапустить раньше первого прохода. */
     var SEED_KEY = 'lumen_tsclean_seed';
     var HOUR = 3600000;
-    /* Сколько раздача может лежать неоткрытой. */
+    /* Сколько раздача может лежать неоткрытой — по умолчанию; срок
+       выбирается пунктом lumen_tsclean_days (1 / 3 / 7 дней, idleMs). */
     var MAX_IDLE = 24 * HOUR;
+    var DAY = 24 * HOUR;
+    var DAYS = ['1', '3', '7'];
+    /* Раздача сериала из «Досмотреть» или недавно смотренного (protectedSet)
+       лежит до 14 дней. Карта запусков живёт столько же: иначе запуск
+       старше срока выпадал бы из неё, и защита считалась бы от добавления. */
+    var PROTECT = 14 * DAY;
+    var KEEP = PROTECT;
+    /* «Недавно смотренные» — первые записи истории Lampa (Favorite
+       'history' — новые первыми). */
+    var RECENT = 20;
     var FIRST_DELAY = 30000;
     var PERIOD = 6 * HOUR;
     var PLAYER_RETRY = 10 * 60000;
@@ -156,8 +173,8 @@
       return d && typeof d === 'object' && d.movie && typeof d.movie === 'object' ? d.movie : null;
     }
 
-    /* Копия карты с ключами keys = now: без записей старше суток и не
-       больше CAP самых свежих. */
+    /* Копия карты с ключами keys = now: без записей старше KEEP (14 дней —
+       дольше любого срока и защиты) и не больше CAP самых свежих. */
     function touch(map, keys, now) {
       var out = {};
       var list = [];
@@ -166,7 +183,7 @@
         for (k in map) {
           if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
           var t = Number(map[k]);
-          if (isFinite(t) && t > 0 && now - t <= MAX_IDLE && t - now <= FUTURE_MAX) list.push([k, t]);
+          if (isFinite(t) && t > 0 && now - t <= KEEP && t - now <= FUTURE_MAX) list.push([k, t]);
         }
       }
       for (var i = 0; i < keys.length; i++) if (keys[i]) list.push([keys[i], now]);
@@ -207,27 +224,60 @@
       return torrent.stat_string === IN_DB_TEXT;
     }
 
-    function removable(torrent, map, now, current) {
+    /* rule (необязательно) — { idle: срок, мс; keep: { 'tv:<id>': true } —
+       сериалы под защитой }. Раздача защищённого сериала лежит
+       max(срок, PROTECT). Сериал раздачи — только из поля data (карточка,
+       которую пишет Lampa); раздача без data не защищается. */
+    function limitOf(torrent, rule) {
+      var lim = rule && rule.idle > 0 ? rule.idle : MAX_IDLE;
+      if (rule && rule.keep) {
+        var ck = cardKey(movieOf(torrent));
+        if (ck && rule.keep[ck] === true) lim = Math.max(lim, PROTECT);
+      }
+      return lim;
+    }
+
+    function removable(torrent, map, now, current, rule) {
       if (!torrent || typeof torrent !== 'object') return false;
       var hash = hashOf(torrent.hash);
       if (!hash || hash === current) return false;
       if (!idle(torrent)) return false;
       var ts = Number(torrent.timestamp);
       if (!isFinite(ts) || ts <= 0) return false;
-      return now - lastSeen(torrent, map) > MAX_IDLE;
+      return now - lastSeen(torrent, map) > limitOf(torrent, rule);
     }
 
     /* Хэши на удаление, самые давние первыми, не больше MAX_PER_RUN. */
-    function plan(list, map, now, current) {
+    function plan(list, map, now, current, rule) {
       if (!Array.isArray(list)) return [];
       var picked = [];
       for (var i = 0; i < list.length; i++) {
-        if (removable(list[i], map, now, current || '')) picked.push([hashOf(list[i].hash), lastSeen(list[i], map)]);
+        if (removable(list[i], map, now, current || '', rule)) picked.push([hashOf(list[i].hash), lastSeen(list[i], map)]);
       }
       picked.sort(function (a, b) { return a[1] - b[1]; });
       var out = [];
       for (var j = 0; j < picked.length && out.length < MAX_PER_RUN; j++) {
         if (out.indexOf(picked[j][0]) === -1) out.push(picked[j][0]);
+      }
+      return out;
+    }
+
+    /* Срок из пункта lumen_tsclean_days ('1' / '3' / '7'), мс; иное — сутки. */
+    function idleOf(v) {
+      var s = str(v);
+      return DAYS.indexOf(s) === -1 ? MAX_IDLE : Number(s) * DAY;
+    }
+
+    /* { 'tv:<id>': true } по спискам карточек — только сериалы (у фильма
+       своей защиты нет: он смотрится за раз). */
+    function keepOf(lists) {
+      var out = {};
+      for (var i = 0; lists && i < lists.length; i++) {
+        var arr = lists[i];
+        for (var j = 0; Array.isArray(arr) && j < arr.length; j++) {
+          var ck = cardKey(arr[j]);
+          if (ck.indexOf('tv:') === 0) out[ck] = true;
+        }
       }
       return out;
     }
@@ -459,14 +509,43 @@
       try { return !!(LC.util && LC.util.playerOpen && LC.util.playerOpen()); } catch (e) { return false; }
     }
 
-    /* Один проход: список → план → удаления по одному. done(n) — сколько
-       удалено (null — проход не состоялся). */
-    function run(done) {
-      var finish = function (n) {
+    function idleMs() {
+      try { return idleOf(LC.pref('lumen_tsclean_days', '1')); } catch (e) { return MAX_IDLE; }
+    }
+
+    /* Сериалы под защитой: «Досмотреть» (Favorite.continues 'tv' и
+       'anime' — Lampa делит их, app.min.js continues) и первые RECENT
+       записей истории. Без сети: всё из памяти Lampa. */
+    function protectedSet() {
+      var lists = [];
+      try {
+        var fav = window.Lampa && Lampa.Favorite;
+        if (!fav) return {};
+        if (typeof fav.continues === 'function') {
+          lists.push(fav.continues('tv'));
+          lists.push(fav.continues('anime'));
+        }
+        if (typeof fav.get === 'function') {
+          var h = fav.get({ type: 'history' });
+          if (Array.isArray(h)) lists.push(h.slice(0, RECENT));
+        }
+      } catch (e) {
+        log('favorite failed', e);
+      }
+      return keepOf(lists);
+    }
+
+    /* Один проход: список → план → удаления по одному. done(n, seeded) —
+       сколько удалено (null — проход не состоялся; seeded — проход был
+       посевным). force — «Очистить сейчас»: проход и при выключенной
+       автоочистке (все остальные защиты те же). */
+    function run(done, force) {
+      var on = function () { return _on && (force || enabled()); };
+      var finish = function (n, seeded) {
         _running = false;
-        if (typeof done === 'function') { try { done(n); } catch (e) { } }
+        if (typeof done === 'function') { try { done(n, !!seeded); } catch (e) { } }
       };
-      if (_running) { if (typeof done === 'function') done(null); return; }
+      if (_running || !_on) { if (typeof done === 'function') done(null); return; }
       var url = server();
       var n0 = net();
       if (!url || !n0 || typeof n0.silent !== 'function') { if (typeof done === 'function') done(null); return; }
@@ -474,7 +553,7 @@
       try {
         if (typeof n0.timeout === 'function') n0.timeout(LIST_TIMEOUT);
         n0.silent(url + '/torrents', function (list) {
-          if (!_on || !enabled() || !Array.isArray(list)) { finish(null); return; }
+          if (!on() || !Array.isArray(list)) { finish(null); return; }
           var t = now();
           /* Неверные часы — ни посева, ни удалений: всё выглядело бы
              давним (или посев записал бы бессмысленное время). */
@@ -497,21 +576,23 @@
             save(seed(load(), list, t));
             if (list.length <= CAP) setSeed(false);
             log((list.length > CAP ? 'too many torrents, seeded only ' : 'seeded ') + list.length);
-            finish(0);
+            finish(0, true);
             return;
           }
+          /* Срок и защита — один раз на проход. */
+          var rule = { idle: idleMs(), keep: protectedSet() };
           var byHash = {};
           for (var i = 0; i < list.length; i++) {
             var h = hashOf(list[i] && list[i].hash);
             if (h && !byHash[h]) byHash[h] = list[i];
           }
-          var queue = plan(list, load(), t, _current);
+          var queue = plan(list, load(), t, _current, rule);
           var removed = [];
           var next = function () {
             /* Остановка: плагин или пункт выключили, пункт включили заново
                (seedPending — ждёт посев, старый план недействителен), открыли
                плеер. */
-            if (!_on || !enabled() || seedPending() || playerOpen() || !queue.length) {
+            if (!on() || seedPending() || playerOpen() || !queue.length) {
               save(prune(load(), list, now(), removed));
               if (removed.length) log('removed ' + removed.length);
               finish(removed.length);
@@ -524,7 +605,7 @@
                свежей карте и свежим часам. */
             var tnow = now();
             var fresh = load();
-            if (!clockOk(tnow, fresh) || !removable(byHash[hash], fresh, tnow, _current)) { next(); return; }
+            if (!clockOk(tnow, fresh) || !removable(byHash[hash], fresh, tnow, _current, rule)) { next(); return; }
             if (typeof n0.timeout === 'function') n0.timeout(REM_TIMEOUT);
             n0.silent(url + '/torrents', function () {
               removed.push(hash);
@@ -605,8 +686,39 @@
       else stopTimer();
     }
 
+    function noty(text) {
+      try {
+        if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(text);
+      } catch (e) { }
+    }
+
+    /* Пункт «Очистить сейчас»: один проход немедленно (и при выключенной
+       автоочистке) и Noty с итогом: сколько удалено; посевной проход —
+       «запомнены, удалять нечего»; не состоялся — сервер недоступен или
+       занят. */
+    function word(key) {
+      try { return typeof LC.lang === 'function' ? str(LC.lang(key)) : key; } catch (e) { return key; }
+    }
+
+    function runNow() {
+      run(function (n, seeded) {
+        var text;
+        if (n === null) text = word('lumen_tsclean_now_fail');
+        else if (seeded) text = word('lumen_tsclean_now_seeded');
+        else text = word('lumen_tsclean_now_done').replace('{n}', n);
+        noty(text);
+      }, true);
+    }
+
     var api = {
       KEY: KEY,
+      PROTECT: PROTECT,
+      KEEP: KEEP,
+      RECENT: RECENT,
+      idleOf: idleOf,
+      keepOf: keepOf,
+      protectedSet: protectedSet,
+      runNow: runNow,
       SEED_KEY: SEED_KEY,
       MAX_IDLE: MAX_IDLE,
       FIRST_DELAY: FIRST_DELAY,

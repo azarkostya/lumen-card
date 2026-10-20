@@ -498,9 +498,36 @@
     /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js). */
     lumen_tsclean_name: { ru: 'Автоочистка TorrServer', en: 'TorrServer auto-cleanup', uk: 'Автоочищення TorrServer' },
     lumen_tsclean_descr: {
-      ru: 'Убирает из TorrServer раздачи, не открытые из Lampa больше суток. Идущие не трогает.',
-      en: 'Removes TorrServer torrents not opened from Lampa for over a day. Active ones are kept.',
-      uk: 'Прибирає з TorrServer роздачі, не відкриті з Lampa понад добу. Активні не чіпає.'
+      ru: 'Убирает из TorrServer раздачи, не открытые из Lampa дольше срока. Идущие не трогает.',
+      en: 'Removes TorrServer torrents not opened from Lampa within the term. Active ones are kept.',
+      uk: 'Прибирає з TorrServer роздачі, не відкриті з Lampa довше строку. Активні не чіпає.'
+    },
+    /* Срок автоочистки и «Очистить сейчас» (src/66_tsclean.js). */
+    lumen_tsclean_days_name: { ru: 'Срок хранения раздач', en: 'Keep torrents for', uk: 'Строк зберігання роздач' },
+    lumen_tsclean_days_descr: {
+      ru: 'Сериалы из «Досмотреть» и недавно смотренные хранятся до 14 дней.',
+      en: 'Series in Continue watching and recently watched ones are kept up to 14 days.',
+      uk: 'Серіали з «Додивитися» і нещодавно переглянуті зберігаються до 14 днів.'
+    },
+    lumen_tsclean_days_1: { ru: '1 день', en: '1 day', uk: '1 день' },
+    lumen_tsclean_days_3: { ru: '3 дня', en: '3 days', uk: '3 дні' },
+    lumen_tsclean_days_7: { ru: '7 дней', en: '7 days', uk: '7 днів' },
+    lumen_tsclean_now_name: { ru: 'Очистить сейчас', en: 'Clean up now', uk: 'Очистити зараз' },
+    lumen_tsclean_now_descr: {
+      ru: 'Один проход автоочистки прямо сейчас — по сроку выше.',
+      en: 'Runs one auto-cleanup pass right now, using the term above.',
+      uk: 'Один прохід автоочищення просто зараз — за строком вище.'
+    },
+    lumen_tsclean_now_done: { ru: 'TorrServer: удалено раздач — {n}', en: 'TorrServer: torrents removed — {n}', uk: 'TorrServer: видалено роздач — {n}' },
+    lumen_tsclean_now_seeded: {
+      ru: 'TorrServer: раздачи запомнены, удалять пока нечего',
+      en: 'TorrServer: torrents remembered, nothing to remove yet',
+      uk: 'TorrServer: роздачі запам’ятовано, видаляти поки нічого'
+    },
+    lumen_tsclean_now_fail: {
+      ru: 'TorrServer не ответил — очистка не выполнена',
+      en: 'TorrServer did not respond — cleanup skipped',
+      uk: 'TorrServer не відповів — очищення не виконано'
     },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
@@ -1474,6 +1501,9 @@
       try { if (LC.tsclean) LC.tsclean.apply(); } catch (eTsclean) {}
       return true;
     }
+    /* Срок читается на каждом проходе; «Очистить сейчас» — кнопка
+       (onButtonFor). Применять на лету нечего. */
+    if (name === 'lumen_tsclean_days' || name === 'lumen_tsclean_now') return true;
     if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
       try { if (name === 'lumen_resume' && LC.resume && !LC.pref('lumen_resume', true)) LC.resume.cancel(); } catch (eResume) {}
       return true;
@@ -1961,6 +1991,9 @@
       else if (name === 'lumen_more') openMore();
       else if (name === 'lumen_debug_bench') {
         try { if (LC.bench) LC.bench.start(); } catch (e) { warn('bench start failed', e); }
+      }
+      else if (name === 'lumen_tsclean_now') {
+        try { if (LC.tsclean) LC.tsclean.runNow(); } catch (eTs) { warn('tsclean now failed', eTs); }
       }
     };
   }

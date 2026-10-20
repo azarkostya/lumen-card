@@ -338,6 +338,10 @@ test('каждая настройка применяется ровно один
     /* 1.3: «Автоочистка TorrServer» — включение заводит первый проход,
        выключение снимает таймер (src/66_tsclean.js, apply). */
     lumen_tsclean: ['tsclean'],
+    /* Срок читается на каждом проходе — применять нечего. «Очистить
+       сейчас» — кнопка (проверка нажатия ниже). */
+    lumen_tsclean_days: [],
+    lumen_tsclean_now: null,
     /* 1.0.2: «Ускорители пульта» — мини-карта и быстрое листание, одни и
        те же две подписки на клавиатуру Lampa. */
     lumen_remote_boost: ['nav'],
@@ -600,6 +604,22 @@ test('волна perf: кнопка «Отладка: тест производ�
   assert.equal(started, 1);
   assert.equal(JSON.stringify(env.storage), before, 'кнопка писала в Storage');
   assert.deepEqual(env.log, [], 'кнопка применила настройки');
+});
+
+/* «Очистить сейчас» — кнопка: нажатие зовёт LC.tsclean.runNow, в Storage
+   ничего не пишет и настроек не применяет. */
+test('tsclean: кнопка «Очистить сейчас» зовёт LC.tsclean.runNow, в Storage ничего', () => {
+  const env = setup();
+  let runs = 0;
+  env.LC.tsclean = { apply() { }, runNow: () => { runs++; } };
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const before = JSON.stringify(env.storage);
+  env.log.length = 0;
+  press(env, 'lumen_tsclean_now');
+  assert.equal(runs, 1);
+  assert.equal(JSON.stringify(env.storage), before);
+  assert.deepEqual(env.log, []);
 });
 
 /* 1.0.2: «Стиль» — select. Lampa пишет выбранное значение Storage.set (листенер
