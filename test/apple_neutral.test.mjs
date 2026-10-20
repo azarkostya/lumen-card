@@ -150,3 +150,44 @@ test('Apple TV: меню карточки (удержание OK) — отмет
   assert.ok(build(APPLE_PREFS).css.includes(rule));
   assert.ok(!build({}).css.includes(rule));
 });
+
+test('Apple TV: фокус кнопок карточки, чипов и строк «Торрентов» — заливка, подпись и тень с !important (тема «Neon»)', () => {
+  const apple = build(APPLE_PREFS).css;
+  const lumen = build({}).css;
+  const decl = (css, sel) => {
+    const at = css.indexOf(sel + '{');
+    assert.ok(at >= 0, sel);
+    return css.slice(at + sel.length + 1, css.indexOf('}', at));
+  };
+  const btn = '.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus';
+  const b = decl(apple, btn);
+  assert.match(b, /background-color:#FFFFFF !important/);
+  assert.match(b, /;color:#000000 !important/);
+  assert.match(b, /;box-shadow:0 \.44em \.96em rgba\(0,0,0,\.5\) !important/);
+  assert.match(b, /;transform:scale\(1\.04\)(;|$)/, 'масштаб без !important — его гасят «Лёгкие»');
+  const S = 'body.lumen-torrents-on .activity.lumen-torrents ';
+  const F = 'body.lumen-torrents-on .modal .torrent-files.torrent-files ';
+  const rows = [
+    S + '.torrent-filter .simple-button.focus',
+    S + '.torrent-list .torrent-item.focus',
+    S + '.watched-history.focus',
+    F + '.torrent-serial.focus,' + F + '.torrent-file.focus'
+  ];
+  /* Правило фокуса с заливкой (у строки в Apple TV есть и отдельное —
+     скругление и линия). */
+  const fillRule = (css, head) => {
+    for (let at = css.indexOf(head); at >= 0; at = css.indexOf(head, at + 1)) {
+      const body = css.slice(css.indexOf('{', at) + 1, css.indexOf('}', at));
+      if (body.indexOf('background-color:') >= 0) return body;
+    }
+    return null;
+  };
+  for (const head of rows) {
+    const body = fillRule(apple, head);
+    assert.ok(body, head);
+    assert.match(body, /background-color:#FFFFFF !important/, head);
+    assert.match(body, /;color:#000000 !important/, head);
+    assert.match(body, /;box-shadow:none !important/, head);
+    assert.equal(fillRule(lumen, head).indexOf('!important'), -1, 'Lumen без !important: ' + head);
+  }
+});

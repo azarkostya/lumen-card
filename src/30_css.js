@@ -7061,7 +7061,12 @@
       css.push('.lumen-hub.lumen-motion-full .lumen-tile,.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durA) + '}');
       css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideA) + ';' + V2_IMG_A + ';border-color:transparent;background:none;background-color:' + P.panel + '}');
       css.push('.lumen-card.lumen-motion-full .lumen-episode{' + V2_EP_TR(V2.durA) + '}');
-      css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{' + V2_TF(V2.buttonScaleA) + ';-webkit-box-shadow:' + V2.buttonShadowA + ';box-shadow:' + V2.buttonShadowA + '}');
+      /* Тема CUB «Neon» красит фокус кнопок своими правилами — заливка,
+         подпись и тень с !important (как у пунктов Select в
+         src/31_v2_dialogs.js); масштаб — без него: «Лёгкие» и «Выкл»
+         гасят его своими !important. Нажатие (.lumen-press) тяжелее на
+         класс и остаётся своим. */
+      css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{' + V2_TF(V2.buttonScaleA) + ';background-color:' + FILL + ' !important;color:' + P.bg + ' !important;-webkit-box-shadow:' + V2.buttonShadowA + ' !important;box-shadow:' + V2.buttonShadowA + ' !important}');
       css.push(ATV + ' .lumen-roulette__spin.focus{' + V2_TF(V2.buttonScaleA) + '}');
       css.push('.lumen-descr-row .full-descr__text{background:none}');
       css.push('.lumen-descr-row .full-descr__text.focus{background:' + V2.blockA + ';color:' + P.text + '}');
