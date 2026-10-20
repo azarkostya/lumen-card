@@ -388,7 +388,7 @@ test('волна 4: «Начало главной» — подборки по о
   const LC = loadStrings();
   assert.equal(LC.STRINGS.lumen_home_start_name.ru, 'Начало главной');
   assert.equal(LC.STRINGS.lumen_home_start_rotate.en, 'Rotating collections');
-  assert.equal(LC.STRINGS.lumen_home_start_history.uk, 'Спочатку «Досивитися»');
+  assert.equal(LC.STRINGS.lumen_home_start_history.uk, 'Спочатку «Додивитися»');
   assert.match(LC.STRINGS.lumen_home_start_descr.ru, /при каждом запуске Lampa/);
   assert.match(LC.STRINGS.lumen_home_start_descr.ru, /«Досмотреть» стоит вторым/);
 });

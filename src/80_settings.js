@@ -816,7 +816,7 @@
     lumen_row_continue: {
       ru: 'Досмотреть',
       en: 'Continue watching',
-      uk: 'Досивитися'
+      uk: 'Додивитися'
     },
     /* «Потому что вы смотрели» — базовая часть заголовка. Название фильма
        добавляется кодом: «Потому что вы смотрели «Дюна»». */
@@ -959,11 +959,11 @@
     lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
     lumen_posters_original: { ru: 'Английские', en: 'English', uk: 'Англійські' },
     lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
-    lumen_next_ep_badge_name: { ru: 'Серия в «Досмотреть»', en: 'Episode in "Continue watching"', uk: 'Серія в «Досивитися»' },
+    lumen_next_ep_badge_name: { ru: 'Серия в «Досмотреть»', en: 'Episode in "Continue watching"', uk: 'Серія в «Додивитися»' },
     lumen_next_ep_badge_descr: {
       ru: 'У сериала в ряду «Досмотреть» — серия вместо процента: «S2·E5» или «S2·E4 · 12 мин».',
       en: 'Series in "Continue watching" show the episode, not a percentage: "S2·E5", "S2·E4 · 12 min".',
-      uk: 'У серіалу в ряду «Досивитися» — серія замість відсотка: «S2·E5» або «S2·E4 · 12 хв».'
+      uk: 'У серіалу в ряду «Додивитися» — серія замість відсотка: «S2·E5» або «S2·E4 · 12 хв».'
     },
     lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
     lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
@@ -1048,17 +1048,17 @@
     lumen_personal_rows_descr: {
       ru: 'Ряды «Досмотреть», «Потому что вы смотрели», новые серии и релизы.',
       en: '"Continue watching", "Because you watched", "New episodes", "Coming soon", "New on digital"',
-      uk: '«Досивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
+      uk: '«Додивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
     },
     /* Волна 4 (ТВ 2026-09-24): начало главной — ротация рядов по эпохам
        (src/47_homeplan.js) или прежняя история сверху. */
     lumen_home_start_name: { ru: 'Начало главной', en: 'Top of the home screen', uk: 'Початок головної' },
     lumen_home_start_rotate: { ru: 'Подборки по очереди', en: 'Rotating collections', uk: 'Підбірки по черзі' },
-    lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Досивитися»' },
+    lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Додивитися»' },
     lumen_home_start_descr: {
       ru: 'Ряды меняются при каждом запуске Lampa, «Досмотреть» стоит вторым.',
       en: 'Rows change at every Lampa start, "Continue watching" second. Or your history on top.',
-      uk: 'Ряди змінюються з кожним запуском Lampa, «Досивитися» другим; або історія вгорі.'
+      uk: 'Ряди змінюються з кожним запуском Lampa, «Додивитися» другим; або історія вгорі.'
     },
 
     /* Task 19 (фаза 2): чипы профилей настроения на главной.
@@ -1162,7 +1162,7 @@
     lumen_resume_ttl_descr: {
       ru: 'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
       en: 'After this time the window will not appear — the title stays in "Continue watching".',
-      uk: 'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Досивитися».'
+      uk: 'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Додивитися».'
     },
     lumen_resume_ttl_suffix: { ru: 'ч', en: 'h', uk: 'год' },
     lumen_resume_title: { ru: 'Вернуться к просмотру?', en: 'Resume watching?', uk: 'Повернутися до перегляду?' },
@@ -1853,6 +1853,9 @@
 
   function kpRender(item) {
     maskKpValue(item);
+    /* Lampa после onRender пишет в строку сырое значение (update$3) — rAF
+       успевает до отрисовки кадра, setTimeout — запасной путь. */
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () { maskKpValue(item); });
     setTimeout(function () { maskKpValue(item); }, 0);
   }
 
