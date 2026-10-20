@@ -242,7 +242,8 @@
            full_start вместе с кнопками. Дорожка абсолютная — длинный ряд не
            раздувает ширину колонки (flex-фолбэк без grid). */
         '<div class="lumen-episodes hide">' +
-        '<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
+        /* v2, экран 37: .lumen-seasons — чипы сезонов (LC.header). */
+        '<div class="lumen-episodes__head"><div class="lumen-seasons hide"></div><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
         '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>' +
         '</div>' +
         '</div>' +

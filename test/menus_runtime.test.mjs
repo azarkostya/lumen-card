@@ -870,6 +870,44 @@ test('A6: данные Lampa не остаются изменёнными — co
   assert.ok(!data.lumen_metadata, 'след от подмены остался в данных Lampa');
 });
 
+/* v2, экран 37 (ревью Apple TV #5): штатный ряд серий Lampa — дубль нашего
+   ряда под кнопками. Тот же приём, что у рядов анализа: на 'start' поле
+   data.episodes снимается (Lampa кладёт ряд 'episodes', только если оно
+   есть — app.min.js:39661), на 'complite' возвращается. Модуль Start
+   строится по копии полей (props), поэтому наш ряд серии видит. */
+function serialData() {
+  return { movie: { id: 2, name: 'Пингвин', number_of_seasons: 1 }, episodes: { season_number: 1, episodes: [{ episode_number: 1, name: 'После часа' }] } };
+}
+
+test('v2 экран 37: штатный ряд серий сериала не создаётся, complite возвращает данные', () => {
+  const { LC, fulls } = setup({});
+  LC.cardinfo = { isSerial: (m) => !!(m.first_air_date || m.number_of_seasons || m.number_of_episodes || m.name) };
+  LC.init();
+  const data = serialData();
+  const eps = data.episodes;
+  fulls[0]({ type: 'start', body: EMPTY, data: data });
+  assert.equal(data.episodes, null, 'Lampa всё ещё построит свой ряд серий');
+  fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+  assert.equal(data.episodes, eps, 'серии не вернулись в данные карточки');
+  assert.ok(!data.lumen_episodes, 'след от подмены остался в данных Lampa');
+});
+
+test('v2 экран 37: фильм, пустой сезон и сезон без номеров серий — данные не трогаем', () => {
+  const { LC, fulls } = setup({});
+  LC.cardinfo = { isSerial: (m) => !!(m.first_air_date || m.number_of_seasons || m.number_of_episodes || m.name) };
+  LC.init();
+  const cases = [
+    { movie: { id: 3, title: 'Фильм' }, episodes: { episodes: [{ episode_number: 1 }] } },
+    { movie: { id: 2, name: 'Сериал', number_of_seasons: 1 }, episodes: { episodes: [] } },
+    { movie: { id: 2, name: 'Сериал', number_of_seasons: 1 }, episodes: { episodes: [{ name: 'Анонс' }] } }
+  ];
+  for (const data of cases) {
+    const eps = data.episodes;
+    fulls[0]({ type: 'start', body: EMPTY, data: data });
+    assert.equal(data.episodes, eps, JSON.stringify(data));
+  }
+});
+
 test('A6: карточка без анализа (сериал, не-русский язык, анализ не готов) ничего не ломает', () => {
   const { LC, fulls } = setup({ storage: { lumen_hide_meta: 'true' } });
   LC.init();
