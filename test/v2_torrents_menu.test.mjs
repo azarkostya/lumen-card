@@ -63,7 +63,8 @@ test('39: строки раздач — Lumen на подложке r14, Apple T
   assert.match(rule(apple, row), /background-color:transparent/);
   assert.match(apple, new RegExp(row.replace(/\./g, '\\.') + '\\{border-bottom:\\.044em solid rgba\\(255,255,255,\\.14\\)\\}'));
   assert.ok(lumen.includes(row + '.focus{background-color:#F3EDE4;color:#0B0908'));
-  assert.ok(apple.includes(row + '.focus{background-color:#FFFFFF;color:#000000'));
+  /* Apple TV: заливка и подпись с !important — тема CUB «Neon». */
+  assert.ok(apple.includes(row + '.focus{background-color:#FFFFFF !important;color:#000000 !important'));
   assert.match(lumen, /\.torrent-item\.focus::after\{display:none\}/);
 });
 

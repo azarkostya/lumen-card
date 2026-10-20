@@ -1080,8 +1080,14 @@
        вопрос destroy(): есть ли в таблице что снимать. */
     var applied_tint = false;
 
+    /* Стиль Apple TV (lumen_flat): theme() в src/30_css.js переопределение
+       фильма не читает — таблица одна и та же при любом цвете кадра. Значит
+       и сравнивать с applied надо акцент без переопределения, иначе каждое
+       открытие карточки (deep) пересобирало бы ~150 КБ стилей впустую. */
     function tokenColor() {
-      var t = override || themeTokens;
+      var flat = false;
+      try { flat = !!LC.pref('lumen_flat', false); } catch (e) { flat = false; }
+      var t = (flat ? null : override) || themeTokens;
       return t ? t.color : null;
     }
 

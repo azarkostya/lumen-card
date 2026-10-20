@@ -47,6 +47,10 @@
       var ROW_BG = A ? 'transparent' : P.panelHi;
       var LINE = A ? 'rgba(255,255,255,.14)' : P.line;
       var CHIP = A ? 'rgba(255,255,255,.16)' : 'rgba(' + P.textRgb + ',.12)';
+      /* Apple TV: заливка, подпись и тень фокуса чипов и строк — с
+         !important, иначе тема CUB «Neon» перекрывает их своими (как у
+         пунктов Select, src/31_v2_dialogs.js). Lumen — без изменений. */
+      var IMP = A ? ' !important' : '';
       var r = [];
 
       /* ================= 39 · Торренты ================= */
@@ -111,7 +115,7 @@
       for (var c = 0; c < chips.length; c++) chipsFocus.push(chips[c] + '.focus');
       r.push(s(chips) + '{height:2.28em;padding:0 1.052em;margin-right:.614em;border:0;border-radius:1.14em;background-color:' + CHIP + ';color:' + P.text + ';font-size:1.008em;font-weight:500;-webkit-box-shadow:none;box-shadow:none;-webkit-transform:none !important;transform:none !important}');
       r.push(s(['.torrent-filter .filter--search > div', '.torrent-filter .filter--sort > div']) + '{color:' + MUTED + ';border-left:0;font-weight:500}');
-      r.push(s(chipsFocus) + '{background-color:' + FILL + ';color:' + ON + ';-webkit-box-shadow:none;box-shadow:none}');
+      r.push(s(chipsFocus) + '{background-color:' + FILL + IMP + ';color:' + ON + IMP + ';-webkit-box-shadow:none' + IMP + ';box-shadow:none' + IMP + '}');
       r.push(s(['.torrent-filter .filter--search.focus > div', '.torrent-filter .filter--sort.focus > div']) + '{color:' + ON_SUB + '}');
       r.push(s(['.torrent-filter__title']) + '{display:none}');
 
@@ -127,7 +131,7 @@
       } else {
         r.push(s([row + ' + .torrent-item']) + '{margin-top:.526em}');
       }
-      r.push(s([row + '.focus']) + '{background-color:' + FILL + ';color:' + ON + ';border-color:transparent;padding:.75em ' + (A ? '1.052em' : '1.227em') + ';-webkit-box-shadow:none;box-shadow:none}');
+      r.push(s([row + '.focus']) + '{background-color:' + FILL + IMP + ';color:' + ON + IMP + ';border-color:transparent;padding:.75em ' + (A ? '1.052em' : '1.227em') + ';-webkit-box-shadow:none' + IMP + ';box-shadow:none' + IMP + '}');
       r.push(s([row + '.focus::after']) + '{display:none}');
       r.push(s([row + ' .torrent-item__title']) + '{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.008em;font-weight:500;line-height:1.35;color:' + P.text + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
       r.push(s([row + ' .lumen-tt-a']) + '{color:' + SOFT + '}');
@@ -175,7 +179,7 @@
       r.push(s([row + ' .torrent-item__viewed:before']) + '{width:.7em;height:.7em}');
       /* «Продолжить» / «Нет истории просмотра» — та же форма строки. */
       r.push(s(['.watched-history']) + '{margin:0 0 .526em;padding:.6em 1.227em;border:0;border-radius:.614em;background-color:' + (A ? CHIP : P.panelHi) + ';color:' + SOFT + ';-webkit-box-shadow:none;box-shadow:none}');
-      r.push(s(['.watched-history.focus']) + '{background-color:' + FILL + ';color:' + ON + ';padding:.6em 1.227em;border:0;-webkit-box-shadow:none;box-shadow:none}');
+      r.push(s(['.watched-history.focus']) + '{background-color:' + FILL + IMP + ';color:' + ON + IMP + ';padding:.6em 1.227em;border:0;-webkit-box-shadow:none' + IMP + ';box-shadow:none' + IMP + '}');
       r.push(s(['.watched-history.focus::after']) + '{display:none}');
       r.push(s(['.watched-history.focus .watched-history__icon']) + '{border-color:' + ON + ';color:' + ON + ';background:none}');
 
@@ -191,7 +195,7 @@
       r.push(f(['.torrent-serial', '.torrent-file']) + '{margin:0;border:0;border-radius:' + (A ? '0' : '.614em') + ';background-color:' + ROW_BG + ';-webkit-box-shadow:none;box-shadow:none}');
       if (A) r.push(f(['.torrent-serial', '.torrent-file']) + '{border-bottom:.044em solid ' + LINE + '}');
       else r.push(f(['.torrent-serial + .torrent-serial', '.torrent-file + .torrent-file', '.torrent-serial + .torrent-file', '.torrent-file + .torrent-serial']) + '{margin-top:.526em}');
-      r.push(f(['.torrent-serial.focus', '.torrent-file.focus']) + '{border-radius:.614em;border-color:transparent;background-color:' + FILL + ';color:' + ON + ';-webkit-box-shadow:none;box-shadow:none}');
+      r.push(f(['.torrent-serial.focus', '.torrent-file.focus']) + '{border-radius:.614em;border-color:transparent;background-color:' + FILL + IMP + ';color:' + ON + IMP + ';-webkit-box-shadow:none' + IMP + ';box-shadow:none' + IMP + '}');
       r.push(f(['.torrent-serial.focus::after', '.torrent-file.focus::after']) + '{display:none}');
       r.push(f(['.torrent-serial', '.torrent-serial.focus']) + '{-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:4.56em;padding:.6em ' + (A ? '1.052em' : '1.227em') + '}');
       r.push(f(['.torrent-serial__img']) + '{display:none}');
@@ -258,6 +262,10 @@
       r.push(m(['.selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + ON + ' !important}');
       r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + ON + ' !important}');
       r.push(m(['.selectbox-item--checked.focus .selectbox-item__checkbox::after']) + '{color:' + FILL + ' !important}');
+      /* Отметка выбранного пункта (галочка Lampa или маска пути TorrServer,
+         src/65_torrents.js — акцентом): в Apple TV белая. !important —
+         правила пути стоят в своём <style> после основного. */
+      if (A) r.push(m(['.selectbox-item.selected:not(.nomark)::after', '.selectbox-item.picked::after']) + '{color:#FFFFFF !important;border-color:#FFFFFF !important}');
       /* Замок — мелкий (20 px FHD), тихим цветом, у правого края. */
       r.push(m(['.selectbox-item__lock']) + '{right:.7em;margin-top:-.44em;opacity:1;color:' + MUTED + '}');
       r.push(m(['.selectbox-item__lock > svg']) + '{width:.877em !important;height:.877em !important}');

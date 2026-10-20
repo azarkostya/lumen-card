@@ -8007,7 +8007,10 @@ test('Task 63: медиазапросы таблицы — из известно
 /* выглядит хорошо, но менялся только дизайн стартовой».                   */
 /* ====================================================================== */
 
-const flatCss = withStorage({ lumen_flat: 'true' }, (LC) => LC.buildCss());
+/* Акцент — тот же, что у обычного вида (песок): без сохранённого акцента
+   плоский вид берёт графит (theme() в src/30_css.js), а здесь сверяется
+   только то, что плоский вид дописывает правила, а не меняет цвета. */
+const flatCss = withStorage({ lumen_flat: 'true', lumen_card_accent: 'sand' }, (LC) => LC.buildCss());
 
 /* Последнее правило для данного селектора: плоский вид стоит в конце сборки
    и берёт верх порядком, а не специфичностью, — значит проверять надо
@@ -9244,8 +9247,9 @@ test('v2, экран 33: кнопки — только заливка; Lumen б�
     assert.equal(declProp(l, 'box-shadow'), 'none', 'Lumen: акцентная полоса под кнопкой ' + sel);
     const a = effDecl(flatCss, sel);
     assert.equal(declProp(a, 'transform'), 'scale(1.04)', 'Apple TV: ×1.04 ' + sel);
-    assert.equal(declProp(a, 'box-shadow'), '0 .44em .96em rgba(0,0,0,.5)', 'Apple TV: тень кнопки ' + sel);
-    assert.equal(declProp(a, 'background-color'), '#FFFFFF', 'Apple TV: заливка белая ' + sel);
+    /* !important — против темы CUB «Neon». */
+    assert.equal(declProp(a, 'box-shadow'), '0 .44em .96em rgba(0,0,0,.5) !important', 'Apple TV: тень кнопки ' + sel);
+    assert.equal(declProp(a, 'background-color'), '#FFFFFF !important', 'Apple TV: заливка белая ' + sel);
   }
   /* В «Лёгких» масштаба у кнопок нет — правило «Лёгких» с !important. */
   assert.ok(/transform:none !important/.test(lastDecl(flatCss, '.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button.focus')));
@@ -9262,7 +9266,7 @@ test('v2, экран 33: кнопки — только заливка; Lumen б�
       /* Не заливка в v2: серия — картинка, описание Apple TV — блок .12. */
       if (sel === '.lumen-card .lumen-episode.focus' || sel === '.lumen-descr-row .full-descr__text.focus') continue;
       const d = effDecl(flatCss, sel);
-      assert.equal(declProp(d, 'background-color'), '#FFFFFF', 'Apple TV: заливка не белая у ' + sel);
+      assert.equal(declProp(d, 'background-color').replace(' !important', ''), '#FFFFFF', 'Apple TV: заливка не белая у ' + sel);
     }
   }
   assert.equal(css.indexOf('#FFFFFF}'), -1, 'белая заливка протекла в стиль Lumen');

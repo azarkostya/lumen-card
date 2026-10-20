@@ -681,6 +681,24 @@ test('accent: карточка с уже посчитанным на главн�
   });
 });
 
+/* Apple TV (lumen_flat): theme() цвет фильма не читает — открытие карточек
+   с разным цветом кадра и уход с них таблицу не пересобирают. */
+test('accent: Apple TV — карточки с разными цветами кадра не пересобирают таблицу', () => {
+  const dom = fakeDom({ datas: [pixels([{ r: 200, g: 120, b: 40, n: 256 }]), pixels([{ r: 40, g: 120, b: 200, n: 256 }])] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true', lumen_flat: 'true' } });
+    ctx.LC.accent.applyFor({ id: 1, poster_path: '/a.jpg' }, true);
+    dom.state.images[0].onload();
+    assert.ok(ctx.LC.accent.current(), 'цвет фильма посчитан');
+    const first = ctx.LC.accent.current().color;
+    ctx.LC.accent.applyFor({ id: 2, poster_path: '/b.jpg' }, true);
+    dom.state.images[1].onload();
+    assert.notEqual(ctx.LC.accent.current().color, first, 'у второго фильма другой цвет');
+    ctx.LC.accent.reset();
+    assert.equal(ctx.state.injects, 0, 'полной пересборки CSS нет');
+  });
+});
+
 test('accent: постера нет — переопределение снимается', () => {
   const dom = fakeDom({});
   withDom(dom, () => {
