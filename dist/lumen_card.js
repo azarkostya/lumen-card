@@ -1383,8 +1383,8 @@ css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;
 css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
 css.push('.lumen-card .lumen-progress__bar{width:100%;height:.18em;background:rgba('+P.textRgb+',0.16);border-radius:.09em;overflow:hidden;margin:.36em 0 0}');
 css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;border-radius:.09em;background:'+A+'}');
-css.push('.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
-css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play span{display:none}}');
+css.push('.lumen-card.lumen-continue .full-start-new__buttons .full-start__button.button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
+css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue .full-start-new__buttons .full-start__button.button--play span{display:none}}');
 css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.40em;overflow:visible}');
 css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;background:'+P.buttonBg+';color:'+P.text+';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:width .2s,padding .2s,background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
@@ -1410,8 +1410,9 @@ css.push('.lumen-card .lumen-stop.focus{background:'+P.text+';color:'+P.bg+';-we
 css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:'+EDGE+'em;z-index:6;font-family:'+FB+';font-size:1.01em;line-height:1;letter-spacing:.05em;color:'+P.text+';background:'+P.glass+';border:.04em solid rgba('+P.textRgb+',.2);border-radius:1.31em;padding:.44em .78em;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
 css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.95em;height:.95em;margin-right:.52em;background-color:'+A+';-webkit-mask-image:'+LC.icons.maskUrl('mute')+';mask-image:'+LC.icons.maskUrl('mute')+';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
-css.push('.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
-css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card.lumen-trailer-on .lumen-actions > .full-start-new__reactions,.lumen-card.lumen-trailer-on .lumen-actions > .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
+css.push('.lumen-card.lumen-trailer-on .lumen-actions > .lumen-episodes{-webkit-box-ordinal-group:2;-webkit-order:1;order:1}');
 css.push('.lumen-card .lumen-status--good:before{color:'+P.good+'}');
 css.push('.lumen-card .lumen-status--accent:before{color:'+A+'}');
 css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:'+P.smoke+'}');
@@ -2269,9 +2270,10 @@ css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .
 css.push('.lumen-card.lumen-trailer-on .lumen-stop,.lumen-card .lumen-franchise{margin-top:2.3em}');
 css.push('.lumen-card .lumen-franchise{height:2.8em;padding:0 1.4em;margin-right:.88em;border-radius:.53em}');
 css.push('.lumen-card .lumen-franchise span{font-size:1.1em}');
-css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in.lumen-actions{max-width:none;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
+css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in.lumen-actions{max-width:none}');
 css.push('.lumen-card .lumen-trailer-badge{top:auto;bottom:auto;top:-webkit-calc(100vh - '+TRAILER_HINT_UP+'em);top:calc(100vh - '+TRAILER_HINT_UP+'em);font-weight:500;letter-spacing:0;color:'+P.muted+';background:none;border:0;border-radius:0;padding:0}');
 css.push('.lumen-card .lumen-trailer-badge:before{display:none}');
+css.push('.lumen-card.lumen-has-episodes .lumen-trailer-badge{top:4.91em}');
 css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba('+P.bgRgb+',0.96) 0%,rgba('+P.bgRgb+',0.9) 34%,rgba('+P.bgRgb+',0.7) 55%,rgba('+P.bgRgb+',0) 85%)}');
 css.push('.lumen-backdrop .lumen-bg__trailer{top:0;bottom:0}');
 css.push('.lumen-backdrop .lumen-bg__trailer iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;-webkit-transform:translate(-50%,-50%) scale(1.12);transform:translate(-50%,-50%) scale(1.12)}');
@@ -2948,11 +2950,12 @@ if(APPLE){
 css.push('body .settings .settings-param,body .settings .settings-folder{-webkit-box-shadow:inset 0 -.04em 0 rgba(255,255,255,.1);box-shadow:inset 0 -.04em 0 rgba(255,255,255,.1)}');
 }
 var FOCUS='body .settings .settings-param.focus,body .settings .settings-folder.focus,body .settings .settings-param[data-name^="lumen_"].focus';
-css.push(FOCUS+'{background-color:'+FILL+';color:'+P.bg+';outline:0;-webkit-box-shadow:none;box-shadow:none}');
+css.push(FOCUS+'{background:'+FILL+' !important;color:'+P.bg+' !important;outline:0;-webkit-box-shadow:none;box-shadow:none}');
+css.push('body .settings .settings-param.focus:before,body .settings .settings-folder.focus:before{content:none !important;display:none !important}');
 css.push('body .settings .settings-param.focus .settings-param__name,body .settings .settings-folder.focus .settings-folder__name{font-weight:600}');
-css.push('body .settings .settings-param.focus .settings-param__value,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:'+P.bg+'}');
-css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:'+V2.sub+'}');
-css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:'+P.bg+';-webkit-filter:invert(1);filter:invert(1)}');
+css.push('body .settings .settings-param.focus .settings-param__value,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:'+P.bg+' !important}');
+css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:'+V2.sub+' !important}');
+css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:'+P.bg+';-webkit-filter:invert(1) !important;filter:invert(1) !important}');
 var MW='21.04em';
 var OPEN='body.menu--open:not(.light--version):not(.menu--always)';
 css.push('body:not(.light--version):not(.menu--always) .wrap__left{width:'+MW+';margin-left:-'+MW+'}');
@@ -29342,6 +29345,7 @@ found=isSerial(movie)
 ?LC.progress.serialProgress(movie,timelineView,utilsHash,episodes,new Date())
 :LC.progress.movieProgress(movie,timelineView,utilsHash);
 }
+if(root[0])root[0].lumenResume=found&&found.view&&found.season?{season:parseInt(found.season,10)||0,episode:parseInt(found.episode,10)||0}:null;
 if(!found||!found.view){
 setPlayLabel(root,'');
 return;
@@ -29935,8 +29939,12 @@ function upTarget(root){
 var nav=window.Navigator;
 if(!nav||typeof nav.getFocusedElement!=='function'||typeof nav.canmove!=='function')return null;
 var from=nav.getFocusedElement();
-if(!from||!$(from).hasClass('lumen-episode'))return null;
+if(!from||!($(from).hasClass('lumen-episode')||$(from).hasClass('lumen-season')))return null;
 if($(from).closest('.full-start-new')[0]!==root[0])return null;
+if($(from).hasClass('lumen-episode')){
+var chip=activeChip(root);
+if(chip)return chip;
+}
 if(nav.canmove('up'))return null;
 var box=root.find('.full-start-new__buttons')[0];
 if(!box||typeof box.querySelectorAll!=='function')return null;
@@ -29981,6 +29989,7 @@ var down=controller&&controller.down;
 if(typeof down!=='function')return;
 controller.down=function(){
 try{
+if(downStep(root))return;
 if(downToEpisodes(root))return;
 }catch(e){
 warn('episode down failed',e);
@@ -29989,6 +29998,57 @@ return down.apply(this,arguments);
 };
 }
 });
+}
+function activeChip(root){
+var box=root.find('.lumen-seasons');
+if(!box.length||box.hasClass('hide'))return null;
+var chip=box.find('.lumen-season--on.selector')[0];
+return chip&&chip.offsetParent?chip:null;
+}
+function resumeEpisode(root){
+var row=root.find('.lumen-episodes');
+var info=row.length?row[0].lumenEpisodes:null;
+if(!info||row.hasClass('hide')||!info.eps.length)return null;
+var pos=-1;
+var i;
+var resume=root[0].lumenResume;
+if(resume&&resume.season===info.season){
+for(i=0;i<info.eps.length;i++){
+if(info.eps[i].ep.episode_number===resume.episode){pos=i;break;}
+}
+}
+if(pos<0){
+for(i=info.from;i<=info.to;i++){
+if(info.nodes[i]&&info.nodes[i].hasClass('lumen-episode--watching')){pos=i;break;}
+}
+}
+if(pos<0){
+for(i=info.from;i<=info.to;i++){
+if(info.nodes[i]&&!info.nodes[i].hasClass('lumen-episode--watched')){pos=i;break;}
+}
+}
+if(pos<0)pos=info.from;
+if(!info.nodes[pos])slideWindow(info,pos);
+return info.nodes[pos]?info.nodes[pos][0]:null;
+}
+function downStep(root){
+var nav=window.Navigator;
+if(!nav||typeof nav.getFocusedElement!=='function')return false;
+if(!window.Lampa||!Lampa.Controller||typeof Lampa.Controller.collectionSet!=='function'||typeof Lampa.Controller.collectionFocus!=='function')return false;
+var from=nav.getFocusedElement();
+if(!from||$(from).closest('.full-start-new')[0]!==root[0])return false;
+var src=$(from);
+var fromSeason=src.hasClass('lumen-season');
+var fromButtons=!fromSeason&&(src.closest('.full-start-new__buttons',root[0]).length||src.hasClass('lumen-stop')||src.hasClass('lumen-franchise'));
+if(!fromSeason&&!fromButtons)return false;
+var row=root.find('.lumen-episodes');
+if(!row.length||!row[0].lumenEpisodes||row.hasClass('hide'))return false;
+if(root.hasClass('lumen-trailer-on')&&LC.trailer&&typeof LC.trailer.stopActive==='function')LC.trailer.stopActive();
+var target=(fromButtons?activeChip(root):null)||resumeEpisode(root);
+if(!target||!target.offsetParent)return false;
+Lampa.Controller.collectionSet(root);
+Lampa.Controller.collectionFocus(target,root);
+return nav.getFocusedElement()===target;
 }
 function downToEpisodes(root){
 var nav=window.Navigator;
