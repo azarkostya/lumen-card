@@ -5660,6 +5660,13 @@
        по-прежнему плавное. Подпись под постером — тем же условием ниже. */
     css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+    /* QA main: значки состояния Lampa (.card__icons — «смотрел» ▶, закладка,
+       «позже», лайк) штатно стоят плашкой по центру верха постера 1.8em и в
+       «Досмотреть» закрывали логотип на постере. На главной и в сетке —
+       мельче и в правом верхнем углу: он свободен (качество и тип сняты
+       выше и в сетке), левый верхний занят нашей меткой .lumen-badge. */
+    css.push('.lumen-main .card__icons,.lumen-grid .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+    css.push('.lumen-main .card__icon,.lumen-grid .card__icon{width:1.25em;height:1.25em}');
     /* A3: панель «Просмотрено …» на постере ряда — штатная, не наша. Её
        рисует компонент карточки Watched (vendor/lampa/app.min.js:21870): по
        'hover:focus hover:touch hover:hover' с задержкой 500 мс

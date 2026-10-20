@@ -9381,3 +9381,18 @@ test('ролик 2.39:1: наезд карточки и героя — max(шт�
     assert.ok(rule.indexOf(need) !== -1, 'нет ' + need + ': ' + rule);
   }
 });
+
+/* QA main: ▶ «смотрел» (.card__icons Lampa) в «Досмотреть» закрывал логотип
+   на постере — на главной и в сетке значки мельче и в правом верхнем углу. */
+test('QA main: значки состояния на постере главной и сетки — в правом верхнем углу, мельче штатных', () => {
+  const box = findDecl(css, (s) => s === '.lumen-main .card__icons');
+  assert.ok(box, 'правило .card__icons не найдено');
+  assert.equal(findDecl(css, (s) => s === '.lumen-grid .card__icons'), box);
+  assert.ok(/(^|;)left:auto/.test(box) && /(^|;)right:\.3em/.test(box) && /(^|;)top:\.3em/.test(box), box);
+  assert.ok(/(^|;)justify-content:flex-end/.test(box), box);
+  const icon = findDecl(css, (s) => s === '.lumen-main .card__icon');
+  const w = parseFloat(/(?:^|;)width:([\d.]+)em/.exec(icon)[1]);
+  assert.ok(w < 1.8, 'мельче штатных 1.8em: ' + icon);
+  /* Левый верхний угол — наша метка: не пересекаются. */
+  assert.ok(/(^|;)left:\.24em/.test(findDecl(css, (s) => s === '.lumen-main .lumen-badge')));
+});
