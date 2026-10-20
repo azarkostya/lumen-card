@@ -2645,6 +2645,74 @@ css.push(ATV+' .lumen-roulette.lumen-motion-full .lumen-roulette__ltitle,'+ATV+'
 return css.join('');
 }
 });
+/* ---- 31_v2_settings_menu.js ---- */
+LC.v2css=LC.v2css||[];
+LC.v2css.push({
+id:'settings-menu',
+order:41,
+build:function(ctx){
+var P=ctx.P;
+var APPLE=ctx.APPLE;
+var V2=ctx.V2;
+var css=[];
+var font=typeof LC.fontStack==='function'?LC.fontStack():'';
+var FF=font?'font-family:'+font+';':'';
+var FILL=APPLE?V2.fillA:P.text;
+var SUB=APPLE?'rgba(235,235,245,.64)':P.muted;
+var SECTION=APPLE?'rgba(235,235,245,.72)':P.soft;
+var PANEL=APPLE?'#1C1C1E':P.panel;
+var ICON=APPLE?'rgba(235,235,245,.72)':P.soft;
+var R='.61em';
+css.push('body .settings .settings__content{background:'+PANEL+';-webkit-backdrop-filter:none;backdrop-filter:none;'+FF+(APPLE?'':'-webkit-box-shadow:-1.05em 0 2.1em rgba(0,0,0,.35);box-shadow:-1.05em 0 2.1em rgba(0,0,0,.35)')+'}');
+css.push('@media screen and (min-width:768px){body .settings .settings__content{width:31.56em}}');
+css.push('body.settings--open .settings__layer{background:rgba('+P.bgRgb+',.55)}');
+css.push('body .settings .settings__head{padding:2.63em 3.51em .79em 2.63em}');
+css.push('body .settings .settings__title{font-size:1.67em;font-weight:700;line-height:1.2;color:'+P.text+'}');
+css.push('body .settings .settings__body .scroll__body{padding:0 3.51em .88em 1.75em}');
+css.push('body .settings .settings-param,body .settings .settings-folder{padding:.61em .88em;border-radius:'+R+';margin-bottom:.26em}');
+css.push('body .settings .settings-param{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline}');
+css.push('body .settings .settings-param > *{-webkit-flex-basis:100%;flex-basis:100%}');
+css.push('body .settings .settings-param__name{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;font-size:1.14em;font-weight:500;line-height:1.3;margin-bottom:0}');
+css.push('body .settings .settings-param__value{-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto;margin-left:.77em;max-width:100%;font-size:1.01em;line-height:1.3;text-align:right;word-wrap:break-word;overflow-wrap:break-word;color:'+SUB+'}');
+css.push('body .settings .settings-param__value:empty{display:none}');
+css.push('body .settings .settings-param__descr{opacity:1;margin-top:.17em;font-size:1.01em;line-height:1.3;color:'+SUB+'}');
+css.push('body .settings .settings-param-title{padding:.96em .88em .35em}');
+css.push('body .settings .settings-param-title > span{font-size:1.01em;font-weight:600;color:'+SECTION+'}');
+css.push('body .settings .settings-folder{min-height:3.33em;padding-top:0;padding-bottom:0;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('body .settings .settings-folder__icon,body .settings .settings-folder__icon > *{width:1.32em;height:1.32em}');
+css.push('body .settings .settings-folder__icon{margin-right:.88em;color:'+ICON+'}');
+css.push('body .settings .settings-folder__name{font-size:1.14em;font-weight:500;line-height:1.3}');
+if(APPLE){
+css.push('body .settings .settings-param,body .settings .settings-folder{-webkit-box-shadow:inset 0 -.04em 0 rgba(255,255,255,.1);box-shadow:inset 0 -.04em 0 rgba(255,255,255,.1)}');
+}
+var FOCUS='body .settings .settings-param.focus,body .settings .settings-folder.focus,body .settings .settings-param[data-name^="lumen_"].focus';
+css.push(FOCUS+'{background-color:'+FILL+';color:'+P.bg+';outline:0;-webkit-box-shadow:none;box-shadow:none}');
+css.push('body .settings .settings-param.focus .settings-param__name,body .settings .settings-folder.focus .settings-folder__name{font-weight:600}');
+css.push('body .settings .settings-param.focus .settings-param__value,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__value{opacity:1;color:'+P.bg+'}');
+css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:'+V2.sub+'}');
+css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:'+P.bg+';-webkit-filter:invert(1);filter:invert(1)}');
+var MW='21.04em';
+var OPEN='body.menu--open:not(.light--version):not(.menu--always)';
+css.push('body:not(.light--version):not(.menu--always) .wrap__left{width:'+MW+';margin-left:-'+MW+'}');
+css.push(OPEN+' .wrap__left,'+OPEN+' .wrap__content{-webkit-transform:translate3d('+MW+',0,0);transform:translate3d('+MW+',0,0)}');
+if(APPLE){
+css.push(OPEN+' .wrap__left:before{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;z-index:-1;pointer-events:none;background:-webkit-linear-gradient(left,#000 0%,rgba(0,0,0,.92) 25%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.35) 100%);background:linear-gradient(90deg,#000 0%,rgba(0,0,0,.92) 25%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.35) 100%)}');
+}else{
+css.push(OPEN+' .wrap__left:before{content:"";position:absolute;top:0;left:0;width:100%;height:100vh;z-index:-1;pointer-events:none;background:'+P.panel+';-webkit-box-shadow:1.05em 0 2.1em rgba(0,0,0,.35);box-shadow:1.05em 0 2.1em rgba(0,0,0,.35)}');
+}
+css.push('body .menu .menu__split{border-top:0;width:auto;margin:.7em 0}');
+css.push('body .menu .menu__list{padding-left:2.63em;padding-right:1.75em}');
+css.push('body .menu .menu__item{min-height:2.81em;padding:.35em .88em;border-radius:'+R+';'+FF+(APPLE?'color:rgba(235,235,245,.85)':'color:'+P.text)+'}');
+css.push('body .menu .menu__item + li{margin-top:.18em}');
+css.push('body .menu .menu__ico{width:1.23em;height:1.23em;margin-right:.88em;color:'+ICON+';stroke-width:2}');
+css.push('body .menu .menu__ico > svg,body .menu .menu__ico > img,body .menu .menu__ico .lumen-ico{width:1.23em;height:1.23em}');
+css.push('body .menu .menu__text{font-size:1.14em;font-weight:500;line-height:1.2;margin-top:0}');
+css.push('body .menu .menu__item.focus,body .menu .menu__item.hover,body .menu .menu__item.traverse{background-color:'+FILL+';color:'+P.bg+'}');
+css.push('body .menu .menu__item.focus .menu__ico,body .menu .menu__item.hover .menu__ico,body .menu .menu__item.traverse .menu__ico{color:'+P.bg+'}');
+css.push('body .menu .menu__item.focus .menu__text,body .menu .menu__item.hover .menu__text{font-weight:600}');
+return css.join('\n');
+}
+});
 /* ---- 35_cardinfo.js ---- */
 LC.cardinfo=(function(){
 var COUNTRY_NAMES={
@@ -26237,9 +26305,9 @@ uk:'Lumen Card: версія Lampa не підтримується'
 },
 lumen_card_enabled_name:{ru:'Включить Lumen Card',en:'Enable Lumen Card',uk:'Увімкнути Lumen Card'},
 lumen_card_enabled_descr:{
-ru:'Выключите — вернётся штатная карточка Lampa. Открытая карточка перерисуется при следующем открытии.',
-en:'Turn off to get the stock Lampa card back. An open card is redrawn the next time you open it.',
-uk:'Вимкніть — повернеться штатна картка Lampa. Відкрита картка перемалюється при наступному відкритті.'
+ru:'Выключите — вернётся штатная карточка Lampa. Действует со следующего открытия.',
+en:'Turn off to get the stock Lampa card back. Takes effect on the next card you open.',
+uk:'Вимкніть — повернеться штатна картка Lampa. Діє з наступного відкриття.'
 },
 lumen_group_look:{ru:'Внешний вид',en:'Look',uk:'Зовнішній вигляд'},
 lumen_group_card:{ru:'Карточка фильма',en:'Film card',uk:'Картка фільму'},
@@ -26287,9 +26355,9 @@ en:'Background colour from the film',
 uk:'Колір тла від кадру'
 },
 lumen_accent_auto_descr:{
-ru:'Фон главной и карточки подкрашивается в цвет постера фильма. Выключите — останется «Акцентный цвет».',
-en:'The home and card background takes on the colour of the film poster. Turn it off to keep the "Accent color".',
-uk:'Тло головної та картки підфарбовується в колір постера фільму. Вимкніть — лишиться «Акцентний колір».'
+ru:'Фон главной и карточки — в цвет постера. Выключите — останется «Акцентный цвет».',
+en:'Home and card background take the poster colour. Off keeps the "Accent color".',
+uk:'Тло головної та картки — в колір постера. Вимкніть — лишиться «Акцентний колір».'
 },
 lumen_accent_scope_name:{
 ru:'Где виден цвет кадра',
@@ -26297,23 +26365,23 @@ en:'Where the film colour shows',
 uk:'Де видно колір кадру'
 },
 lumen_accent_scope_descr:{
-ru:'«Только фон» — карточка под фокусом остаётся нейтральной. Действует, когда включён «Цвет фона от кадра».',
-en:'"Background only" keeps the focused card neutral. Works while "Background colour from the film" is on.',
-uk:'«Лише тло» — картка під фокусом лишається нейтральною. Діє, коли ввімкнено «Колір тла від кадру».'
+ru:'«Только фон» — карточка в фокусе нейтральна. Нужен включённый «Цвет фона от кадра».',
+en:'"Background only": focused card stays neutral. Needs "Background colour from the film".',
+uk:'«Лише тло» — картка у фокусі нейтральна. Потрібен увімкнений «Колір тла від кадру».'
 },
 lumen_accent_scope_full:{ru:'Везде',en:'Everywhere',uk:'Скрізь'},
 lumen_accent_scope_veil:{ru:'Только фон',en:'Background only',uk:'Лише тло'},
 lumen_fx_name:{ru:'Праздничные эффекты',en:'Holiday effects',uk:'Святкові ефекти'},
 lumen_fx_descr:{
-ru:'На Новый год (1 декабря — 7 января) — снег и гирлянда, в неделю до Хэллоуина — угли и летучие мыши. На главной и в карточках праздничных фильмов.',
-en:'For New Year (1 December – 7 January) snow and a garland, in the week before Halloween embers and bats. On the home screen and on holiday films.',
-uk:'На Новий рік (1 грудня — 7 січня) — сніг і гірлянда, тиждень до Гелловіну — жаринки й кажани. На головній і в картках святкових фільмів.'
+ru:'Новый год (1 декабря — 7 января): снег и гирлянда; неделя до Хэллоуина: угли и мыши.',
+en:'New Year (1 December – 7 January): snow and garland; before Halloween: embers and bats.',
+uk:'Новий рік (1 грудня — 7 січня): сніг і гірлянда; тиждень до Гелловіну: жаринки, кажани.'
 },
 lumen_ambient_name:{ru:'Заставка из кадров',en:'Frame screensaver',uk:'Заставка з кадрів'},
 lumen_ambient_descr:{
-ru:'Вместо заставки Lampa — кадры из фильмов с названием и часами. Работает, когда заставка самой Lampa выключена в её настройках.',
-en:'Film stills with the title and a clock instead of the Lampa screensaver. Works while the Lampa screensaver itself is off in its settings.',
-uk:'Замість заставки Lampa — кадри з фільмів із назвою та годинником. Працює, коли заставку самої Lampa вимкнено в її налаштуваннях.'
+ru:'Кадры из фильмов с названием и часами — вместо заставки Lampa, если та выключена.',
+en:'Film stills with the title and a clock instead of the Lampa screensaver, when it is off.',
+uk:'Кадри з фільмів із назвою та годинником — замість заставки Lampa, якщо її вимкнено.'
 },
 lumen_ambient_source_name:{
 ru:'Заставка: какие кадры',
@@ -26321,9 +26389,9 @@ en:'Screensaver: which stills',
 uk:'Заставка: які кадри'
 },
 lumen_ambient_source_descr:{
-ru:'«Известные фильмы» — отобранные кадры из каталога плагина. «Кадры открытого фильма» — кадры карточки, оставшейся на экране.',
-en:'"Famous films" are curated stills from the plugin catalog. "Stills of the open film" are the frames of the card left on screen.',
-uk:'«Відомі фільми» — дібрані кадри з каталогу плагіна. «Кадри відкритого фільму» — кадри картки, що лишилася на екрані.'
+ru:'«Известные фильмы» — кадры из каталога плагина, иначе — кадры открытой карточки.',
+en:'"Famous films": curated stills from the catalog; otherwise stills of the open card.',
+uk:'«Відомі фільми» — кадри з каталогу плагіна, інакше — кадри відкритої картки.'
 },
 lumen_ambient_source_curated:{ru:'Известные фильмы',en:'Famous films',uk:'Відомі фільми'},
 lumen_ambient_source_current:{ru:'Кадры открытого фильма',en:'Stills of the open film',uk:'Кадри відкритого фільму'},
@@ -26395,21 +26463,21 @@ lumen_theme_warm:{ru:'Тёплая тёмная',en:'Warm dark',uk:'Тепла �
 lumen_theme_black:{ru:'Глубокая чёрная',en:'Deep black',uk:'Глибока чорна'},
 lumen_solid_name:{ru:'Без прозрачности',en:'No transparency',uk:'Без прозорості'},
 lumen_solid_descr:{
-ru:'Кнопки и подложки без просвечивания и размытия. Включите, если картинка мылит или тормозит.',
-en:'Buttons and panels without show-through and blur. Turn on if the picture looks smeared or stutters.',
-uk:'Кнопки й підкладки без просвічування та розмиття. Увімкніть, якщо картинка мулиться або гальмує.'
+ru:'Кнопки и подложки без просвечивания. Включите, если картинка мылит или тормозит.',
+en:'Buttons and panels without show-through. Turn on if the picture smears or stutters.',
+uk:'Кнопки й підкладки без просвічування. Увімкніть, якщо картинка мулиться або гальмує.'
 },
 lumen_flat_name:{ru:'Плоский вид',en:'Flat look',uk:'Плаский вигляд'},
 lumen_flat_descr:{
-ru:'Содержимое лежит прямо на фоне, без коробок и рамок: карточка, отзывы, серии, экраны торрентов. «Что посмотреть» — в виде Apple TV. Фокус — подъём и тень без рамки, заливка белая.',
-en:'Content sits right on the background, without boxes and frames: the card, reviews, episodes, torrent screens. "What to watch" gets the Apple TV layout. Focus lifts with a shadow, no frame, white fill.',
-uk:'Вміст лежить просто на тлі, без коробок і рамок: картка, відгуки, серії, екрани торентів. «Що подивитися» — у вигляді Apple TV. Фокус — підйом і тінь без рамки, заливка біла.'
+ru:'Без коробок и рамок: карточка, отзывы, серии, экраны торрентов. Фокус — подъём и тень.',
+en:'No boxes or frames on the card, reviews, episodes and torrent screens; focus lifts.',
+uk:'Без коробок і рамок: картка, відгуки, серії, екрани торентів. Фокус — підйом і тінь.'
 },
 lumen_scale_name:{ru:'Масштаб интерфейса',en:'Interface scale',uk:'Масштаб інтерфейсу'},
 lumen_scale_descr:{
-ru:'Размер текста и блоков на экранах плагина. Ряды главной растут, только пока помещаются под кадром: при «Кадр над рядами» — «Крупный» большие значения могут их не менять.',
-en:'The size of text and blocks on the plugin screens. Home rows grow only while they fit under the hero: with "Hero over the rows" set to "Large", the bigger values may not change them.',
-uk:'Розмір тексту та блоків на екранах плагіна. Ряди головної ростуть, лише доки вміщуються під кадром: при «Кадр над рядами» — «Великий» більші значення можуть їх не змінювати.'
+ru:'Размер текста и блоков плагина. При «Кадр над рядами» — «Крупный» ряды могут не расти.',
+en:'Size of plugin text and blocks. With "Hero over the rows" at "Large", rows may not grow.',
+uk:'Розмір тексту й блоків плагіна. При «Кадр над рядами» — «Великий» ряди можуть не рости.'
 },
 lumen_scale_small:{ru:'Мельче',en:'Smaller',uk:'Дрібніше'},
 lumen_scale_normal:{ru:'Обычный',en:'Normal',uk:'Звичайний'},
@@ -26417,21 +26485,21 @@ lumen_scale_large:{ru:'Крупнее',en:'Larger',uk:'Більше'},
 lumen_scale_huge:{ru:'Ещё крупнее',en:'Largest',uk:'Ще більше'},
 lumen_card_logo_name:{ru:'Логотип в карточке',en:'Logo on the card',uk:'Логотип у картці'},
 lumen_card_logo_descr:{
-ru:'Название фильма — его логотипом, а не текстом. Если логотипа на вашем языке нет, берётся английский.',
-en:'The film title as its logo instead of text. If there is no logo in your language, the English one is used.',
-uk:'Назва фільму — його логотипом, а не текстом. Якщо логотипа вашою мовою немає, береться англійський.'
+ru:'Название фильма — логотипом, а не текстом. Нет логотипа на вашем языке — английский.',
+en:'The film title as its logo, not text. No logo in your language — the English one.',
+uk:'Назва фільму — логотипом, а не текстом. Немає логотипа вашою мовою — англійський.'
 },
 lumen_card_progress_name:{ru:'Показывать «Продолжить»',en:'Show "Continue"',uk:'Показувати «Продовжити»'},
 lumen_card_progress_descr:{
-ru:'Полоса просмотра в карточке, «Продолжить S2 E3» на кнопке «Смотреть» и отметки просмотра у серий.',
-en:'The progress bar on the card, "Continue S2 E3" on the Watch button and watched marks on episodes.',
-uk:'Смуга перегляду в картці, «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в серій.'
+ru:'Полоса просмотра, «Продолжить S2 E3» на кнопке «Смотреть» и отметки у серий.',
+en:'The progress bar, "Continue S2 E3" on the Watch button and watched marks on episodes.',
+uk:'Смуга перегляду, «Продовжити S2 E3» на кнопці «Дивитися» та позначки в серій.'
 },
 lumen_card_font_name:{ru:'Шрифт',en:'Font',uk:'Шрифт'},
 lumen_card_font_descr:{
-ru:'Шрифт экранов плагина. Грузится из интернета (Google Fonts); если не загрузился — вид не изменится.',
-en:'The font of the plugin screens. It loads from the internet (Google Fonts); if it fails to load, nothing changes.',
-uk:'Шрифт екранів плагіна. Вантажиться з інтернету (Google Fonts); якщо не завантажився — вигляд не зміниться.'
+ru:'Шрифт экранов плагина, грузится из интернета; если не загрузился — вид не изменится.',
+en:'Loads from the internet (Google Fonts); if it fails to load, nothing changes.',
+uk:'Шрифт екранів плагіна, з інтернету; якщо не завантажився — вигляд не зміниться.'
 },
 lumen_card_font_system:{ru:'Как в Lampa',en:'As in Lampa',uk:'Як у Lampa'},
 lumen_card_font_golos:{ru:'Golos Text',en:'Golos Text',uk:'Golos Text'},
@@ -26441,9 +26509,9 @@ lumen_card_font_inter:{ru:'Inter',en:'Inter',uk:'Inter'},
 lumen_card_font_plex:{ru:'IBM Plex Sans',en:'IBM Plex Sans',uk:'IBM Plex Sans'},
 lumen_card_motion:{ru:'Анимации',en:'Animations',uk:'Анімації'},
 lumen_card_motion_descr:{
-ru:'«Авто» подбирает режим под устройство: на слабых приставках начинает с лёгких анимаций и включает полные, если приставка справляется. «Лёгкие» — без плавных переходов. «Выкл» — без движения: кадры не сменяются, трейлеров нет.',
-en:'"Auto" picks the mode for the device: on weak TV boxes it starts with light animations and turns on full ones if the box keeps up. "Light" drops smooth transitions. "Off" stops all motion: stills do not change and no trailers play.',
-uk:'«Авто» добирає режим під пристрій: на слабких приставках починає з легких анімацій і вмикає повні, якщо приставка справляється. «Легкі» — без плавних переходів. «Викл» — без руху: кадри не змінюються, трейлерів немає.'
+ru:'«Авто» — под устройство, «Лёгкие» — без переходов, «Выкл» — без движения.',
+en:'"Auto" picks the mode for the device. "Light" drops transitions, "Off" stops all motion.',
+uk:'«Авто» добирає режим під пристрій. «Легкі» — без переходів, «Викл» — без руху.'
 },
 lumen_card_motion_auto:{ru:'Авто',en:'Auto',uk:'Авто'},
 lumen_card_motion_full:{ru:'Полные',en:'Full',uk:'Повні'},
@@ -26455,9 +26523,9 @@ en:'Smooth still changes and zoom',
 uk:'Плавна зміна кадрів і наїзд'
 },
 lumen_fx_heavy_descr:{
-ru:'Кадры сменяются плавно, а камера медленно наезжает. Только при полных анимациях; на телевизоре по умолчанию выключено.',
-en:'Stills change smoothly and the camera slowly zooms in. Only with full animations; off by default on a TV.',
-uk:'Кадри змінюються плавно, а камера повільно наїжджає. Лише за повних анімацій; на телевізорі за замовчуванням вимкнено.'
+ru:'Плавная смена кадров и медленный наезд камеры. Только при полных анимациях.',
+en:'Smooth still changes and a slow camera zoom. Only with full animations.',
+uk:'Плавна зміна кадрів і повільний наїзд камери. Лише за повних анімацій.'
 },
 lumen_debug_hud_name:{ru:'Показать FPS',en:'Show FPS',uk:'Показати FPS'},
 lumen_debug_hud_descr:{
@@ -26467,15 +26535,15 @@ uk:'Рядок із частотою кадрів і замірами в кут�
 },
 lumen_debug_bench_name:{ru:'Тест производительности',en:'Performance test',uk:'Тест продуктивності'},
 lumen_debug_bench_descr:{
-ru:'Чуть больше минуты гоняет главную по девяти стадиям и показывает таблицу — сфотографируйте её. Запускайте с главной; любая кнопка прерывает тест, настройки не меняются.',
-en:'Runs the home screen through nine stages for a little over a minute and shows a table — take a photo of it. Start from the home screen; any key stops the test, settings stay as they are.',
-uk:'Трохи більше хвилини ганяє головну через дев’ять стадій і показує таблицю — сфотографуйте її. Запускайте з головної; будь-яка кнопка перериває тест, налаштування не змінюються.'
+ru:'Минуту гоняет главную по девяти стадиям и показывает таблицу. Любая кнопка — стоп.',
+en:'Runs the home screen through nine stages for a minute and shows a table. Any key stops.',
+uk:'Хвилину ганяє головну через дев’ять стадій і показує таблицю. Будь-яка кнопка — стоп.'
 },
 lumen_rowmem_name:{ru:'Сон дальних рядов',en:'Sleep for far rows',uk:'Сон дальніх рядів'},
 lumen_rowmem_descr:{
-ru:'Ряды главной далеко от фокуса перестают рисоваться — меньше памяти в долгом сеансе. Выключите, если при прокрутке видите пустые полосы.',
-en:'Home rows far from focus stop being drawn — less memory in a long session. Turn it off if you see empty strips while scrolling.',
-uk:'Ряди головної далеко від фокуса перестають малюватися — менше пам’яті в довгому сеансі. Вимкніть, якщо під час гортання бачите порожні смуги.'
+ru:'Дальние от фокуса ряды не рисуются — меньше памяти. Выключите, если видны пустые полосы.',
+en:'Rows far from focus are not drawn — less memory. Turn off if you see empty strips.',
+uk:'Далекі від фокуса ряди не малюються — менше пам’яті. Вимкніть, якщо видно порожні смуги.'
 },
 lumen_rowmem_bytes_name:{
 ru:'Отпускать постеры дальних рядов',
@@ -26483,9 +26551,9 @@ en:'Release posters of far rows',
 uk:'Відпускати постери дальніх рядів'
 },
 lumen_rowmem_bytes_descr:{
-ru:'Спящие ряды ещё и выгружают постеры, а у фокуса загружают снова: памяти меньше, запросов больше. Только вместе со «Сном дальних рядов».',
-en:'Sleeping rows also unload their posters and load them again near focus: less memory, more requests. Only together with "Sleep for far rows".',
-uk:'Сплячі ряди ще й вивантажують постери, а біля фокуса завантажують знову: пам’яті менше, запитів більше. Лише разом зі «Сном дальніх рядів».'
+ru:'Спящие ряды выгружают постеры: меньше памяти, больше запросов.',
+en:'Sleeping rows unload posters: less memory, more requests. Only with "Sleep for far rows".',
+uk:'Сплячі ряди вивантажують постери: менше пам’яті, більше запитів. Зі «Сном дальніх рядів».'
 },
 lumen_netmem_name:{
 ru:'Отпускать запросы экранов',
@@ -26493,15 +26561,15 @@ en:'Release screen requests',
 uk:'Відпускати запити екранів'
 },
 lumen_netmem_descr:{
-ru:'Закрытые карточки и подборки не остаются в памяти после ответа сервера. Действует со следующего запуска Lampa.',
-en:'Closed cards and collections do not stay in memory after the server answers. Takes effect on the next Lampa start.',
-uk:'Закриті картки й підбірки не лишаються в пам’яті після відповіді сервера. Діє з наступного запуску Lampa.'
+ru:'Закрытые карточки и подборки не держатся в памяти. Со следующего запуска Lampa.',
+en:'Closed cards and collections do not stay in memory. From the next Lampa start.',
+uk:'Закриті картки й підбірки не тримаються в пам’яті. З наступного запуску Lampa.'
 },
 lumen_prefill_name:{ru:'Достройка рядов',en:'Build rows ahead',uk:'Добудова рядів'},
 lumen_prefill_descr:{
-ru:'Пока пульт молчит, карточки рядов главной дорисовываются заранее — прокрутка потом не подтормаживает.',
-en:'While the remote is idle, home row cards are built in advance so scrolling does not stutter later.',
-uk:'Поки пульт мовчить, картки рядів головної домальовуються заздалегідь — гортання потім не гальмує.'
+ru:'Пока пульт молчит, ряды дорисовываются заранее — прокрутка не тормозит.',
+en:'While the remote is idle, row cards are built in advance so scrolling does not stutter.',
+uk:'Поки пульт мовчить, ряди домальовуються заздалегідь — гортання не гальмує.'
 },
 lumen_bench_need_home:{
 ru:'Тест производительности запускается с главной: откройте главную и нажмите кнопку снова',
@@ -26556,30 +26624,30 @@ uk:'Скільки секунд тримається один кадр — у к
 lumen_card_seconds:{ru:'с',en:'s',uk:'с'},
 lumen_card_menus:{ru:'Оформление меню и окон',en:'Menus and dialogs style',uk:'Оформлення меню і вікон'},
 lumen_card_menus_descr:{
-ru:'«Только путь до плеера» — окна выбора озвучки, качества, серии и раздачи; «Все меню и окна» — и остальные окна Lampa. Меняется только вид.',
-en:'"Player path only" covers the voice-over, quality, episode and torrent dialogs; "All menus and dialogs" adds the other Lampa dialogs. Only the look changes.',
-uk:'«Лише шлях до плеєра» — вікна вибору озвучення, якості, серії та роздачі; «Усі меню і вікна» — і решта вікон Lampa. Змінюється лише вигляд.'
+ru:'«Только путь до плеера» — озвучка, качество, серия, раздача; «Все меню и окна» — все.',
+en:'"Player path only": voice-over, quality, episode, torrent; "All menus and dialogs": all.',
+uk:'«Лише шлях до плеєра» — озвучення, якість, серія, роздача; «Усі меню і вікна» — усі.'
 },
 lumen_card_menus_all:{ru:'Все меню и окна',en:'All menus and dialogs',uk:'Усі меню і вікна'},
 lumen_card_menus_path:{ru:'Только путь до плеера',en:'Player path only',uk:'Лише шлях до плеєра'},
 lumen_card_menus_off:{ru:'Выкл',en:'Off',uk:'Викл'},
 lumen_card_torrents_name:{ru:'Оформление торрентов',en:'Torrents style',uk:'Оформлення торентів'},
 lumen_card_torrents_descr:{
-ru:'Список раздач, окна подключения и ошибок, списки файлов и предзагрузка — в стиле карточки.',
+ru:'Список раздач, окна подключения и ошибок, файлы и предзагрузка — в стиле карточки.',
 en:'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
-uk:'Список роздач, вікна підключення та помилок, списки файлів і передзавантаження — у стилі картки.'
+uk:'Список роздач, вікна підключення й помилок, файли та передзавантаження — у стилі картки.'
 },
 lumen_tsclean_name:{ru:'Автоочистка TorrServer',en:'TorrServer auto-cleanup',uk:'Автоочищення TorrServer'},
 lumen_tsclean_descr:{
-ru:'Убирает из TorrServer раздачи, которые не открывали из Lampa больше суток. Просмотр прямо в приложении TorrServe не учитывается. Идущие не трогает.',
-en:'Removes torrents from TorrServer not opened from Lampa for over a day. Watching directly in the TorrServe app does not count. Active ones are kept.',
-uk:'Прибирає з TorrServer роздачі, які не відкривали з Lampa понад добу. Перегляд просто в застосунку TorrServe не враховується. Активні не чіпає.'
+ru:'Убирает из TorrServer раздачи, не открытые из Lampa больше суток. Идущие не трогает.',
+en:'Removes TorrServer torrents not opened from Lampa for over a day. Active ones are kept.',
+uk:'Прибирає з TorrServer роздачі, не відкриті з Lampa понад добу. Активні не чіпає.'
 },
 lumen_card_trailer:{ru:'Трейлер в карточке',en:'Trailer on the card',uk:'Трейлер у картці'},
 lumen_card_trailer_descr:{
-ru:'Трейлер без звука через 3 секунды после открытия карточки. «Авто» — выключен на Tizen и webOS.',
+ru:'Трейлер без звука через 3 секунды. «Авто» — выключен на Tizen и webOS.',
 en:'A muted trailer 3 seconds after the card opens. "Auto" is off on Tizen and webOS.',
-uk:'Трейлер без звуку через 3 секунди після відкриття картки. «Авто» — вимкнено на Tizen і webOS.'
+uk:'Трейлер без звуку через 3 секунди після відкриття. «Авто» — вимкнено на Tizen і webOS.'
 },
 lumen_card_trailer_auto:{ru:'Авто',en:'Auto',uk:'Авто'},
 lumen_card_trailer_on:{ru:'Вкл',en:'On',uk:'Увімк'},
@@ -26600,9 +26668,9 @@ lumen_card_kp_key:{ru:'Ключ Kinopoisk API',en:'Kinopoisk API key',uk:'Клю
 lumen_pref_unset:{ru:'Не задан',en:'Not set',uk:'Не задано'},
 lumen_pref_default_catalog:{ru:'Каталог плагина',en:'Plugin catalog',uk:'Каталог плагіна'},
 lumen_card_kp_key_descr:{
-ru:'Нужен для отзывов и рейтинга КП. Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
-en:'Needed for reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 500 requests a day',
-uk:'Потрібен для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
+ru:'Для отзывов и рейтинга КП. Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
+en:'For reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 500 requests a day',
+uk:'Для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів/день'
 },
 lumen_card_reviews_title:{ru:'Отзывы зрителей',en:'Viewer reviews',uk:'Відгуки глядачів'},
 lumen_card_reviews_src:{ru:'Кинопоиск',en:'Kinopoisk',uk:'Кінопошук'},
@@ -26666,9 +26734,9 @@ en:'Custom collections catalog',
 uk:'Свій каталог підбірок'
 },
 lumen_manifest_url_descr:{
-ru:'Адрес своего каталога подборок (файл JSON). Пусто — каталог плагина из интернета; без сети — встроенный список.',
-en:'The address of your own collections catalog (a JSON file). Empty — the plugin catalog from the internet; offline — the built-in list.',
-uk:'Адреса свого каталогу підбірок (файл JSON). Порожньо — каталог плагіна з інтернету; без мережі — вбудований список.'
+ru:'Адрес своего каталога подборок (JSON). Пусто — каталог плагина, без сети — встроенный.',
+en:'Your own collections catalog (JSON). Empty: the plugin catalog; offline: the built-in one.',
+uk:'Свій каталог підбірок (JSON). Порожньо — каталог плагіна; офлайн — вбудований.'
 },
 lumen_kp_hint_hide:{
 ru:'Скрыть',
@@ -26681,9 +26749,9 @@ en:'Hide the Lampa analysis blocks',
 uk:'Ховати блоки аналізу Lampa'
 },
 lumen_hide_meta_descr:{
-ru:'Убирает с карточки ряды «Метаданные» и «Настроения» — это блоки самой Lampa. Действует со следующего открытия карточки.',
-en:'Removes the "Metadata" and "Moods" rows from the card — these are Lampa own blocks. Takes effect the next time you open a card.',
-uk:'Прибирає з картки ряди «Метадані» та «Настрої» — це блоки самої Lampa. Діє з наступного відкриття картки.'
+ru:'Скрывает блоки самой Lampa со следующего открытия карточки.',
+en:'Hides "Metadata" and "Moods", Lampa own blocks, from the next time you open a card.',
+uk:'Ховає «Метадані» й «Настрої» — блоки самої Lampa — з наступного відкриття картки.'
 },
 lumen_group_home:{
 ru:'Главная',
@@ -26702,9 +26770,9 @@ en:'Which collections to show',
 uk:'Які підбірки показувати'
 },
 lumen_home_rows_descr:{
-ru:'Отметьте подборки для главной. Если не отмечено ничего — показывается набор по умолчанию.',
+ru:'Подборки для главной. Ничего не отмечено — набор по умолчанию.',
 en:'Tick the collections for the home screen. With nothing ticked the default set is shown.',
-uk:'Позначте підбірки для головної. Якщо не позначено нічого — показується набір за замовчуванням.'
+uk:'Підбірки для головної. Нічого не позначено — набір за замовчуванням.'
 },
 lumen_home_rows_select:{
 ru:'Ряды подборок на главной',
@@ -26714,9 +26782,9 @@ uk:'Ряди підбірок на головній'
 lumen_rows_seasonal:{ru:'Сезонная',en:'Seasonal',uk:'Сезонна'},
 lumen_kids_name:{ru:'Детский режим',en:'Kids mode',uk:'Дитячий режим'},
 lumen_kids_descr:{
-ru:'Главная, подборки и рулетка — только мультфильмы, семейное кино и семейные блокбастеры. Это не родительский контроль: пароля нет, поиск, меню и карточки Lampa не ограничиваются.',
-en:'Home, collections and roulette show only animation, family films and family blockbusters. This is not parental control: no PIN, and Lampa search, menus and cards are not restricted.',
-uk:'Головна, підбірки й рулетка — лише мультфільми, сімейне кіно та сімейні блокбастери. Це не батьківський контроль: пароля немає, пошук, меню й картки Lampa не обмежуються.'
+ru:'Только мультфильмы и семейное кино в плагине. Это не родительский контроль.',
+en:'Home, collections and roulette show only animation and family films. Not parental control.',
+uk:'Головна, підбірки й рулетка — лише мультфільми та сімейне кіно. Не батьківський контроль.'
 },
 lumen_franchise_name:{ru:'Франшизы',en:'Franchises',uk:'Франшизи'},
 lumen_franchise_descr:{
@@ -26751,9 +26819,9 @@ uk:'рядів'
 },
 lumen_rows_dedupe_name:{ru:'Не повторять фильмы',en:'No repeated films',uk:'Не повторювати фільми'},
 lumen_rows_dedupe_descr:{
-ru:'Фильм показывается только в первом ряду, где встретился. Опустевший от этого ряд скрывается; выбранные вами и личные ряды остаются.',
-en:'A film is shown only in the first row it appears in. A row this empties is hidden; rows you picked and personal rows stay.',
-uk:'Фільм показується лише в першому ряду, де трапився. Ряд, що від цього спорожнів, ховається; обрані вами й особисті ряди лишаються.'
+ru:'Фильм — только в первом ряду, где встретился. Опустевший ряд скрывается, кроме ваших.',
+en:'A film shows only in its first row. A row this empties is hidden, except your own.',
+uk:'Фільм — лише в першому ряду, де трапився. Спорожнілий ряд ховається, крім ваших.'
 },
 lumen_row_continue:{
 ru:'Досмотреть',
@@ -26801,9 +26869,9 @@ uk:'Сьогодні прем\'єра'
 },
 lumen_hero_size_name:{ru:'Кадр над рядами',en:'Hero over the rows',uk:'Кадр над рядами'},
 lumen_hero_size_descr:{
-ru:'Какую часть экрана занимает большой кадр с описанием фильма. «Выключен» — ряды на весь экран, над ними чипы настроения.',
-en:'How much of the screen the large hero with the film description takes. "Off" gives the rows the whole screen, with mood chips above them.',
-uk:'Яку частину екрана займає великий кадр з описом фільму. «Вимкнено» — ряди на весь екран, над ними чипи настрою.'
+ru:'Доля экрана под кадр фильма. «Выключен» — ряды на весь экран, над ними чипы.',
+en:'How much screen the hero takes. "Off" gives the rows the whole screen, mood chips above.',
+uk:'Частка екрана під кадр фільму. «Вимкнено» — ряди на весь екран, над ними чипи.'
 },
 lumen_hero_size_large:{ru:'Крупный',en:'Large',uk:'Великий'},
 lumen_hero_size_medium:{ru:'Средний',en:'Medium',uk:'Середній'},
@@ -26813,36 +26881,36 @@ lumen_hero_media_name:{ru:'Что в кадре',en:'What the hero shows',uk:'Щ
 lumen_hero_media_trailer:{ru:'Кадры и трейлер',en:'Stills and trailer',uk:'Кадри і трейлер'},
 lumen_hero_media_frames:{ru:'Только кадры',en:'Stills only',uk:'Лише кадри'},
 lumen_hero_media_descr:{
-ru:'Кадры фильма сменяют друг друга. Если фокус простоял на карточке 8 секунд, включается трейлер без звука; «Только кадры» — без трейлера.',
-en:'The film stills replace one another. If focus rests on a card for 8 seconds, a muted trailer starts; "Stills only" means no trailer.',
-uk:'Кадри фільму змінюють один одного. Якщо фокус простояв на картці 8 секунд, вмикається трейлер без звуку; «Лише кадри» — без трейлера.'
+ru:'Через 8 с в фокусе — трейлер без звука. «Только кадры» — без трейлера.',
+en:'Stills rotate; after 8 s on a card a muted trailer starts. "Stills only": no trailer.',
+uk:'Через 8 с у фокусі — трейлер без звуку. «Лише кадри» — без трейлера.'
 },
 lumen_hero_logo_name:{ru:'Логотип в кадре',en:'Logo in the hero',uk:'Логотип у кадрі'},
 lumen_hero_logo_descr:{
-ru:'Название в кадре над рядами — логотипом фильма. Пока логотип грузится или если его нет, стоит обычный заголовок.',
-en:'The title in the hero above the rows as the film logo. While it loads, or if there is none, the plain title stays.',
-uk:'Назва в кадрі над рядами — логотипом фільму. Доки логотип вантажиться або якщо його немає, стоїть звичайний заголовок.'
+ru:'Название в кадре над рядами — логотипом фильма; пока он грузится или его нет — текстом.',
+en:'The hero title as the film logo; plain text while it loads or if there is none.',
+uk:'Назва в кадрі над рядами — логотипом фільму; доки він вантажиться чи його немає — текстом.'
 },
 lumen_tile_size_name:{ru:'Размер плиток',en:'Tile size',uk:'Розмір плиток'},
 lumen_tile_size_descr:{
-ru:'Размер постеров в рядах главной и в подборках. С крупным кадром над рядами «Крупнее» может ничего не менять — плитки уже самые крупные из помещающихся.',
-en:'The size of posters in the home rows and in collections. With a large hero above the rows "Larger" may change nothing — the tiles are already the largest that fit.',
-uk:'Розмір постерів у рядах головної та в підбірках. З великим кадром над рядами «Більші» можуть нічого не змінити — плитки вже найбільші з тих, що вміщуються.'
+ru:'Размер постеров в рядах и подборках. С крупным кадром «Крупнее» может не помочь.',
+en:'Poster size in rows and collections. With a large hero, "Larger" may change nothing.',
+uk:'Розмір постерів у рядах і підбірках. З великим кадром «Більші» можуть нічого не змінити.'
 },
 lumen_tile_size_small:{ru:'Мельче',en:'Smaller',uk:'Дрібніші'},
 lumen_tile_size_normal:{ru:'Обычные',en:'Normal',uk:'Звичайні'},
 lumen_tile_size_large:{ru:'Крупнее',en:'Larger',uk:'Більші'},
 lumen_badges_name:{ru:'Метки на постерах',en:'Poster badges',uk:'Мітки на постерах'},
 lumen_badges_descr:{
-ru:'«Скоро», «Новинка», процент просмотра и новые серии. «На постере» — плашкой поверх обложки, «В подписи» — строкой под ней.',
-en:'"Soon", "New", the watched percentage and new episodes. "On the poster" puts a plate over the artwork, "In the caption" a line under it.',
-uk:'«Скоро», «Новинка», відсоток перегляду та нові серії. «На постері» — плашкою поверх обкладинки, «У підписі» — рядком під нею.'
+ru:'«Скоро», «Новинка», процент просмотра, новые серии — на постере или строкой под ним.',
+en:'"Soon", "New", watched percentage, new episodes — on the poster or as a caption line.',
+uk:'«Скоро», «Новинка», відсоток перегляду, нові серії — на постері або рядком під ним.'
 },
 lumen_posters_name:{ru:'Постеры карточек',en:'Card posters',uk:'Постери карток'},
 lumen_posters_descr:{
-ru:'Откуда берётся обложка рядов и подборок. «Английские» и «Без надписей» ищут другую — это лишние запросы, у «Без надписей» по запросу на карточку. Если в настройках Lampa включено «Кэширование запросов», ответы хранятся месяц.',
-en:'Where row and collection artwork comes from. "English" and "No lettering" look for other artwork at an extra cost — "No lettering" asks once per card. With "Request caching" on in Lampa settings answers stay in the cache for a month.',
-uk:'Звідки береться обкладинка рядів і підбірок. «Англійські» та «Без написів» шукають іншу — це зайві запити, у «Без написів» по запиту на картку. Якщо в налаштуваннях Lampa ввімкнено «Кешування запитів», відповіді зберігаються місяць.'
+ru:'«Английские» и «Без надписей» — по запросу на карточку; кэш — «Кэширование запросов».',
+en:'"English" and "No lettering" cost once per card; cached with Lampa "Request caching".',
+uk:'«Англійські» й «Без написів» — по запиту на картку; кеш — «Кешування запитів» Lampa.'
 },
 lumen_posters_lampa:{ru:'Как в Lampa',en:'As in Lampa',uk:'Як у Lampa'},
 lumen_posters_original:{ru:'Английские',en:'English',uk:'Англійські'},
@@ -26856,15 +26924,15 @@ en:'Menu on holding OK',
 uk:'Меню за утриманням OK'
 },
 lumen_context_menu_descr:{
-ru:'Удержание OK на постере открывает меню Lampa с пунктами «Трейлер», «Похожие», «Вся франшиза», отметкой просмотра и «Скрыть из рекомендаций».',
-en:'Holding OK on a poster opens the Lampa menu with "Trailer", "Similar", "Whole franchise", the watched mark and "Hide from recommendations".',
-uk:'Утримання OK на постері відкриває меню Lampa з пунктами «Трейлер», «Схожі», «Вся франшиза», позначкою перегляду та «Сховати з рекомендацій».'
+ru:'Удержание OK на постере — меню: трейлер, похожие, франшиза, «Скрыть».',
+en:'Hold OK on a poster for a menu: trailer, similar, franchise, watched mark, "Hide".',
+uk:'Утримання OK на постері відкриває меню: трейлер, схожі, франшиза, позначка, «Сховати».'
 },
 lumen_remote_boost_name:{ru:'Ускорители пульта',en:'Remote shortcuts',uk:'Прискорювачі пульта'},
 lumen_remote_boost_descr:{
-ru:'Удержание «вверх»/«вниз» на главной показывает список рядов, «влево»/«вправо» листает вдвое быстрее, кнопки каналов прыгают на десять карточек.',
-en:'Holding up/down on the home screen shows the list of rows, left/right scrolls twice as fast, the channel buttons jump ten cards.',
-uk:'Утримання «вгору»/«вниз» на головній показує список рядів, «вліво»/«вправо» гортає удвічі швидше, кнопки каналів стрибають на десять карток.'
+ru:'Держите вверх/вниз — список рядов, влево/вправо — вдвое быстрее, каналы — 10 карточек.',
+en:'Hold up/down for the row list, left/right scrolls twice as fast, channels jump 10 cards.',
+uk:'Утримання вгору/вниз — список рядів, вліво/вправо — удвічі швидше, канали — на 10 карток.'
 },
 lumen_minimap_rows:{ru:'РЯДЫ',en:'ROWS',uk:'РЯДИ'},
 lumen_minimap_of:{ru:'ИЗ',en:'OF',uk:'З'},
@@ -26913,17 +26981,17 @@ en:'Personal rows',
 uk:'Персональні ряди'
 },
 lumen_personal_rows_descr:{
-ru:'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии», «Скоро на экранах» и «Вышло в цифре».',
-en:'Show "Continue watching", "Because you watched", "New episodes", "Coming soon" and "New on digital" rows.',
-uk:'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії», «Незабаром» та «Вийшло в цифрі».'
+ru:'Ряды «Досмотреть», «Потому что вы смотрели», новые серии и релизы.',
+en:'"Continue watching", "Because you watched", "New episodes", "Coming soon", "New on digital"',
+uk:'«Досивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
 },
 lumen_home_start_name:{ru:'Начало главной',en:'Top of the home screen',uk:'Початок головної'},
 lumen_home_start_rotate:{ru:'Подборки по очереди',en:'Rotating collections',uk:'Підбірки по черзі'},
 lumen_home_start_history:{ru:'Сначала «Досмотреть»',en:'"Continue watching" first',uk:'Спочатку «Досивитися»'},
 lumen_home_start_descr:{
-ru:'Первые ряды меняются при каждом запуске Lampa и раз в несколько часов, «Досмотреть» стоит вторым. «Сначала «Досмотреть»» — ваша история сверху.',
-en:'The top rows change every time Lampa starts and every few hours, with "Continue watching" second. "Continue watching" first keeps your history on top.',
-uk:'Перші ряди змінюються під час кожного запуску Lampa і раз на кілька годин, «Досивитися» стоїть другим. «Спочатку «Досивитися»» — ваша історія вгорі.'
+ru:'Ряды меняются при каждом запуске Lampa, «Досмотреть» стоит вторым.',
+en:'Rows change at every Lampa start, "Continue watching" second. Or your history on top.',
+uk:'Ряди змінюються з кожним запуском Lampa, «Досивитися» другим; або історія вгорі.'
 },
 lumen_moods_no_sources:{
 ru:'Нет источника',
@@ -26974,9 +27042,9 @@ lumen_whatsnew_ok:{ru:'Понятно',en:'Got it',uk:'Зрозуміло'},
 lumen_whatsnew_off:{ru:'Выключить это окно: Настройки',en:'To turn this window off: Settings',uk:'Вимкнути це вікно: Налаштування'},
 lumen_resume_name:{ru:'Вернуться к просмотру',en:'Resume watching',uk:'Повернутися до перегляду'},
 lumen_resume_descr:{
-ru:'Если Lampa перезапустилась во время фильма или серии, при следующем запуске предложит продолжить. Хранится только на этом устройстве.',
-en:'If Lampa restarts during a film or episode, it offers to continue next time it starts. Kept only on this device.',
-uk:'Якщо Lampa перезапустилася під час фільму чи серії, під час наступного запуску запропонує продовжити. Зберігається лише на цьому пристрої.'
+ru:'Lampa перезапустилась посреди фильма — предложит продолжить.',
+en:'If Lampa restarts mid-film or episode, it offers to continue. Kept only on this device.',
+uk:'Lampa перезапустилася посеред фільму — запропонує продовжити.'
 },
 lumen_resume_ttl_name:{ru:'Сколько помнить место',en:'Remember the spot for',uk:'Скільки пам’ятати місце'},
 lumen_resume_ttl_descr:{
