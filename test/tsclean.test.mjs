@@ -38,6 +38,8 @@ function setup(opts) {
   let player = false;
   let active = opts.active || null;
   const Lampa = {
+    Favorite: opts.favorite,
+    Noty: { show: (t) => { (opts.noty || []).push(t); } },
     Storage: {
       get: (k, d) => (k in store ? store[k] : d),
       set: (k, v, nolisten) => { store[k] = v; writes.push({ k, nolisten }); },
@@ -125,10 +127,11 @@ test('tsclean: cardKey и movieOf — фильм и сериал с одним i
   assert.deepEqual(api.movieOf({ data: { movie: MOVIE } }), MOVIE, 'объект, а не строка');
 });
 
-test('tsclean: touch — время по ключу, без записей старше суток, не больше CAP', () => {
+test('tsclean: touch — время по ключу, без записей старше 14 дней (KEEP), не больше CAP', () => {
   const { api } = setup();
-  const m = api.touch({ 'h:old': T0 - 25 * HOUR, 'h:keep': T0 - HOUR, 'h:bad': 'x' }, ['h:' + H, ''], T0);
-  assert.deepEqual(m, { 'h:keep': T0 - HOUR, ['h:' + H]: T0 });
+  const m = api.touch({ 'h:old': T0 - 15 * 24 * HOUR, 'h:week': T0 - 7 * 24 * HOUR, 'h:keep': T0 - HOUR, 'h:bad': 'x' }, ['h:' + H, ''], T0);
+  assert.deepEqual(m, { 'h:week': T0 - 7 * 24 * HOUR, 'h:keep': T0 - HOUR, ['h:' + H]: T0 });
+  assert.equal(api.KEEP, 14 * 24 * HOUR);
   assert.deepEqual(api.touch({ 'h:a': T0 - HOUR }, ['h:a'], T0), { 'h:a': T0 }, 'повтор — новое время');
   const big = {};
   for (let i = 0; i < api.CAP + 30; i++) big['h:' + i] = T0 - i * 1000;
@@ -642,4 +645,148 @@ test('tsclean: карта в Storage испорчена — посевной п�
   ok.api.run((n) => res.push(n));
   ok.serve([tor(H, 300)]);
   assert.deepEqual(res, [1]);
+});
+
+/* --------------- срок, защита сериалов, «Очистить сейчас» --------------- */
+
+const DAY = 24 * HOUR;
+const SHOW2 = { id: 1399, name: 'Игра престолов', first_air_date: '2011-04-17' };
+
+test('tsclean: idleOf — 1 / 3 / 7 дней, иное — сутки', () => {
+  const { api } = setup();
+  assert.equal(api.idleOf('1'), DAY);
+  assert.equal(api.idleOf('3'), 3 * DAY);
+  assert.equal(api.idleOf('7'), 7 * DAY);
+  assert.equal(api.idleOf('5'), DAY);
+  assert.equal(api.idleOf(undefined), DAY);
+});
+
+test('tsclean: срок 3 дня — раздача 2 дня не уходит, 4 дня — уходит; по умолчанию сутки', () => {
+  const env = setup({ prefs: { lumen_tsclean_days: '3' } });
+  env.api.install();
+  const res = [];
+  env.api.run((n) => res.push(n));
+  const removed = [];
+  while (env.reqs.length) {
+    const r = env.reqs.shift();
+    if (r.post.action === 'rem') removed.push(r.post.hash);
+    r.ok(r.post.action === 'list' ? [tor(H, 48), tor(H2, 96)] : '');
+  }
+  assert.deepEqual(removed, [H2]);
+  assert.deepEqual(res, [1]);
+  /* Без пункта — прежнее правило суток. */
+  const def = setup();
+  def.api.install();
+  def.api.run();
+  const rem2 = [];
+  while (def.reqs.length) {
+    const r = def.reqs.shift();
+    if (r.post.action === 'rem') rem2.push(r.post.hash);
+    r.ok(r.post.action === 'list' ? [tor(H, 48), tor(H2, 20)] : '');
+  }
+  assert.deepEqual(rem2, [H]);
+});
+
+test('tsclean: keepOf — только сериалы; removable с rule — защита до 14 дней', () => {
+  const { api } = setup();
+  assert.deepEqual(api.keepOf([[SHOW, MOVIE], null, [SHOW2, {}]]), { 'tv:95480': true, 'tv:1399': true });
+  const rule = { idle: DAY, keep: { 'tv:95480': true } };
+  assert.equal(api.removable(tor(H, 10 * 24, withMovie(SHOW)), {}, T0, '', rule), false, '10 дней — под защитой');
+  assert.equal(api.removable(tor(H, 15 * 24, withMovie(SHOW)), {}, T0, '', rule), true, '15 дней — уходит');
+  assert.equal(api.removable(tor(H, 10 * 24, withMovie(SHOW2)), {}, T0, '', rule), true, 'другой сериал');
+  assert.equal(api.removable(tor(H, 10 * 24), {}, T0, '', rule), true, 'без data — защиты нет');
+  /* Фильм с тем же id, что у защищённого сериала, не защищается. */
+  assert.equal(api.removable(tor(H, 10 * 24, withMovie({ id: 95480, title: 'x' })), {}, T0, '', rule), true);
+  /* Срок длиннее защиты не укорачивается. */
+  assert.equal(api.removable(tor(H, 10 * 24, withMovie(SHOW)), {}, T0, '', { idle: 30 * DAY, keep: { 'tv:95480': true } }), false);
+});
+
+test('tsclean: проход — сериал из «Досмотреть» (tv и anime) и из истории защищён, остальное по сроку', () => {
+  const ANIME = { id: 31910, name: 'Наруто', original_language: 'ja' };
+  const OLD = { id: 7, name: 'Старый сериал' };
+  const history = [SHOW2];
+  for (let i = 0; i < 25; i++) history.push({ id: 1000 + i, name: 's' + i });
+  history.push(OLD);
+  const calls = [];
+  const favorite = {
+    continues: (t) => { calls.push(t); return t === 'tv' ? [SHOW] : t === 'anime' ? [ANIME] : []; },
+    get: (p) => (p.type === 'history' ? history : [])
+  };
+  const env = setup({ favorite });
+  env.api.install();
+  const list = [tor(H, 5 * 24, withMovie(SHOW)), tor(H2, 5 * 24, withMovie(ANIME)), tor(H3, 5 * 24, withMovie(SHOW2)),
+    tor('3333333333333333333333333333333333333333', 5 * 24, withMovie(OLD)),
+    tor('4444444444444444444444444444444444444444', 5 * 24, withMovie(MOVIE))];
+  const removed = [];
+  env.api.run();
+  while (env.reqs.length) {
+    const r = env.reqs.shift();
+    if (r.post.action === 'rem') removed.push(r.post.hash);
+    r.ok(r.post.action === 'list' ? list : '');
+  }
+  assert.deepEqual(removed.sort(), ['3333333333333333333333333333333333333333', '4444444444444444444444444444444444444444'],
+    'старый сериал не в первых 20 истории, фильм не защищается');
+  assert.deepEqual(calls.sort(), ['anime', 'tv']);
+  /* Через 15 дней от добавления защита кончилась. */
+  env.tick(10 * DAY);
+  const removed2 = [];
+  env.api.run();
+  while (env.reqs.length) {
+    const r = env.reqs.shift();
+    if (r.post.action === 'rem') removed2.push(r.post.hash);
+    r.ok(r.post.action === 'list' ? list.slice(0, 3) : '');
+  }
+  assert.deepEqual(removed2.sort(), [H, H2, H3].sort());
+});
+
+test('tsclean: защита считается от последнего запуска, запись в карте живёт дольше суток', () => {
+  const favorite = { continues: (t) => (t === 'tv' ? [SHOW] : []), get: () => [] };
+  const env = setup({ favorite });
+  env.api.onPlay({ torrent_hash: H, card: SHOW });
+  env.tick(10 * DAY);
+  env.api.install();
+  env.api.run();
+  /* Раздача добавлена 20 дней назад, запущена 10 дней назад: < 14 — цела. */
+  env.serve([tor(H, 20 * 24 - 10 * 24, withMovie(SHOW))].map((t) => Object.assign(t, { timestamp: Math.floor((T0 - 10 * DAY) / 1000) })));
+  assert.equal(env.reqs.length, 0);
+  assert.equal(env.played()['h:' + H], T0, 'запись карты не выброшена через сутки');
+});
+
+test('tsclean: Favorite недоступен или бросает — проход по сроку, без исключений', () => {
+  const env = setup({ favorite: { continues: () => { throw new Error('boom'); } } });
+  env.api.install();
+  const res = [];
+  env.api.run((n) => res.push(n));
+  env.serve([tor(H, 30, withMovie(SHOW))]);
+  assert.deepEqual(res, [1]);
+});
+
+test('tsclean: «Очистить сейчас» — проход и при выключенной автоочистке, Noty с числом', () => {
+  const noty = [];
+  const env = setup({ prefs: { lumen_tsclean: false }, noty });
+  env.LC.lang = (k) => ({ lumen_tsclean_now_done: 'удалено — {n}', lumen_tsclean_now_seeded: 'посев', lumen_tsclean_now_fail: 'нет связи' })[k] || k;
+  env.api.install();
+  assert.equal(env.live().length, 0, 'таймера нет');
+  env.api.runNow();
+  env.serve([tor(H, 30), tor(H2, 40), tor(H3, 2)]);
+  assert.deepEqual(noty, ['удалено — 2']);
+  /* Сервер недоступен. */
+  env.api.runNow();
+  env.reqs.shift().fail({ status: 0 }, 'timeout');
+  assert.deepEqual(noty, ['удалено — 2', 'нет связи']);
+  /* Посевной проход (плагин выключали) — ничего не удалено, своё сообщение. */
+  env.api.markOff();
+  env.api.runNow();
+  env.serve([tor(H3, 300)]);
+  assert.equal(noty[2], 'посев');
+  assert.equal(env.reqs.length, 0);
+});
+
+test('tsclean: «Очистить сейчас» при выключенном плагине — без запросов, Noty «не выполнена»', () => {
+  const noty = [];
+  const env = setup({ noty });
+  env.api.runNow();
+  assert.equal(env.reqs.length, 0);
+  assert.equal(noty.length, 1);
+  assert.equal(noty[0], 'lumen_tsclean_now_fail');
 });

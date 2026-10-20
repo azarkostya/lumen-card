@@ -211,6 +211,11 @@ test('долг ревью (п.2): каждая настройка раздела
     /* 1.3: «Автоочистка TorrServer» — свой таймер (LC.tsclean.apply), CSS
        и экран не трогает. */
     lumen_tsclean: [],
+    /* Срок автоочистки и кнопка «Очистить сейчас» — ни CSS, ни экрана. */
+    lumen_tsclean_days: [],
+    lumen_tsclean_now: [],
+    /* «Состояние TorrServer» — своя точка (LC.tshealth.apply). */
+    lumen_ts_health: [],
     /* «Запасной парсер» — читается на каждом поиске раздач, CSS и экран
        не трогает. */
     lumen_parser_fallback: [],

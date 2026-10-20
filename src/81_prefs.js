@@ -295,6 +295,11 @@
          оформлением пути через TorrServer. По умолчанию ВЫКЛЮЧЕНА: плагин
          без спроса чужих раздач не удаляет. */
       { name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'lumen_tsclean_name', descr: 'lumen_tsclean_descr' },
+      /* Срок (по умолчанию сутки — прежнее правило) и проход по кнопке. */
+      { name: 'lumen_tsclean_days', type: 'select', values: ['1', '3', '7'], vprefix: 'lumen_tsclean_days_', 'default': '1', label: 'lumen_tsclean_days_name', descr: 'lumen_tsclean_days_descr' },
+      { name: 'lumen_tsclean_now', type: 'button', label: 'lumen_tsclean_now_name', descr: 'lumen_tsclean_now_descr' },
+      /* Точка «TorrServer не отвечает» на карточке (src/66_tshealth.js). */
+      { name: 'lumen_ts_health', type: 'trigger', 'default': true, label: 'lumen_ts_health_name', descr: 'lumen_ts_health_descr' },
       /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
          ответил или ничего не нашёл: поиск по второму адресу Lampa. */
       { name: 'lumen_parser_fallback', type: 'trigger', 'default': true, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },

@@ -106,6 +106,7 @@ function setup(opts) {
   LC.applyNavPref = mark('nav');
   /* 1.3: «Автоочистка TorrServer» — перезаводит свой таймер (apply). */
   LC.tsclean = { apply: mark('tsclean') };
+  LC.tshealth = { apply: mark('tshealth') };
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
   LC.applyHeroSizePref = mark('herosize');
   /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
@@ -340,6 +341,12 @@ test('каждая настройка применяется ровно один
     /* 1.3: «Автоочистка TorrServer» — включение заводит первый проход,
        выключение снимает таймер (src/66_tsclean.js, apply). */
     lumen_tsclean: ['tsclean'],
+    /* Срок читается на каждом проходе — применять нечего. «Очистить
+       сейчас» — кнопка (проверка нажатия ниже). */
+    lumen_tsclean_days: [],
+    lumen_tsclean_now: null,
+    /* «Состояние TorrServer» — снимает точку при выключении (apply). */
+    lumen_ts_health: ['tshealth'],
     /* «Запасной парсер» читается на каждом поиске раздач
        (src/66_parserfb.js) — применять на лету нечего. */
     lumen_parser_fallback: [],
@@ -605,6 +612,22 @@ test('волна perf: кнопка «Отладка: тест производ�
   assert.equal(started, 1);
   assert.equal(JSON.stringify(env.storage), before, 'кнопка писала в Storage');
   assert.deepEqual(env.log, [], 'кнопка применила настройки');
+});
+
+/* «Очистить сейчас» — кнопка: нажатие зовёт LC.tsclean.runNow, в Storage
+   ничего не пишет и настроек не применяет. */
+test('tsclean: кнопка «Очистить сейчас» зовёт LC.tsclean.runNow, в Storage ничего', () => {
+  const env = setup();
+  let runs = 0;
+  env.LC.tsclean = { apply() { }, runNow: () => { runs++; } };
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const before = JSON.stringify(env.storage);
+  env.log.length = 0;
+  press(env, 'lumen_tsclean_now');
+  assert.equal(runs, 1);
+  assert.equal(JSON.stringify(env.storage), before);
+  assert.deepEqual(env.log, []);
 });
 
 /* 1.0.2: «Стиль» — select. Lampa пишет выбранное значение Storage.set (листенер
