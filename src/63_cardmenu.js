@@ -179,6 +179,12 @@
     var pending = null;
     var longHandler = null;
     var preshowHandler = null;
+    var toggleHandler = null;
+    /* Последнее открытое меню карточки: объект параметров Select и его
+       удержание — чтобы вернуть панель, когда Lampa поднимает меню из
+       стека после вложенного Select (preshow там не приходит). */
+    var menuActive = null;
+    var menuHit = null;
 
     function enabled() {
       try { return LC.pref ? !!LC.pref('lumen_context_menu', true) : true; } catch (e) { return true; }
@@ -596,6 +602,10 @@
         var active = e && e.active;
         var hit = active && (active.lumen_own || isCardMenu(active, actionTitle())) ? fresh() : null;
         platter(hit);
+        if (hit) {
+          menuActive = active;
+          menuHit = hit;
+        }
         if (!active || active.lumen_own) return;
         if (!isCardMenu(active, actionTitle())) return;
         if (!hit || !hit.card) return;
@@ -605,6 +615,25 @@
         active.items = active.items.concat([{ title: words().section, separator: true }]).concat(decorate(items, card, active));
       } catch (err) {
         warn('cardmenu: preshow failed', err);
+      }
+    }
+
+    /* Вложенный Select из меню карточки (Select.show поверх открытого)
+       кладёт родителя в стек; «Назад» — close() в app.min.js
+       (close$a, ~7448-7485) перерисовывает родителя через bind() без
+       preshow и зовёт Controller.toggle('select') — его toggle шлёт
+       событие 'toggle' {active, html} с объектом родителя. Тот же объект,
+       что у меню карточки, — панель и якорь возвращаются; любой другой —
+       метка снимается (как в preshow). На первом показе toggle приходит
+       сразу после preshow с тем же active — повтор без изменений. */
+    function onToggle(e) {
+      try {
+        if (!enabled()) return;
+        var active = e && e.active;
+        if (!active) return;
+        platter(menuActive && active === menuActive ? menuHit : null);
+      } catch (err) {
+        warn('cardmenu: toggle failed', err);
       }
     }
 
@@ -729,8 +758,10 @@
         }
         longHandler = onLong;
         preshowHandler = onPreshow;
+        toggleHandler = onToggle;
         document.addEventListener('hover:long', longHandler, true);
         Lampa.Select.listener.follow('preshow', preshowHandler);
+        Lampa.Select.listener.follow('toggle', toggleHandler);
         installed = true;
       } catch (e) {
         warn('cardmenu: install failed', e);
@@ -741,6 +772,8 @@
       if (!installed) return;
       installed = false;
       pending = null;
+      menuActive = null;
+      menuHit = null;
       platter(null);
       try {
         if (longHandler) document.removeEventListener('hover:long', longHandler, true);
@@ -750,12 +783,14 @@
       try {
         if (preshowHandler && window.Lampa && Lampa.Select && Lampa.Select.listener && typeof Lampa.Select.listener.remove === 'function') {
           Lampa.Select.listener.remove('preshow', preshowHandler);
+          if (toggleHandler) Lampa.Select.listener.remove('toggle', toggleHandler);
         }
       } catch (e2) {
         warn('cardmenu: unfollow failed', e2);
       }
       longHandler = null;
       preshowHandler = null;
+      toggleHandler = null;
     }
 
     function active() {
