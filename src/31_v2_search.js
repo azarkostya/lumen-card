@@ -197,18 +197,35 @@
       css.push(RES + ' .card__title{display:block;max-height:none;margin-top:.45em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + ';-webkit-line-clamp:none}');
       css.push(RES + ' .card__age{margin-top:.1em;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.25;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');
       if (typeof LC.badgesMode === 'function' && LC.badgesMode() !== 'off') css.push(RES + ' .card__vote{display:none}');
+      /* QA v2 P3-10: белая плашка «TV» (.card__type) и жёлтая качества
+         (.card__quality) на постерах — те же «пёстрые» плашки, что сняты на
+         главной; сериалы и так в своём ряду «Сериалы». */
+      css.push(RES + ' .card__type,' + RES + ' .card__quality{display:none}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
          снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
          переход — только в «Полных». */
       css.push(RES + ' .card.focus .card__view:after,' + RES + ' .card.hover .card__view:after{display:none}');
-      css.push(RES + ' .card.focus{-webkit-transform:scale(' + (APPLE ? V2.scalePosterA : V2.scalePosterL) + ');transform:scale(' + (APPLE ? V2.scalePosterA : V2.scalePosterL) + ');z-index:2}');
+      /* QA main: масштаб — у картинки, не у всей карточки. Прежде .card.focus
+         масштабировался целиком, и подпись под постером росла и съезжала;
+         теперь она остаётся своего кегля и на месте (как на главной). */
+      var SC = APPLE ? V2.scalePosterA : V2.scalePosterL;
+      css.push(RES + ' .card.focus{z-index:2}');
       if (APPLE) {
-        css.push(RES + ' .card.focus .card__view{outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
+        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
       } else {
-        css.push(RES + ' .card.focus .card__view{outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
+        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
       }
-      css.push('body.lumen-motion-full.search--open .search .search__results .card{' + tr(APPLE ? V2.durA : V2.durL) + '}');
+      css.push('body.lumen-motion-full.search--open .search .search__results .card__view{' + tr(APPLE ? V2.durA : V2.durL) + '}');
+
+      /* QA main (08-search-empty-field-stale-results): пустое поле — рядов нет.
+         На пустой запрос Lampa вызывает recall('') и заново строит ряды
+         прошлого поиска из кэша (Results.search, app.min.js) — после
+         стирания запроса справа оставались чужие результаты и их счётчики
+         на вкладках. Поле и результаты — соседи в .search__body, класс
+         filled поля ставит сама Lampa. Пульт в скрытые ряды не пускает
+         LC.v2search.onToggle ниже. */
+      css.push(S + ' .search__input:not(.filled) ~ .search__results .items-line,' + S + ' .search__input:not(.filled) ~ .search__sources .search-source__count{display:none}');
 
       /* --- Пустые состояния и «Идёт поиск». ---
          Текст Lampa один («Начните вводить…», «Ничего не найдено…») —
@@ -230,6 +247,9 @@
   LC.v2search = (function () {
     var obs = null;
     var installed = false;
+    /* Вкладки источников открытого поиска — объект Sources Lampa из события
+       Search.listener 'sources' (его toggle() — штатный вход в вкладки). */
+    var sources = null;
 
     function mode() {
       try { return LC.badgesMode ? LC.badgesMode() : 'poster'; } catch (e) { return 'poster'; }
@@ -291,6 +311,83 @@
 
     function onClose() {
       stop();
+      sources = null;
+    }
+
+    function onSources(e) {
+      sources = e && e.sources && typeof e.sources.toggle === 'function' ? e.sources : null;
+    }
+
+    /* Запрос не пуст — класс filled на поле ставит Lampa (keyboard 'change'). */
+    function filled(root) {
+      var input = root && root.querySelector ? root.querySelector('.search__input') : null;
+      return !!(input && input.classList && input.classList.contains('filled'));
+    }
+
+    function hasRows(root) {
+      return !!(root && root.querySelector && root.querySelector('.search__results .items-line'));
+    }
+
+    function canMove(dir) {
+      var nav = window.Navigator;
+      try {
+        return !!(nav && typeof nav.canmove === 'function' && nav.canmove(dir));
+      } catch (e) {
+        return true;
+      }
+    }
+
+    /* Пульт поиска (QA main, QA v2 P3-10). Контроллеры Lampa собирает заново
+       на каждом toggle — обёртка ставится на свежий объект после 'toggle'
+       (подписка рантайма, src/90_runtime.js), как bindPair у второго экрана
+       карточки (src/31_v2_card_lower.js):
+         keybord        — «вправо» с крайней клавиши, где Navigator шага не
+                          находит: в результаты штатным путём вкладок
+                          (sources.toggle(), затем их «вниз»), если запрос не
+                          пуст и ряды есть;
+         search_sources — «вниз» при пустом запросе ничего не делает: ряды
+                          прошлого поиска скрыты (CSS выше), фокус в них
+                          ушёл бы в невидимое. */
+    function onToggle(name) {
+      try {
+        if (!installed || !sources) return;
+        if (name !== 'keybord' && name !== 'search_sources') return;
+        var body = document.body;
+        if (!body || !body.classList || !body.classList.contains('search--open')) return;
+        /* Клавиатура ввода настроек (settings_input) — тот же 'keybord'. */
+        if (body.classList.contains('keyboard-input--visible')) return;
+        var en = Lampa.Controller.enabled();
+        var c = en && en.name === name ? en.controller : null;
+        if (!c || c.lumenSearchBound) return;
+        var root = rootNode();
+        if (!root) return;
+        c.lumenSearchBound = true;
+        if (name === 'keybord' && typeof c.right === 'function') {
+          var right = c.right;
+          c.right = function () {
+            if (!canMove('right') && sources && filled(root) && hasRows(root)) {
+              try {
+                sources.toggle();
+                var tabs = Lampa.Controller.enabled();
+                if (tabs && tabs.name === 'search_sources' && tabs.controller && typeof tabs.controller.down === 'function') tabs.controller.down();
+                return;
+              } catch (err) {
+                warn('v2search: right to results failed', err);
+              }
+            }
+            return right.apply(this, arguments);
+          };
+        }
+        if (name === 'search_sources' && typeof c.down === 'function') {
+          var down = c.down;
+          c.down = function () {
+            if (!filled(root)) return;
+            return down.apply(this, arguments);
+          };
+        }
+      } catch (e) {
+        warn('v2search: toggle failed', e);
+      }
     }
 
     function install() {
@@ -299,6 +396,7 @@
         if (!window.Lampa || !Lampa.Search || !Lampa.Search.listener) return;
         Lampa.Search.listener.follow('open', onOpen);
         Lampa.Search.listener.follow('close', onClose);
+        Lampa.Search.listener.follow('sources', onSources);
         installed = true;
       } catch (e) {
         warn('v2search: install failed', e);
@@ -311,11 +409,13 @@
       try {
         Lampa.Search.listener.remove('open', onOpen);
         Lampa.Search.listener.remove('close', onClose);
+        Lampa.Search.listener.remove('sources', onSources);
       } catch (e) {}
       installed = false;
+      sources = null;
     }
 
-    return { rateCard: rateCard, scan: scan, install: install, uninstall: uninstall };
+    return { rateCard: rateCard, scan: scan, install: install, uninstall: uninstall, onToggle: onToggle };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.v2search;

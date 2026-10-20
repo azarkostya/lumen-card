@@ -1277,3 +1277,35 @@ test('B9: «Метки на постерах» — без рейтинга ря�
     assert.equal(/рейтинг|rating/i.test(S.lumen_badges_descr[lang]), false, lang + ': ' + S.lumen_badges_descr[lang]);
   }
 });
+
+/* QA main: ключ API Кинопоиска в строке настройки — маской «••••» и
+   последние 4 знака; в хранилище — как есть. */
+test('lumen_kp_key: значение в строке настройки замаскировано, хранится ключ целиком', () => {
+  const env = setup({ storage: { lumen_kp_key: 'abcdef-1234-5678-1a2b' } });
+  env.LC.addSettings();
+  assert.equal(env.LC.maskKey('abcdef-1234-5678-1a2b'), '••••1a2b');
+  assert.equal(env.LC.maskKey('  xyz9  '), '••••', 'короткий ключ — одни точки');
+  assert.equal(env.LC.maskKey(''), '', 'пусто — плейсхолдер Lampa');
+  assert.equal(env.LC.maskKey(null), '');
+
+  const p = paramOf(env.params, 'lumen_kp_key');
+  assert.equal(typeof p.onRender, 'function');
+  const value = { t: 'abcdef-1234-5678-1a2b', text(v) { if (v === undefined) return this.t; this.t = v; return this; } };
+  const item = { length: 1, find: (sel) => (sel === '.settings-param__value' ? value : null) };
+  p.onRender(item);
+  assert.equal(value.t, '••••1a2b');
+
+  /* Ввод нового ключа: Lampa пишет его текстом (update$3), затем onChange. */
+  globalThis.$ = (sel) => (sel === '.settings-param[data-name="lumen_kp_key"]' ? item : { length: 0 });
+  try {
+    value.t = 'new-key-9z8y';
+    env.Storage.set('lumen_kp_key', 'new-key-9z8y');
+    assert.equal(value.t, '••••9z8y');
+    assert.equal(env.storage.lumen_kp_key, 'new-key-9z8y', 'в хранилище — ключ целиком');
+    assert.ok(env.log.indexOf('reviews') !== -1, 'применение настройки не потеряно');
+    /* Стёрли — маски нет, Lampa показывает плейсхолдер. */
+    value.t = 'lumen_pref_unset';
+    env.Storage.set('lumen_kp_key', '');
+    assert.equal(value.t, 'lumen_pref_unset');
+  } finally { delete globalThis.$; }
+});

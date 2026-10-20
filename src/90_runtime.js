@@ -450,6 +450,9 @@
              возврат фокуса в прежний ряд главной, если его взвела смена
              «Кадра над рядами» (src/47_homerow.js). */
           if (LC.homeRow && typeof LC.homeRow.onToggle === 'function') LC.homeRow.onToggle(e.name);
+          /* QA main: пульт поиска — «вправо» с клавиатуры в результаты, при
+             пустом запросе вниз в скрытые ряды не пускать (src/31_v2_search.js). */
+          if (LC.v2search && typeof LC.v2search.onToggle === 'function') LC.v2search.onToggle(e.name);
           var root = activeCardRoot();
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');

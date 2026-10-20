@@ -2375,7 +2375,10 @@
        ±10 %, чтобы чёрные поля кадра 16:9 ушли за край экрана. Без inset —
        план запрещает (top/bottom/left/right по отдельности). Появление —
        1 с, как гаснут вуали (design-spec §12, «старт трейлера»). */
-    css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
+    css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0}');
+    /* Проявление за 1 с — только в полном режиме; в lite ролик встаёт сразу
+       (как у героя), уже чистым кадром — см. CLEAN_MS в 55_trailer.js. */
+    css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-backdrop .lumen-bg__trailer.is-live{opacity:1}');
     css.push('.lumen-backdrop .lumen-bg__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
     /* Task 21 (фаза 3): слой тематической атмосферы. В разметке он ПОСЛЕ
@@ -4783,8 +4786,8 @@
        сразу, как и смена кадра. is-live ставит сам плеер (src/55_trailer.js),
        когда ролик РЕАЛЬНО пошёл; pointer-events на iframe сняты — слой не
        кликается. Пока ролик играет, кадр под ним приглушён до .25 (класс
-       слоя lumen-hero-stage--trailer), а у текста героя уходит описание
-       (класс lumen-hero--trailer) — экран 02 карточки решает ту же задачу. */
+       слоя lumen-hero-stage--trailer); текст героя остаётся прежним (класс
+       lumen-hero--trailer его не меняет — см. ниже). */
     css.push('.lumen-hero-stage .lumen-hero__trailer{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;' +
       '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
@@ -4803,7 +4806,12 @@
        (0,5,1) — выше правил кроссфейда тяжёлых эффектов выше (0,4,1 у
        --b), иначе переход верхнего слоя перебил бы это правило. */
     css.push('body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active,body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active{-webkit-transition:none;transition:none}');
-    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
+    /* QA main (06-home-header-focus-hero-shift): описание под роликом больше
+       не уходит. Текст героя прижат к низу, и снятое описание опускало
+       логотип с метой на две строки — герой «прыгал» на старте ролика
+       (чаще всего его видно, пока фокус в шапке: ролик стартует, когда
+       пульт стоит). Композиция главной (огр. 8) — логотип → мета →
+       описание — одна и с роликом, и без, как у карточки на экране 35·T. */
 
     /* Task 70: при уходе фокуса в ряды кадр не гаснет (решение пользователя
        2026-09-21). С волны 3 он и не уезжает — слой неподвижен, — а под
@@ -5652,6 +5660,13 @@
        по-прежнему плавное. Подпись под постером — тем же условием ниже. */
     css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+    /* QA main: значки состояния Lampa (.card__icons — «смотрел» ▶, закладка,
+       «позже», лайк) штатно стоят плашкой по центру верха постера 1.8em и в
+       «Досмотреть» закрывали логотип на постере. На главной и в сетке —
+       мельче и в правом верхнем углу: он свободен (качество и тип сняты
+       выше и в сетке), левый верхний занят нашей меткой .lumen-badge. */
+    css.push('.lumen-main .card__icons,.lumen-grid .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+    css.push('.lumen-main .card__icon,.lumen-grid .card__icon{width:1.25em;height:1.25em}');
     /* A3: панель «Просмотрено …» на постере ряда — штатная, не наша. Её
        рисует компонент карточки Watched (vendor/lampa/app.min.js:21870): по
        'hover:focus hover:touch hover:hover' с задержкой 500 мс

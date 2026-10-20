@@ -132,3 +132,143 @@ test('LC.v2search.scan: обходит карточки результатов',
   ])]);
   assert.equal(LC.v2search.scan(root), 1);
 });
+
+/* QA main (08-search-empty-field-stale-results): на пустой запрос Lampa
+   вызывает recall('') и строит ряды прошлого поиска заново — при пустом
+   поле они скрыты вместе со счётчиками вкладок. */
+test('v2 экран 38: пустое поле — ряды результатов и счётчики вкладок скрыты', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const r = rules(css, '.search__input:not(.filled) ~ .search__results .items-line');
+    assert.equal(r.length, 1);
+    assert.ok(r[0].indexOf('body.search--open .search .search__input:not(.filled) ~ .search__sources .search-source__count') !== -1);
+    assert.ok(/\{display:none\}$/.test(r[0]), r[0]);
+    /* «Начните вводить…» и «Ничего не найдено» (.search-looking) не трогаем. */
+    assert.equal(/not\(\.filled\)[^{]*search-looking/.test(r[0]), false);
+  }
+});
+
+/* Пульт поиска: «вправо» с крайней клавиши — в результаты (QA v2 P3-10),
+   «вниз» с вкладок при пустом запросе — никуда (ряды скрыты). */
+function searchEnv(opts) {
+  const { LC } = build({});
+  const cls = (list) => ({ list: new Set(list), contains(c) { return this.list.has(c); } });
+  const input = { classList: cls(opts.filled ? ['search__input', 'filled'] : ['search__input']) };
+  const root = {
+    querySelector(sel) {
+      if (sel === '.search__input') return input;
+      if (sel === '.search__results .items-line') return opts.rows === false ? null : {};
+      return null;
+    },
+    querySelectorAll() { return []; }
+  };
+  const log = [];
+  const ctls = {};
+  const state = { name: '' };
+  const follows = {};
+  const Lampa = {
+    Search: { render: () => root, listener: { follow: (n, f) => { follows[n] = f; }, remove: (n) => { delete follows[n]; } } },
+    Controller: {
+      enabled: () => ({ name: state.name, controller: ctls[state.name] }),
+      toggle: (n) => { state.name = n; LC.v2search.onToggle(n); }
+    }
+  };
+  const sources = {
+    toggle() {
+      log.push('sources.toggle');
+      ctls.search_sources = { down() { log.push('sources.down'); } };
+      Lampa.Controller.toggle('search_sources');
+    }
+  };
+  const bodyCls = cls(opts.settingsInput ? ['search--open', 'keyboard-input--visible'] : ['search--open']);
+  globalThis.window = { Lampa: Lampa, Navigator: { canmove: (d) => !!(opts.canmove && opts.canmove[d]) } };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { body: { classList: bodyCls } };
+  LC.v2search.install();
+  follows.sources({ sources: sources });
+  return {
+    LC, log, ctls, state, input, follows,
+    keyboard() {
+      ctls.keybord = { right() { log.push('keybord.right'); }, down() { log.push('keybord.down'); } };
+      Lampa.Controller.toggle('keybord');
+      return ctls.keybord;
+    },
+    done() { LC.v2search.uninstall(); delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
+  };
+}
+
+test('LC.v2search.onToggle: «вправо» с крайней клавиши при запросе и рядах — во вкладки и их «вниз» в ряды', () => {
+  const env = searchEnv({ filled: true });
+  try {
+    env.keyboard().right();
+    assert.deepEqual(env.log, ['sources.toggle', 'sources.down']);
+    assert.equal(env.state.name, 'search_sources');
+  } finally { env.done(); }
+});
+
+test('LC.v2search.onToggle: «вправо» внутри клавиатуры, при пустом запросе или без рядов — штатный', () => {
+  for (const o of [{ filled: true, canmove: { right: true } }, { filled: false }, { filled: true, rows: false }]) {
+    const env = searchEnv(o);
+    try {
+      env.keyboard().right();
+      assert.deepEqual(env.log, ['keybord.right'], JSON.stringify(o));
+    } finally { env.done(); }
+  }
+});
+
+test('LC.v2search.onToggle: «вниз» с вкладок — в ряды только при непустом запросе; обёртка одна на контроллер', () => {
+  const env = searchEnv({ filled: false });
+  try {
+    env.ctls.search_sources = { down() { env.log.push('sources.down'); } };
+    env.LC.v2search.onToggle('search_sources');
+    env.LC.v2search.onToggle('search_sources');
+    env.state.name = 'search_sources';
+    env.LC.v2search.onToggle('search_sources');
+    env.ctls.search_sources.down();
+    assert.deepEqual(env.log, [], 'пустой запрос — ряды скрыты, фокус туда не идёт');
+    env.input.classList.list.add('filled');
+    env.ctls.search_sources.down();
+    assert.deepEqual(env.log, ['sources.down']);
+  } finally { env.done(); }
+});
+
+test('LC.v2search.onToggle: клавиатура ввода настроек и закрытый поиск не трогаются', () => {
+  const env = searchEnv({ filled: true, settingsInput: true });
+  try {
+    const kb = env.keyboard();
+    assert.equal(kb.lumenSearchBound, undefined);
+    kb.right();
+    assert.deepEqual(env.log, ['keybord.right']);
+  } finally { env.done(); }
+  const env2 = searchEnv({ filled: true });
+  try {
+    env2.follows.close();
+    const kb = env2.keyboard();
+    kb.right();
+    assert.deepEqual(env2.log, ['keybord.right'], 'после close вкладок нет — штатный «вправо»');
+  } finally { env2.done(); }
+});
+
+/* QA main: в фокусе растёт только картинка — подпись кегля и места не меняет. */
+test('v2 экран 38: фокус результата масштабирует .card__view, а не всю карточку с подписью', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const card = rules(css, 'body.search--open .search .search__results .card.focus{');
+    assert.equal(card.length, 1);
+    assert.equal(/transform/.test(card[0]), false, card[0]);
+    const view = rules(css, 'body.search--open .search .search__results .card.focus .card__view{');
+    assert.equal(view.length, 1);
+    assert.ok(/transform:scale\(1\.\d+\)/.test(view[0]), view[0]);
+    assert.equal(rules(css, '.search__results .card{-webkit-transition').length, 0, 'переход — у картинки');
+    assert.equal(rules(css, 'body.lumen-motion-full.search--open .search .search__results .card__view{').length, 1);
+    /* Подпись в фокусе ничем не масштабируется. */
+    assert.equal(css.split('\n').some((r) => /search__results \.card\.focus \.card__(title|age)[^{]*\{[^}]*(transform|font-size)/.test(r)), false);
+  }
+});
+
+test('v2 экран 38: плашки «TV» и качества на постерах результатов сняты (QA v2 P3-10)', () => {
+  for (const st of [{}, APPLE, { lumen_badges: 'off' }]) {
+    const { css } = build(st);
+    assert.equal(rules(css, 'body.search--open .search .search__results .card__type,body.search--open .search .search__results .card__quality{display:none}').length, 1);
+  }
+});

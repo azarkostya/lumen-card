@@ -1751,6 +1751,35 @@
     }
   }
 
+  /* QA main: ключ API Кинопоиска в строке настройки — не открытым текстом.
+     Хранится как есть (Storage), на экране — «••••» и последние 4 знака
+     («••••1a2b»); ключ из 4 знаков и короче — одни точки. Пусто — ''
+     (Lampa показывает плейсхолдер «не задан»). */
+  function maskKey(v) {
+    v = String(v == null ? '' : v).replace(/^\s+|\s+$/g, '');
+    if (!v) return '';
+    return '\u2022\u2022\u2022\u2022' + (v.length > 4 ? v.slice(-4) : '');
+  }
+
+  /* Значение строку пишет сама Lampa (update$3: при сборке раздела ПОСЛЕ
+     onRender и после ввода ПЕРЕД onChange) — маска ставится поверх её
+     текста: в onRender через такт и в onChange сразу. */
+  function maskKpValue(item) {
+    try {
+      var elem = item && item.length ? item : (typeof $ === 'function' ? $('.settings-param[data-name="lumen_kp_key"]') : null);
+      if (!elem || !elem.length) return;
+      var m = maskKey(LC.pref('lumen_kp_key', ''));
+      if (m) elem.find('.settings-param__value').text(m);
+    } catch (e) {
+      warn('kp key mask failed', e);
+    }
+  }
+
+  function kpRender(item) {
+    maskKpValue(item);
+    setTimeout(function () { maskKpValue(item); }, 0);
+  }
+
   function refreshFontPreview() {
     try {
       if (typeof $ !== 'function') return;
@@ -1979,8 +2008,18 @@
     }
     var data = { component: component, param: param, field: field, onChange: onChangeFor(entry.name) };
     if (entry.name === 'lumen_font') data.onRender = fontPreview;
+    if (entry.name === 'lumen_kp_key') {
+      data.onRender = kpRender;
+      var applyKp = data.onChange;
+      data.onChange = function () {
+        applyKp.apply(this, arguments);
+        maskKpValue(null);
+      };
+    }
     Lampa.SettingsApi.addParam(data);
   }
+
+  LC.maskKey = maskKey;
 
   LC.addSettings = function () {
     /* Ревью фазы 1, второй круг (Minor 4): свой гард, как у LC.followStorage.

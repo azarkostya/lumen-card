@@ -1429,14 +1429,16 @@ test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .
 /* (сосед .lumen-card), кнопка «Стоп» и метка — внутри .lumen-card.       */
 /* -------------------------------------------------------------------- */
 
-test('buildCss: .lumen-bg__trailer — слой ролика внутри .lumen-backdrop, ±10% по вертикали, без inset, проявление 1s', () => {
+test('buildCss: .lumen-bg__trailer — слой ролика внутри .lumen-backdrop, ±10% по вертикали, без inset, проявление 1s только в full', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__trailer');
   assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__trailer не найдено');
   assert.ok(decl.indexOf('top:-10%') !== -1 && decl.indexOf('bottom:-10%') !== -1, 'кадр 16:9 растягивается за края по вертикали');
   assert.ok(decl.indexOf('left:0') !== -1 && decl.indexOf('right:0') !== -1);
   assert.equal(/inset\s*:/.test(decl), false, 'inset запрещён планом — только top/bottom/left/right');
   assert.ok(/opacity\s*:\s*0\b/.test(decl), 'до старта слой прозрачен');
-  assert.ok(decl.indexOf('transition:opacity 1s') !== -1, 'проявление 1 с (design-spec §12, старт трейлера)');
+  assert.equal(/transition/.test(decl), false, 'в lite ролик встаёт сразу, без проявления');
+  const full = findDecl(css, (sel) => sel === '.lumen-backdrop.lumen-motion-full .lumen-bg__trailer');
+  assert.ok(full && full.indexOf('transition:opacity 1s') !== -1, 'проявление 1 с — только в полном режиме (design-spec §12, старт трейлера)');
 });
 
 test('buildCss: .lumen-bg__trailer.is-live — opacity:1, iframe не перехватывает пульт', () => {
@@ -5302,7 +5304,10 @@ test('волна 3: ролик героя — 16:9-бокс, накрывающ�
   assert.ok(still && /(^|;)transition:none/.test(still), 'приглушение под роликом без перехода: ' + still);
   const stillLqip = findDecl(css, (s) => s === 'body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active');
   assert.ok(stillLqip && /(^|;)transition:none/.test(stillLqip), 'и у подложки: ' + stillLqip);
-  assert.ok(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr').indexOf('display:none') !== -1, 'под роликом описание уходит');
+  /* QA main (06-home-header-focus-hero-shift): описание под роликом
+     остаётся — снятое, оно опускало логотип и мету (текст прижат к низу). */
+  assert.equal(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr'), null, 'под роликом описание не прячется');
+  assert.equal(/\.lumen-hero--trailer[^{]*\{[^}]*display:none/.test(css), false, 'класс ролика ничего в тексте героя не скрывает');
 });
 
 /* Правка пользователя 2026-09-17 (п.2): четыре размера героя. Task 36: доли
@@ -9375,4 +9380,19 @@ test('ролик 2.39:1: наезд карточки и героя — max(шт�
   for (const need of ['left:calc((1 - max(1.2,var(--lc-yt-z,1.2))) * 50%)', 'width:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%)', 'height:calc(max(1.2,var(--lc-yt-z,1.2)) * 100%)']) {
     assert.ok(rule.indexOf(need) !== -1, 'нет ' + need + ': ' + rule);
   }
+});
+
+/* QA main: ▶ «смотрел» (.card__icons Lampa) в «Досмотреть» закрывал логотип
+   на постере — на главной и в сетке значки мельче и в правом верхнем углу. */
+test('QA main: значки состояния на постере главной и сетки — в правом верхнем углу, мельче штатных', () => {
+  const box = findDecl(css, (s) => s === '.lumen-main .card__icons');
+  assert.ok(box, 'правило .card__icons не найдено');
+  assert.equal(findDecl(css, (s) => s === '.lumen-grid .card__icons'), box);
+  assert.ok(/(^|;)left:auto/.test(box) && /(^|;)right:\.3em/.test(box) && /(^|;)top:\.3em/.test(box), box);
+  assert.ok(/(^|;)justify-content:flex-end/.test(box), box);
+  const icon = findDecl(css, (s) => s === '.lumen-main .card__icon');
+  const w = parseFloat(/(?:^|;)width:([\d.]+)em/.exec(icon)[1]);
+  assert.ok(w < 1.8, 'мельче штатных 1.8em: ' + icon);
+  /* Левый верхний угол — наша метка: не пересекаются. */
+  assert.ok(/(^|;)left:\.24em/.test(findDecl(css, (s) => s === '.lumen-main .lumen-badge')));
 });

@@ -205,10 +205,16 @@ test('36: сторона ряда в паре берётся из списка �
     assert.equal(LC.cardLower.sideOf(rows, d, 'discuss'), 'left');
     assert.equal(LC.cardLower.sideOf(rows, p, 'persons'), 'right');
     assert.equal(LC.cardLower.sideOf(rows, r, 'cards'), '');
-    /* Комментариев нет — Lampa ставит ряд в конец, после людей. */
+    assert.equal(LC.cardLower.placeOf(rows, d, 'discuss'), 'first');
+    assert.equal(LC.cardLower.placeOf(rows, p, 'persons'), 'second');
+    /* Комментариев нет — Lampa ставит ряд в конец, после людей. Колонки
+       всё равно по SPEC 36: «Комментарии» слева, «Актеры» справа (QA v2
+       P3-5, QA main). */
     const rows2 = ['start', 'description', ['persons', p], ['discuss', d], ['cards', r]];
-    assert.equal(LC.cardLower.sideOf(rows2, p, 'persons'), 'left');
-    assert.equal(LC.cardLower.sideOf(rows2, d, 'discuss'), 'right');
+    assert.equal(LC.cardLower.sideOf(rows2, p, 'persons'), 'right');
+    assert.equal(LC.cardLower.sideOf(rows2, d, 'discuss'), 'left');
+    assert.equal(LC.cardLower.placeOf(rows2, p, 'persons'), 'first');
+    assert.equal(LC.cardLower.placeOf(rows2, d, 'discuss'), 'second');
     /* Между ними другой ряд — пары нет. */
     const rows3 = ['start', 'description', ['discuss', d], ['episodes', {}], ['persons', p]];
     assert.equal(LC.cardLower.sideOf(rows3, d, 'discuss'), '');
@@ -291,5 +297,50 @@ test('v2: модули экранов не читают режим анимац�
   for (const f of files) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
     assert.doesNotMatch(src, /ctx\.motion|motion:\s*LC\.motionMode/, f);
+  }
+});
+
+/* QA v2 P3-5 / QA main: порядок колонок не зависит от порядка рядов Lampa. */
+test('36: обратный порядок рядов — классы swap, колонки меняются местами сдвигом, пульт по экрану', async () => {
+  const { FakeEl } = await import('./_fakedom.mjs');
+  globalThis.$ = (x) => x;
+  try { withStorage({ lumen_kp_key: 'k' }, (LC) => {
+    const d = {}; const p = {};
+    const mk = (name) => {
+      const line = new FakeEl(['items-line'], [new FakeEl(['items-line__head'], [new FakeEl(['items-line__title'])])]);
+      const mods = [];
+      const item = { render: () => line, use: (m) => mods.push(m) };
+      return { line, item, mods };
+    };
+    const body = new FakeEl(['activity__body']);
+    const run = (rows) => {
+      const P = mk('persons'); const D = mk('discuss');
+      LC.cardLower.tag({ type: 'build', name: 'persons', item: P.item, body, link: { rows }, data: p });
+      LC.cardLower.tag({ type: 'build', name: 'discuss', item: D.item, body, link: { rows }, data: d });
+      return { P, D };
+    };
+    const rev = run(['start', ['persons', p], ['discuss', d]]);
+    assert.ok(rev.P.line.hasClass('lumen-lower--right') && rev.P.line.hasClass('lumen-lower--swap'));
+    assert.ok(rev.D.line.hasClass('lumen-lower--left') && rev.D.line.hasClass('lumen-lower--swap'));
+    /* Пульт: ← с края «Актеров» (первые в списке) — «вниз», → с края
+       «Комментариев» (вторые) — «вверх». */
+    globalThis.window.Navigator = { canmove: () => false };
+    const log = [];
+    const ctl = () => ({ right: () => log.push('right'), left: () => log.push('left'), down: () => log.push('down'), up: () => log.push('up') });
+    const cp = ctl(); rev.P.mods[0].onController(cp); cp.left(); cp.right();
+    const cd = ctl(); rev.D.mods[0].onController(cd); cd.right(); cd.left();
+    assert.deepEqual(log, ['down', 'right', 'up', 'left']);
+
+    const fwd = run(['start', ['discuss', d], ['persons', p]]);
+    assert.ok(fwd.D.line.hasClass('lumen-lower--left') && !fwd.D.line.hasClass('lumen-lower--swap'));
+    assert.ok(fwd.P.line.hasClass('lumen-lower--right') && !fwd.P.line.hasClass('lumen-lower--swap'));
+  }); } finally { delete globalThis.$; }
+});
+
+test('36: CSS swap — relative-сдвиг на ширину колонки', () => {
+  for (const css of [lumen, apple]) {
+    assert.match(rule(css, L + '.lumen-lower--swap'), /position:relative/);
+    assert.match(rule(css, L + '.lumen-lower--right.lumen-lower--swap'), /^left:50%$/);
+    assert.match(rule(css, L + '.lumen-lower--left.lumen-lower--swap'), /^left:-50%$/);
   }
 });
