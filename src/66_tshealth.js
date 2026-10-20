@@ -20,7 +20,7 @@
 
   LC.tshealth = (function () {
     var TTL = 60000;
-    var TIMEOUT = 3000;
+    var TIMEOUT = 5000;
     var DOT = 'lumen-ts-dot';
     var DOT_HTML = '<i class="' + DOT + '" style="position:absolute;top:.32em;right:.32em;width:.42em;height:.42em;' +
       'border-radius:50%;background:#FF453A;pointer-events:none"></i>';
@@ -100,6 +100,10 @@
     /* Карточка открыта: root — её корень (jQuery). */
     function check(root) {
       if (!enabled() || !storageGet('torrserver_url')) { paint(root, false); return; }
+      /* Приложение TorrServe на Android стартует интентом при запуске раздачи
+         и в фоне обычно не живёт — Lampa сама в этом режиме сервер не
+         проверяет (Platform android без internal_torrclient). Точки нет. */
+      if (LC.tsclean && typeof LC.tsclean.appMode === 'function' && LC.tsclean.appMode()) { paint(root, false); return; }
       _root = root;
       if (_pending) return;
       var t = now();

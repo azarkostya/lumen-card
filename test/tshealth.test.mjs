@@ -50,13 +50,13 @@ function setup(opts) {
   return { api, LC, store, prefs, noty, reqs, tick: (ms) => { clock += ms; } };
 }
 
-test('tshealth: первая карточка — GET /echo с таймаутом 3 с, ответил — точки нет', () => {
+test('tshealth: первая карточка — GET /echo с таймаутом 5 с, ответил — точки нет', () => {
   const env = setup();
   const root = fakeRoot();
   env.api.check(root);
   assert.equal(env.reqs.length, 1);
   assert.equal(env.reqs[0].url, 'http://127.0.0.1:8090/echo');
-  assert.equal(env.reqs[0].timeout, 3000);
+  assert.equal(env.reqs[0].timeout, 5000);
   assert.ok(!env.reqs[0].post, 'GET, без тела');
   assert.deepEqual(env.reqs[0].params, { dataType: 'text' });
   env.reqs.shift().ok('MatriX.135');
@@ -130,12 +130,12 @@ test('tshealth: Noty — только при переходе в «не отве
   assert.equal(env.store.torrserver_url, 'http://127.0.0.1:8090');
 });
 
-test('tshealth: режим приложения TorrServe — запасная ссылка ни при чём, Noty нет', () => {
+test('tshealth: режим приложения TorrServe — запасная ссылка ни при чём, ни запроса, ни Noty', () => {
   const env = setup({ app: true, storage: { torrserver_url_two: 'http://192.168.1.5:8090' } });
   const root = fakeRoot();
   env.api.check(root);
-  env.reqs.shift().fail({}, 'timeout');
-  assert.equal(root.btn.dots, 1);
+  assert.equal(env.reqs.length, 0);
+  assert.equal(root.btn.dots, 0);
   assert.deepEqual(env.noty, []);
 });
 
@@ -165,4 +165,12 @@ test('tshealth: выключили пункт — apply снимает точк�
   env.api.check(fakeRoot(false));
   env.reqs.shift().fail({}, 'timeout');
   env.api.check(null);
+});
+
+test('tshealth: режим приложения TorrServe — ни запроса, ни точки (Lampa сама его не проверяет)', () => {
+  const env = setup({ app: true });
+  const root = fakeRoot();
+  env.api.check(root);
+  assert.equal(env.reqs.length, 0);
+  assert.equal(root.btn.dots, 0);
 });

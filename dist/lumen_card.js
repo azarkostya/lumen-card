@@ -24744,7 +24744,9 @@ fallback();
 },TIMEOUT);
 try{
 return _orig.call(self,params,function(data){
-if(!live()||stage!==0)return;
+if(!live()||stage===2)return;
+if(hasResults(data)){finish(true,data);return;}
+if(stage!==0)return;
 if(hasResults(data))finish(true,data);
 else{primaryData=data&&data.Results?data:{Results:[]};fallback();}
 },function(e){
@@ -25331,7 +25333,7 @@ if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.tsclean;
 /* ---- 66_tshealth.js ---- */
 LC.tshealth=(function(){
 var TTL=60000;
-var TIMEOUT=3000;
+var TIMEOUT=5000;
 var DOT='lumen-ts-dot';
 var DOT_HTML='<i class="'+DOT+'" style="position:absolute;top:.32em;right:.32em;width:.42em;height:.42em;'+
 'border-radius:50%;background:#FF453A;pointer-events:none"></i>';
@@ -25398,6 +25400,7 @@ if(!ok&&prev!=='down')hint();
 }
 function check(root){
 if(!enabled()||!storageGet('torrserver_url')){paint(root,false);return;}
+if(LC.tsclean&&typeof LC.tsclean.appMode==='function'&&LC.tsclean.appMode()){paint(root,false);return;}
 _root=root;
 if(_pending)return;
 var t=now();

@@ -156,7 +156,12 @@
 
       try {
         return _orig.call(self, params, function (data) {
-          if (!live() || stage !== 0) return;
+          /* Основной ответил раздачами уже после нашего таймаута (Lampa ждёт
+             его parse_timeout, по умолчанию 15 с), а запасной ещё в пути —
+             берём основной: побеждает первый непустой ответ. */
+          if (!live() || stage === 2) return;
+          if (hasResults(data)) { finish(true, data); return; }
+          if (stage !== 0) return;
           if (hasResults(data)) finish(true, data);
           else { primaryData = data && data.Results ? data : { Results: [] }; fallback(); }
         }, function (e) {

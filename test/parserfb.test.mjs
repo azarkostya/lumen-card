@@ -151,7 +151,7 @@ test('parserfb: ошибка обоих — ошибка основного, р�
   assert.deepEqual(out.ok, []);
 });
 
-test('parserfb: 8 с без ответа → запасной; поздний ответ основного отбрасывается', () => {
+test('parserfb: 8 с без ответа → запасной; поздний основной с раздачами побеждает, пока запасной в пути', () => {
   const env = setup();
   env.api.install();
   const out = env.call();
@@ -159,13 +159,23 @@ test('parserfb: 8 с без ответа → запасной; поздний о
   env.fire();
   assert.equal(env.jacks.length, 1, 'таймаут → запасной');
   env.gets[0].ok({ Results: [R1] });
-  assert.deepEqual(out.ok, [], 'основной после таймаута не отдаётся');
+  assert.deepEqual(out.ok, [{ Results: [R1] }], 'основной ответил раздачами до запасного — берём его');
   env.jacks[0].ok({ Results: [R2] });
-  assert.deepEqual(out.ok, [{ Results: [R2] }]);
   env.gets[0].fail('late');
-  env.gets[0].ok({ Results: [R1] });
   assert.equal(out.ok.length, 1, 'результат ровно один');
   assert.deepEqual(out.err, []);
+  assert.equal(env.noty.length, 0, 'раздачи основного — без уведомления');
+});
+
+test('parserfb: после таймаута пустой поздний основной не мешает запасному', () => {
+  const env = setup();
+  env.api.install();
+  const out = env.call();
+  env.fire();
+  env.gets[0].ok({ Results: [] });
+  assert.deepEqual(out.ok, []);
+  env.jacks[0].ok({ Results: [R2] });
+  assert.deepEqual(out.ok, [{ Results: [R2] }]);
   assert.equal(env.noty.length, 1);
 });
 
