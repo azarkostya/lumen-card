@@ -594,3 +594,61 @@ test('экран 40: метка панели меню — явные add/remove,
   const src = readFileSync(new URL('../src/63_cardmenu.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /classList\.toggle\([^,()]+,/);
 });
+
+/* Ревью окон v2 (п.5): вложенный Select из меню карточки кладёт родителя
+   в стек Lampa; «Назад» (app.min.js close$a, ~7448-7485) перерисовывает
+   родителя без preshow и шлёт 'toggle' {active} с его объектом. Панель
+   меню карточки (lumen-cardmenu) должна вернуться, а у чужого родителя —
+   не появиться. */
+test('экран 40: панель меню карточки возвращается после вложенного Select (toggle из стека Lampa)', () => {
+  const classes = [];
+  const root = {
+    classList: {
+      add: (c) => { if (classes.indexOf(c) === -1) classes.push(c); },
+      remove: (c) => { const i = classes.indexOf(c); if (i !== -1) classes.splice(i, 1); }
+    },
+    style: { setProperty: () => { }, removeProperty: () => { } }
+  };
+  const handlers = {};
+  const listener = {
+    follow: (n, cb) => { (handlers[n] = handlers[n] || []).push(cb); },
+    remove: (n, cb) => { handlers[n] = (handlers[n] || []).filter((x) => x !== cb); }
+  };
+  const send = (n, e) => (handlers[n] || []).forEach((cb) => cb(e));
+  let long = null;
+  const Lampa = { Select: { render: () => root, listener } };
+  globalThis.window = { Lampa, innerWidth: 1920 };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { addEventListener: (n, cb) => { if (n === 'hover:long') long = cb; }, removeEventListener: () => { } };
+  try {
+    const { api } = loadCtx('63_cardmenu.js', { lang: (k) => k, pref: (n, d) => d });
+    api.install();
+    const el = { card_data: MOVIE, getBoundingClientRect: () => ({ left: 100, right: 400, top: 100, bottom: 500 }) };
+    long({ target: el });
+    const parent = { lumen_own: true, title: 'Действие', items: [] };
+    send('preshow', { active: parent });
+    send('toggle', { active: parent });
+    assert.ok(classes.indexOf('lumen-cardmenu') !== -1, 'меню карточки без панели');
+    /* Вложенный Select поверх меню карточки. */
+    const child = { title: 'Закладки', items: [] };
+    send('preshow', { active: child });
+    send('toggle', { active: child });
+    assert.equal(classes.indexOf('lumen-cardmenu'), -1, 'вложенный Select — не панель');
+    /* «Назад»: Lampa поднимает родителя из стека — hide, close, toggle. */
+    send('hide', { active: child });
+    send('close', { active: child });
+    send('toggle', { active: parent });
+    assert.ok(classes.indexOf('lumen-cardmenu') !== -1, 'панель меню карточки не вернулась');
+    assert.ok(classes.indexOf('lumen-cardmenu--anchored') !== -1, 'якорь не вернулся');
+    /* Чужой родитель из стека — метки нет. */
+    const other = { title: 'Источник', items: [] };
+    send('preshow', { active: other });
+    send('preshow', { active: child });
+    send('toggle', { active: other });
+    assert.equal(classes.indexOf('lumen-cardmenu'), -1, 'панель на чужом меню');
+    api.uninstall();
+    assert.equal((handlers.toggle || []).length, 0, 'подписка на toggle осталась');
+    send('toggle', { active: parent });
+    assert.equal(classes.indexOf('lumen-cardmenu'), -1, 'после uninstall метка не ставится');
+  } finally { delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
+});
