@@ -299,10 +299,10 @@
       { name: 'lumen_tsclean_days', type: 'select', values: ['1', '3', '7'], vprefix: 'lumen_tsclean_days_', 'default': '1', label: 'lumen_tsclean_days_name', descr: 'lumen_tsclean_days_descr' },
       { name: 'lumen_tsclean_now', type: 'button', label: 'lumen_tsclean_now_name', descr: 'lumen_tsclean_now_descr' },
       /* Точка «TorrServer не отвечает» на карточке (src/66_tshealth.js). */
-      { name: 'lumen_ts_health', type: 'trigger', 'default': true, label: 'lumen_ts_health_name', descr: 'lumen_ts_health_descr' },
+      { name: 'lumen_ts_health', type: 'trigger', 'default': false, label: 'lumen_ts_health_name', descr: 'lumen_ts_health_descr' },
       /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
          ответил или ничего не нашёл: поиск по второму адресу Lampa. */
-      { name: 'lumen_parser_fallback', type: 'trigger', 'default': true, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },
+      { name: 'lumen_parser_fallback', type: 'trigger', 'default': false, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },
       /* Task 22: сам выключатель заставки — в главном разделе («Движение»),
          здесь то, что настраивают один раз. */
       { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },

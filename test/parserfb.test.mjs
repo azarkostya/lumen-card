@@ -22,7 +22,7 @@ function setup(opts) {
     jackett_url_two: 'https://jacred.su',
     jackett_key_two: 'k2'
   }, opts.fields || {});
-  const prefs = Object.assign({}, opts.prefs || {});
+  const prefs = Object.assign({ lumen_parser_fallback: true }, opts.prefs || {});
   const sets = [];
   const gets = [];
   const jacks = [];
@@ -377,4 +377,17 @@ test('parserfb: Lampa зовёт Parser.get через свойство — по
   env.api.install();
   env.call();
   assert.equal(env.gets[0].self, env.Parser);
+});
+
+/* 1.3.1: пункт по умолчанию выключен — без явного включения Lampa ходит
+   за раздачами ровно как без плагина. */
+test('parserfb: по умолчанию выключен (1.3.1) — исходный get как есть, второй адрес не опрашивается', () => {
+  const env = setup();
+  delete env.prefs.lumen_parser_fallback;
+  env.api.install();
+  const out = env.call();
+  assert.equal(env.timers.length, 0);
+  env.gets[0].fail('E1');
+  assert.deepEqual(out.err, ['E1']);
+  assert.equal(env.jacks.length, 0);
 });

@@ -28,7 +28,7 @@ function fakeRoot(withButton) {
 function setup(opts) {
   opts = opts || {};
   const store = Object.assign({ torrserver_url: 'http://127.0.0.1:8090' }, opts.storage || {});
-  const prefs = Object.assign({}, opts.prefs || {});
+  const prefs = Object.assign({ lumen_ts_health: true }, opts.prefs || {});
   const noty = [];
   const reqs = [];
   const Lampa = {
@@ -169,6 +169,15 @@ test('tshealth: выключили пункт — apply снимает точк�
 
 test('tshealth: режим приложения TorrServe — ни запроса, ни точки (Lampa сама его не проверяет)', () => {
   const env = setup({ app: true });
+  const root = fakeRoot();
+  env.api.check(root);
+  assert.equal(env.reqs.length, 0);
+  assert.equal(root.btn.dots, 0);
+});
+
+test('tshealth: по умолчанию выключено (1.3.1) — без пункта ни запроса, ни точки', () => {
+  const env = setup({ prefs: { lumen_ts_health: undefined } });
+  delete env.prefs.lumen_ts_health;
   const root = fakeRoot();
   env.api.check(root);
   assert.equal(env.reqs.length, 0);

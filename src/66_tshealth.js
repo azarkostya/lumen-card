@@ -48,7 +48,7 @@
     }
 
     function enabled() {
-      try { return !!LC.pref('lumen_ts_health', true); } catch (e) { return false; }
+      try { return !!LC.pref('lumen_ts_health', false); } catch (e) { return false; }
     }
 
     function net() {

@@ -52,7 +52,7 @@
     }
 
     function enabled() {
-      try { return !!LC.pref('lumen_parser_fallback', true); } catch (e) { }
+      try { return !!LC.pref('lumen_parser_fallback', false); } catch (e) { }
       return true;
     }
 

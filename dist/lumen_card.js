@@ -1,4 +1,4 @@
-// Lumen Card for Lampa v1.3.0
+// Lumen Card for Lampa v1.3.1
 /* ---- 00_head.js ---- */
 /*!
  * Lumen Card — плагин карточки фильма/сериала для Lampa. Строгий ES5.
@@ -9,7 +9,7 @@ if(typeof window!=='undefined'&&window.lumen_card_plugin)return;
 if(typeof window!=='undefined')window.lumen_card_plugin=true;
 var LC={};
 if(typeof window!=='undefined')window.lumen_card=LC;
-LC.VERSION='1.3.0';
+LC.VERSION='1.3.1';
 LC.MANIFEST_URL='https://azarkostya.github.io/lumen-card/manifest.json';
 var PLUGIN='lumen_card';
 function warn(msg,err){
@@ -24658,7 +24658,7 @@ function storage(){
 return window.Lampa.Storage;
 }
 function enabled(){
-try{return!!LC.pref('lumen_parser_fallback',true);}catch(e){}
+try{return!!LC.pref('lumen_parser_fallback',false);}catch(e){}
 return true;
 }
 function backup(){
@@ -25357,7 +25357,7 @@ return v===null||typeof v==='undefined'?'':String(v).replace(/^\s+|\s+$/g,'');
 return'';
 }
 function enabled(){
-try{return!!LC.pref('lumen_ts_health',true);}catch(e){return false;}
+try{return!!LC.pref('lumen_ts_health',false);}catch(e){return false;}
 }
 function net(){
 if(_net)return _net;
@@ -29515,8 +29515,8 @@ var MORE=[
 {name:'lumen_tsclean',type:'trigger','default':false,label:'lumen_tsclean_name',descr:'lumen_tsclean_descr'},
 {name:'lumen_tsclean_days',type:'select',values:['1','3','7'],vprefix:'lumen_tsclean_days_','default':'1',label:'lumen_tsclean_days_name',descr:'lumen_tsclean_days_descr'},
 {name:'lumen_tsclean_now',type:'button',label:'lumen_tsclean_now_name',descr:'lumen_tsclean_now_descr'},
-{name:'lumen_ts_health',type:'trigger','default':true,label:'lumen_ts_health_name',descr:'lumen_ts_health_descr'},
-{name:'lumen_parser_fallback',type:'trigger','default':true,label:'lumen_parser_fallback_name',descr:'lumen_parser_fallback_descr'},
+{name:'lumen_ts_health',type:'trigger','default':false,label:'lumen_ts_health_name',descr:'lumen_ts_health_descr'},
+{name:'lumen_parser_fallback',type:'trigger','default':false,label:'lumen_parser_fallback_name',descr:'lumen_parser_fallback_descr'},
 {name:'lumen_ambient_source',type:'select',values:['curated','current'],vprefix:'lumen_ambient_source_','default':'curated',label:'lumen_ambient_source_name',descr:'lumen_ambient_source_descr'},
 {name:'lumen_ambient_delay',type:'select',values:['3','5','10'],vsuffix:'lumen_ambient_minutes','default':'3',label:'lumen_ambient_delay_name',descr:'lumen_ambient_delay_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
@@ -29754,6 +29754,29 @@ var FIRST_DELAY=4000;
 var RETRY_DELAY=5000;
 var TRIES=12;
 var NOTES={
+'1.3.1':{
+ru:[
+'После перезапуска Lampa посреди серии или фильма окно предложит вернуться с того же места, а после досмотренной серии — следующую.',
+'В «Досмотреть» у сериалов — серия вместо процента: «S2·E5».',
+'Окна выбора и подтверждения — в стиле плагина, стиль Apple TV — без тёплых цветов, поиск и трейлеры аккуратнее.',
+'По желанию, для TorrServer: автоочистка раздач через 1, 3 или 7 дней, «Очистить сейчас» и точка на «Смотреть», если сервер молчит.',
+'По желанию: запасной парсер по второму адресу Lampa. Всё новое выключено — Lumen Card → Дополнительно… → Пульт и окна.'
+],
+en:[
+'If Lampa restarts mid-episode or mid-film, a window offers to resume from the same spot, and the next episode after a finished one.',
+'In "Continue watching", series show the episode instead of a percentage: "S2·E5".',
+'Selection and confirmation windows match the plugin style, Apple TV style has no warm colours, search and trailers are neater.',
+'Optional, for TorrServer: auto-cleanup after 1, 3 or 7 days, "Clean now", and a dot on "Watch" when the server is silent.',
+'Optional: a fallback parser at the second Lampa address. All new options are off — Lumen Card → More… → Remote and dialogs.'
+],
+uk:[
+'Після перезапуску Lampa посеред серії чи фільму вікно запропонує повернутися з того ж місця, а після додивленої серії — наступну.',
+'У «Додивитися» в серіалів — серія замість відсотка: «S2·E5».',
+'Вікна вибору й підтвердження — у стилі плагіна, стиль Apple TV — без теплих кольорів, пошук і трейлери охайніші.',
+'За бажанням, для TorrServer: автоочищення через 1, 3 або 7 днів, «Очистити зараз» і крапка на «Дивитися», якщо сервер мовчить.',
+'За бажанням: запасний парсер за другою адресою Lampa. Усе нове вимкнене — Lumen Card → Додатково… → Пульт і вікна.'
+]
+},
 '1.3.0':{
 ru:[
 'Lampa перезапустилась посреди серии или фильма — при следующем запуске окно предложит вернуться с того же места, а после досмотренной серии — следующую.',
