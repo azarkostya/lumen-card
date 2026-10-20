@@ -651,6 +651,228 @@ function withNavigator(focused, canUp, fn) {
   }
 }
 
+/* v2, экран 37: чипы сезонов над рядом — «Сезон 1 · 2 · 3», выбранный с
+   галочкой (класс --on), у сериала в один сезон чип один и не .selector.
+   OK на чипе грузит серии сезона штатным Lampa.Api.seasons. */
+function seasonsCard() {
+  const c = makeCard();
+  const box = new FakeEl(['lumen-seasons', 'hide']);
+  const head = c.row.find('.lumen-episodes__head');
+  head[0]._children.unshift(box);
+  box._parentEl = head[0];
+  head[0].getBoundingClientRect = () => ({ left: 64 });
+  c.seasons = box;
+  return c;
+}
+
+test('v2 экран 37: чипы сезонов — выбранный отмечен, один сезон — без .selector', () => {
+  const c = seasonsCard();
+  LC.header.decorate(c.root, serial(3));
+  let chips = c.seasons.find('.lumen-season');
+  assert.equal(chips.length, 2, 'у сериала в 2 сезона — два чипа');
+  assert.equal(c.seasons.hasClass('hide'), false);
+  assert.ok(c.row.hasClass('lumen-episodes--seasons'));
+  assert.equal(chips[1].hasClass('lumen-season--on'), true, 'выбран сезон ряда (2)');
+  assert.equal(chips[0].hasClass('lumen-season--on'), false);
+  assert.ok(chips[0].hasClass('selector') && chips[1].hasClass('selector'));
+
+  const one = seasonsCard();
+  const data = serial(3);
+  data.movie.number_of_seasons = 1;
+  data.episodes.season_number = 1;
+  data.episodes.episodes.forEach((e) => { e.season_number = 1; });
+  LC.header.decorate(one.root, data);
+  chips = one.seasons.find('.lumen-season');
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0].hasClass('selector'), false, 'выбирать нечего — лишней остановки пульта нет');
+  assert.deepEqual(warnLog, []);
+});
+
+test('v2 экран 37: OK на чипе — серии сезона из Lampa.Api.seasons, ряд пересобран, выбор переехал', () => {
+  const c = seasonsCard();
+  LC.header.decorate(c.root, serial(3));
+  const prevApi = Lampa.Api;
+  const asked = [];
+  Lampa.Api = {
+    seasons(movie, list, cb) {
+      asked.push(list[0]);
+      const n = list[0];
+      cb({ [n]: { episodes: [{ season_number: n, episode_number: 1, name: 'Пилот', runtime: 60 }, { season_number: n, episode_number: 2, name: 'Вторая', runtime: 55 }] } });
+    }
+  };
+  try {
+    const first = c.seasons.find('.lumen-season')[0];
+    fire(c.root, 'hover:enter', first);
+    assert.deepEqual(asked, [1]);
+    assert.equal(c.track._children.length, 2, 'ряд не пересобран сериями сезона 1');
+    assert.equal(c.row[0].lumenEpisodes.season, 1);
+    const chips = c.seasons.find('.lumen-season');
+    assert.equal(chips[0], first, 'чипы пересоздавать незачем — фокус на них переживает выбор');
+    assert.ok(chips[0].hasClass('lumen-season--on') && !chips[1].hasClass('lumen-season--on'));
+    assert.equal(c.play._triggered, undefined, 'OK на чипе не запускает «Смотреть»');
+    /* Повторный выбор — из кэша карточки, без второго запроса. */
+    fire(c.root, 'hover:enter', chips[1]);
+    assert.deepEqual(asked, [1, 2]);
+    assert.equal(c.row[0].lumenEpisodes.season, 2);
+    asked.length = 0;
+    fire(c.root, 'hover:enter', chips[0]);
+    assert.deepEqual(asked, [], 'сезон 1 запрошен повторно');
+  } finally {
+    Lampa.Api = prevApi;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+/* v2, экран 37 — «вниз» с кнопок перескакивал ряд серий в описание (ревью
+   Apple TV #6, Lumen #12). Фоновый трейлер прячет ряд целиком, и Navigator
+   не находит под кнопками ни одного видимого узла: штатный down Start отдаёт
+   шаг описанию. Обёртка снимает трейлер, пересобирает снимок и повторяет шаг. */
+function downItem() {
+  const comps = [];
+  return {
+    use(m) { comps.push(m); },
+    controller() {
+      const calls = [];
+      const ctrl = { up() { calls.push('lampa-up'); }, down() { calls.push('lampa-down'); } };
+      comps.forEach((m) => { if (m.onController) m.onController(ctrl); });
+      return { ctrl, calls };
+    }
+  };
+}
+
+function withDownNav(c, focused, fn) {
+  const prevNav = window.Navigator;
+  const prevCtl = Lampa.Controller;
+  const prevTrailer = LC.trailer;
+  const log = [];
+  const nav = {
+    focus: focused,
+    getFocusedElement() { return nav.focus; },
+    /* Под кнопками есть цель, только когда ряд виден и попал в снимок. */
+    canmove(dir) { return dir === 'down' && nav.collected && !c.root.hasClass('lumen-trailer-on'); },
+    move(dir) { log.push('move:' + dir); }
+  };
+  window.Navigator = nav;
+  Lampa.Controller = {
+    collectionSet(html) { log.push('set'); nav.collected = html === c.root; },
+    collectionFocus(target) { log.push('focus'); nav.focus = target || nav.focus; }
+  };
+  LC.trailer = { stopActive() { log.push('trailer-stop'); c.root.removeClass('lumen-trailer-on'); } };
+  try {
+    fn(nav, log);
+  } finally {
+    window.Navigator = prevNav;
+    Lampa.Controller = prevCtl;
+    LC.trailer = prevTrailer;
+  }
+}
+
+test('↓ с кнопок при играющем трейлере: трейлер снят, снимок пересобран, шаг — в ряд серий, а не в описание', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  c.root.addClass('lumen-trailer-on');
+  withDownNav(c, c.play, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, [], 'штатный down (в описание) не зовётся');
+    assert.deepEqual(log, ['trailer-stop', 'set', 'focus', 'move:down']);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↓ с кнопок: ряд не попал в снимок (собран позже) — пересбор и шаг в ряд', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  withDownNav(c, c.book, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, []);
+    assert.deepEqual(log, ['set', 'focus', 'move:down']);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↓ штатный: Navigator сам находит цель, с плитки серии, у фильма без ряда, из чужой карточки', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  withDownNav(c, c.play, (nav, log) => {
+    nav.collected = true;
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'цель есть — шаг делает Lampa');
+    assert.deepEqual(log, []);
+  });
+  withDownNav(c, c.track._children[2], (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'с плитки серии «вниз» — в описание');
+    assert.deepEqual(log, []);
+  });
+  const m = makeCard();
+  LC.header.decorate(m.root, { movie: { title: 'Фильм' } });
+  const mItem = downItem();
+  LC.header.bindStart(mItem, m.root);
+  withDownNav(m, m.play, (nav, log) => {
+    const { ctrl, calls } = mItem.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'у фильма ряда нет — описание');
+    assert.deepEqual(log, []);
+  });
+  const other = makeCard();
+  LC.header.decorate(other.root, serial(8));
+  withDownNav(c, other.play, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'фокус в чужой карточке');
+    assert.deepEqual(log, []);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('v2 экран 37: фокус на серии снимает фоновый трейлер, фокус на кнопке — нет', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const prev = LC.trailer;
+  let stops = 0;
+  LC.trailer = { stopActive() { stops++; } };
+  try {
+    fire(c.root, 'hover:focus', c.book);
+    assert.equal(stops, 0, 'кнопка карточки трейлер не трогает');
+    fire(c.root, 'hover:focus', c.track._children[0]);
+    assert.equal(stops, 1, 'трейлер стартовал бы под фокусом на плитке и спрятал ряд');
+  } finally {
+    LC.trailer = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('v2 экран 37: ряд, собранный после снимка (фокус уже на кнопке карточки), пересобирает коллекцию', () => {
+  const c = makeCard();
+  const calls = [];
+  const prev = Lampa.Controller;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: (html) => calls.push(['set', html]),
+    collectionFocus: (target, html) => calls.push(['focus', target, html])
+  };
+  try {
+    c.play.addClass('focus');
+    LC.header.decorate(c.root, serial(8));
+    assert.equal(calls.length, 2, 'поздний ряд не попал в снимок Navigator');
+    assert.equal(calls[0][1], c.root);
+    assert.equal(calls[1][1], c.play, 'фокус остаётся на кнопке');
+  } finally {
+    Lampa.Controller = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 test('↑ с дальней плитки серии: на ближайшую по горизонтали кнопку, а не в шапку Lampa', () => {
   const c = upCard();
   LC.header.decorate(c.root, serial(60));
@@ -778,21 +1000,17 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   layout(c.track);
   assert.equal(c.track.getAttribute('style'), null, 'после отрисовки у дорожки нет атрибута style');
 
-  fire(c.root, 'hover:focus', c.track._children[3]);
-  assert.equal(c.track.getAttribute('style'), null, 'E4 целиком на экране — сдвига нет');
-
   fire(c.root, 'hover:focus', c.track._children[4]);
-  assert.equal(c.track.lumenShift, 78);
-  assert.equal(c.track.css('transform'), 'translate3d(-78px,0,0)');
+  assert.equal(c.track.getAttribute('style'), null, 'E5 целиком на экране (1424…1764 из 1856) — сдвига нет');
+
+  /* v2, экран 37: дальше фокусная плитка встаёт к левой кромке ряда —
+     сдвиг равен её offsetLeft, срезанной плитки слева нет. */
+  fire(c.root, 'hover:focus', c.track._children[5]);
+  assert.equal(c.track.lumenShift, 1780);
+  assert.equal(c.track.css('transform'), 'translate3d(-1780px,0,0)');
 
   fire(c.root, 'hover:focus', c.track._children[7]);
-  /* Потолок — ширина дорожки минус видимая часть: 8 × 356 − 1856 = 992.
-     Ревью 2026-09-22 (М2): до правки модели здесь стояло 976 — на один
-     зазор меньше, потому что зазор вычитался из scrollWidth, чего Blink
-     не делает (замер у layout выше). Последняя плитка у упора отстоит от
-     правого края экрана ровно на свой margin-right, а не прижимается к
-     нему вплотную. */
-  assert.equal(c.track.lumenShift, 992, 'сдвиг не больше ширины дорожки минус видимая часть');
+  assert.equal(c.track.lumenShift, 2492, 'последняя плитка — тоже у кромки');
 
   fire(c.root, 'hover:focus', c.track._children[0]);
   assert.equal(c.track.lumenShift, 0);
@@ -1022,9 +1240,11 @@ test('правило кромки: срезанную плитку помеча�
   /* Дойдя фокусом до срезанной плитки, ряд сдвигается, и подпись
      возвращается: срезанной становится соседняя, а не фокусная. */
   fire(c.root, 'hover:focus', c.track._children[5]);
-  assert.equal(c.track.lumenShift, 434, 'сдвиг к шестой плитке');
+  assert.equal(c.track.lumenShift, 1780, 'шестая плитка — к левой кромке');
   assert.equal(c.track._children[5].hasClass('lumen-episode--cut'), false, 'фокусная плитка осталась срезанной');
   assert.equal(c.track._children[0].hasClass('lumen-episode--cut'), true, 'плитка, ушедшая за левый край, не помечена');
+  /* v2, экран 37: ушедшие за левую кромку скрыты целиком (--past). */
+  assert.deepEqual(c.track._children.map((n) => n.hasClass('lumen-episode--past')), [true, true, true, true, true, false, false, false]);
 
   /* Возврат в начало ряда возвращает и метки. */
   fire(c.root, 'hover:focus', c.track._children[0]);
@@ -1061,7 +1281,7 @@ test('правило кромки: пометка повторяется пос�
 
 /* ------------------------------ bindEpisodes (п.2, п.5) ------------------------------ */
 
-test('bindEpisodes: повторный decorate не удваивает слушатели; фокус на серии — компакт, на кнопке — снят', () => {
+test('bindEpisodes: повторный decorate не удваивает слушатели; фокус на серии шапку не сжимает, на кнопке — снимает', () => {
   const c = makeCard();
   const data = serial(3);
   LC.header.decorate(c.root, data);
@@ -1078,8 +1298,11 @@ test('bindEpisodes: повторный decorate не удваивает слуш
   );
   assert.ok(c.root._listeners.filter((l) => l.type.indexOf('hover:') === 0).every((l) => l.capture), 'события Lampa — в фазе перехвата');
 
+  /* v2, экран 37: логотип в фиксированном боксе — фокус на серии шапку
+     не сжимает. Компакт, поставленный уходом в описание, кнопки снимают. */
   fire(c.root, 'hover:focus', c.track._children[1]);
-  assert.ok(c.root.hasClass('lumen-compact'));
+  assert.equal(c.root.hasClass('lumen-compact'), false, 'фокус на серии сжал шапку');
+  c.root.addClass('lumen-compact');
   fire(c.root, 'hover:focus', c.book);
   assert.equal(c.root.hasClass('lumen-compact'), false);
 });
@@ -1092,7 +1315,8 @@ test('bindEpisodes: мышиный hover:hover работает так же, к�
   LC.header.decorate(c.root, serial(3));
 
   fire(c.root, 'hover:hover', c.track._children[1]);
-  assert.ok(c.root.hasClass('lumen-compact'), 'фокус мышью на серии сжимает шапку');
+  assert.equal(c.root.hasClass('lumen-compact'), false, 'фокус мышью на серии шапку не сжимает (v2, экран 37)');
+  c.root.addClass('lumen-compact');
   fire(c.root, 'hover:hover', c.book);
   assert.equal(c.root.hasClass('lumen-compact'), false, 'фокус мышью на кнопке снимает компакт');
 });
@@ -1104,8 +1328,8 @@ test('bindEpisodes: одно событие — один проход, пуль�
   const c = makeCard();
   LC.header.decorate(c.root, serial(8));
   layout(c.track);
-  fire(c.root, 'hover:focus', c.track._children[4]);
-  assert.equal(c.track.lumenShift, 78, 'пультом — тот же сдвиг, что в тесте scrollToEpisode');
+  fire(c.root, 'hover:focus', c.track._children[5]);
+  assert.equal(c.track.lumenShift, 1780, 'пультом — тот же сдвиг, что в тесте scrollToEpisode');
 
   /* Полное ревью, D2: мышью ряд за наведением не едет — курсор на крайней
      плитке подвозил под себя следующую, и ряд доезжал до конца за секунду.
@@ -1113,7 +1337,7 @@ test('bindEpisodes: одно событие — один проход, пуль�
   const m = makeCard();
   LC.header.decorate(m.root, serial(8));
   layout(m.track);
-  fire(m.root, 'hover:hover', m.track._children[4]);
+  fire(m.root, 'hover:hover', m.track._children[5]);
   assert.ok(!m.track.lumenShift, 'наведение мышью сдвинуло ряд серий');
 });
 
@@ -2430,11 +2654,12 @@ test('D2: колесо над правой половиной ряда сери�
   assert.ok(!c.track.lumenShift);
   const fwd = wheelEp(c.root, c.track._children[4], 1500, 100);
   assert.equal(fwd.stopped, true, 'колесо над рядом ушло ещё и карточке');
-  /* Шестая плитка (1780…2120) за кромкой 1920: 1780 + 340 + 170 − 1856. */
-  assert.equal(c.track.lumenShift, 434, 'ряд не пролистался к следующей плитке');
+  /* Шестая плитка (1780…2120) за кромкой 1920 — встаёт к левой кромке
+     ряда (v2, экран 37). */
+  assert.equal(c.track.lumenShift, 1780, 'ряд не пролистался к следующей плитке');
   layout(c.track);
   wheelEp(c.root, c.track._children[4], 1500, -100);
-  assert.equal(c.track.lumenShift, 434, 'второе колесо в пределах 200 мс — тот же шаг, без двойного');
+  assert.equal(c.track.lumenShift, 1780, 'второе колесо в пределах 200 мс — тот же шаг, без двойного');
 });
 
 /* Полное ревью, D7: колесо перескакивало «Смотреть по порядку». После

@@ -104,6 +104,53 @@
     }
   }
 
+  /* v2, экран 37 (ревью Apple TV #5): у сериала серии шли дважды — наш
+     ряд под кнопками и штатный ряд Lampa «Сезон N» с плиткой «Ещё» ниже
+     описания. Прятать штатный ряд CSS'ом нельзя по той же причине, что и
+     ряды анализа (разбор у dropMetaData выше: фокус уходит в скрытый ряд),
+     поэтому он тем же приёмом НЕ СОЗДАЁТСЯ: Lampa кладёт ряд 'episodes' в
+     свой список, только если e.data.episodes.episodes есть
+     (app.min.js:39661), и читает его ровно там же, после 'start'.
+     Наш ряд берёт серии не отсюда: модуль Start строится по
+     props.all() — копии полей e.data, сделанной ДО 'start'
+     (props.set, app.min.js:39600 и Props.set:46140) — поэтому decorate на
+     'build' их видит. На 'complite' (тот же синхронный блок) поле
+     возвращается, и второй decorate получает данные Lampa нетронутыми.
+     Снимаем, только если наш ряд точно будет: сериал и в списке есть
+     серия с номером — ровно условие buildEpisodes (src/85_header.js). */
+  var EPISODES_STASH = 'lumen_episodes';
+
+  function dropEpisodesRow(e) {
+    try {
+      var d = e && e.data;
+      var list = d && d.episodes && d.episodes.episodes;
+      if (!list || !list.length || !LC.cardinfo || !LC.cardinfo.isSerial(d.movie || {})) return false;
+      var any = false;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].episode_number > 0) { any = true; break; }
+      }
+      if (!any) return false;
+      d[EPISODES_STASH] = d.episodes;
+      d.episodes = null;
+      return true;
+    } catch (err) {
+      warn('episodes drop failed', err);
+      return false;
+    }
+  }
+
+  function restoreEpisodesRow(e) {
+    try {
+      if (!e || !e.data || !e.data[EPISODES_STASH]) return false;
+      e.data.episodes = e.data[EPISODES_STASH];
+      e.data[EPISODES_STASH] = null;
+      return true;
+    } catch (err) {
+      warn('episodes restore failed', err);
+      return false;
+    }
+  }
+
   function restoreMetaData(e) {
     try {
       if (!e || !e.data || !e.data[META_STASH]) return false;
@@ -1024,6 +1071,7 @@
                отвергнутые пути у dropMetaData выше. Событие уходит РОВНО
                перед проверкой data.metadata (app.min.js:38833-38842). */
             dropMetaData(e);
+            dropEpisodesRow(e);
           } else if (e.type === 'build' && e.name === 'start') {
             var startRoot = findRoot(e);
             LC.header.decorate(startRoot, e.data);
@@ -1051,6 +1099,7 @@
             /* A6: данные Lampa не остаются изменёнными — снятое возвращается
                здесь же, после единственного чтения на app.min.js:38842. */
             restoreMetaData(e);
+            restoreEpisodesRow(e);
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
             /* Вторая, страховочная точка: вставка идемпотентна (старый блок

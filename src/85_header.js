@@ -871,7 +871,9 @@
       '<div class="lumen-episode__play"></div>' +
       '</div>' +
       '<div class="lumen-episode__bottom">' +
-      '<div class="lumen-episode__name">' + esc(ep.name || '') + '</div>' +
+      /* v2, экран 37: подпись «N. Название» — номер даёт CSS из data-n
+         (src/31_v2_episodes.js), текст узла остаётся названием. */
+      '<div class="lumen-episode__name" data-n="' + esc(ep.episode_number) + '">' + esc(ep.name || '') + '</div>' +
       (caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') + timecode +
       (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
       '</div>';
@@ -1083,7 +1085,20 @@
       var cur = root.find('.selector.focus');
       if (cur.length && !cur.hasClass('lumen-episode')) keep = cur[0];
     }
-    if (buildEpisodes(root, data) && had) recollectEpisodes(root, keep);
+    /* v2, экран 37 (ревью: «вниз» с кнопок перескакивал ряд серий): ряд,
+       собранный уже ПОСЛЕ того, как Lampa сняла снимок .selector'ов
+       (поздний decorate, смена сезона), в снимок не попадал — Navigator
+       не видел плиток под кнопками и отдавал «вниз» описанию. Пересбор
+       теперь и на первой сборке; recollectEpisodes сам ничего не делает,
+       пока контроллер этой карточки не активен, — тогда коллекцию
+       соберёт Lampa. Признак «снимок уже снят» на первой сборке — фокус
+       стоит внутри этой карточки (кнопка): тогда он и возвращается. Пока
+       фокуса в карточке нет, коллекцию соберёт сама Lampa. */
+    if (!had) {
+      var now = root.find('.selector.focus');
+      if (now.length && !now.hasClass('lumen-episode')) keep = now[0];
+    }
+    if (buildEpisodes(root, data) && (had || keep)) recollectEpisodes(root, keep);
   }
 
   /* Возвращает true, если DOM ряда тронут (ряд пересобран или опустошён). */
@@ -1136,7 +1151,7 @@
     /* Ряд объявляется построенным только после того, как окно собрано:
        упади сборка на полпути, повторный decorate с тем же списком обязан
        собрать ряд заново, а не вернуться по сигнатуре к скрытому ряду. */
-    var info = { list: list, eps: eps, nodes: nodes, sign: sign, track: track, half: episodeHalf(), from: 0, to: -1 };
+    var info = { list: list, eps: eps, nodes: nodes, sign: sign, track: track, half: episodeHalf(), from: 0, to: -1, season: season, movie: movie };
     mountWindow(info, 0, Math.min(eps.length - 1, info.half * 2));
     row[0].lumenEpisodes = info;
 
@@ -1230,11 +1245,14 @@
       var left = node[0].offsetLeft;
       /* Полпикселя допуска: ширина и зазор заданы в em, и на дробном кегле
          правый край плитки садится на кромку с ошибкой округления. */
-      marks.push([node, left < shift - 0.5 || left + node[0].offsetWidth > shift + view + 0.5]);
+      marks.push([node, left < shift - 0.5 || left + node[0].offsetWidth > shift + view + 0.5, left < shift - 0.5]);
     }
     for (i = 0; i < marks.length; i++) {
       if (marks[i][1]) marks[i][0].addClass('lumen-episode--cut');
       else marks[i][0].removeClass('lumen-episode--cut');
+      /* v2, экран 37: плитка за левой кромкой ряда скрыта целиком (CSS). */
+      if (marks[i][2]) marks[i][0].addClass('lumen-episode--past');
+      else marks[i][0].removeClass('lumen-episode--past');
     }
   }
 
@@ -1269,14 +1287,14 @@
     if (view <= 0) return;
 
     var current = track[0].lumenShift || 0;
-    var shift = current;
     var left = node.offsetLeft;
     var width = node.offsetWidth;
-    var reserve = Math.round(width / 2);
-
-    if (left - reserve < shift) shift = left - reserve;
-    else if (left + width + reserve > shift + view) shift = left + width + reserve - view;
-    shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
+    /* v2, экран 37: фокус у левой кромки. Пока плитка целиком видна при
+       нулевом сдвиге, ряд стоит; дальше фокусная плитка встаёт первой
+       видимой — ровно к кромке, и срезанной плитки слева не бывает (те,
+       что ушли за кромку, гасит markClipped классом --past). Прежний запас
+       в полплитки с обеих сторон оставлял слева срезанную плитку. */
+    var shift = left + width <= view ? 0 : left;
 
     if (shift !== current && !still) setShift(track, shift);
     /* Правило кромки: после сдвига срезанные плитки — другие. Зовём и когда
@@ -1335,6 +1353,117 @@
     return true;
   }
 
+  /* -------------------------------------------------------------------- */
+  /* v2 «Единый стиль», экран 37: переключатель сезонов над рядом серий.   */
+  /* -------------------------------------------------------------------- */
+
+  /* «Сезон 1 · 2 · 3» чипами в одну строку: выбранный — галочка (CSS),
+     фокус — заливка. Чипы — .selector внутри корня карточки, их собирает
+     контроллер full_start вместе с кнопками и плитками; Navigator ведёт
+     пульт по геометрии: кнопки → сезоны → серии. У сериала в один сезон
+     чип один и не .selector — выбирать нечего, лишней остановки пульта нет.
+     Сезоны без спецвыпусков (0): Lampa и сама показывает ряд 1…N. */
+  function seasonTotal(movie, data, season) {
+    var n = parseInt(movie && movie.number_of_seasons, 10) || parseInt(data && data.episodes && data.episodes.seasons_count, 10) || 0;
+    return n > season ? n : season;
+  }
+
+  function renderSeasons(root, data) {
+    var row = root.find('.lumen-episodes');
+    var box = row.find('.lumen-seasons');
+    if (!box.length) return;
+    var info = row[0].lumenEpisodes;
+    var season = info ? info.season : 0;
+    if (!season) {
+      box.addClass('hide').empty();
+      row.removeClass('lumen-episodes--seasons');
+      box[0].lumenSign = '';
+      return;
+    }
+    var total = seasonTotal(info.movie, data, season);
+    var sign = total + '|' + season;
+    if (box[0].lumenSign === sign) return;
+    var many = total > 1;
+    var chips = box.find('.lumen-season');
+    var i;
+    if (box[0].lumenTotal === total && chips.length) {
+      /* Сменился только выбранный сезон — узлы те же (фокус на чипе
+         переживает выбор), меняется класс. */
+      for (i = 0; i < chips.length; i++) {
+        if (parseInt(chips[i].getAttribute('data-season'), 10) === season) $(chips[i]).addClass('lumen-season--on');
+        else $(chips[i]).removeClass('lumen-season--on');
+      }
+    } else {
+      var html = '';
+      var word = LC.lang('lumen_card_season');
+      for (i = 1; i <= total; i++) {
+        if (!many && i !== season) continue;
+        html += '<div class="lumen-season' + (many ? ' selector' : '') + (i === season ? ' lumen-season--on' : '') +
+          '" data-season="' + i + '">' + LC.util.esc(i === 1 || !many ? word + ' ' + i : '' + i) + '</div>';
+      }
+      box.html(html);
+      box[0].lumenTotal = total;
+    }
+    box[0].lumenSign = sign;
+    box.removeClass('hide');
+    row.addClass('lumen-episodes--seasons');
+  }
+
+  /* Длинный сериал: чипы дальше правой кромки экрана подъезжают за
+     фокусом (сдвиг строки чипов, без анимации). */
+  function showSeason(root, chip) {
+    var box = root.find('.lumen-seasons');
+    if (!box.length || !chip) return;
+    /* Ширина — от шапки ряда: у самой строки чипов левый край едет вместе
+       со сдвигом (transform). */
+    var view = viewWidth(box.parent()[0]);
+    if (!(view > 0)) return;
+    var shift = box[0].lumenShift || 0;
+    var left = chip.offsetLeft;
+    var right = left + chip.offsetWidth;
+    /* Запас справа — ширина того же чипа: кромка экрана не режет его. */
+    if (right - shift > view - chip.offsetWidth) shift = right + chip.offsetWidth - view;
+    else if (left < shift) shift = left;
+    if (shift < 0) shift = 0;
+    if (shift === (box[0].lumenShift || 0)) return;
+    setShift(box, shift);
+  }
+
+  /* OK на чипе: серии выбранного сезона берутся штатным Lampa.Api.seasons
+     (тот же запрос, что у экрана «Сезоны» Lampa) и один раз на карточку
+     кладутся в кэш корня. Ряд пересобирается renderEpisodes — тем же
+     путём, что смена списка: коллекция пересобирается, фокус остаётся на
+     чипе. Ответ, пришедший, когда выбран уже другой сезон или карточка
+     ушла с экрана, отбрасывается. */
+  function pickSeason(root, chip) {
+    var n = parseInt(chip && chip.getAttribute && chip.getAttribute('data-season'), 10);
+    var row = root.find('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    if (!(n > 0) || !info || info.season === n) return;
+    var movie = info.movie;
+    var cache = root[0].lumenSeasons || (root[0].lumenSeasons = {});
+    root[0].lumenWant = n;
+    var apply = function (list) {
+      if (root[0].lumenWant !== n || !list || !list.length) return;
+      var data = { movie: movie, episodes: { season_number: n, episodes: list } };
+      renderEpisodes(root, data);
+      renderSeasons(root, data);
+    };
+    if (cache[n]) return apply(cache[n]);
+    if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.seasons !== 'function') return;
+    Lampa.Api.seasons(movie, [n], function (v) {
+      try {
+        var got = v && v[n] && v[n].episodes;
+        if (!got || !got.length) return;
+        cache[n] = got;
+        if (!LC.util.onScreen(root)) return;
+        apply(got);
+      } catch (e) {
+        warn('season load failed', e);
+      }
+    });
+  }
+
   /* Step 4: фокус и OK на карточках серий. Lampa шлёт события фокуса и
      hover:enter через Utils.trigger — Event с bubbles:false, поэтому jQuery-делегирование
      .on(event, selector) их не видит (API_NOTES_4 A2). Не всплывающее событие
@@ -1356,8 +1485,16 @@
     LC.focus.capture(el, function (e) {
       try {
         var node = $(e.target).closest('.lumen-episode', el);
+        /* v2, экран 37: фокус в ряду серий или на сезонах — фоновый трейлер
+           снимается (и ещё не начавшийся тоже). Иначе он стартует уже под
+           фокусом на плитке, прячет ряд (.lumen-trailer-on) и пересбор
+           коллекции кнопкой «Стоп» уводит фокус обратно на «Смотреть» —
+           на ТВ это выглядело как «↓ не сработал» (3 из 5 нажатий через
+           ~5 с после открытия карточки). */
+        if ((node.length || $(e.target).hasClass('lumen-season')) && LC.trailer && typeof LC.trailer.stopActive === 'function') LC.trailer.stopActive();
         if (node.length) {
-          root.addClass('lumen-compact');
+          /* v2, экран 37: фокус на серии шапку больше не сжимает — логотип
+             в фиксированном боксе, верх карточки не прыгает. */
           /* Task 67: защёлка от самовызова. Пересбор коллекции после сдвига
              окна возвращает фокус через Controller.collectionFocus, а тот
              шлёт узлу то же событие фокуса (Navigator.follow('focus') ->
@@ -1376,6 +1513,8 @@
           }
         } else if ($(e.target).closest('.full-start-new__buttons', el).length) {
           root.removeClass('lumen-compact');
+        } else if ($(e.target).hasClass('lumen-season')) {
+          showSeason(root, e.target);
         }
       } catch (err) {
         warn('episode focus failed', err);
@@ -1400,6 +1539,10 @@
        пользователь выбирает уже в TorrServer). */
     el.addEventListener('hover:enter', function (e) {
       try {
+        if ($(e.target).hasClass('lumen-season')) {
+          pickSeason(root, e.target);
+          return;
+        }
         if (!$(e.target).closest('.lumen-episode', el).length) return;
         /* Ревью п.5: «Смотреть» скрыта (read_only, нет источников) — делать нечего. */
         root.find('.full-start-new__buttons').find('.button--play').not('.hide').eq(0).trigger('hover:enter');
@@ -1484,8 +1627,53 @@
           }
           return up.apply(this, arguments);
         };
+        var down = controller && controller.down;
+        if (typeof down !== 'function') return;
+        controller.down = function () {
+          try {
+            if (downToEpisodes(root)) return;
+          } catch (e) {
+            warn('episode down failed', e);
+          }
+          return down.apply(this, arguments);
+        };
       }
     });
+  }
+
+  /* v2, экран 37 — «вниз» с кнопок перескакивал ряд серий в описание
+     (ревью Apple TV #6, Lumen #12). Navigator ищет цель только в снимке
+     коллекции и только среди видимых узлов. Ряда в нём не оказывалось в
+     двух случаях: (1) фоновый трейлер карточки (lumen_trailer «авто»,
+     старт через 3 с на кнопках) прячет ряд целиком
+     (.lumen-trailer-on .lumen-episodes{display:none}) — нажатие «вниз»
+     после паузы на кнопках уходило мимо; (2) ряд собран после снимка.
+     Тогда canmove('down') ложно, и Start отдаёт шаг модулю описания.
+     Порядок пульта по спецификации — кнопки → сезоны → серии → описание,
+     поэтому, если ряд у карточки есть: трейлер снимается (ряд
+     возвращается, его же recollect пересобирает снимок), снимок
+     пересобирается с фокусом на месте, и шаг повторяется. С самой плитки
+     серии «вниз» остаётся штатным — в описание. */
+  function downToEpisodes(root) {
+    var nav = window.Navigator;
+    if (!nav || typeof nav.canmove !== 'function' || typeof nav.move !== 'function' || typeof nav.getFocusedElement !== 'function') return false;
+    var from = nav.getFocusedElement();
+    if (!from || $(from).closest('.full-start-new')[0] !== root[0]) return false;
+    if ($(from).hasClass('lumen-episode') || $(from).hasClass('lumen-season')) return false;
+    if (nav.canmove('down')) return false;
+    var row = root.find('.lumen-episodes');
+    if (!row.length || !row[0].lumenEpisodes) return false;
+    if (root.hasClass('lumen-trailer-on') && LC.trailer && typeof LC.trailer.stopActive === 'function') LC.trailer.stopActive();
+    if (row.hasClass('hide') || root.hasClass('lumen-trailer-on')) return false;
+    if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionSet !== 'function') return false;
+    /* Фокус мог уйти со снятой кнопки «Стоп» на «Смотреть» — берём тот,
+       что есть сейчас. */
+    var focus = nav.getFocusedElement();
+    Lampa.Controller.collectionSet(root);
+    if (typeof Lampa.Controller.collectionFocus === 'function') Lampa.Controller.collectionFocus(focus && focus.parentNode ? focus : false, root);
+    if (!nav.canmove('down')) return false;
+    nav.move('down');
+    return true;
   }
 
   /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
@@ -2023,6 +2211,7 @@
     try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie, (data && data.episodes && data.episodes.episodes) || null); } catch (e) { warn('progress failed', e); }
     try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
+    try { renderSeasons(root, data); } catch (e) { warn('seasons failed', e); }
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
