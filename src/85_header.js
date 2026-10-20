@@ -1039,7 +1039,20 @@
       var cur = root.find('.selector.focus');
       if (cur.length && !cur.hasClass('lumen-episode')) keep = cur[0];
     }
-    if (buildEpisodes(root, data) && had) recollectEpisodes(root, keep);
+    /* v2, экран 37 (ревью: «вниз» с кнопок перескакивал ряд серий): ряд,
+       собранный уже ПОСЛЕ того, как Lampa сняла снимок .selector'ов
+       (поздний decorate, смена сезона), в снимок не попадал — Navigator
+       не видел плиток под кнопками и отдавал «вниз» описанию. Пересбор
+       теперь и на первой сборке; recollectEpisodes сам ничего не делает,
+       пока контроллер этой карточки не активен, — тогда коллекцию
+       соберёт Lampa. Признак «снимок уже снят» на первой сборке — фокус
+       стоит внутри этой карточки (кнопка): тогда он и возвращается. Пока
+       фокуса в карточке нет, коллекцию соберёт сама Lampa. */
+    if (!had) {
+      var now = root.find('.selector.focus');
+      if (now.length && !now.hasClass('lumen-episode')) keep = now[0];
+    }
+    if (buildEpisodes(root, data) && (had || keep)) recollectEpisodes(root, keep);
   }
 
   /* Возвращает true, если DOM ряда тронут (ряд пересобран или опустошён). */
@@ -1561,8 +1574,53 @@
           }
           return up.apply(this, arguments);
         };
+        var down = controller && controller.down;
+        if (typeof down !== 'function') return;
+        controller.down = function () {
+          try {
+            if (downToEpisodes(root)) return;
+          } catch (e) {
+            warn('episode down failed', e);
+          }
+          return down.apply(this, arguments);
+        };
       }
     });
+  }
+
+  /* v2, экран 37 — «вниз» с кнопок перескакивал ряд серий в описание
+     (ревью Apple TV #6, Lumen #12). Navigator ищет цель только в снимке
+     коллекции и только среди видимых узлов. Ряда в нём не оказывалось в
+     двух случаях: (1) фоновый трейлер карточки (lumen_trailer «авто»,
+     старт через 3 с на кнопках) прячет ряд целиком
+     (.lumen-trailer-on .lumen-episodes{display:none}) — нажатие «вниз»
+     после паузы на кнопках уходило мимо; (2) ряд собран после снимка.
+     Тогда canmove('down') ложно, и Start отдаёт шаг модулю описания.
+     Порядок пульта по спецификации — кнопки → сезоны → серии → описание,
+     поэтому, если ряд у карточки есть: трейлер снимается (ряд
+     возвращается, его же recollect пересобирает снимок), снимок
+     пересобирается с фокусом на месте, и шаг повторяется. С самой плитки
+     серии «вниз» остаётся штатным — в описание. */
+  function downToEpisodes(root) {
+    var nav = window.Navigator;
+    if (!nav || typeof nav.canmove !== 'function' || typeof nav.move !== 'function' || typeof nav.getFocusedElement !== 'function') return false;
+    var from = nav.getFocusedElement();
+    if (!from || $(from).closest('.full-start-new')[0] !== root[0]) return false;
+    if ($(from).hasClass('lumen-episode') || $(from).hasClass('lumen-season')) return false;
+    if (nav.canmove('down')) return false;
+    var row = root.find('.lumen-episodes');
+    if (!row.length || !row[0].lumenEpisodes) return false;
+    if (root.hasClass('lumen-trailer-on') && LC.trailer && typeof LC.trailer.stopActive === 'function') LC.trailer.stopActive();
+    if (row.hasClass('hide') || root.hasClass('lumen-trailer-on')) return false;
+    if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionSet !== 'function') return false;
+    /* Фокус мог уйти со снятой кнопки «Стоп» на «Смотреть» — берём тот,
+       что есть сейчас. */
+    var focus = nav.getFocusedElement();
+    Lampa.Controller.collectionSet(root);
+    if (typeof Lampa.Controller.collectionFocus === 'function') Lampa.Controller.collectionFocus(focus && focus.parentNode ? focus : false, root);
+    if (!nav.canmove('down')) return false;
+    nav.move('down');
+    return true;
   }
 
   /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать

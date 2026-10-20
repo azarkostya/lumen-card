@@ -723,6 +723,139 @@ test('v2 экран 37: OK на чипе — серии сезона из Lampa.
   assert.deepEqual(warnLog, []);
 });
 
+/* v2, экран 37 — «вниз» с кнопок перескакивал ряд серий в описание (ревью
+   Apple TV #6, Lumen #12). Фоновый трейлер прячет ряд целиком, и Navigator
+   не находит под кнопками ни одного видимого узла: штатный down Start отдаёт
+   шаг описанию. Обёртка снимает трейлер, пересобирает снимок и повторяет шаг. */
+function downItem() {
+  const comps = [];
+  return {
+    use(m) { comps.push(m); },
+    controller() {
+      const calls = [];
+      const ctrl = { up() { calls.push('lampa-up'); }, down() { calls.push('lampa-down'); } };
+      comps.forEach((m) => { if (m.onController) m.onController(ctrl); });
+      return { ctrl, calls };
+    }
+  };
+}
+
+function withDownNav(c, focused, fn) {
+  const prevNav = window.Navigator;
+  const prevCtl = Lampa.Controller;
+  const prevTrailer = LC.trailer;
+  const log = [];
+  const nav = {
+    focus: focused,
+    getFocusedElement() { return nav.focus; },
+    /* Под кнопками есть цель, только когда ряд виден и попал в снимок. */
+    canmove(dir) { return dir === 'down' && nav.collected && !c.root.hasClass('lumen-trailer-on'); },
+    move(dir) { log.push('move:' + dir); }
+  };
+  window.Navigator = nav;
+  Lampa.Controller = {
+    collectionSet(html) { log.push('set'); nav.collected = html === c.root; },
+    collectionFocus(target) { log.push('focus'); nav.focus = target || nav.focus; }
+  };
+  LC.trailer = { stopActive() { log.push('trailer-stop'); c.root.removeClass('lumen-trailer-on'); } };
+  try {
+    fn(nav, log);
+  } finally {
+    window.Navigator = prevNav;
+    Lampa.Controller = prevCtl;
+    LC.trailer = prevTrailer;
+  }
+}
+
+test('↓ с кнопок при играющем трейлере: трейлер снят, снимок пересобран, шаг — в ряд серий, а не в описание', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  c.root.addClass('lumen-trailer-on');
+  withDownNav(c, c.play, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, [], 'штатный down (в описание) не зовётся');
+    assert.deepEqual(log, ['trailer-stop', 'set', 'focus', 'move:down']);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↓ с кнопок: ряд не попал в снимок (собран позже) — пересбор и шаг в ряд', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  withDownNav(c, c.book, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, []);
+    assert.deepEqual(log, ['set', 'focus', 'move:down']);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↓ штатный: Navigator сам находит цель, с плитки серии, у фильма без ряда, из чужой карточки', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  const item = downItem();
+  LC.header.bindStart(item, c.root);
+  withDownNav(c, c.play, (nav, log) => {
+    nav.collected = true;
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'цель есть — шаг делает Lampa');
+    assert.deepEqual(log, []);
+  });
+  withDownNav(c, c.track._children[2], (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'с плитки серии «вниз» — в описание');
+    assert.deepEqual(log, []);
+  });
+  const m = makeCard();
+  LC.header.decorate(m.root, { movie: { title: 'Фильм' } });
+  const mItem = downItem();
+  LC.header.bindStart(mItem, m.root);
+  withDownNav(m, m.play, (nav, log) => {
+    const { ctrl, calls } = mItem.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'у фильма ряда нет — описание');
+    assert.deepEqual(log, []);
+  });
+  const other = makeCard();
+  LC.header.decorate(other.root, serial(8));
+  withDownNav(c, other.play, (nav, log) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.down();
+    assert.deepEqual(calls, ['lampa-down'], 'фокус в чужой карточке');
+    assert.deepEqual(log, []);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('v2 экран 37: ряд, собранный после снимка (фокус уже на кнопке карточки), пересобирает коллекцию', () => {
+  const c = makeCard();
+  const calls = [];
+  const prev = Lampa.Controller;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: (html) => calls.push(['set', html]),
+    collectionFocus: (target, html) => calls.push(['focus', target, html])
+  };
+  try {
+    c.play.addClass('focus');
+    LC.header.decorate(c.root, serial(8));
+    assert.equal(calls.length, 2, 'поздний ряд не попал в снимок Navigator');
+    assert.equal(calls[0][1], c.root);
+    assert.equal(calls[1][1], c.play, 'фокус остаётся на кнопке');
+  } finally {
+    Lampa.Controller = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 test('↑ с дальней плитки серии: на ближайшую по горизонтали кнопку, а не в шапку Lampa', () => {
   const c = upCard();
   LC.header.decorate(c.root, serial(60));
