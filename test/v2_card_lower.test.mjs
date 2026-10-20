@@ -337,6 +337,22 @@ test('36: обратный порядок рядов — классы swap, ко
   }); } finally { delete globalThis.$; }
 });
 
+test('L7: повторная разметка той же строки в естественном порядке снимает класс swap', async () => {
+  const { FakeEl } = await import('./_fakedom.mjs');
+  globalThis.$ = (x) => x;
+  try { withStorage({ lumen_kp_key: 'k' }, (LC) => {
+    const p = {}; const d = {};
+    const line = new FakeEl(['items-line'], [new FakeEl(['items-line__head'], [new FakeEl(['items-line__title'])])]);
+    const item = { render: () => line, use: () => { } };
+    const body = new FakeEl(['activity__body']);
+    const tagWith = (rows) => LC.cardLower.tag({ type: 'build', name: 'persons', item, body, link: { rows }, data: p });
+    tagWith(['start', ['persons', p], ['discuss', d]]);
+    assert.ok(line.hasClass('lumen-lower--swap'), 'обратный порядок — swap выставлен');
+    tagWith(['start', ['discuss', d], ['persons', p]]);
+    assert.equal(line.hasClass('lumen-lower--swap'), false);
+  }); } finally { delete globalThis.$; }
+});
+
 test('36: CSS swap — relative-сдвиг на ширину колонки', () => {
   for (const css of [lumen, apple]) {
     assert.match(rule(css, L + '.lumen-lower--swap'), /position:relative/);

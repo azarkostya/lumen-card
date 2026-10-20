@@ -1067,6 +1067,14 @@ test('п.10: склейка LC.homeRow — install/uninstall с плагином
   assert.deepEqual(warnLog, []);
 });
 
+test('S10: склейка LC.v2search — переключение контроллера доходит до onToggle поиска с именем', () => {
+  const log = [];
+  const env = initLC({ setup: (LC) => { LC.v2search = { onToggle: (n) => log.push(n) }; } });
+  env.toggles[0]({ name: 'keybord' });
+  assert.deepEqual(log, ['keybord']);
+  assert.deepEqual(warnLog, []);
+});
+
 test('п.G: в виде «на постере» смена размера кадра метки не трогает', () => {
   const { env, seen } = presetEnv({ lumen_badges: 'poster', lumen_hero_size: 'large' });
   env.LC.applyHeroSizePref();

@@ -1309,3 +1309,21 @@ test('lumen_kp_key: значение в строке настройки зама
     assert.equal(value.t, 'lumen_pref_unset');
   } finally { delete globalThis.$; }
 });
+
+test('K4: маска ключа ставится и отложенно — после того, как Lampa дописала сырое значение', () => {
+  const env = setup({ storage: { lumen_kp_key: 'abcdef-1234-5678-1a2b' } });
+  env.LC.addSettings();
+  const p = paramOf(env.params, 'lumen_kp_key');
+  const value = { t: '', text(v) { if (v === undefined) return this.t; this.t = v; return this; } };
+  const item = { length: 1, find: (sel) => (sel === '.settings-param__value' ? value : null) };
+  const realSetTimeout = globalThis.setTimeout;
+  const timers = [];
+  globalThis.setTimeout = (fn) => { timers.push(fn); return timers.length; };
+  try {
+    p.onRender(item);
+    /* Lampa (update$3) пишет значение после onRender. */
+    value.t = 'abcdef-1234-5678-1a2b';
+    timers.splice(0).forEach((fn) => fn());
+    assert.equal(value.t, '••••1a2b');
+  } finally { globalThis.setTimeout = realSetTimeout; }
+});
