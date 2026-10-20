@@ -553,8 +553,9 @@ test('install: маркер lumen-torrents на корне активности 
   try {
     m.install();
     m.install();
-    assert.equal(follows.length, 1);
-    assert.equal(follows[0].name, 'activity');
+    /* v2, экран 39: вторая подписка — 'torrent' (render раздачи: части
+       названия и числа в колонках) и 'torrent_file' (строка серии). */
+    assert.deepEqual(follows.map((f) => f.name), ['activity', 'torrent', 'torrent_file']);
     // уже открытый экран «Торренты» помечается сразу (включение настройки без перезагрузки)
     assert.equal(current.hasClass('lumen-torrents'), true);
 

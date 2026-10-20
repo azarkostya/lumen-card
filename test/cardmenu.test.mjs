@@ -8,7 +8,7 @@ const M = load('63_cardmenu.js');
 /* Строки интерфейса приходят параметром (модуль про язык не знает), как у
    LC.badges и LC.header. */
 const W = {
-  section: 'Lumen Card',
+  section: 'Ещё',
   trailer: 'Трейлер',
   franchise: 'Вся франшиза',
   similar: 'Похожие',
