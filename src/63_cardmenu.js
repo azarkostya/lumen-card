@@ -572,8 +572,12 @@
         if (hit && hit.el && typeof hit.el.getBoundingClientRect === 'function') {
           x = platterX(hit.el.getBoundingClientRect(), window.innerWidth || 0);
         }
-        root.classList.toggle(PLATTER, !!hit);
-        root.classList.toggle(PLATTER + '--anchored', x !== null);
+        /* Явные add/remove: старый WebKit Tizen второй аргумент
+           у classList.toggle (force) не знает и просто переключает. */
+        if (hit) root.classList.add(PLATTER);
+        else root.classList.remove(PLATTER);
+        if (x !== null) root.classList.add(PLATTER + '--anchored');
+        else root.classList.remove(PLATTER + '--anchored');
         if (x !== null) root.style.setProperty('--lc-anchor-x', x + 'px');
         else root.style.removeProperty('--lc-anchor-x');
       } catch (e) {

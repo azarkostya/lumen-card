@@ -559,3 +559,38 @@ test('extraItems: «Вернуться к просмотру» — первым 
   assert.equal(items[0].subtitle, 'S2 E5 · 23:10 из 48:00');
   assert.equal(kinds(M.extraItems(TV, { words: W, resume: null })).indexOf('resume'), -1);
 });
+
+/* Ревью v2 (п.4): старый WebKit Tizen не знает второго аргумента
+   classList.toggle(name, force) и просто переключает класс — метка панели
+   меню ставилась бы на чужое меню и слетала со своего. Классы — явными
+   add/remove; classList здесь — как у старого WebKit. */
+test('экран 40: метка панели меню — явные add/remove, без toggle(name, force)', () => {
+  const classes = [];
+  const root = {
+    classList: {
+      add: (c) => { if (classes.indexOf(c) === -1) classes.push(c); },
+      remove: (c) => { const i = classes.indexOf(c); if (i !== -1) classes.splice(i, 1); },
+      toggle: (c) => { const i = classes.indexOf(c); if (i === -1) classes.push(c); else classes.splice(i, 1); }
+    },
+    style: { setProperty: () => { }, removeProperty: () => { } }
+  };
+  let preshow = null;
+  const Lampa = { Select: { render: () => root, listener: { follow: (n, cb) => { if (n === 'preshow') preshow = cb; }, remove: () => { } } } };
+  globalThis.window = { Lampa, innerWidth: 1920 };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { addEventListener: () => { }, removeEventListener: () => { } };
+  try {
+    const { api } = loadCtx('63_cardmenu.js', { lang: (k) => k, pref: (n, d) => d });
+    api.install();
+    assert.equal(typeof preshow, 'function');
+    /* Чужое меню дважды подряд: метки нет и не появляется. */
+    preshow({ active: { title: 'Источник', items: [] } });
+    preshow({ active: { title: 'Источник', items: [] } });
+    assert.deepEqual(classes, []);
+    classes.push('lumen-cardmenu', 'lumen-cardmenu--anchored');
+    preshow({ active: null });
+    assert.deepEqual(classes, [], 'метка своего меню снята');
+  } finally { delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
+  const src = readFileSync(new URL('../src/63_cardmenu.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /classList\.toggle\([^,()]+,/);
+});
