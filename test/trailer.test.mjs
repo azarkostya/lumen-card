@@ -288,6 +288,135 @@ test('player: повторный PLAYING до проявления не уско
   assert.equal(env.host.hasClass('is-live'), true);
 });
 
+/* Аудит 2026-10-20: к концу CLEAN_MS ролик бывает не в PLAYING — WebView
+   поставил беззвучный autoplay на паузу, приложение ушло в фон, буфер.
+   Проявлять его тогда нельзя (обвязка YouTube на кадре), а ожидание
+   старта (WAIT_MS) уже снято первым PLAYING — без нового срока невидимый
+   iframe висел бы бесконечно. */
+const live = (env) => env.timers.filter((x) => !x.cleared && !x.done);
+
+for (const [state, label] of [[2, 'PAUSED'], [3, 'BUFFERING']]) {
+  test(`player: ${label} к концу CLEAN_MS — не проявляется; следующий PLAYING проявляет сразу`, () => {
+    const env = freshEnv();
+    env.make();
+    const p = env.last();
+    let st = 1;
+    p.getPlayerState = () => st;
+    p.cfg.events.onReady({ target: p });
+    p.cfg.events.onStateChange({ data: 1, target: p });
+    env.advanceTo(1000);
+    st = state;
+    p.cfg.events.onStateChange({ data: state, target: p });
+    env.advanceTo(env.mod.CLEAN_MS);
+    assert.equal(env.host.hasClass('is-live'), false, 'не PLAYING — не проявляем');
+    assert.equal(env.events.start, 0);
+    assert.equal(live(env).length, 1, 'взведён срок ожидания');
+    assert.equal(live(env)[0].ms, 12000);
+
+    env.advanceTo(env.mod.CLEAN_MS + 3000);
+    st = 1;
+    p.cfg.events.onStateChange({ data: 1, target: p });
+    assert.equal(env.host.hasClass('is-live'), true, 'PLAYING после отложенного проявления — сразу');
+    assert.equal(env.events.start, 1);
+    assert.equal(env.mod.status(), 'play');
+    assert.equal(live(env).length, 0, 'срок ожидания снят');
+    env.advanceTo(60000);
+    assert.equal(env.events.end, 0, 'проявленный ролик таймаут не снимает');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
+test('player: состояние по onStateChange, если getPlayerState нет — пауза в окне тоже откладывает проявление', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  p.cfg.events.onStateChange({ data: 2, target: p });
+  env.advanceTo(env.mod.CLEAN_MS);
+  assert.equal(env.host.hasClass('is-live'), false);
+  assert.equal(env.events.start, 0);
+});
+
+test('player: застрял на паузе после CLEAN_MS -> kill по WAIT_MS, onEnd один раз, таймеров нет', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  let st = 1;
+  p.getPlayerState = () => st;
+  p.cfg.events.onReady({ target: p });
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  st = 2;
+  p.cfg.events.onStateChange({ data: 2, target: p });
+  env.advanceTo(env.mod.CLEAN_MS + 12000 - 1);
+  assert.equal(env.events.end, 0);
+  env.advanceTo(env.mod.CLEAN_MS + 12000);
+  assert.equal(env.events.end, 1, 'невидимый iframe снят по сроку');
+  assert.equal(env.events.start, 0);
+  assert.equal(env.mod.status(), 'timeout ready');
+  assert.equal(p.destroyed, true);
+  assert.equal(live(env).length, 0);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.events.start, 0, 'после kill ничего не проявляется');
+  assert.equal(env.events.end, 1);
+});
+
+for (const [label, fin] of [
+  ['ENDED', (p) => p.cfg.events.onStateChange({ data: 0, target: p })],
+  ['onError', (p) => p.cfg.events.onError({ data: 150 })]
+]) {
+  test(`player: ${label} в окне CLEAN_MS и в отложенном проявлении -> onEnd один раз, таймеров нет`, () => {
+    for (const deferred of [false, true]) {
+      const env = freshEnv();
+      env.make();
+      const p = env.last();
+      let st = 1;
+      p.getPlayerState = () => st;
+      p.cfg.events.onStateChange({ data: 1, target: p });
+      if (deferred) { st = 2; env.advanceTo(env.mod.CLEAN_MS); }
+      else env.advanceTo(1000);
+      fin(p);
+      fin(p);
+      env.advanceTo(60000);
+      assert.equal(env.events.end, 1);
+      assert.equal(env.events.start, 0);
+      assert.equal(env.host.hasClass('is-live'), false);
+      assert.equal(live(env).length, 0);
+    }
+  });
+}
+
+test('player: поздний onReady в окне CLEAN_MS не взводит WAIT_MS и не отменяет проявление', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  p.getPlayerState = () => 1;
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.advanceTo(1000);
+  p.cfg.events.onReady({ target: p });
+  assert.equal(live(env).filter((x) => x.ms === 12000).length, 0, 'WAIT_MS не взведён');
+  assert.equal(env.mod.status(), 'play');
+  env.advanceTo(env.mod.CLEAN_MS);
+  assert.equal(env.events.start, 1);
+  assert.equal(live(env).length, 0);
+  env.advanceTo(60000);
+  assert.equal(env.events.end, 0);
+});
+
+test('player: onPlaying — ровно один раз на первом PLAYING, до проявления', () => {
+  const env = freshEnv();
+  let calls = 0;
+  env.mod.player(env.host, 'K', () => env.events.start++, () => env.events.end++, () => calls++);
+  const p = env.last();
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(calls, 1);
+  assert.equal(env.events.start, 0);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  env.advanceTo(env.mod.CLEAN_MS);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(calls, 1);
+  assert.equal(env.events.start, 2);
+});
+
 test('player: ошибка YT -> тихо убираем и onEnd (слой очищен, is-live снят)', () => {
   const env = freshEnv();
   env.make();
@@ -853,11 +982,52 @@ test('schedule: сторож гасит ролик и когда слой воо
   assert.equal(env.intervals[0].cleared, true);
 });
 
-test('schedule: без старта ролика сторож не заводится вовсе', () => {
+/* Аудит 2026-10-20: сторож заводится с созданием плеера — ролик в окне
+   CLEAN_MS невидим, но iframe уже декодирует, и уход с карточки должен
+   его гасить. Сторож один на плеер, проявление второго не заводит. */
+test('schedule: сторож заводится с созданием плеера, один на весь ролик', () => {
   const env = scheduleEnv();
   env.run();
+  assert.equal(env.intervals.length, 0, 'до создания плеера сторожа нет');
   env.fire(1); // плеер создан, но onStateChange(1) не приходил
-  assert.equal(env.intervals.length, 0, 'лишних таймеров на ТВ быть не должно');
+  assert.equal(env.intervals.length, 1);
+  assert.equal(env.intervals[0].ms, 1000);
+  env.playing();
+  assert.equal(env.intervals.length, 1, 'проявление второго сторожа не заводит');
+});
+
+test('schedule: уход с карточки в окне CLEAN_MS — iframe снят, ни кнопки «Стоп», ни паузы слайдшоу', () => {
+  let foreground = true;
+  const env = scheduleEnv({ foregroundFn: () => foreground });
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+  const clean = env.timers.filter((x) => !x.cleared && x.ms === env.mod.CLEAN_MS);
+  assert.equal(clean.length, 1, 'идёт окно CLEAN_MS');
+
+  foreground = false;
+  env.tick(1);
+  assert.equal(api.isAlive(), false, 'невидимый ролик гаснет сразу, а не после проявления');
+  assert.equal(env.mod.status(), 'stop', 'плеер снят нами');
+  assert.equal(env.intervals[0].cleared, true);
+  assert.equal(clean[0].cleared, true, 'таймер проявления снят');
+
+  clean[0].fn(); // даже если доедет — ничего
+  assert.equal(env.root.find('.lumen-stop').length, 0);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), false);
+  assert.equal(env.layer.hasClass('lumen-trailer-live'), false);
+  assert.equal(env.slideshow.pauseCalls, 0);
+  assert.equal(env.slideshow.resumeCalls, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+test('schedule: конструктор YT бросил — onEnd синхронно, сторож не заводится', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  globalThis.window.YT.Player = function () { throw new Error('boom'); };
+  env.fire(1);
+  assert.equal(api.isAlive(), false);
+  assert.equal(env.intervals.length, 0);
 });
 
 /* ====================================================================== */
