@@ -3224,6 +3224,28 @@ test('фон подборок: кадр ждёт цвет низа кадра и
   assert.deepEqual(warnLog, []);
 });
 
+test('фон подборок, Apple TV: цвет кадра не заказывается, кадр встаёт сразу, затемнение — фоном темы', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  withImages(function (images) {
+    var s = openStaged('lumen_hub', { motion: 'lite', pref: function (k, d) { return k === 'lumen_flat' ? true : d; } });
+    var asked = [];
+    s.h.LC.accent = {
+      frameColor: function () { return { r: 200, g: 120, b: 40 }; },
+      prepareFrame: function (path) { asked.push(path); return { cancel: function () { } }; }
+    };
+    s.h.LC.stageTone = function (rgb) { return { tone: '#000000', scrim: rgb ? 'tone:' + rgb.r : 'tone:none' }; };
+    s.h.bannerCalls[0].ok('/a.jpg');
+    s.h.bannerCalls[1].ok('/b.jpg');
+    t.mock.timers.tick(450);
+    var scrim = s.act.all('lumen-screen-stage__scrim')[0];
+    scrim.style = {};
+    images[0]._ok();
+    assert.deepEqual(asked, [], 'цвет кадра в Apple TV не считается');
+    assert.ok(/a\.jpg$/.test(stageImgs(s.act).a.attr('src')), 'кадр встал без ожидания цвета');
+    assert.equal(scrim.style.cssText, 'tone:none', 'затемнение — тоном темы');
+  });
+});
+
 /* ====================================================================== */
 /* Этап 2б: фон и фокус в штатной сетке Lampa (category_full), открытой    */
 /* плагином (src/46_hub.js, fullStart / guardBackground).                  */

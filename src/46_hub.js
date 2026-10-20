@@ -743,8 +743,11 @@
       }
 
       /* Цвет низа кадра path: undefined — ещё не посчитан (или считать
-         нечем), null — своего цвета нет, {r,g,b} — есть. */
+         нечем), null — своего цвета нет, {r,g,b} — есть. Apple TV: всегда
+         null — фон нейтральный (LC.stageTone красит фоном темы), цвет
+         кадра не считаем и кадр его не ждёт. */
       function colorOf(path) {
+        try { if (LC.pref && LC.pref('lumen_flat', false)) return null; } catch (e) { }
         try { return LC.accent && typeof LC.accent.frameColor === 'function' ? LC.accent.frameColor(path) : undefined; } catch (e) { return undefined; }
       }
 

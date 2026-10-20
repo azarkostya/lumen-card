@@ -212,9 +212,13 @@
        кадре он не сторожит — её держит тень фона в затемнении (shadeRgb
        ниже). Подкраску включает настройка lumen_accent_auto (Task 35: по
        умолчанию включена), и она не работает при выключенном движении
-       ('off'). */
+       ('off').
+       Стиль Apple TV (2026-10-20, аудит «тёплых утечек»): фон нейтральный —
+       без подкраски кадром и постером, ни фона страницы, ни фона рядов
+       ниже. Иначе тёплый кадр давал коричневый фон вместо чёрного. */
+    var neutral = appleLook();
     try {
-      if (LC.accent && typeof LC.accent.tint === 'function') {
+      if (!neutral && LC.accent && typeof LC.accent.tint === 'function') {
         var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
         if (tinted) p.bg = tinted;
       }
@@ -235,7 +239,7 @@
        кадром в доле ROWS_LEAK. */
     p.rows = p.bg;
     try {
-      if (LC.accent && typeof LC.accent.rowsTint === 'function') {
+      if (!neutral && LC.accent && typeof LC.accent.rowsTint === 'function') {
         var rows = LC.accent.rowsTint(p.soft, 4.5, ROWS_LEAK);
         if (rows) p.rows = rows;
       }
@@ -495,11 +499,12 @@
 
   /* Тон затемнения фона подборок по цвету низа кадра rgb ({r,g,b} или
      null): { tone: '#rrggbb', scrim: объявления фона для style.cssText }.
-     Тема — без подкраски главной: у экрана подборок свой кадр. */
+     Тема — без подкраски главной: у экрана подборок свой кадр.
+     Apple TV: затемнение всегда фоном темы — без тона кадра. */
   LC.stageTone = function (rgb) {
     var th = THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm;
     var tone = th.bg;
-    if (rgb && LC.color && typeof LC.color.rowsTint === 'function') {
+    if (rgb && !appleLook() && LC.color && typeof LC.color.rowsTint === 'function') {
       try { tone = LC.color.rowsTint(rgb, th.soft, 4.5, STAGE_LEAK) || th.bg; } catch (e) { tone = th.bg; }
     }
     return { tone: tone, scrim: stageScrim(hexToRgb(tone)) };
@@ -2212,9 +2217,10 @@
   /* Стиль Apple TV: акцент — только выбранный в настройках (пресет ставит
      графит). Цвет кадра/постера (LC.accent.current: переопределение карточки
      и героя главной) и акцент сезонной темы на него не влияют — иначе
-     фокус, прогресс и метки становились оранжевыми от тёплого кадра. Цвет
-     кадра в Apple TV остаётся только на фоне (подкраска в palette выше —
-     «Где виден цвет кадра: Только фон»). */
+     фокус, прогресс и метки становились оранжевыми от тёплого кадра.
+     С 2026-10-20 и фон в Apple TV кадром не подкрашивается (palette выше,
+     LC.stageTone): настройка «Где виден цвет кадра: Только фон» в Apple TV
+     не действует вовсе — стиль нейтральный, цвет кадра не виден нигде. */
   function theme() {
     var auto = null;
     try {
