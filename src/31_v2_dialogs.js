@@ -147,6 +147,10 @@
       /* Подложка — тем же весом, что у пути (он позже и побеждает). */
       css.push(M0.join(',') + '{background-color:rgba(' + P.bgRgb + ',.55);' + NOBLUR + '}');
       css.push(m(['.modal__content']) + '{background-color:' + PANEL + ';border-radius:.79em;color:' + TEXT + ';' + FF + SHADOW + NOBLUR + '}');
+      /* Окно во весь экран (Modal.open size:'full', .modal--full — QR
+         «Добавить комментарий») — без скругления, как у Lampa; правило
+         тяжелее нашего и пути (.614em). */
+      css.push(sel(['html ' + ALL + ' .modal.modal--full ', 'html body .modal.' + MM + '.modal--full '], ['.modal__content']) + '{border-radius:0}');
       css.push(m0(['.modal__title']) + '{font-size:1.67em;font-weight:700;line-height:1.2}');
       css.push(m(['.modal__title']) + '{color:' + TEXT + '}');
       /* Текст окна (.about Lampa — Light 300): 500, вторичным цветом. */

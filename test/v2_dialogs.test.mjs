@@ -279,6 +279,20 @@ test('v2 окна: тень панели Select — только у открыт
   assert.ok(/box-shadow:0/.test(eff(css, 'html body.selectbox--open .selectbox.lumen-select:not(.lumen-cardmenu) .selectbox__content')));
 });
 
+/* Ревью окон v2 (п.3): окно во весь экран (.modal--full: QR «Добавить
+   комментарий», Modal.open size:'full') у Lampa без скругления
+   (.modal--full .modal__content{border-radius:0}); наше .79em и .614em
+   пути его перебивали. */
+test('v2 окна: Modal во весь экран — без скругления, тяжелее нашего и пути', () => {
+  const { css } = build({});
+  const full = [M.replace(' .modal ', ' .modal.modal--full ') + '.modal__content', MM.replace('.lumen-modal ', '.lumen-modal.modal--full ') + '.modal__content'];
+  for (const f of full) {
+    assert.equal(prop(eff(css, f), 'border-radius'), '0', f);
+    for (const other of [M + '.modal__content', MM + '.modal__content'].concat(PATH.modal)) assert.ok(cmp(spec(f), spec(other)) > 0, f + ' легче ' + other);
+  }
+  assert.equal(prop(eff(css, M + '.modal__content'), 'border-radius'), '.79em', 'обычное окно скруглено');
+});
+
 /* Правила, которые добавляет именно src/31_v2_dialogs.js: разница таблиц
    со стилем окон и без него. */
 function dialogRules(storage) {
