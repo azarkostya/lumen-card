@@ -7058,6 +7058,20 @@
     var headUp = round2(LAMPA_HEAD / scale);
     css.push('body.lumen-card-on .lumen-backdrop{top:-' + headUp + 'em}');
 
+    /* --- v2-модули: экраны редизайна «Единый стиль» (src/3x_v2_*.js) ---
+       Каждый модуль регистрирует { id, order, build(ctx) } в LC.v2css и
+       возвращает строку CSS (или ''). Сбой одного модуля не ломает таблицу. */
+    var v2parts = (LC.v2css || []).slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    var v2ctx = { P: P, APPLE: APPLE, V2: V2, scale: scale, round2: round2, motion: LC.motionMode ? LC.motionMode() : '' };
+    for (var vi = 0; vi < v2parts.length; vi++) {
+      try {
+        var v2out = v2parts[vi].build(v2ctx);
+        if (v2out) css.push(v2out);
+      } catch (eV2) {
+        if (typeof warn === 'function') warn('v2css ' + (v2parts[vi].id || vi), eV2);
+      }
+    }
+
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());
 
