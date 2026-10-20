@@ -472,3 +472,10 @@ test('v2 экран 38: значки .card__icons результатов — м�
     assert.equal(rules(css, 'body.search--open .search .search__results .card__icon{width:1.25em;height:1.25em}').length, 1);
   }
 });
+
+/* QA на ТВ 21.10.2026: прокрученная лента результатов рисовалась поверх
+   клавиатуры — колонка результатов режется слева. */
+test('v2 поиск: колонка результатов обрезана слева (лента не заезжает на клавиатуру)', () => {
+  const src = readFileSync(new URL('../src/31_v2_search.js', import.meta.url), 'utf8');
+  assert.match(src, /RES \+ '\{-webkit-clip-path:inset\(-20em -20em -20em 1em\);clip-path:inset\(-20em -20em -20em 1em\)\}'/);
+});

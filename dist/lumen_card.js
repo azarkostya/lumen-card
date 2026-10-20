@@ -2877,6 +2877,7 @@ css.push(S+' .search__body{padding:2.63em 0 2.63em 3.51em}');
 css.push(S+' .search__body:after{content:"";display:table;clear:both}');
 css.push(S+' .search__input,'+S+' .search__keypad,'+S+' .search__history,'+S+' .search__sources{float:left;clear:left;width:37.88em;-webkit-box-sizing:border-box;box-sizing:border-box}');
 css.push(RES+'{margin-left:'+ctx.round2(43.84-3.51-1.5)+'em}');
+css.push(RES+'{-webkit-clip-path:inset(-20em -20em -20em 1em);clip-path:inset(-20em -20em -20em 1em)}');
 var FIELD_EMPTY=1.27;
 var FIELD_FULL=APPLE?2.02:1.84;
 var field=function(f){
