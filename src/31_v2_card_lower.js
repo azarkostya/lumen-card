@@ -46,20 +46,30 @@
       return -1;
     }
 
-    /* Сторона ряда в паре «Комментарии | Актеры»: 'left', 'right' или ''.
-       Пара — два соседа в списке рядов, один discuss, другой persons. */
-    function sideOf(rows, data, name) {
+    /* Пара «Комментарии | Актеры» — два соседа в списке рядов, один
+       discuss, другой persons. Возвращает 'first' / 'second' (место ряда в
+       паре по списку) или ''. */
+    function placeOf(rows, data, name) {
       var i = indexOf(rows, data);
       if (i < 0) return '';
       var other = name === 'discuss' ? 'persons' : name === 'persons' ? 'discuss' : '';
       if (!other) return '';
-      if (nameOf(rows[i + 1]) === other) return 'left';
+      if (nameOf(rows[i + 1]) === other) return 'first';
       if (i > 0 && nameOf(rows[i - 1]) === other) {
-        /* Слева может стоять только первый из пары: у Lampa бывает два
-           ряда persons подряд (режиссёры отдельно, если актёров нет). */
-        return 'right';
+        /* Вторым может стоять только сосед первого из пары: у Lampa бывает
+           два ряда persons подряд (режиссёры отдельно, если актёров нет). */
+        return 'second';
       }
       return '';
+    }
+
+    /* Колонка ряда на экране: 'left', 'right' или ''. QA v2 P3-5 / QA main:
+       колонка не зависит от порядка рядов Lampa (без комментариев она
+       ставит «Комментарии» после «Актеров») — по SPEC 36 «Комментарии»
+       всегда слева, «Актеры» справа. */
+    function sideOf(rows, data, name) {
+      if (!placeOf(rows, data, name)) return '';
+      return name === 'discuss' ? 'left' : 'right';
     }
 
     /* Отзывы Кинопоиска без ключа — одна тихая строка в шапке
@@ -142,14 +152,18 @@
        Navigator шага не находит, левая колонка делает шаг «вниз», правая —
        «вверх»: это и есть соседняя колонка (пара — соседи в списке рядов),
        а фокус в ней Lampa возвращает туда, где он стоял в прошлый раз (last). */
-    function bindPair(item, side) {
+    /* first — ряд первый в паре по списку Lampa (по умолчанию — левая
+       колонка): шаг к соседу — «вниз» у первого и «вверх» у второго,
+       клавиша — к соседней колонке на экране. */
+    function bindPair(item, side, first) {
       if (!item || typeof item.use !== 'function' || item.lumenPairBound) return;
       item.lumenPairBound = true;
+      if (typeof first !== 'boolean') first = side === 'left';
       item.use({
         onController: function (controller) {
           if (!controller) return;
           var key = side === 'left' ? 'right' : 'left';
-          var step = side === 'left' ? controller.down : controller.up;
+          var step = first ? controller.down : controller.up;
           var move = controller[key];
           if (typeof move !== 'function' || typeof step !== 'function') return;
           controller[key] = function () {
@@ -172,11 +186,16 @@
         var line = lineOf(e.item);
         if (!line) return;
         line.addClass('lumen-lower lumen-lower--' + e.name);
-        var side = sideOf(e.link && e.link.rows, e.data, e.name);
-        line.removeClass('lumen-lower--left lumen-lower--right');
+        var rows = e.link && e.link.rows;
+        var side = sideOf(rows, e.data, e.name);
+        var first = placeOf(rows, e.data, e.name) === 'first';
+        line.removeClass('lumen-lower--left lumen-lower--right lumen-lower--swap');
         if (side) {
           line.addClass('lumen-lower--' + side);
-          bindPair(e.item, side);
+          /* Порядок Lampa обратный («Актеры» раньше в списке и в DOM) —
+             колонки меняются местами сдвигом (CSS .lumen-lower--swap). */
+          if ((side === 'left') !== first) line.addClass('lumen-lower--swap');
+          bindPair(e.item, side, first);
         }
         if (e.name === 'discuss') {
           decorateDiscuss(line, e.body);
@@ -196,6 +215,7 @@
       tag: tag,
       refresh: refresh,
       sideOf: sideOf,
+      placeOf: placeOf,
       bindPair: bindPair,
       needsKeyLine: needsKeyLine,
       quietKey: true
@@ -247,6 +267,12 @@
 
       /* Две колонки: «Комментарии» | «Актеры». */
       css.push(L + '.lumen-lower--left,' + L + '.lumen-lower--right{display:inline-block;vertical-align:top;width:50%;overflow:hidden;-webkit-box-sizing:border-box;box-sizing:border-box}');
+      /* Обратный порядок рядов Lampa: колонки по 50 %, первая в DOM уходит
+         вправо на свою ширину, вторая — влево; поток и прокрутка Lampa не
+         меняются (сдвиг relative). */
+      css.push(L + '.lumen-lower--swap{position:relative}');
+      css.push(L + '.lumen-lower--right.lumen-lower--swap{left:50%}');
+      css.push(L + '.lumen-lower--left.lumen-lower--swap{left:-50%}');
       css.push(L + '.lumen-lower--left .items-line__head{padding-right:' + HALF + '}');
       css.push(L + '.lumen-lower--right .items-line__head{padding-left:' + HALF + '}');
       /* QA v2 (P2-2): поля ленты в колонке симметричны. Предел прокрутки
