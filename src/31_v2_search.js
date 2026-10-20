@@ -300,6 +300,41 @@
       return n;
     }
 
+    function hasClass(n, c) {
+      return !!(n && n.classList && n.classList.contains(c));
+    }
+
+    /* Ревью [perf]: наблюдатель смотрит только на добавленные ЭЛЕМЕНТЫ
+       внутри .search__results — без пересканирования всех карточек на
+       каждую мутацию. Свои записи (age.textContent в rateCard) добавляют
+       текстовый узел — он пропускается. Добавлен узел внутри карточки
+       (плашка .card__vote приходит позже самой карточки) — оценивается она;
+       добавлен ряд или контейнер — карточки в нём. */
+    function onMutations(list, root) {
+      var n = 0;
+      for (var i = 0; list && i < list.length; i++) {
+        var added = list[i].addedNodes;
+        for (var j = 0; added && j < added.length; j++) {
+          var node = added[j];
+          if (!node || node.nodeType !== 1) continue;
+          var card = null;
+          var inRes = false;
+          for (var p = node; p && p !== root; p = p.parentNode) {
+            if (!card && hasClass(p, 'card')) card = p;
+            if (hasClass(p, 'search__results')) { inRes = true; break; }
+          }
+          if (!inRes) continue;
+          if (card) {
+            if (rateCard(card)) n++;
+            continue;
+          }
+          var cards = node.querySelectorAll ? node.querySelectorAll('.card') : [];
+          for (var k = 0; k < cards.length; k++) if (rateCard(cards[k])) n++;
+        }
+      }
+      return n;
+    }
+
     function rootNode() {
       try {
         var r = window.Lampa && Lampa.Search && Lampa.Search.render ? Lampa.Search.render(true) : null;
@@ -324,7 +359,7 @@
       scan(root);
       if (typeof window.MutationObserver !== 'function') return;
       try {
-        obs = new window.MutationObserver(function () { scan(root); });
+        obs = new window.MutationObserver(function (list) { onMutations(list, root); });
         obs.observe(root, { childList: true, subtree: true });
       } catch (e) {
         warn('v2search: observe failed', e);
@@ -464,7 +499,7 @@
       sources = null;
     }
 
-    return { rateCard: rateCard, scan: scan, install: install, uninstall: uninstall, onToggle: onToggle };
+    return { rateCard: rateCard, scan: scan, onMutations: onMutations, install: install, uninstall: uninstall, onToggle: onToggle };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.v2search;

@@ -422,3 +422,44 @@ test('LC.v2search.onToggle: один источник без недавних �
     assert.equal(env3.name(), 'keybord', 'рядов нет — назад');
   } finally { env3.done(); }
 });
+
+/* Ревью [perf]: наблюдатель поиска разбирает только добавленные элементы
+   внутри .search__results; свои записи (текст в .card__age) и узлы вне
+   результатов не трогают карточки. */
+function el(cls, kids, text) {
+  const n = {
+    nodeType: 1, parentNode: null, textContent: text || '', kids: kids || [],
+    className: cls, classList: { contains: (c) => cls.split(' ').indexOf(c) !== -1 },
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
+    querySelectorAll(sel) { const c = sel.slice(1); const out = []; (function walk(x) { for (const k of x.kids) { if (k.classList.contains(c)) out.push(k); walk(k); } })(this); return out; }
+  };
+  for (const k of n.kids) k.parentNode = n;
+  return n;
+}
+
+test('LC.v2search.onMutations: только добавленные элементы в результатах, свои записи пропускаются', () => {
+  const { LC } = build({});
+  const age = el('card__age', [], '2021');
+  const card = el('card selector', [el('card__view'), age]);
+  const line = el('items-line', [card]);
+  const res = el('search__results', [line]);
+  const otherCard = el('card', [el('card__vote', [], '9.0'), el('card__age', [], '2000')]);
+  const keypad = el('search__keypad', [otherCard]);
+  const root = el('search', [res, keypad]);
+  /* Плашка оценки пришла позже карточки — оценивается её карточка. */
+  const vote = el('card__vote', [], '7.8');
+  vote.parentNode = card; card.kids.push(vote);
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [vote] }], root), 1);
+  assert.equal(age.textContent, '2021 · ★ 7.8');
+  /* Своя запись — текстовый узел: ничего. */
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [{ nodeType: 3, parentNode: age }] }], root), 0);
+  /* Вне результатов — не трогаем, даже карточку. */
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [otherCard] }], root), 0);
+  assert.equal(otherCard.kids[1].textContent, '2000');
+  /* Новый ряд — карточки в нём. */
+  const a2 = el('card__age', [], '2024');
+  const line2 = el('items-line', [el('card', [el('card__vote', [], '8.1'), a2]), el('card', [el('card__age', [], '2026')])]);
+  line2.parentNode = res; res.kids.push(line2);
+  assert.equal(LC.v2search.onMutations([{ addedNodes: [line2] }, { addedNodes: [] }], root), 1);
+  assert.equal(a2.textContent, '2024 · ★ 8.1');
+});
