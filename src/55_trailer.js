@@ -70,7 +70,7 @@
        одновременно с появлением чистого кадра. */
     var CLEAN_MS = 2500;
     /* Период сторожа «карточка ещё на экране» (см. startWatchdog ниже).
-       Тикает только пока ролик реально играет. */
+       Тикает, пока жив плеер — с его создания, а не с проявления ролика. */
     var WATCH_MS = 1000;
 
     /* ------------------------------------------------------------------ */
@@ -318,8 +318,11 @@
        {destroy}; destroy идемпотентен и всегда проходит через kill(), то
        есть onEnd вызывается ровно один раз, каким бы путём ни завершилось
        воспроизведение (старт не случился за WAIT_MS, ошибка плеера, конец
-       ролика, закрытие карточки). */
-    function player($host, key, onStart, onEnd) {
+       ролика, закрытие карточки).
+       onPlaying (необязательный) — первый PLAYING, ролик ещё невидим
+       (окно CLEAN_MS): потребитель может заранее снять свою нагрузку.
+       Если ролик так и не проявится, сигналом отбоя служит тот же onEnd. */
+    function player($host, key, onStart, onEnd, onPlaying) {
       var mine = ++seq;
       var id = 'lumen-yt-' + mine;
       var yt = null;
@@ -332,6 +335,14 @@
       var started = false;
       /* Ролик проявлен (прошли CLEAN_MS от первого PLAYING). */
       var shown = false;
+      /* Аудит 2026-10-20: к концу CLEAN_MS ролик бывает НЕ в PLAYING —
+         беззвучный autoplay поставлен WebView на паузу (2), приложение
+         ушло в фон, буферизация (3). Проявлять его тогда нельзя (на кадре
+         обвязка YouTube), поэтому проявление откладывается (due) до
+         ближайшего PLAYING, а на паузе/буфере снова действует WAIT_MS —
+         иначе застрявший невидимый iframe висел бы без срока. */
+      var due = false;
+      var lastState = -1;
 
       owner = mine;
       mark('api');
@@ -371,6 +382,27 @@
         yt = null;
         try { $host.empty().removeClass('is-live'); } catch (e2) { }
         onEnd();
+      }
+
+      function reveal() {
+        due = false;
+        try { $host.addClass('is-live'); } catch (e) { }
+        shown = true;
+        mark('play');
+        onStart();
+      }
+
+      /* Состояние берётся у плеера; нет метода (старый API) — последнее
+         из onStateChange. */
+      function playing() {
+        var st = lastState;
+        try { if (yt && typeof yt.getPlayerState === 'function') st = yt.getPlayerState(); } catch (e) { }
+        return st === 1;
+      }
+
+      function waitStart() {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
       }
 
       function create() {
@@ -417,11 +449,12 @@
               },
               onStateChange: function (ev) {
                 if (dead || !ev) return;
+                lastState = ev.data;
                 if (ev.data === 1) {
                   /* Первый PLAYING: ожидание старта снято, проявление — через
                      CLEAN_MS (таймер в том же timeout, его снимает kill).
-                     Повторный PLAYING до проявления ничего не делает, после —
-                     как раньше. */
+                     Повторный PLAYING до проявления ничего не делает (кроме
+                     отложенного проявления — due), после — как раньше. */
                   if (!started) {
                     started = true;
                     if (timeout) clearTimeout(timeout);
@@ -429,10 +462,17 @@
                     timeout = setTimeout(function () {
                       timeout = null;
                       if (dead) return;
-                      try { $host.addClass('is-live'); } catch (e) { }
-                      shown = true;
-                      onStart();
+                      if (playing()) { reveal(); return; }
+                      due = true;
+                      mark('ready');
+                      waitStart();
                     }, CLEAN_MS);
+                    if (typeof onPlaying === 'function') {
+                      try { onPlaying(); } catch (e) { warn('trailer playing hook failed', e); }
+                    }
+                  } else if (due) {
+                    if (timeout) { clearTimeout(timeout); timeout = null; }
+                    reveal();
                   } else if (shown) {
                     try { $host.addClass('is-live'); } catch (e) { }
                     mark('play');
@@ -692,7 +732,10 @@
            гасим трейлер, если нет: иначе звук-без-звука продолжал бы крутить
            iframe за чужим экраном, а карточка возвращалась бы из истории в
            режиме трейлера (описание и боковая колонка скрыты, ролика нет).
-           Тик заводится только на время проигрывания и снимается в cleanup. */
+           Аудит 2026-10-20: тик заводится сразу с созданием плеера, а не с
+           проявлением ролика — иначе уход с карточки в окне CLEAN_MS
+           оставлял декодирующий невидимый iframe до его проявления.
+           Снимается в cleanup. */
         function startWatchdog() {
           if (watchdog) return;
           watchdog = setInterval(function () {
@@ -739,7 +782,6 @@
                YouTube кадры иначе замирали бы на все 6 с ожидания впустую. */
             paused = true;
             pauseSlideshow(layer);
-            startWatchdog();
             try { root.addClass('lumen-trailer-on'); } catch (e) { }
             try { layer.addClass('lumen-trailer-live'); } catch (e2) { }
             addBadge(root);
@@ -750,6 +792,9 @@
             alive = false;
             cleanup();
           });
+          /* player() мог уже отработать onEnd синхронно (ошибка
+             конструктора) — тогда сторож не нужен. */
+          if (alive && control) startWatchdog();
         }
 
         function destroy() {

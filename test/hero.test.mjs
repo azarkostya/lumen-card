@@ -4046,8 +4046,8 @@ function trailerEnv(extra, pref) {
         if (!list || !list.length) return null;
         return list[0] && list[0].key ? list[0] : null;
       },
-      player: (host, key, onStart, onEnd) => {
-        const p = { host: host, key: key, onStart: onStart, onEnd: onEnd, destroys: 0 };
+      player: (host, key, onStart, onEnd, onPlaying) => {
+        const p = { host: host, key: key, onStart: onStart, onEnd: onEnd, onPlaying: onPlaying, destroys: 0 };
         players.push(p);
         p.destroy = () => { p.destroys++; p.onEnd(); };
         return p;
@@ -6107,6 +6107,38 @@ test('«Кадры и трейлер» (по умолчанию) в lite: кад
     env.players[0].onEnd();
     assert.equal(node.hasClass('lumen-hero--trailer'), false);
     assert.equal(env.live().length, 1, 'ролик кончился — смена кадров продолжается');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* Аудит 2026-10-20: ролик стартует невидимым (CLEAN_MS после первого
+   PLAYING). Смена кадров под ним встаёт уже на первом PLAYING (onPlaying
+   плеера), вид героя не меняется до onStart; не проявился — смена
+   кадров продолжается. */
+test('«Кадры и трейлер»: первый PLAYING ставит смену кадров на паузу без смены вида, отказ до проявления её возвращает', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'lite', heavy: false });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = heroOf(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    env.advance(8200);
+    lastVideos(env).ok(VIDEOS_RU);
+    assert.equal(env.players.length, 1);
+    assert.equal(typeof env.players[0].onPlaying, 'function', 'герой отдаёт плееру onPlaying');
+    assert.equal(env.live().length, 1);
+
+    env.players[0].onPlaying();
+    assert.equal(env.live().length, 0, 'невидимый старт ролика — кадры уже стоят');
+    assert.equal(node.hasClass('lumen-hero--trailer'), false, 'вид героя не меняется до проявления');
+    assert.equal(stageOf(node).hasClass('lumen-hero-stage--trailer'), false);
+
+    env.players[0].onEnd();
+    assert.equal(env.live().length, 1, 'ролик не проявился — смена кадров продолжается');
+    assert.equal(node.hasClass('lumen-hero--trailer'), false);
     assert.deepEqual(warnLog, []);
   } finally { env.restore(); }
 });

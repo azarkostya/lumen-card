@@ -2125,6 +2125,13 @@
           state.trailer = null;
           markTrailer(false);
           trailerOff();
+        }, function () {
+          /* Аудит 2026-10-20: первый PLAYING, ролик ещё невидим (CLEAN_MS).
+             Смена кадров (декодирование крупного кадра) под стартующим
+             iframe встаёт уже сейчас; вид героя не меняется — класс ставит
+             onStart. Не проявится — паузу снимет onEnd (trailerOff). */
+          if (tgen !== captured || !state) return;
+          trailerOn();
         });
       } catch (err) {
         warn('hero: trailer start failed', err);
