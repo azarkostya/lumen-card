@@ -264,6 +264,27 @@
      51_slideshow.js, setActive: layer.hasClass('lumen-motion-full')) играл
      бы до следующего apply() (то есть до закрытия и повторного открытия
      карточки). */
+  /* perf: 'toggle' Controller приходит на каждый шаг пульта по рядам
+     главной, а activeCardRoot() — запрос по всему документу. Корень берётся
+     из реестра открытой карточки (LC.active.body), если она на экране; без
+     неё .lumen-card может лежать только на экране карточки ('full') — на
+     любом другом экране запроса нет вовсе. Нет Lampa.Activity — прежний
+     запрос, поведение то же. */
+  function toggleCardRoot() {
+    try {
+      var a = LC.active;
+      if (a && a.body && typeof a.body.find === 'function') {
+        var own = a.body.find('.lumen-card');
+        if (own && own.length && LC.util.onScreen(own)) return own;
+      }
+      if (window.Lampa && Lampa.Activity && typeof Lampa.Activity.active === 'function') {
+        var act = Lampa.Activity.active();
+        if (act && act.component && act.component !== 'full') return null;
+      }
+    } catch (e) { }
+    return activeCardRoot();
+  }
+
   function activeBackdropLayer() {
     try { return $(LC.util.ON_SCREEN_SEL + ' .lumen-backdrop'); } catch (e) { return null; }
   }
@@ -453,7 +474,7 @@
           /* QA main: пульт поиска — «вправо» с клавиатуры в результаты, при
              пустом запросе вниз в скрытые ряды не пускать (src/31_v2_search.js). */
           if (LC.v2search && typeof LC.v2search.onToggle === 'function') LC.v2search.onToggle(e.name);
-          var root = activeCardRoot();
+          var root = toggleCardRoot();
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
           else if (e.name === 'full_start') root.removeClass('lumen-compact');
