@@ -26732,6 +26732,26 @@ refreshParamRow('lumen_style');
 warn('style sync failed',e);
 }
 }
+function bootStyle(){
+try{
+if(!window.Lampa||!Lampa.Storage)return;
+if(typeof Lampa.Storage.set!=='function'||typeof Lampa.Storage.get!=='function')return;
+if(presetStored('lumen_style')==='appletv'){
+var values=LC.prefs.presetValues('appletv');
+var keys=LC.prefs.PRESET_KEYS;
+for(var i=0;i<keys.length;i++){
+if(!Object.prototype.hasOwnProperty.call(values,keys[i]))continue;
+if(presetStored(keys[i])!=='')continue;
+var want=values[keys[i]];
+Lampa.Storage.set(keys[i],typeof want==='boolean'?(want?'true':'false'):String(want),true);
+releaseMerged(keys[i]);
+}
+}
+syncStyle();
+}catch(e){
+warn('style boot failed',e);
+}
+}
 function releaseMerged(name){
 try{
 if(!Object.prototype.hasOwnProperty.call(LC.prefs.MERGED,name))return;
@@ -26763,6 +26783,14 @@ if(elem&&elem.length)fontPreview(elem);
 warn('font preview refresh failed',e);
 }
 }
+function presetStored(key){
+try{
+if(typeof Lampa.Storage.value==='function')return String(Lampa.Storage.value(key,'')||'');
+}catch(e){
+warn('preset stored read failed',e);
+}
+return null;
+}
 function applyPreset(id){
 try{
 if(!window.Lampa||!Lampa.Storage)return;
@@ -26775,8 +26803,14 @@ for(var i=0;i<keys.length;i++){
 var key=keys[i];
 if(!Object.prototype.hasOwnProperty.call(values,key))continue;
 var want=values[key];
-if(presetCurrent(key)===want)continue;
-Lampa.Storage.set(key,typeof want==='boolean'?(want?'true':'false'):want,true);
+var text=typeof want==='boolean'?(want?'true':'false'):String(want);
+var differs=presetCurrent(key)!==want;
+if(!differs){
+var stored=presetStored(key);
+if(stored===null||stored===text||(id==='lumen'&&stored===''))continue;
+}
+Lampa.Storage.set(key,text,true);
+if(!differs)continue;
 releaseMerged(key);
 written.push(key);
 refreshParamRow(key);
@@ -26897,7 +26931,7 @@ warn('settings more template failed',eTpl);
 }
 for(var i=0;i<LC.prefs.LIST.length;i++)addPrefParam(LC.prefs.LIST[i]);
 LC.settingsAdded=true;
-syncStyle();
+bootStyle();
 }catch(e){
 warn('settings failed',e);
 }
