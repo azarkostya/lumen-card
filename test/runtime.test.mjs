@@ -3121,6 +3121,23 @@ test('1.3: tsclean — старт с включённым плагином: inst
   assert.equal(log[log.length - 1], 'uninstall');
 });
 
+/* «Запасной парсер» (src/66_parserfb.js): обёртка Lampa.Parser.get ставится
+   в activate() и снимается в deactivate(). */
+test('parserfb — install в activate(), uninstall в deactivate()', () => {
+  const log = [];
+  const { LC } = initLC({
+    storage: {},
+    setup: (LC) => {
+      LC.parserfb = { install: () => log.push('install'), uninstall: () => log.push('uninstall') };
+    }
+  });
+  assert.deepEqual(log, ['install']);
+  globalThis.Lampa.Storage.field = (name) => (name === 'lumen_enabled' ? 'false' : undefined);
+  globalThis.Lampa.Storage.get = (name, def) => (name === 'lumen_enabled' ? 'false' : def);
+  LC.applyEnabledPref();
+  assert.deepEqual(log, ['install', 'uninstall']);
+});
+
 test('1.3: tsclean — включённый плагин, но activate() не будет (узкая раскладка, шаблон не поддерживается, исключение) — markOff', () => {
   assert.deepEqual(tscleanLC({}, { innerWidth: 400 }).log, ['markOff'], 'узкая раскладка');
   assert.deepEqual(tscleanLC({}, { templateUnsupported: true }).log, ['markOff'], 'шаблон не поддерживается');

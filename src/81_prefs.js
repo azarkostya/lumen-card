@@ -295,6 +295,9 @@
          оформлением пути через TorrServer. По умолчанию ВЫКЛЮЧЕНА: плагин
          без спроса чужих раздач не удаляет. */
       { name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'lumen_tsclean_name', descr: 'lumen_tsclean_descr' },
+      /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
+         ответил или ничего не нашёл: поиск по второму адресу Lampa. */
+      { name: 'lumen_parser_fallback', type: 'trigger', 'default': true, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },
       /* Task 22: сам выключатель заставки — в главном разделе («Движение»),
          здесь то, что настраивают один раз. */
       { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },

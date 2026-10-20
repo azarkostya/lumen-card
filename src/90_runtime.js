@@ -1844,6 +1844,13 @@
     } catch (eTsclean) {
       warn('tsclean install failed', eTsclean);
     }
+    /* «Запасной парсер»: обёртка Lampa.Parser.get; без Parser — ничего
+       (src/66_parserfb.js). */
+    try {
+      if (LC.parserfb) LC.parserfb.install();
+    } catch (eParserFb) {
+      warn('parserfb install failed', eParserFb);
+    }
     /* 1.2: окно «Что нового», если detect() в LC.init его ждёт; показ —
        только поверх готовой главной (homeReady ниже). */
     try {
@@ -2001,6 +2008,8 @@
     /* 1.3: выключенный плагин TorrServer не чистит: таймер и начатый
        проход снимаются (src/66_tsclean.js). */
     try { if (LC.tsclean) LC.tsclean.uninstall(); } catch (eTscleanOff) {}
+    /* «Запасной парсер»: Lampa.Parser.get снова исходный. */
+    try { if (LC.parserfb) LC.parserfb.uninstall(); } catch (eParserFbOff) {}
   }
 
   /* -------------------------------------------------------------------- */
