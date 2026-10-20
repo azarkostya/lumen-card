@@ -100,7 +100,10 @@
       /* Подложку не затемняем (Select открывается и поверх плеера), только
          снимаем размытие Lampa (на узких экранах — blur(1em)). */
       css.push(g(['.selectbox__layer']) + '{' + NOBLUR + '}');
-      css.push(g(['.selectbox__content']) + '{background:' + PANEL + ';color:' + TEXT + ';' + FF + SHADOW + NOBLUR + '}');
+      css.push(g(['.selectbox__content']) + '{background:' + PANEL + ';color:' + TEXT + ';' + FF + NOBLUR + '}');
+      /* Тень — только у открытого: закрытая панель стоит за правой кромкой
+         (left:100%), и её тень иначе лежит полосой у края каждого экрана. */
+      if (SHADOW) css.push(sel(['html ' + ALL + '.selectbox--open .selectbox:not(.lumen-cardmenu) ', 'html body.selectbox--open .selectbox.' + MS + ':not(.lumen-cardmenu) '], ['.selectbox__content']) + '{' + SHADOW + '}');
       /* Заголовок: Bold вместо Light 2.2em (Light запрещён). */
       css.push(g0(['.selectbox__title']) + '{font-size:1.67em;font-weight:700;line-height:1.2}');
       css.push(g(['.selectbox__title']) + '{color:' + TEXT + '}');

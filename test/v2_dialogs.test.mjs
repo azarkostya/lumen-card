@@ -261,6 +261,24 @@ test('v2 окна: каскад — меню карточки не задето,
   }
 });
 
+/* Ревью окон v2 (п.2): закрытая панель Select стоит за правой кромкой
+   (left:100%) — её тень не должна падать на экран. Тень — только под
+   body.selectbox--open (как у меню карточки). */
+test('v2 окна: тень панели Select — только у открытого Select', () => {
+  for (const storage of Object.values(STYLES)) {
+    for (const r of dialogRules(storage)) {
+      if (!/box-shadow:(?!none)/.test(r.decl)) continue;
+      for (const s of r.selectors) {
+        if (!/\.selectbox__content$/.test(s)) continue;
+        assert.ok(/body[.\w-]*\.selectbox--open /.test(s), 'тень у закрытого Select: ' + s);
+      }
+    }
+  }
+  const { css } = build({});
+  assert.ok(/box-shadow:0/.test(eff(css, 'html body.lumen-menus-all.selectbox--open .selectbox:not(.lumen-cardmenu) .selectbox__content')), 'тень открытого Select пропала');
+  assert.ok(/box-shadow:0/.test(eff(css, 'html body.selectbox--open .selectbox.lumen-select:not(.lumen-cardmenu) .selectbox__content')));
+});
+
 /* Правила, которые добавляет именно src/31_v2_dialogs.js: разница таблиц
    со стилем окон и без него. */
 function dialogRules(storage) {
