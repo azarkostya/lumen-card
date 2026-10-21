@@ -64,8 +64,8 @@ const LUMEN_SAMPLES = {
    1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках. Если Lumen меняют
    намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'a641538cb8bfddc6117505cd490229a419f99b300c1b604d82e4ed02ea552137',
-  black_solid: '91a5b8a097541bfe34f6c4019707947eef1fcfb4caecddef7285a5b5bb6b91b9'
+  warm: '1c606e2de8c05e94480349f9ffc8c8477640ef48c881b15e93541e852b680a48',
+  black_solid: '28179b62e9bf3ad2444dd5bfe8bb469268ebd75fdb76c7aa4d680d58895bc450'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

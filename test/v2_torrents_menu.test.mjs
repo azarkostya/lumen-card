@@ -185,3 +185,14 @@ test('39: render раздачи — название делится на две 
     delete globalThis.window;
   }
 });
+
+/* QA ТВ 21.10.2026: «По вашему фильтру ничего не нашлось» — те же поля,
+   что у списка раздач (Lampa снимает с ленты .torrent-list). */
+test('v2 торренты: экран «фильтр ничего не дал» с полями списка раздач, в обоих стилях', () => {
+  for (const css of [lumen, apple]) {
+    const list = rule(css, '.torrent-list');
+    const pad = /padding:([^;}]+)/.exec(list)[1].trim().split(/\s+/);
+    const empty = rule(css, '.empty-filter');
+    assert.ok(empty.indexOf('padding:1.4em ' + pad[1] + ' 1.4em ' + pad[3] + ' !important') >= 0, empty);
+  }
+});
