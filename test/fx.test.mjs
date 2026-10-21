@@ -1174,3 +1174,25 @@ test('holB: keydown снимается, когда слоёв не остало�
     assert.equal(keys.length, 0);
   });
 });
+
+/* QA U5: огни зимней сцены в стиле Apple TV (lumen_flat) — холодно-белые;
+   в Lumen — прежняя цветная палитра. Запасная точка без спрайтов. */
+test('сцены: гирлянда зимы в Apple TV — холодно-белая, в Lumen — цветная', () => {
+  const colorOf = (flat) => {
+    const { api } = loadCtx('52_fx.js', { motionMode: () => 'full', enabled: () => true, pref: (k, d) => (k === 'lumen_flat' ? flat : d) });
+    const list = api.spawn('winter', 960, 540, api.presets.winter.count, seeded(6));
+    const fills = [];
+    const ctx = { set fillStyle(v) { fills.push(v); }, get fillStyle() { return ''; }, beginPath() {}, arc() {}, fill() {}, globalAlpha: 1 };
+    for (const p of list.filter((x) => x.kind === 4)) api.presets.winter.draw(ctx, p, 960, 540, '#FFFFFF', null);
+    return fills;
+  };
+  const cold = colorOf(true);
+  assert.ok(cold.length > 0);
+  for (const c of cold) {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c);
+    assert.ok(m, c);
+    assert.ok(+m[1] >= 200 && +m[2] >= 220 && +m[3] >= 245 && +m[1] <= +m[3], 'тёплый огонь в Apple TV: ' + c);
+  }
+  const warm = colorOf(false);
+  assert.ok(warm.some((c) => /255,\s*(160|206|86)/.test(c)), 'в Lumen пропала цветная гирлянда');
+});

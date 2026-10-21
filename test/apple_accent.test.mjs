@@ -166,3 +166,17 @@ test('Apple TV: Хэллоуин — фон без оранжевого заре
   assert.ok(lumen.css.indexOf('html body .lumen-hero .lumen-fx.lumen-fx--halloween') === -1, 'правило Apple TV попало в Lumen');
   assert.ok(lumen.css.indexOf('224,123,44') !== -1, 'в Lumen пропало зарево');
 });
+
+/* QA U5: Новый год в Apple TV — гирлянда холодно-белая, плитка 31-го без
+   золота; в Lumen — как было. */
+test('Apple TV: новогодняя гирлянда холодно-белая, 31-е без золота; Lumen без изменений', () => {
+  const garland = apple.css.split('\n').filter((l) => l.indexOf('html body .lumen-backdrop.lumen-theme--christmas .lumen-fx,') === 0);
+  assert.equal(garland.length, 1);
+  assert.equal((garland[0].match(/radial-gradient/g) || []).length, 10);
+  assert.ok(garland[0].indexOf('255,182,72') === -1 && garland[0].indexOf('236,244,255') !== -1);
+  const tail = apple.css.slice(apple.css.indexOf('html body .lumen-main .card.lumen-advent-card--final'));
+  assert.ok(tail.length > 0 && tail.indexOf('E8C170') === -1 && tail.indexOf('F1CF84') === -1);
+  assert.ok(apple.css.indexOf('html body .lumen-main .lumen-advent-card--final .card__age{color:#FFFFFF}') !== -1);
+  assert.ok(lumen.css.indexOf('236,244,255') === -1, 'холодная гирлянда попала в Lumen');
+  assert.ok(lumen.css.indexOf('255,182,72') !== -1);
+});
