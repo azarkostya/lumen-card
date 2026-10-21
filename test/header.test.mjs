@@ -1571,7 +1571,7 @@ test('progress: подпись кнопки экранируется для ст
     'неэкранированная кавычка оборвала бы значение и правило стало бы невалидным');
 });
 
-test('progress: досмотренные серии ведут к следующей — «S2 E3 «Серия 3» · 53 мин», без таймкода', () => {
+test('progress: досмотренные серии ведут к следующей — «просмотрено 2 из 4 · S2 E3 «Серия 3» · 53 мин», без таймкода', () => {
   const c = makeCard();
   withViews({
     [hashOf(2, 1)]: { percent: 100, time: 3060, duration: 3060, updated: 1 },
@@ -1580,7 +1580,8 @@ test('progress: досмотренные серии ведут к следующ
     LC.header.decorate(c.root, serial(4));
   });
   assert.equal(c.progress.hasClass('hide'), false);
-  assert.equal(c.pLabel.text(), 'S2 E3 «Серия 3» · 53 мин', 'у не начатой серии вместо таймкода — её длительность');
+  /* 1.4: статус сезона — в начале той же подписи (LC.progress.seasonCount). */
+  assert.equal(c.pLabel.text(), 'просмотрено 2 из 4 · S2 E3 «Серия 3» · 53 мин', 'у не начатой серии вместо таймкода — её длительность');
   assert.equal(c.pTime.text(), '');
   assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E3"');
 });

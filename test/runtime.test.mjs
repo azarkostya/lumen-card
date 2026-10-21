@@ -1250,6 +1250,25 @@ test('ревью п.6: с переданным row чип НЕ ищется по
   assert.deepEqual(warnLog, []);
 });
 
+/* 1.4: IMDb из того же ответа Кинопоиска — на чип .rate--imdb по тем же
+   правилам: imdb_rating от Lampa (CUB/парсер) не перезаписывается. */
+test('1.4: LC.applyImdbRate заполняет rate--imdb только когда Lampa рейтинг не дала', () => {
+  const { LC } = initLC();
+  const value = new FakeEl([]);
+  const chip = new FakeEl(['full-start__rate', 'rate--imdb', 'hide'], [value, new FakeEl([])]);
+  globalThis.$ = (sel) => (sel === '.activity--active .lumen-card .rate--imdb' ? chip : EMPTY);
+
+  LC.applyImdbRate(0);
+  assert.equal(chip.hasClass('hide'), true);
+  LC.applyImdbRate(8.5);
+  assert.equal(chip.hasClass('hide'), false);
+  assert.equal(value.text(), '8.5');
+  value.text('9.1');
+  LC.applyImdbRate(8.5);
+  assert.equal(value.text(), '9.1', 'значение Lampa не трогаем');
+  assert.deepEqual(warnLog, []);
+});
+
 /* ====================================================================== */
 /* Ревью Task 10: выключенный плагин не должен ничего оживлять.           */
 /* ====================================================================== */

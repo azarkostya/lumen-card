@@ -506,6 +506,12 @@
 
     var percent = Math.max(0, Math.min(100, Math.round(found.view.percent || 0)));
     var caption = LC.progress.label(found, episodes, { min: LC.lang('lumen_card_min') });
+    /* 1.4: «просмотрено 5 из 12 · S2 E6 «Гуль»» — в той же подписи, новых
+       узлов нет; длинное название серии по-прежнему режет многоточие. */
+    var count = found.season && typeof LC.progress.seasonCount === 'function' ? LC.progress.seasonCount(movie, found, episodes, timelineView, utilsHash) : null;
+    if (count && caption) {
+      caption = LC.lang('lumen_card_watched_of').replace('{n}', count.done).replace('{t}', count.total) + ' · ' + caption;
+    }
 
     /* Правка 2026-09-27: таймкод в одних единицах — «1:12 / 2:46» у фильма,
        «18 / 58 мин» у серии короче часа (разбор у LC.util.fmtWatched). */

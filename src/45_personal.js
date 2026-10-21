@@ -254,6 +254,46 @@
       return out;
     }
 
+    /* 1.4: «Убрать из «Досмотреть»» (меню по удержанию OK, src/63_cardmenu.js).
+       Своя метка показа в Storage (HIDDEN_KEY): {ключ карточки: момент
+       скрытия, мс}. Таймкоды, история и 'thrown' Lampa не трогаются.
+       Ключ — тот же, что Lampa кладёт в запись Timeline (road.card,
+       Timeline.link, app.min.js:24482): тип по original_name, источник
+       префиксом, если он не tmdb/cub. По нему новая запись просмотра
+       (LC.personal.onTimeline) снимает метку, и карточка возвращается. */
+    var HIDDEN_KEY = 'lumen_cw_hidden';
+    var HIDDEN_MAX = 100;
+
+    function hiddenKey(card) {
+      if (!card || card.id == null || card.id === '') return '';
+      var type = (card.original_name || card.number_of_seasons || card.first_air_date) ? 'tv' : 'movie';
+      var source = (card.source || 'tmdb') + '';
+      var key = type + '_' + card.id;
+      if (source !== 'tmdb' && source !== 'cub') key = source + '_' + key;
+      return key.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 64);
+    }
+
+    /* Убирает скрытые карточки. updatedOf(card) → момент последней записи
+       просмотра (мс) или 0: запись ПОЗЖЕ метки — смотреть начали снова, и
+       карточка остаётся (метку снимет вызывающий, здесь функция чистая). */
+    function dropHidden(items, hidden, updatedOf) {
+      if (!items || !items.length) return [];
+      if (!hidden || typeof hidden !== 'object') return items.slice();
+      var out = [];
+      for (var i = 0; i < items.length; i++) {
+        var card = items[i];
+        if (!card) continue;
+        var key = hiddenKey(card);
+        var at = key && Object.prototype.hasOwnProperty.call(hidden, key) ? Number(hidden[key]) || 0 : 0;
+        if (at > 0) {
+          var upd = typeof updatedOf === 'function' ? Number(updatedOf(card)) || 0 : 0;
+          if (!(upd > at)) continue;
+        }
+        out.push(card);
+      }
+      return out;
+    }
+
     /* Форматирует Date в строку 'YYYY-MM-DD' (UTC-дата). */
     function dateFmt(d) {
       var y = d.getUTCFullYear();
@@ -444,6 +484,80 @@
       }
     }
 
+    /* 1.4: метки «Убрать из «Досмотреть»» — чтение/запись Storage. */
+    function readHidden() {
+      try {
+        if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.get !== 'function') return {};
+        var map = Lampa.Storage.get(HIDDEN_KEY, '');
+        if (typeof map === 'string') map = map ? JSON.parse(map) : null;
+        if (!map || typeof map !== 'object' || Object.prototype.toString.call(map) === '[object Array]') return {};
+        return map;
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writeHidden(map) {
+      try {
+        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') Lampa.Storage.set(HIDDEN_KEY, map, true);
+      } catch (e) { }
+    }
+
+    /* Убрать карточку из «Досмотреть». at — момент (мс, по умолчанию
+       сейчас). Самые старые метки вытесняются после HIDDEN_MAX. */
+    function hideContinue(card, at) {
+      var key = hiddenKey(card);
+      if (!key) return false;
+      var map = readHidden();
+      var keys = [];
+      for (var k in map) {
+        if (Object.prototype.hasOwnProperty.call(map, k) && k !== key && Number(map[k]) > 0) keys.push(k);
+      }
+      keys.sort(function (a, b) { return Number(map[a]) - Number(map[b]); });
+      while (keys.length >= HIDDEN_MAX) keys.shift();
+      var out = {};
+      for (var i = 0; i < keys.length; i++) out[keys[i]] = Number(map[keys[i]]);
+      out[key] = typeof at === 'number' ? at : Date.now();
+      writeHidden(out);
+      return true;
+    }
+
+    /* Из LC.followTimeline (src/90_runtime.js): новая запись просмотра
+       карточки, убранной из ряда, — смотреть начали снова, метка снимается.
+       Lampa шлёт {hash, road}; road.card есть у записей с привязкой к
+       карточке (Timeline.link). Нулевой процент («Снять отметку») — не
+       просмотр. */
+    function onTimeline(data) {
+      try {
+        var road = data && data.road;
+        if (!road || !road.card || !(Number(road.percent) > 0)) return;
+        var map = readHidden();
+        var key = '' + road.card;
+        if (!Object.prototype.hasOwnProperty.call(map, key)) return;
+        var upd = Number(road.updated) || Date.now();
+        if (!(upd > (Number(map[key]) || 0))) return;
+        delete map[key];
+        writeHidden(map);
+      } catch (e) { }
+    }
+
+    /* Момент последней записи просмотра ФИЛЬМА — тот же ключ, что у
+       watchedPercent. У сериала 0: серий много, перебирать их на каждом
+       построении ряда не будем — его возвращает onTimeline по road.card. */
+    function movieUpdated(card) {
+      try {
+        if (!card || isSeries(card) || card.original_name) return 0;
+        if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return 0;
+        if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return 0;
+        var key = card.original_title || card.title || '';
+        if (!key) return 0;
+        var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+        return view ? Number(view.updated) || 0 : 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
     /* Объединяет continues('movie') и continues('tv'), снимает дубли по id,
        убирает досмотренные фильмы (Task 58: dropFinished — фильтр ПОКАЗА,
        данные Lampa он не трогает).
@@ -470,7 +584,7 @@
           }
         }
       } catch (e) {}
-      return dropFinished(out, watchedPercent);
+      return dropHidden(dropFinished(out, watchedPercent), readHidden(), movieUpdated);
     }
 
     /* Возвращает историю просмотров из Lampa.Favorite. */
@@ -937,6 +1051,12 @@
       digitalRange: digitalRange,
       /* Task 58: чистая часть фильтра «Продолжить» наружу ради тестов. */
       dropFinished: dropFinished,
+      /* 1.4: «Убрать из «Досмотреть»». */
+      HIDDEN_KEY: HIDDEN_KEY,
+      hiddenKey: hiddenKey,
+      dropHidden: dropHidden,
+      hideContinue: hideContinue,
+      onTimeline: onTimeline,
       bumpGen: bumpGen,
       describe: describe
     };

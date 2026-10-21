@@ -185,7 +185,7 @@
         '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
-        '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
+        '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDb</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
         '<div class="full-start__status hide"></div>' +
