@@ -783,7 +783,8 @@
     var fileTimer = 0;
 
     function resumeOn() {
-      try { return !!LC.pref('lumen_ts_resume_focus', true); } catch (e) { return true; }
+      /* Ревью 1.4: по желанию (дефолт выкл) — меняет, где Lampa ставит курсор. */
+      try { return !!LC.pref('lumen_ts_resume_focus', false); } catch (e) { return false; }
     }
 
     /* Lampa рисует весь список синхронно и в конце сама зовёт

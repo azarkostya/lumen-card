@@ -587,9 +587,9 @@
        (src/65_torrents.js, resumeIndex). */
     lumen_ts_resume_focus_name: { ru: 'Фокус на следующей серии', en: 'Focus on the next episode', uk: 'Фокус на наступній серії' },
     lumen_ts_resume_focus_descr: {
-      ru: 'В списке файлов сериала курсор сразу на серии после досмотренной.',
-      en: 'In a series file list the cursor starts on the episode after the one you finished.',
-      uk: 'У списку файлів серіалу курсор одразу на серії після переглянутої.'
+      ru: 'Lampa ставит курсор на последнюю серию с таймкодом; пункт — на следующую за досмотренной.',
+      en: 'Lampa puts the cursor on the last episode with a timecode; this moves it to the next one.',
+      uk: 'Lampa ставить курсор на останню серію з таймкодом; пункт — на наступну за переглянутою.'
     },
     /* 1.4: метки раздачи в списке торрентов (src/65_torrents.js, addTags). */
     lumen_tt_dub: { ru: 'Дубляж', en: 'Dub', uk: 'Дубляж' },

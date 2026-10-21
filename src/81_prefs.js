@@ -92,7 +92,7 @@
       return !(platform.android || platform.tizen || platform.webos);
     }
 
-    /* v1.4 «Слабый ТВ»: ещё два платформенных дефолта — тем же приёмом, что
+    /* v1.4 «Слабый ТВ»: платформенный дефолт — тем же приёмом, что
        fxHeavyDefault: функция в 'default' пункта LIST и тот же вызов у места
        чтения (сверку держит test/prefs.test.mjs, Task 60). Это значение
        пункта по умолчанию, а не гейт: выбор, сделанный руками, хранится в
@@ -100,15 +100,12 @@
        heroMediaDefault — на слабой приставке (platform.weak,
        LC.perf.weakInfo) кадр главной по умолчанию «Только кадры»: iframe
        YouTube поверх героя там стоит дороже, чем показывает.
-       rowmemBytesDefault — на слабой приставке выгрузка картинок спящих
-       рядов включена по умолчанию: память такого ТВ кончается раньше, чем
-       терпение зрителя на повторную подгрузку постеров. */
+       lumen_rowmem_bytes платформенного дефолта больше не имеет (ревью
+       1.4): выгрузка постеров меняет поведение Lampa — при сбоях сети
+       ImageMirror.broken может сменить зеркало картинок, — поэтому она
+       по желанию и выключена на всех ТВ. */
     function heroMediaDefault(platform) {
       return platform && platform.weak ? 'frames' : 'trailer';
-    }
-
-    function rowmemBytesDefault(platform) {
-      return !!(platform && platform.weak);
     }
 
     /* Раздел «Lumen Card», версия 1.5 («Настройки и знакомство»). Аудит
@@ -289,7 +286,7 @@
       { name: 'lumen_rowmem', type: 'trigger', 'default': true, label: 'lumen_rowmem_name', descr: 'lumen_rowmem_descr' },
       /* По умолчанию ВЫКЛЮЧЕНО до проверки на ТВ (bytesOn,
          src/58_rowmem.js). */
-      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': function () { return rowmemBytesDefault(LC.platformInfo()); }, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
+      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
       /* Решение владельца: включено по умолчанию, а описание честно
          говорит, что пункт подменяет пару внутренних функций Lampa. */
       { name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'lumen_netmem_name', descr: 'lumen_netmem_descr' },
@@ -302,7 +299,7 @@
       /* 1.4: файлы сериала — фокус на серии после досмотренной
          (src/65_torrents.js). Навигация внутри оформления пути, поэтому
          включён; без «Оформления торрентов» не действует. */
-      { name: 'lumen_ts_resume_focus', type: 'trigger', 'default': true, label: 'lumen_ts_resume_focus_name', descr: 'lumen_ts_resume_focus_descr' },
+      { name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'lumen_ts_resume_focus_name', descr: 'lumen_ts_resume_focus_descr' },
       /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js). По умолчанию
          ВЫКЛЮЧЕНА: плагин без спроса чужих раздач не удаляет. */
       { name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'lumen_tsclean_name', descr: 'lumen_tsclean_descr' },
@@ -604,7 +601,7 @@
     return {
       LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
       motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-      heroMediaDefault: heroMediaDefault, rowmemBytesDefault: rowmemBytesDefault,
+      heroMediaDefault: heroMediaDefault,
       PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED, mergedOn: mergedOn,
       SECTIONS: SECTIONS,
       normalize: normalize, override: override, clearOverride: clearOverride,

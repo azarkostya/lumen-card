@@ -8,9 +8,9 @@ import { localProblems, behaviorPrefProblems, BEHAVIOR_PREFS, betaSoakWarning } 
    main. Те же проверки гоняет scripts/release.mjs перед выпуском. */
 const read = (p) => { try { return readFileSync(new URL('../' + p, import.meta.url), 'utf8'); } catch (e) { return null; } };
 
-test('релиз: версия 1.3.1 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
+test('релиз: версия 1.4.0 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
   const r = localProblems(read);
-  assert.equal(r.version, '1.3.1');
+  assert.equal(r.version, '1.4.0');
   assert.deepEqual(r.problems, []);
 });
 
@@ -39,6 +39,7 @@ test('релиз: проверка дефолтов ловит включённ�
     "{ name: 'lumen_ts_health', type: 'trigger', 'default': false, label: 'b' },\n" +
     "{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'c' },\n" +
     "{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'd' },\n" +
+    "{ name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'f' },\n" +
     "{ name: 'lumen_hide_other', type: 'trigger', 'default': true, label: 'e' },\n";
   const p = behaviorPrefProblems((f) => (f === 'src/81_prefs.js' ? src : null));
   assert.equal(p.length, 3, p.join('\n'));
@@ -46,6 +47,23 @@ test('релиз: проверка дефолтов ловит включённ�
   assert.match(p.join('\n'), /lumen_parser_fallback не найден/);
   assert.match(p.join('\n'), /lumen_hide_other/);
   assert.equal(behaviorPrefProblems(() => null).length, 1);
+});
+
+/* Ревью 1.4: пункт с дефолтом-функцией (платформенный, как у
+   lumen_hero_media) литералом не сверить — проверка не должна молча
+   пропускать его, а просит сверить вручную. */
+test('релиз: дефолт-функция у пункта из BEHAVIOR_PREFS и у lumen_hide_* — ошибка «сверить вручную»', () => {
+  const src = "{ name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'a' },\n" +
+    "{ name: 'lumen_ts_health', type: 'trigger', 'default': false, label: 'b' },\n" +
+    "{ name: 'lumen_parser_fallback', type: 'trigger', 'default': false, label: 'g' },\n" +
+    "{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'c' },\n" +
+    "{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': function () { return rowmemBytesDefault(LC.platformInfo()); }, label: 'd' },\n" +
+    "{ name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'f' },\n" +
+    "{ name: 'lumen_hide_other', type: 'trigger', 'default': function () { return true; }, label: 'e' },\n";
+  const p = behaviorPrefProblems((f) => (f === 'src/81_prefs.js' ? src : null));
+  assert.equal(p.length, 2, p.join('\n'));
+  assert.match(p[0], /lumen_rowmem_bytes: дефолт зависит от платформы — сверить вручную/);
+  assert.match(p[1], /lumen_hide_other: дефолт зависит от платформы/);
 });
 
 test('релиз: бета держится ≥48 ч — моложе коммит даёт предупреждение', () => {

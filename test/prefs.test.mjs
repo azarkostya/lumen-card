@@ -350,8 +350,8 @@ test('1.0.2: выключатели для разработчика — пере
   for (const key of Object.keys(want)) {
     const e = prefs.find(key);
     assert.equal(e.type, 'trigger', key);
-    /* v1.4: у lumen_rowmem_bytes дефолт платформенный (функция); на обычном
-       железе — прежний false. */
+    /* Ревью 1.4: lumen_rowmem_bytes снова литерал false на всех ТВ
+       (выгрузка постеров может сменить зеркало картинок Lampa). */
     const value = typeof e['default'] === 'function' ? e['default']() : e['default'];
     assert.equal(value, want[key], key);
     /* 1.5: из «Для разработчика» — в «Слабый телевизор…». */
@@ -1467,9 +1467,10 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
        Lampa.Storage.field и в сверку не попадали вовсе. */
     'lumen_motion', 'lumen_trailer', 'lumen_menus',
     /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
-    /* v1.4: lumen_hero_media и lumen_rowmem_bytes — с платформенным
-       дефолтом-функцией; их сверяет тест ниже (как lumen_fx_heavy). */
-    'lumen_posters',
+    /* v1.4: lumen_hero_media — с платформенным дефолтом-функцией; его
+       сверяет тест ниже (как lumen_fx_heavy). lumen_rowmem_bytes с ревью
+       1.4 — снова литерал. */
+    'lumen_posters', 'lumen_rowmem_bytes',
     /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
     'lumen_home_start',
     /* 1.0.2: слитые пункты и бывшие «консольные» выключатели — теперь в
@@ -1569,7 +1570,7 @@ test('решение 2026-09-26: вкладка подборок в поиске
 test('v1.4: платформенные дефолты — каждое чтение берёт ту же функцию LC.prefs, литералов нет', () => {
   const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
   const lines = dist.split(/\r?\n/);
-  const FN = { lumen_fx_heavy: 'fxHeavyDefault', lumen_hero_media: 'heroMediaDefault', lumen_rowmem_bytes: 'rowmemBytesDefault' };
+  const FN = { lumen_fx_heavy: 'fxHeavyDefault', lumen_hero_media: 'heroMediaDefault' };
   for (const key of Object.keys(FN)) {
     assert.equal(typeof prefs.find(key)['default'], 'function', key + ': дефолт пункта — функция');
     assert.equal(typeof prefs[FN[key]], 'function', key + ': LC.prefs.' + FN[key]);
@@ -1585,20 +1586,20 @@ test('v1.4: платформенные дефолты — каждое чтен�
   }
 });
 
-test('v1.4: на слабой приставке «Что в кадре» — «Только кадры», выгрузка постеров спящих рядов — включена; ручной выбор побеждает', () => {
+test('v1.4: на слабой приставке «Что в кадре» — «Только кадры», выгрузка постеров спящих рядов — выключена, как везде; ручной выбор побеждает', () => {
   const weak = { weakHardware: () => true, weakInfo: () => ({ kind: 'tvbox' }), mode: () => null };
   withPrefs({ platform: { android: true }, perf: weak }, (LC) => {
     assert.equal(LC.prefs.heroMediaDefault(LC.platformInfo()), 'frames');
-    assert.equal(LC.prefs.rowmemBytesDefault(LC.platformInfo()), true);
     assert.equal(LC.prefs.find('lumen_hero_media')['default'](), 'frames');
-    assert.equal(LC.prefs.find('lumen_rowmem_bytes')['default'](), true);
+    /* Ревью 1.4: выгрузка постеров меняет поведение Lampa (ImageMirror) —
+       opt-in на всех ТВ, платформенного дефолта нет. */
+    assert.equal(LC.prefs.find('lumen_rowmem_bytes')['default'], false);
+    assert.equal(typeof LC.prefs.rowmemBytesDefault, 'undefined');
   });
   withPrefs({ platform: { android: true } }, (LC) => {
     assert.equal(LC.prefs.find('lumen_hero_media')['default'](), 'trailer', 'обычный Android — как было');
-    assert.equal(LC.prefs.find('lumen_rowmem_bytes')['default'](), false);
   });
-  withPrefs({ platform: { android: true }, perf: weak, store: { lumen_hero_media: 'trailer', lumen_rowmem_bytes: 'false' } }, (LC) => {
+  withPrefs({ platform: { android: true }, perf: weak, store: { lumen_hero_media: 'trailer' } }, (LC) => {
     assert.equal(LC.pref('lumen_hero_media', LC.prefs.heroMediaDefault(LC.platformInfo())), 'trailer', 'ручной выбор не перетирается');
-    assert.equal(LC.pref('lumen_rowmem_bytes', LC.prefs.rowmemBytesDefault(LC.platformInfo())), false);
   });
 });

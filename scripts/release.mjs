@@ -108,6 +108,8 @@ export const BEHAVIOR_PREFS = {
   lumen_parser_fallback: false,  // запасной парсер — второй адрес поиска
   lumen_hide_shots: false,       // будущий: скрытие Shots (если появится)
   lumen_hide_head_icons: false,  // будущий: скрытие иконок шапки (если появится)
+  lumen_rowmem_bytes: false,     // выгрузка постеров: сбои картинок -> ImageMirror.broken меняет зеркало
+  lumen_ts_resume_focus: false,  // фокус на следующей серии: меняет, где Lampa ставит курсор
   lumen_netmem: true             // исключение: включён по решению владельца
 };
 /* Будущие пункты, которых в списке может ещё не быть. */
@@ -119,17 +121,22 @@ export function behaviorPrefProblems(read) {
   const out = [];
   const names = Object.keys(BEHAVIOR_PREFS);
   for (const name of names) {
-    const m = new RegExp("\\{ name: '" + name + "',[^}]*?'default': (true|false)").exec(src);
-    if (!m) {
+    const m = new RegExp("\\{ name: '" + name + "',[^}]*?'default': (true|false|function)").exec(src);
+    if (m && m[1] === 'function') {
+      /* Дефолт-функция (платформенный дефолт, как у lumen_hero_media) —
+         литерала сверять не с чем: такой пункт не должен проскочить молча. */
+      out.push('пункт ' + name + ': дефолт зависит от платформы — сверить вручную (меняет поведение Lampa — по умолчанию выключен везде)');
+    } else if (!m) {
       if (BEHAVIOR_OPTIONAL.indexOf(name) < 0) out.push('пункт ' + name + ' не найден в src/81_prefs.js (переименован? обнови BEHAVIOR_PREFS в release.mjs)');
     } else if ((m[1] === 'true') !== BEHAVIOR_PREFS[name]) {
       out.push('пункт ' + name + ': default = ' + m[1] + ', ожидался ' + BEHAVIOR_PREFS[name] + ' (меняет поведение Lampa — по умолчанию выключен)');
     }
   }
   // Любой lumen_hide_* вне списка — тоже под проверкой: должен быть выключен.
-  const re = /\{ name: '(lumen_hide_[a-z_]+)',[^}]*?'default': (true|false)/g;
+  const re = /\{ name: '(lumen_hide_[a-z_]+)',[^}]*?'default': (true|false|function)/g;
   let m;
   while ((m = re.exec(src))) {
+    if (names.indexOf(m[1]) < 0 && m[2] === 'function') out.push('пункт ' + m[1] + ': дефолт зависит от платформы — сверить вручную (скрывает штатное — по умолчанию выключен)');
     if (names.indexOf(m[1]) < 0 && m[2] === 'true') out.push('пункт ' + m[1] + ' скрывает штатное и включён по умолчанию — выключи или внеси в BEHAVIOR_PREFS');
   }
   return out;

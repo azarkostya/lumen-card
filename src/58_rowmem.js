@@ -167,18 +167,12 @@
        навсегда, а каждая ошибка идёт в TMDB.broken → ImageMirror.broken
        (:19273-19291): 20 ошибок за 10 с — зеркало картинок забанено, выбор
        другого сохраняется в Storage (tmdb_img_mirror). Включить:
-       Lampa.Storage.set('lumen_rowmem_bytes', 'true').
-       v1.4: на слабой приставке дефолт — включено (LC.prefs.
-       rowmemBytesDefault, src/81_prefs.js); выбор руками побеждает. */
+       Lampa.Storage.set('lumen_rowmem_bytes', 'true') или пункт «Отпускать
+       постеры дальних рядов». Ревью 1.4: выключено на всех ТВ, в том числе
+       на слабых, — смена зеркала картинок это поведение Lampa. */
     function bytesOn() {
-      var bytesDef;
       try {
-        bytesDef = LC.prefs.rowmemBytesDefault(LC.platformInfo());
-      } catch (e0) {
-        bytesDef = false;
-      }
-      try {
-        return LC.pref ? LC.pref('lumen_rowmem_bytes', bytesDef) === true : bytesDef;
+        return LC.pref ? LC.pref('lumen_rowmem_bytes', false) === true : false;
       } catch (e) {
         return false;
       }

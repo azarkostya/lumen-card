@@ -90,12 +90,13 @@ test('1.4: resumeIndex — фокус на первой недосмотренн
   assert.equal(T.resumeIndex([{ episode: 1, percent: 100 }, { episode: 0, percent: 0 }, { episode: 2, percent: 0 }]), 2, 'файл без серии пропускается');
 });
 
-test('1.4: «Фокус на следующей серии» включён, «Скрыть Shots» и «Скрыть лишние значки шапки» — выключены', () => {
+/* Ревью 1.4: все три меняют поведение Lampa — по умолчанию выключены. */
+test('1.4: «Фокус на следующей серии», «Скрыть Shots» и «Скрыть лишние значки шапки» — выключены', () => {
   const LC = {};
   const module = { exports: null, lumen: true };
   for (const f of ['10_util.js', '80_settings.js', '81_prefs.js']) loadInto(LC, module, f);
   const find = (n) => LC.prefs.find(n);
-  assert.equal(find('lumen_ts_resume_focus')['default'], true);
+  assert.equal(find('lumen_ts_resume_focus')['default'], false);
   assert.equal(find('lumen_hide_shots')['default'], false);
   assert.equal(find('lumen_hide_head_icons')['default'], false);
   for (const k of ['lumen_ts_resume_focus', 'lumen_hide_shots', 'lumen_hide_head_icons']) {
@@ -256,7 +257,7 @@ function fileEvents(env, percents) {
 }
 
 test('1.4: файлы сериала — фокус на следующей серии, только пока человек не двигал фокус', () => {
-  const env = livePath({});
+  const env = livePath({ lumen_ts_resume_focus: true });
   try {
     const nodes = fileEvents(env, [100, 100, 0, 0]);
     assert.equal(env.timers.length, 1, 'один отложенный перевод на список');
@@ -274,6 +275,17 @@ test('1.4: файлы сериала — фокус на следующей се
 
 test('1.4: «Фокус на следующей серии» выключен — список как у Lampa', () => {
   const env = livePath({ lumen_ts_resume_focus: 'false' });
+  try {
+    fileEvents(env, [100, 100, 0]);
+    assert.equal(env.timers.length, 0);
+    assert.equal(env.calls.length, 0);
+  } finally {
+    env.restore();
+  }
+});
+
+test('1.4: «Фокус на следующей серии» не трогали — список как у Lampa (opt-in)', () => {
+  const env = livePath({});
   try {
     fileEvents(env, [100, 100, 0]);
     assert.equal(env.timers.length, 0);
