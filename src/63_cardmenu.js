@@ -547,6 +547,8 @@
       try {
         var row = el && el.parentNode;
         if (!row || !row.children) return false;
+        /* За 60 мс таймера ряд могли перестроить или уйти с экрана. */
+        if (typeof document !== 'undefined' && document.body && typeof document.body.contains === 'function' && !document.body.contains(el)) return false;
         var kids = row.children;
         var next = null;
         var prev = null;
@@ -554,22 +556,32 @@
         for (var i = 0; i < kids.length; i++) {
           var c = kids[i];
           if (c === el) { seen = true; continue; }
-          if (!c.classList || !c.classList.contains('selector') || c.style.display === 'none') continue;
+          /* Только карточки: «Ещё» (модуль More Lampa) — тоже .selector, но
+             без card_data. */
+          if (!c.card_data || !c.classList || !c.classList.contains('selector') || c.style.display === 'none') continue;
           if (seen) { if (!next) next = c; } else prev = c;
         }
         var target = next || prev;
         if (!target) return false;
         var focused = el.classList.contains('focus');
-        el.classList.remove('selector', 'focus');
+        el.classList.remove('selector');
+        el.classList.remove('focus');
         el.style.display = 'none';
         /* В конец ряда: правила :first-child (отступ первой карточки) должны
            достаться оставшейся, иначе ряд встаёт со сдвигом (QA ТВ). */
         try { row.appendChild(el); } catch (e2) { }
-        if (focused && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
-          var box = el.closest ? el.closest('.scroll') : null;
-          var $box = box && window.$ ? $(box) : null;
-          if ($box && typeof Lampa.Controller.collectionSet === 'function') Lampa.Controller.collectionSet($box);
-          Lampa.Controller.collectionFocus(target, $box || false);
+        /* Коллекцию Navigator пересобираем всегда (иначе в ней остаётся
+           скрытый узел — класс .focus есть не на всех платформах), но только
+           пока активен ряд главной; фокус — на соседа, если он был тут. */
+        var C = window.Lampa && Lampa.Controller;
+        var en = null;
+        try { en = C && typeof C.enabled === 'function' ? C.enabled() : null; } catch (e3) { }
+        if (C && en && en.name === 'items_line' && typeof C.collectionSet === 'function' && window.$) {
+          var $box = $(el).closest('.scroll');
+          if ($box && $box.length) {
+            C.collectionSet($box);
+            if (focused && typeof C.collectionFocus === 'function') C.collectionFocus(target, $box);
+          }
         }
         return true;
       } catch (e) {

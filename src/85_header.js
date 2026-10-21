@@ -2526,7 +2526,10 @@
     if (!it) return false;
     if (typeof it.icon === 'string' && it.icon.indexOf('sprite-shots') !== -1) return true;
     var b = it.btn;
-    return !!(b && typeof b.hasClass === 'function' && b.hasClass('shots-view-button'));
+    if (!b) return false;
+    if (typeof b.hasClass === 'function' && b.hasClass('shots-view-button')) return true;
+    var cls = typeof b.attr === 'function' ? b.attr('class') : (b.className || '');
+    return /shots/.test(String(cls || ''));
   }
 
   function filterShots(e) {
@@ -2539,6 +2542,23 @@
       for (var i = 0; i < a.items.length; i++) if (!isShotsItem(a.items[i])) kept.push(a.items[i]);
       if (kept.length !== a.items.length && kept.length) a.items = kept;
     } catch (err) { }
+  }
+
+  /* Кнопка Shots на карточке — класс hide (штатный у Lampa): «Смотреть»
+     собирает источники из .full-start__button:not(.hide) (onGroupButtons),
+     так что при одной оставшейся кнопке Lampa сразу её запускает, а не
+     показывает окно из одного пункта (ревью 21.10.2026). Свою метку
+     (data-lumen-shots) ставим, чтобы снять ровно то, что поставили. */
+  var SHOTS_BTN = '.full-start__button[class*="shots"],.full-start-new__buttons [class*="shots"]';
+  function markShots(root) {
+    try {
+      var body = document.body;
+      var on = !!(body && body.classList && body.classList.contains(HIDE_SHOTS));
+      var scope = root && typeof root.find === 'function' ? root : (window.$ ? $(document.body) : null);
+      if (!scope) return;
+      if (on) scope.find(SHOTS_BTN).each(function () { if (!this.classList.contains('hide')) { this.classList.add('hide'); this.setAttribute('data-lumen-shots', '1'); } });
+      else scope.find('[data-lumen-shots]').each(function () { this.classList.remove('hide'); this.removeAttribute('data-lumen-shots'); });
+    } catch (e) { }
   }
 
   var shotsFollowed = false;
@@ -2560,6 +2580,7 @@
       var shots = on !== false && !!LC.pref('lumen_hide_shots', false);
       var head = on !== false && !!LC.pref('lumen_hide_head_icons', false);
       if (shots) body.classList.add(HIDE_SHOTS); else body.classList.remove(HIDE_SHOTS);
+      markShots(null);
       if (head) body.classList.add(HIDE_HEAD); else body.classList.remove(HIDE_HEAD);
     } catch (e) {
       warn('head hide failed', e);
@@ -2570,6 +2591,7 @@
     css: headHideCss,
     apply: applyHeadHide,
     isShotsItem: isShotsItem,
+    markShots: markShots,
     filterShots: filterShots,
     HEAD_EXTRA: HEAD_EXTRA
   };

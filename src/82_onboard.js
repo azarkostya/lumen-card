@@ -29,6 +29,30 @@
   /* Сеть модуль не трогает: тексты — LC.STRINGS, ключ — в Lampa.Storage.  */
   /* -------------------------------------------------------------------- */
 
+  /* Окна с кнопкой в подвале (buttons_position 'outside'): фокус держим на
+     кнопке. Lampa на «Вверх» в конце текста зовёт Controller.toggle('modal'),
+     и тот ставит коллекцию из прокрутки, где нет ни одного .selector, —
+     кнопка теряла фокус (ревью 21.10.2026). Событие 'toggle' Modal приходит
+     внутри toggle() до прокрутки — там и возвращаем фокус на подвал своего
+     окна (Modal.render, а не первый .modal в DOM). Возвращает отписку. */
+  LC.modalFootFocus = function (params) {
+    function apply() {
+      try {
+        var box = Lampa.Modal && typeof Lampa.Modal.render === 'function' ? Lampa.Modal.render() : null;
+        var foot = box && typeof box.find === 'function' ? box.find('.modal__footer') : null;
+        if (!foot || !foot.length || !Lampa.Controller || typeof Lampa.Controller.collectionSet !== 'function') return;
+        Lampa.Controller.collectionSet(foot);
+        Lampa.Controller.collectionFocus(false, foot);
+      } catch (e) { }
+    }
+    apply();
+    var L = window.Lampa && Lampa.Modal && Lampa.Modal.listener;
+    if (!L || typeof L.follow !== 'function') return function () { };
+    var h = function (e) { if (e && e.active === params) apply(); };
+    L.follow('toggle', h);
+    return function () { try { if (typeof L.remove === 'function') L.remove('toggle', h); } catch (e) { } };
+  };
+
   LC.onboard = (function () {
 
     /* '1' — окно уже решено (показано, пропущено или профиль старый). */
@@ -194,16 +218,18 @@
         for (var i = 0; i < list.length; i++) html += '<li class="lumen-whatsnew__item">' + LC.util.esc(list[i]) + '</li>';
         html += '</ul><div class="lumen-whatsnew__hint">' + LC.util.esc(hintText()) + '</div></div>';
         var closed = false;
+        var off = null;
         var close = function () {
           if (closed) return;
           closed = true;
+          try { if (off) off(); } catch (e5) { }
           _open = false;
           try { Lampa.Modal.close(); } catch (e2) { }
           try { if (Lampa.Controller && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(back); } catch (e3) { }
         };
         _open = true;
         _shown = true;
-        Lampa.Modal.open({
+        var params = {
           title: LC.lang('lumen_onboard_title'),
           html: $(html),
           size: 'medium',
@@ -211,16 +237,9 @@
           /* Как у «Что нового»: кнопка в подвале, всегда на экране. */
           buttons_position: 'outside',
           onBack: close
-        });
-        /* Фокус сразу на кнопке в подвале: «ОК» закрывает окно, вверх/вниз
-           Lampa листает текст (roll → wheel), фокус остаётся на кнопке. */
-        try {
-          var foot = $('.modal .modal__footer');
-          if (foot.length && Lampa.Controller && typeof Lampa.Controller.collectionSet === 'function') {
-            Lampa.Controller.collectionSet(foot);
-            Lampa.Controller.collectionFocus(false, foot);
-          }
-        } catch (e4) { }
+        };
+        Lampa.Modal.open(params);
+        off = LC.modalFootFocus ? LC.modalFootFocus(params) : null;
         return true;
       } catch (err) {
         _open = false;

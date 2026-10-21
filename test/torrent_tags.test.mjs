@@ -192,6 +192,39 @@ test('1.4: «Скрыть Shots» убирает пункт Shots из окна 
   }
 });
 
+test('1.4: «Скрыть Shots» — кнопке Shots карточки класс hide со своей меткой; выключили — снимается ровно наше', () => {
+  const LC = header();
+  function node(cls) {
+    const set = new Set(cls);
+    const attrs = {};
+    return { classList: { add: (c) => set.add(c), remove: (c) => set.delete(c), contains: (c) => set.has(c) }, setAttribute: (k, v) => { attrs[k] = v; }, removeAttribute: (k) => { delete attrs[k]; }, attrs, set };
+  }
+  const shots = node(['full-start__button', 'shots-view-button']);
+  const own = node(['full-start__button', 'shots-x', 'hide']);
+  const scope = {
+    find: (sel) => {
+      const list = sel === '[data-lumen-shots]' ? [shots, own].filter((n) => n.attrs['data-lumen-shots']) : [shots, own];
+      return { each: (fn) => list.forEach((n) => fn.call(n)) };
+    }
+  };
+  const on = new Set(['lumen-hide-shots']);
+  globalThis.document = { body: { classList: { contains: (c) => on.has(c) } } };
+  globalThis.window = {};
+  try {
+    LC.headHide.markShots(scope);
+    assert.equal(shots.set.has('hide'), true);
+    assert.equal(shots.attrs['data-lumen-shots'], '1');
+    assert.equal(own.attrs['data-lumen-shots'], undefined, 'чужой .hide не помечаем');
+    on.clear();
+    LC.headHide.markShots(scope);
+    assert.equal(shots.set.has('hide'), false, 'наш hide снят');
+    assert.equal(own.set.has('hide'), true, 'чужой hide на месте');
+  } finally {
+    delete globalThis.document;
+    delete globalThis.window;
+  }
+});
+
 test('U13: экран раздач — кадр под шапкой, прокрутка раздач по высоте колонки', () => {
   const LC = {};
   const module = { exports: null, lumen: true };

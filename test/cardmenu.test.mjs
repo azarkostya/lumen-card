@@ -660,7 +660,7 @@ test('cardmenu: removeFromRow — сосед получает фокус, убр
   const { api } = loadCtx('63_cardmenu.js', {});
   function el(name, cls) {
     const set = new Set(cls);
-    return { name, style: {}, parentNode: null, classList: { contains: (c) => set.has(c), remove: (...c) => c.forEach((x) => set.delete(x)), add: (c) => set.add(c) }, closest: () => null };
+    return { name, card_data: { id: name }, style: {}, parentNode: null, classList: { contains: (c) => set.has(c), remove: (...c) => c.forEach((x) => set.delete(x)), add: (c) => set.add(c) } };
   }
   function row(...kids) {
     const r = { children: kids, appendChild(k) { const i = this.children.indexOf(k); if (i >= 0) this.children.splice(i, 1); this.children.push(k); } };
@@ -668,7 +668,9 @@ test('cardmenu: removeFromRow — сосед получает фокус, убр
     return r;
   }
   const focused = [];
-  globalThis.window = { Lampa: { Controller: { collectionFocus: (t) => focused.push(t.name), collectionSet: () => {} } } };
+  const box = { length: 1 };
+  globalThis.$ = () => ({ closest: () => box });
+  globalThis.window = { $: globalThis.$, Lampa: { Controller: { enabled: () => ({ name: 'items_line' }), collectionFocus: (t) => focused.push(t.name), collectionSet: () => {} } } };
   globalThis.Lampa = globalThis.window.Lampa;
   try {
     const a = el('a', ['card', 'selector', 'focus']);
@@ -683,8 +685,15 @@ test('cardmenu: removeFromRow — сосед получает фокус, убр
     row(only);
     assert.equal(api.removeFromRow(only), false, 'единственная — остаётся');
     assert.equal(only.classList.contains('selector'), true);
+    /* «Ещё» (без card_data) соседом не считается. */
+    const c = el('c', ['card', 'selector', 'focus']);
+    const more = el('more', ['selector']);
+    delete more.card_data;
+    row(c, more);
+    assert.equal(api.removeFromRow(c), false, 'рядом только «Ещё» — не трогаем');
   } finally {
     delete globalThis.window;
     delete globalThis.Lampa;
+    delete globalThis.$;
   }
 });

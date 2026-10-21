@@ -370,13 +370,15 @@
         for (var i = 0; i < items.length; i++) html += '<li class="lumen-whatsnew__item">' + LC.util.esc(items[i]) + '</li>';
         html += '</ul><div class="lumen-whatsnew__hint">' + LC.util.esc(hintText()) + '</div></div>';
         var closed = false;
+        var off = null;
         var close = function () {
           if (closed) return;
           closed = true;
+          try { if (off) off(); } catch (e5) { }
           try { Lampa.Modal.close(); } catch (e2) { }
           try { if (Lampa.Controller && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(back); } catch (e3) { }
         };
-        Lampa.Modal.open({
+        var params = {
           title: LC.lang('lumen_whatsnew_title') + ' ' + version,
           html: $(html),
           size: 'medium',
@@ -387,16 +389,9 @@
              листает текст, в конце — на кнопку. */
           buttons_position: 'outside',
           onBack: close
-        });
-        /* Фокус сразу на кнопке в подвале: «ОК» закрывает окно, вверх/вниз
-           Lampa листает текст (roll → wheel), фокус остаётся на кнопке. */
-        try {
-          var foot = $('.modal .modal__footer');
-          if (foot.length && Lampa.Controller && typeof Lampa.Controller.collectionSet === 'function') {
-            Lampa.Controller.collectionSet(foot);
-            Lampa.Controller.collectionFocus(false, foot);
-          }
-        } catch (e4) { }
+        };
+        Lampa.Modal.open(params);
+        off = LC.modalFootFocus ? LC.modalFootFocus(params) : null;
         return true;
       } catch (err) {
         warn('whatsnew open failed', err);

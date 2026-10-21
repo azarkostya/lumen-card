@@ -1332,6 +1332,14 @@
             /* Точка «TorrServer не отвечает» на «Смотреть» — /echo не чаще
                раза в 60 с (src/66_tshealth.js). */
             try { if (LC.tshealth) LC.tshealth.check(root); } catch (eTsh) {}
+            /* «Скрыть Shots»: кнопка Shots карточки — .hide (src/85_header.js). */
+            /* Shots дорисовывает свою кнопку позже complite — второй проход. */
+            try {
+              if (LC.headHide && LC.headHide.markShots) {
+                LC.headHide.markShots(root);
+                setTimeout(function () { try { LC.headHide.markShots(root); } catch (eSh2) {} }, 1500);
+              }
+            } catch (eSh) {}
             /* Task 29: замер «сколько у этого железа занимает первый кадр
                тяжёлого экрана» — отсюда и до второго requestAnimationFrame.
                Точка вызова последняя в обработчике намеренно: замер обязан
