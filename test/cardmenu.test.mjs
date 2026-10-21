@@ -652,3 +652,39 @@ test('экран 40: панель меню карточки возвращает
     assert.equal(classes.indexOf('lumen-cardmenu'), -1, 'после uninstall метка не ставится');
   } finally { delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
 });
+
+/* QA ТВ 21.10.2026: «Убрать из «Досмотреть»» — карточка уходит из ряда
+   сразу, если есть сосед: фокус на соседа, у убранной нет .selector, она
+   в конце ряда (правила :first-child — оставшейся). Одна в ряду — не трогаем. */
+test('cardmenu: removeFromRow — сосед получает фокус, убранная скрыта и в конце ряда; единственную не трогает', () => {
+  const { api } = loadCtx('63_cardmenu.js', {});
+  function el(name, cls) {
+    const set = new Set(cls);
+    return { name, style: {}, parentNode: null, classList: { contains: (c) => set.has(c), remove: (...c) => c.forEach((x) => set.delete(x)), add: (c) => set.add(c) }, closest: () => null };
+  }
+  function row(...kids) {
+    const r = { children: kids, appendChild(k) { const i = this.children.indexOf(k); if (i >= 0) this.children.splice(i, 1); this.children.push(k); } };
+    kids.forEach((k) => { k.parentNode = r; });
+    return r;
+  }
+  const focused = [];
+  globalThis.window = { Lampa: { Controller: { collectionFocus: (t) => focused.push(t.name), collectionSet: () => {} } } };
+  globalThis.Lampa = globalThis.window.Lampa;
+  try {
+    const a = el('a', ['card', 'selector', 'focus']);
+    const b = el('b', ['card', 'selector']);
+    const r = row(a, b);
+    assert.equal(api.removeFromRow(a), true);
+    assert.deepEqual(focused, ['b']);
+    assert.equal(a.style.display, 'none');
+    assert.equal(a.classList.contains('selector'), false);
+    assert.deepEqual(r.children.map((k) => k.name), ['b', 'a'], 'убранная — в конце ряда');
+    const only = el('x', ['card', 'selector', 'focus']);
+    row(only);
+    assert.equal(api.removeFromRow(only), false, 'единственная — остаётся');
+    assert.equal(only.classList.contains('selector'), true);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});

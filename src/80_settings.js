@@ -1079,6 +1079,11 @@
       en: 'Removed from Continue watching',
       uk: 'Прибрано з «Додивитися»'
     },
+    lumen_menu_cw_hidden_later: {
+      ru: 'Убрано из «Досмотреть» — исчезнет при следующем открытии главной',
+      en: 'Removed from Continue watching — it will disappear next time Home opens',
+      uk: 'Прибрано з «Додивитися» — зникне при наступному відкритті головної'
+    },
     lumen_menu_unhidden: {
       ru: 'Возвращено в рекомендации',
       en: 'Returned to recommendations',

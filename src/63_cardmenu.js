@@ -519,18 +519,62 @@
       if (kind === 'unwatched') { setWatched(card, false); return; }
       if (kind === 'hide') { setThrown(card, true); return; }
       if (kind === 'unhide') { setThrown(card, false); return; }
-      if (kind === 'cw_hide') { hideContinue(card); return; }
+      if (kind === 'cw_hide') { hideContinue(card, menuHit && menuHit.card === card ? menuHit.el : null); return; }
     }
 
     /* 1.4: «Убрать из «Досмотреть»» — своя метка показа (LC.personal.
-       hideContinue); таймкоды и история Lampa не трогаются. Как и у
-       setThrown, из уже нарисованного ряда карточку не выдёргиваем: фокус
-       Lampa стоит на ней, а состав ряда пересчитывается при построении. */
-    function hideContinue(card) {
+       hideContinue); таймкоды и история Lampa не трогаются. Карточку
+       прячем в уже нарисованном ряду сразу (QA ТВ 21.10.2026: иначе она
+       стояла на месте до следующего открытия главной), если в ряду есть
+       соседняя: фокус — на соседа, у убранной снимается .selector, и
+       Navigator её больше не видит. Единственную карточку ряда не трогаем
+       (некуда деть фокус) — уведомление говорит, что она уйдёт позже.
+       Таймер: Lampa возвращает фокус на исходную карточку уже после
+       onSelect пункта (onBeforeClose / active.onSelect). */
+    function hideContinue(card, el) {
       try {
-        if (LC.personal && typeof LC.personal.hideContinue === 'function' && LC.personal.hideContinue(card)) noty('lumen_menu_cw_hidden');
+        if (!(LC.personal && typeof LC.personal.hideContinue === 'function' && LC.personal.hideContinue(card))) return;
+        if (!el) { noty('lumen_menu_cw_hidden_later'); return; }
+        setTimeout(function () {
+          noty(removeFromRow(el) ? 'lumen_menu_cw_hidden' : 'lumen_menu_cw_hidden_later');
+        }, 60);
       } catch (e) {
         warn('cardmenu: continue hide failed', e);
+      }
+    }
+
+    function removeFromRow(el) {
+      try {
+        var row = el && el.parentNode;
+        if (!row || !row.children) return false;
+        var kids = row.children;
+        var next = null;
+        var prev = null;
+        var seen = false;
+        for (var i = 0; i < kids.length; i++) {
+          var c = kids[i];
+          if (c === el) { seen = true; continue; }
+          if (!c.classList || !c.classList.contains('selector') || c.style.display === 'none') continue;
+          if (seen) { if (!next) next = c; } else prev = c;
+        }
+        var target = next || prev;
+        if (!target) return false;
+        var focused = el.classList.contains('focus');
+        el.classList.remove('selector', 'focus');
+        el.style.display = 'none';
+        /* В конец ряда: правила :first-child (отступ первой карточки) должны
+           достаться оставшейся, иначе ряд встаёт со сдвигом (QA ТВ). */
+        try { row.appendChild(el); } catch (e2) { }
+        if (focused && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
+          var box = el.closest ? el.closest('.scroll') : null;
+          var $box = box && window.$ ? $(box) : null;
+          if ($box && typeof Lampa.Controller.collectionSet === 'function') Lampa.Controller.collectionSet($box);
+          Lampa.Controller.collectionFocus(target, $box || false);
+        }
+        return true;
+      } catch (e) {
+        warn('cardmenu: row remove failed', e);
+        return false;
       }
     }
 
@@ -816,6 +860,7 @@
     }
 
     return {
+      removeFromRow: removeFromRow,
       mediaOf: mediaOf,
       watchKey: watchKey,
       isCardMenu: isCardMenu,
