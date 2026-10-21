@@ -25,7 +25,8 @@ const manifestPath = join(root, 'manifest.json');
 
 if (checkOnly) {
   const current = existsSync(manifestPath) ? readFileSync(manifestPath, 'utf8') : null;
-  if (current !== generated) {
+  // Клон с core.autocrlf=true (Windows) отдаёт manifest.json с CRLF — это не рассинхрон.
+  if (current === null || current.replace(/\r\n/g, '\n') !== generated) {
     console.error('manifest.json устарел, запустите node scripts/build.mjs');
     process.exit(1);
   }

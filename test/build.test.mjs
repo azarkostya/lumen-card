@@ -191,6 +191,15 @@ test('CSS карточки из dist совпадает с CSS из src байт
   assert.equal(css, fromSrc.buildCss());
 });
 
+/* Бюджеты размера: слабые ТВ парсят весь бандл и вставляют весь CSS при
+   запуске. Растёт — режем/выносим в чанки, а не поднимаем потолок молча. */
+test('бюджет размера: buildCss() < 240 КБ, dist/lumen_card.js < 1.2 МБ', () => {
+  const cssBytes = Buffer.byteLength(fromDist.buildCss());
+  const distBytes = Buffer.byteLength(dist);
+  assert.ok(cssBytes < 240 * 1024, 'buildCss() ' + cssBytes + ' Б ≥ 240 КБ');
+  assert.ok(distBytes < 1.2 * 1024 * 1024, 'dist/lumen_card.js ' + distBytes + ' Б ≥ 1.2 МБ');
+});
+
 test('CSS торрентов из dist совпадает с CSS из src байт в байт', () => {
   const css = fromDist.torrents.css();
   assert.ok(css.length > 1000, 'подозрительно короткий CSS: ' + css.length);
