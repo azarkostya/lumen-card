@@ -3709,6 +3709,7 @@ r.push(s(chipsFocus)+'{background-color:'+FILL+IMP+';color:'+ON+IMP+';-webkit-bo
 r.push(s(['.torrent-filter .filter--search.focus > div','.torrent-filter .filter--sort.focus > div'])+'{color:'+ON_SUB+'}');
 r.push(s(['.torrent-filter__title'])+'{display:none}');
 r.push(s(['.torrent-list'])+'{padding:.35em 3.507em 1.4em 3.507em}');
+r.push(s(['.empty-filter'])+'{padding:1.4em 3.507em 1.4em 3.507em !important;max-width:none}');
 var row='.torrent-list .torrent-item';
 r.push(s([row])+'{display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;grid-template-rows:auto auto auto;-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:'+(A?'5.173em':'4.822em')+';-webkit-box-sizing:border-box;box-sizing:border-box;margin:0;padding:.75em '+(A?'1.052em':'1.227em')+';border:0;border-radius:'+(A?'0':'.614em')+';background-color:'+ROW_BG+';color:'+P.text+';-webkit-box-shadow:none;box-shadow:none;font-variant-numeric:tabular-nums}');
 if(A){
