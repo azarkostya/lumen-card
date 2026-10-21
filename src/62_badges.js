@@ -645,7 +645,50 @@
       }
     }
 
+    /* v1.4 «Слабый ТВ»: записи наблюдателя копятся и разбираются ПАЧКОЙ в
+       ближайшем кадре (requestAnimationFrame): построение ряда главной —
+       это десятки вставок подряд, и каждая будила бы разбор с batch() и
+       пересчётом подписей ряда. Пачка — один batch и один пересчёт на ряд.
+       Без rAF (старый движок, тесты) — разбор сразу, как было. Уход с
+       главной (unmount) снимает и заказанный кадр, и копилку; наблюдатель
+       при этом уже отключён (detach на 'activity', src/90_runtime.js), а
+       возврат — mount: один полный проход scan и новое наблюдение. */
+    var queued = [];
+    var queuedFrame = 0;
+
     function onMutations(records) {
+      if (!state || !records || !records.length) return;
+      var raf = null;
+      try { raf = window.requestAnimationFrame; } catch (e0) { raf = null; }
+      if (typeof raf !== 'function') { handleRecords(records); return; }
+      for (var i = 0; i < records.length; i++) queued.push(records[i]);
+      if (queuedFrame) return;
+      try {
+        queuedFrame = raf.call(window, flushQueued) || 1;
+      } catch (e1) {
+        queuedFrame = 0;
+        flushQueued();
+      }
+    }
+
+    function flushQueued() {
+      queuedFrame = 0;
+      var records = queued;
+      queued = [];
+      if (!state || !records.length) return;
+      handleRecords(records);
+    }
+
+    function dropQueued() {
+      var id = queuedFrame;
+      queuedFrame = 0;
+      queued = [];
+      try {
+        if (id && typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id);
+      } catch (e) { }
+    }
+
+    function handleRecords(records) {
       if (!state) return;
       try {
         var shared = null;
@@ -713,6 +756,7 @@
       if (!state) return;
       var s = state;
       state = null;
+      dropQueued();
       try {
         if (s.observer) s.observer.disconnect();
       } catch (e) {
