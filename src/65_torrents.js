@@ -313,6 +313,8 @@
       r.push(T(['.torrent-item__ffprobe']) + '{padding-top:.175em}');
       r.push(T(['.torrent-item__ffprobe > div']) + '{font-size:1.01em;font-family:' + k.fontBody + ';font-weight:400;letter-spacing:.052em;line-height:1;color:' + k.text + ';background:transparent;border:.043em solid rgba(' + k.textRgb + ',.24);border-radius:.304em;padding:.304em .478em;margin:.347em .347em 0 0;-webkit-box-shadow:none;box-shadow:none;outline:0}');
       r.push(T(['.torrent-item__ffprobe > div::before']) + '{width:.9em;height:.9em;margin-right:.4em}');
+      /* 1.4: метки раздачи (addTags ниже) — текст без значка. */
+      r.push(T(['.torrent-item__ffprobe > div.lumen-ttag::before']) + '{content:none;display:none}');
       r.push(T(['.torrent-item__ffprobe > div.m-general > div:nth-child(1)', '.torrent-item__ffprobe > div.m-general > div:nth-child(2)']) + '{font-size:1.01em;padding:0;background:transparent;border-radius:0}');
       r.push(T(['.torrent-item__ffprobe > div.m-general > div:nth-child(2)']) + '{padding-left:.4em}');
       /* «Просмотрено» — круг accent с check (угол, как у Lampa: элемент в конце строки). */
@@ -639,6 +641,177 @@
       return [text.slice(0, cut), text.slice(cut)];
     }
 
+    /* 1.4: метки раздачи — качество (4K/1080p/720p), HDR и Dolby Vision,
+       «Дубляж» и «Нет русской дорожки» — по названию с трекера и, если
+       парсер их отдал, по дорожкам ffprobe и найденным озвучкам
+       (element.info.voices, Lampa: TitleParser.voices). Чистая: title —
+       строка, ffprobe — массив потоков ffprobe или ничего, voices — массив.
+       «Нет русской» ставится ОСТОРОЖНО: только когда язык назван явно
+       (Eng/English отдельным словом, Original/Оригинал отдельным пунктом,
+       или все звуковые дорожки ffprobe с языком и ни одной русской), а
+       признаков русской озвучки нет никаких — Rus, «рус», Ukr (рядом с
+       другой озвучкой русская дорожка частая), дубляж, MVO/DVO/AVO/VO,
+       Line, одна буква озвучки rutracker (D, P, L, A), найденная студия
+       озвучки. Чуть сомнения — метки нет. Метки «уже в TorrServer» нет
+       намеренно (решение владельца). */
+    /* Одна буква озвучки rutracker («| D, P |») — только среди «|», «,»,
+       «/», скобок и пробелов: точка и дефис в именах сцены («The.D.Train»,
+       «WEB-DL») букву озвучки не дают. */
+    var ONE_L = '(^|[\\s|,/(\\[+])';
+    var ONE_R = '(?=$|[\\s|,/)\\]+])';
+    var TAG_RES = [
+      [/(^|[^a-z0-9])(2160p|4k|uhd)(?![a-z0-9])/i, '4K'],
+      [/(^|[^a-z0-9])1080[pi](?![a-z0-9])/i, '1080p'],
+      [/(^|[^a-z0-9])720p(?![a-z0-9])/i, '720p']
+    ];
+    var TAG_HDR = /(^|[^a-z0-9])hdr(10\+?|10plus)?(?![a-z0-9])/i;
+    var TAG_DV = /(^|[^a-z0-9])(dv|dovi|dolby[\s.]*vision)(?![a-z0-9])/i;
+    var TAG_DUB = /дубляж|дублир|(^|[^a-z0-9])dub(?![a-z0-9])/i;
+    var TAG_DUB_D = new RegExp(ONE_L + 'D' + ONE_R);
+    var TAG_RU = /рус|дубл|многоголос|двухголос|одноголос|авторск|любительск|профессиональн|перевод|озвуч|(^|[^a-z0-9])(rus|ru|russian|ukr|ua|dub|mvo|dvo|avo|vo|line|ld)(?![a-z0-9])/i;
+    var TAG_RU_ONE = new RegExp(ONE_L + '(D|P|P1|P2|L|L1|L2|A)' + ONE_R);
+    /* «Оригинал» — как дорожка, только отдельным пунктом списка озвучек
+       («| Original», «, Оригинал +»): «/ Original Cut», «Оригинальная
+       версия» — это название, а не язык. */
+    var TAG_EN = /(^|[^a-z0-9])(eng|english)(?![a-z0-9])|(^|[|,+(\[])\s*(original|оригинал)\s*(?=$|[|,+)\]])/i;
+    var RU_LANGS = { rus: 1, ru: 1, russian: 1 };
+
+    function audioLangs(ffprobe) {
+      if (!ffprobe || typeof ffprobe.length !== 'number') return null;
+      var out = [];
+      for (var i = 0; i < ffprobe.length; i++) {
+        var s = ffprobe[i];
+        if (!s || s.codec_type !== 'audio') continue;
+        var lang = s.tags && s.tags.language ? ('' + s.tags.language).toLowerCase() : '';
+        out.push(lang);
+      }
+      return out.length ? out : null;
+    }
+
+    function releaseTags(title, ffprobe, voices) {
+      var t = '' + (title || '');
+      var out = { res: '', hdr: false, dv: false, dub: false, noRu: false };
+      for (var i = 0; i < TAG_RES.length; i++) {
+        if (TAG_RES[i][0].test(t)) { out.res = TAG_RES[i][1]; break; }
+      }
+      out.hdr = TAG_HDR.test(t);
+      out.dv = TAG_DV.test(t);
+      out.dub = TAG_DUB.test(t) || TAG_DUB_D.test(t);
+      var langs = audioLangs(ffprobe);
+      var ruHint = out.dub || TAG_RU.test(t) || TAG_RU_ONE.test(t) || !!(voices && voices.length);
+      if (langs) {
+        var tagged = true;
+        var ru = false;
+        for (var j = 0; j < langs.length; j++) {
+          if (!langs[j] || langs[j] === 'und') tagged = false;
+          if (RU_LANGS[langs[j]]) ru = true;
+        }
+        out.noRu = tagged && !ru && !ruHint;
+      } else {
+        out.noRu = TAG_EN.test(t) && !ruHint;
+      }
+      return out;
+    }
+
+    /* Метки — чипы в штатной строке медиачипов Lampa (.torrent-item__ffprobe,
+       её же оформление). Что Lampa уже показала сама (разрешение из
+       названия — «4K»/«FHD», «HDR», озвучка «Дубляж»), второй раз не
+       ставится. */
+    function addTags(item, element) {
+      var box = item && item.find ? item.find('.torrent-item__ffprobe')[0] : null;
+      if (!box || box.getAttribute('data-lumen-tags')) return;
+      box.setAttribute('data-lumen-tags', '1');
+      var el = element || {};
+      var tags = releaseTags(el.Title || el.title || '', el.ffprobe, el.info && el.info.voices);
+      var have = [];
+      var res = false;
+      var kids = box.children || [];
+      for (var i = 0; i < kids.length; i++) {
+        var cls = '' + (kids[i].className || '');
+        var txt = ('' + (kids[i].textContent || '')).toLowerCase();
+        have.push(txt);
+        if (cls.indexOf('m-resolution') >= 0 && txt !== 'hdr') res = true;
+      }
+      function has(re) {
+        for (var h = 0; h < have.length; h++) if (re.test(have[h])) return true;
+        return false;
+      }
+      var list = [];
+      if (tags.res && !res) list.push(tags.res);
+      if (tags.hdr && !has(/^hdr/)) list.push('HDR');
+      if (tags.dv && !has(/^dv$|dolby/)) list.push('DV');
+      if (tags.dub && !has(/дубляж|dub/)) list.push(LC.lang('lumen_tt_dub'));
+      if (tags.noRu) list.push(LC.lang('lumen_tt_noru'));
+      for (var k = 0; k < list.length; k++) {
+        var chip = document.createElement('div');
+        chip.className = 'lumen-ttag';
+        chip.textContent = '' + list[k];
+        box.appendChild(chip);
+      }
+      if (list.length && box.classList) box.classList.remove('hide');
+    }
+
+    /* 1.4: список файлов сериала в TorrServer — фокус на серии, где
+       остановились. Lampa (list$2, app.min.js) сама ставит фокус на
+       ПОСЛЕДНИЙ файл с таймкодом (view.percent > 0) — и если та серия
+       досмотрена, человек стоит на уже просмотренной. Здесь: последняя
+       серия с таймкодом не досмотрена — оставляем как у Lampa; досмотрена
+       (EP_DONE, как у метки «S2·E5», src/62_badges.js) — фокус на первую
+       недосмотренную серию после неё. Чистая: rows — [{episode, percent}]
+       в порядке списка; -1 — ничего не менять (нет таймкодов, не сериал,
+       дальше досмотренной ничего нет). */
+    var EP_DONE = 95;
+    function resumeIndex(rows) {
+      if (!rows || rows.length < 2) return -1;
+      var serial = 0;
+      var last = -1;
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i] || {};
+        if ((parseInt(r.episode, 10) || 0) > 0) serial++;
+        if ((Number(r.percent) || 0) > 0) last = i;
+      }
+      if (serial < 2 || last < 0) return -1;
+      if ((Number(rows[last].percent) || 0) < EP_DONE) return -1;
+      for (var j = last + 1; j < rows.length; j++) {
+        var n = rows[j] || {};
+        if ((parseInt(n.episode, 10) || 0) > 0 && (Number(n.percent) || 0) < EP_DONE) return j;
+      }
+      return -1;
+    }
+
+    var fileRows = [];
+    var fileTimer = 0;
+
+    function resumeOn() {
+      try { return !!LC.pref('lumen_ts_resume_focus', true); } catch (e) { return true; }
+    }
+
+    /* Lampa рисует весь список синхронно и в конце сама зовёт
+       Controller.collectionFocus — наш перевод фокуса идёт следующим тиком,
+       и только если Modal ещё на экране, а фокус стоит там, куда его
+       поставила Lampa (человек ещё не нажал ни одной кнопки). */
+    function applyResume() {
+      fileTimer = 0;
+      var rows = fileRows;
+      try {
+        var idx = resumeIndex(rows);
+        if (idx < 0) return;
+        var L = window.Lampa;
+        if (!L || !L.Controller || !L.Modal || typeof L.Modal.scroll !== 'function') return;
+        var en = typeof L.Controller.enabled === 'function' ? L.Controller.enabled() : null;
+        if (!en || en.name !== 'modal') return;
+        var lampaPick = null;
+        for (var i = rows.length - 1; i >= 0; i--) {
+          if ((Number(rows[i].percent) || 0) > 0) { lampaPick = rows[i].node; break; }
+        }
+        var focused = document.querySelector('.modal .torrent-files .selector.focus');
+        if (focused && focused !== lampaPick) return;
+        L.Controller.collectionFocus(rows[idx].node, L.Modal.scroll().render());
+      } catch (e) {
+        warn('torrents resume focus failed', e);
+      }
+    }
+
     function emphasize(item) {
       var node = item && item.find ? item.find('.torrent-item__title')[0] : null;
       if (!node || node.getAttribute('data-lumen-split')) return;
@@ -677,7 +850,17 @@
        дефисы шаблона Lampa сняты: «Сезон 1 · Выход 1 апреля». */
     function onFile(e) {
       try {
+        if (e && e.type === 'list_open') {
+          fileRows = [];
+          if (fileTimer) { clearTimeout(fileTimer); fileTimer = 0; }
+          return;
+        }
         if (!e || e.type !== 'render' || !e.item || !document.body.classList.contains(BODY_ON)) return;
+        if (resumeOn()) {
+          var el = e.element || {};
+          fileRows.push({ node: e.item[0], episode: el.episode, percent: el.timeline ? el.timeline.percent : 0 });
+          if (!fileTimer) fileTimer = setTimeout(applyResume, 0);
+        }
         var spans = e.item.find('.torrent-serial__line > span');
         for (var i = 0; i < spans.length; i++) {
           var kids = spans[i].childNodes;
@@ -695,6 +878,7 @@
         if (e && e.type === 'render' && e.item && document.body.classList.contains(BODY_ON)) {
           emphasize(e.item);
           numbers(e.item);
+          addTags(e.item, e.element);
         }
       } catch (err) {
         warn('torrents title failed', err);
@@ -769,7 +953,7 @@
       }
     }
 
-    return { css: css, scoped: scoped, install: install, toggle: toggle, splitTitle: splitTitle };
+    return { css: css, scoped: scoped, install: install, toggle: toggle, splitTitle: splitTitle, releaseTags: releaseTags, resumeIndex: resumeIndex };
   })();
 
   /* В браузере "module" не определён — ветка не выполняется. Метка

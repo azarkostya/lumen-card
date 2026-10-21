@@ -7110,6 +7110,13 @@
     css.push('body .head .head__action:not(.focus):not(.hover){color:' + P.soft + '}');
     css.push('body .head .head__action.open--profile:not(.focus):not(.hover){background:none}');
     css.push('body .head .head__action.open--profile img{background:none}');
+    /* 1.4: «Скрыть Shots» и «Скрыть лишние значки шапки» — правила под
+       классами на body, их ставит LC.headHide.apply (src/85_header.js) по
+       настройкам; без классов правила ничего не трогают. */
+    if (LC.headHide && typeof LC.headHide.css === 'function') {
+      var headHide = LC.headHide.css();
+      for (var hh = 0; hh < headHide.length; hh++) css.push(headHide[hh]);
+    }
 
     /* Над экраном «Что посмотреть» оставалась полоса фона body Lampa
        (серый #1D1F20): экран начинается под шапкой (с QA v2 обёртка

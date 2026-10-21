@@ -63,8 +63,15 @@
 
       /* Фон темы вместо сине-серого градиента Lampa (.background под
          активностью): у экрана свой фон и кадр-вуаль сверху. */
-      r.push('body.lumen-torrents-on .activity.lumen-torrents{background-color:' + P.bg + '}');
-      r.push(s(['.lumen-tframe']) + '{position:absolute;top:0;left:0;right:0;height:16.66em;overflow:hidden;pointer-events:none;z-index:0}');
+      /* U13 (QA на ТВ): экран начинается под шапкой Lampa (.wrap__content,
+         padding-top 4em), и над кадром оставалась тёмная полоса фона body
+         с жёстким краем. Приём тот же, что у кадра карточки и рулетки
+         (src/30_css.js, «Тёмная полоса над карточкой», QA v2 P2-1): кадр
+         поднят под шапку на её поле и вырос на столько же — низ кадра там,
+         где был; без задника полосу закрывает тень фона темы над
+         активностью (box-shadow в раскладку не входит). */
+      r.push('body.lumen-torrents-on .activity.lumen-torrents{background-color:' + P.bg + ';-webkit-box-shadow:0 -4em 0 0 ' + P.bg + ';box-shadow:0 -4em 0 0 ' + P.bg + '}');
+      r.push(s(['.lumen-tframe']) + '{position:absolute;top:-4em;left:0;right:0;height:20.66em;overflow:hidden;pointer-events:none;z-index:0}');
       r.push(s(['.lumen-tframe__img']) + '{position:absolute;top:0;left:0;right:0;bottom:0;background-position:50% 30%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.55}');
       r.push(s(['.lumen-tframe::after']) + '{content:"";position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 45%,rgba(' + P.bgRgb + ',.3) 100%),linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',0) 55%)}');
       r.push(s(['.explorer']) + '{position:relative;z-index:1;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}');
@@ -110,6 +117,25 @@
       /* Фильтры — чипы: 52 px, капсула, подложка, подпись тише значения. */
       r.push(s(['.explorer__files']) + '{width:auto;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 0%;flex:1 1 0%}');
       r.push(s(['.explorer__files-head']) + '{padding:.9em 3.507em .2em 3.507em}');
+      /* U13 (QA на ТВ): верхняя раздача уходила под фильтры. Высоту
+         прокрутки раздач Lampa считает как «экран − шапка − фильтры»
+         (Scroll.minus, layer--wheight, frameUpdate) — а здесь над
+         фильтрами ещё строка фильма (колонка explorer), и прокрутка
+         выходила за низ экрана на её высоту: Lampa докручивала фокус до
+         края, которого не видно, и верх списка уезжал под фильтры и под
+         растворение маски (8 % высоты сверху). Теперь высоту задаёт сама
+         раскладка: explorer — ровно экран под шапкой, колонка раздач —
+         остаток под строкой фильма и фильтрами, прокрутка — во всю
+         колонку (inline-высоту Lampa перекрывает !important; Scroll
+         меряет offsetHeight узла, а не свой расчёт). Растворение сверху —
+         1em вместо 8 %. */
+      r.push(s(['.explorer']) + '{height:-webkit-calc(100vh - 4em);height:calc(100vh - 4em)}');
+      r.push(s(['.explorer__files']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;min-height:0}');
+      r.push(s(['.explorer__left', '.explorer__files-head']) + '{-webkit-flex-shrink:0;flex-shrink:0}');
+      r.push(s(['.explorer__files-body']) + '{position:relative;-webkit-box-flex:1;-webkit-flex:1 1 0%;flex:1 1 0%;min-height:0}');
+      r.push(s(['.explorer__files-body > .scroll']) + '{position:absolute;top:0;left:0;right:0;bottom:0;height:auto !important}');
+      r.push(s(['.explorer__files-body > .scroll--mask']) + '{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 1em,#000 -webkit-calc(100% - 2.5em),transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 1em,#000 calc(100% - 2.5em),transparent 100%)}');
+      r.push(s(['.explorer__files-body > .scroll--mask > .scroll__content']) + '{padding-top:1em}');
       var chips = ['.torrent-filter .simple-button', '.empty__footer .simple-button', '.empty-filter__buttons .simple-button'];
       var chipsFocus = [];
       for (var c = 0; c < chips.length; c++) chipsFocus.push(chips[c] + '.focus');

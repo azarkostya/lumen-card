@@ -2444,3 +2444,60 @@
     refreshProgress: refreshProgress,
     scheduleProgressRefresh: scheduleProgressRefresh
   };
+
+  /* -------------------------------------------------------------------- */
+  /* 1.4: «Скрыть Shots» и «Скрыть лишние значки шапки» (оба по умолчанию  */
+  /* ВЫКЛ — это интерфейс самой Lampa, а не плагина).                       */
+  /* -------------------------------------------------------------------- */
+
+  /* Shots — плагин CUB, Lampa грузит его сама с cub_domain/plugin/shots
+     (ServiceLibs, app.min.js:56769); исходника в vendor нет, разметку его
+     кнопки на карточке и значка в шапке мы не видим. Поэтому селектор —
+     подстрока «shots» в классе узла внутри ряда кнопок карточки и в
+     .head__actions: так ловится и button--shots, и open--shots, и
+     shots-…, а чужие кнопки — нет.
+     Лишние значки шапки — по коду Lampa: колокольчик уведомлений
+     (Notice, класс notice--icon, app.min.js:19075; open--notice — у
+     старых сборок), «Трансляция» (open--broadcast, :25131), лента и
+     премиум (open--feed, open--premium — их снимает сама Lampa в режиме
+     IPTV, :56061). Остаются поиск, настройки, профиль и полноэкранный режим.
+     Скрытие — display:none: коллекцию шапки Lampa собирает только из
+     видимых (Controller.collectionSet(html, false, true), :10661 —
+     offsetParent), и фокус в скрытое не попадает; запомненный фокус на
+     скрытом значке collectionFocus тоже отбрасывает (offsetParent === null).
+     На карточке ряд кнопок уже живёт с display:none-кнопками (подписка
+     Lampa, кнопки, скрытые стилем Apple TV) — тот же приём. */
+  var HIDE_SHOTS = 'lumen-hide-shots';
+  var HIDE_HEAD = 'lumen-hide-headicons';
+  var SHOTS_SEL = ['.head .head__actions [class*="shots"]', '.full-start-new__buttons [class*="shots"]', '.full-start__buttons [class*="shots"]'];
+  var HEAD_EXTRA = ['notice--icon', 'open--notice', 'open--broadcast', 'open--feed', 'open--premium'];
+
+  function headHideCss() {
+    var a = [];
+    var i;
+    for (i = 0; i < SHOTS_SEL.length; i++) a.push('body.' + HIDE_SHOTS + ' ' + SHOTS_SEL[i]);
+    var b = [];
+    for (i = 0; i < HEAD_EXTRA.length; i++) b.push('body.' + HIDE_HEAD + ' .head .head__action.' + HEAD_EXTRA[i]);
+    return [a.join(',') + '{display:none !important}', b.join(',') + '{display:none !important}'];
+  }
+
+  /* on === false — снять оба класса (плагин выключен); иначе — по
+     настройкам. */
+  function applyHeadHide(on) {
+    try {
+      var body = document.body;
+      if (!body || !body.classList) return;
+      var shots = on !== false && !!LC.pref('lumen_hide_shots', false);
+      var head = on !== false && !!LC.pref('lumen_hide_head_icons', false);
+      if (shots) body.classList.add(HIDE_SHOTS); else body.classList.remove(HIDE_SHOTS);
+      if (head) body.classList.add(HIDE_HEAD); else body.classList.remove(HIDE_HEAD);
+    } catch (e) {
+      warn('head hide failed', e);
+    }
+  }
+
+  LC.headHide = {
+    css: headHideCss,
+    apply: applyHeadHide,
+    HEAD_EXTRA: HEAD_EXTRA
+  };
