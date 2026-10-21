@@ -309,7 +309,11 @@
       if (heroRow) out.push(cut(heroLine(heroRow), MAX_COLS));
       out.push('');
       if (loaf) {
-        out.push(line2(['#', 'max', 'blk', 'js', 'r+ev', 'st+l', 'frc', 'other', 'script']));
+        /* v1.4: подпись колонки «other» — прямо в заголовке, в месте колонки
+           скрипта (строк на экране ровно MAX_LINES, отдельной под легенду
+           нет). Смысл — по partsOf ниже: задача до отрисовки без скриптов. */
+        out.push(cut(line2(['#', 'max', 'blk', 'js', 'r+ev', 'st+l', 'frc', 'other',
+          'script · other: ' + lang('lumen_bench_other', 'pre-render, no JS (GC, decode)')]), MAX_COLS));
         for (var j = 0; j < result.rows.length; j++) out.push(topLine(result.rows[j]));
       }
       if (worst) {
