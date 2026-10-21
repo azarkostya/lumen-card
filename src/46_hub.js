@@ -1697,7 +1697,10 @@
       }
 
       /* v2, экран 44: число фильмов франшизы — total_results первой
-         страницы её фильмов (тот же запрос и кэш Lampa, что у сетки).
+         страницы подборки ЦЕЛИКОМ, тем же LC.sources.fetch, что у сетки
+         (QA U12: плитка считала только фильмовый источник — «11 фильмов»,
+         а сетка той же франшизы с сериалом — «Всего 12»; число теперь одно
+         и из одного источника).
          Только плитки в окне кадров и по одному запросу за раз: на слабом
          ТВ вкладка не должна разом поднимать десяток запросов. */
       function countTab(item) {
@@ -1742,7 +1745,7 @@
           nextCount();
         }
         try {
-          LC.sources.fetchOne(job.item.sources.movie, 'movie', 1, function (data) {
+          LC.sources['fetch'](job.item, 1, function (data) {
             done(Number(data && data.total_results) || 0);
           }, function () { done(0); });
         } catch (e) {

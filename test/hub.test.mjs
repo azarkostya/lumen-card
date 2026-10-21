@@ -860,7 +860,10 @@ function loadHub(opts) {
        нет, как и в бандле до его загрузки (вызов защищён проверкой). */
     perf: opts.perf,
     /* 1.2: детский режим (src/41_kids.js) — по умолчанию модуля нет. */
-    kids: opts.kids
+    kids: opts.kids,
+    /* QA U12: число фильмов на плитке франшизы (LC.typo.films) — по
+       умолчанию модуля нет, и счёта нет. */
+    typo: opts.typo
   });
   return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, bannerCalls: bannerCalls, postersCalls: postersCalls };
 }
@@ -3742,4 +3745,20 @@ test('kids: сетка подборки в детском режиме чист�
   assert.deepEqual(run(kidsItem, true), { cards: 2, posters: [1, 2] });
   assert.deepEqual(run(COLLECTION, true), { cards: 1, posters: [2] });
   assert.deepEqual(run(COLLECTION, false), { cards: 3, posters: [1, 2, 3] });
+});
+
+/* QA U12: «11 фильмов» на плитке и «Всего 12» в сетке той же франшизы —
+   плитка считала только фильмовый источник (fetchOne movie), сетка —
+   подборку целиком (LC.sources.fetch). Теперь плитка спрашивает то же,
+   что сетка, и число одно. */
+test('QA U12: число на плитке франшизы — total_results подборки целиком, тем же fetch, что у сетки', function () {
+  var s = openHub({ typo: { films: function (n) { return n + ' фильмов'; }, stripCards: function () { } } });
+  var calls = s.h.fetchCalls.filter(function (c) { return c.item && c.item.id === 'star-wars' && c.arg === 1; });
+  assert.equal(calls.length, 1, 'плитка не спросила подборку целиком');
+  assert.ok(calls[0].item.sources.movie && calls[0].item.sources.tv, 'запрос — с обоими источниками, как у сетки');
+  calls[0].ok({ results: [], total_results: 12 });
+  var tile = s.root.all('lumen-tile')[0];
+  var sub = tile.all('lumen-tile__sub')[0];
+  assert.ok(sub, 'нет подписи плитки');
+  assert.equal(sub.textContent || sub._text, '12 фильмов');
 });
