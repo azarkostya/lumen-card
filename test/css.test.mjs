@@ -8129,10 +8129,11 @@ test('Task 73: сетка подборки и хаб — плитки без п�
   assert.ok(any('.lumen-grid .lumen-gcard .card__view', /background-color:transparent/));
   assert.ok(any('.lumen-grid .lumen-gcard .card__img', /background-color:transparent/));
   assert.ok(any('.lumen-hub__tiles .lumen-tile', /background:none/));
-  /* v2, экран 33: фокус в стиле Apple TV — свой масштаб (×1.14 постер,
-     ×1.09 кадр), сам масштаб на месте. */
-  assert.ok(/scale\(1\.14\)/.test(lastDecl(flatCss, '.lumen-grid__items .lumen-gcard.focus')));
-  assert.ok(/scale\(1\.09\)/.test(lastDecl(flatCss, '.lumen-hub__tiles .lumen-tile.focus')));
+  /* v2, экран 33: фокус в стиле Apple TV — свой масштаб, сам масштаб на
+     месте; QA U11: в сетках — ×1.08 постер, ×1.05 кадр (не наезжают на
+     соседей через зазор GRID_GAP). */
+  assert.ok(/scale\(1\.08\)/.test(lastDecl(flatCss, '.lumen-grid__items .lumen-gcard.focus')));
+  assert.ok(/scale\(1\.05\)/.test(lastDecl(flatCss, '.lumen-hub__tiles .lumen-tile.focus')));
 });
 
 /* Плоский вид обязан быть ДОБАВКОЙ в конце таблицы: ни одно прежнее правило
@@ -8871,13 +8872,21 @@ test('v2, экран 33: картинка в фокусе — рамка сна�
   assert.equal(declProp(lastDecl(css, '.lumen-main .card.focus .card__title'), 'position'), 'relative');
 });
 
-test('v2, экран 33: масштаб картинки — во всех режимах, в «Лёгких» и «Выкл» без перехода; Lumen 1.10/1.08, Apple TV 1.14/1.09', () => {
+test('v2, экран 33: масштаб картинки — во всех режимах, в «Лёгких» и «Выкл» без перехода; Lumen 1.10/1.08, Apple TV в сетках 1.08/1.05 (QA U11), серия 1.09', () => {
   const apple = flatCss;
   assert.ok(/scale\(1\.08\)/.test(lastDecl(css, '.lumen-hub__tiles .lumen-tile.focus')), 'плитка хаба Lumen 1.08');
   assert.ok(/scale\(1\.1\)/.test(lastDecl(css, '.lumen-grid__items .lumen-gcard.focus')), 'постер сетки Lumen 1.10');
   assert.ok(/scale\(1\.08\)/.test(lastDecl(css, '.lumen-card .lumen-episodes .lumen-episode.focus')), 'серия Lumen 1.08');
-  assert.ok(/scale\(1\.09\)/.test(lastDecl(apple, '.lumen-hub__tiles .lumen-tile.focus')), 'плитка хаба Apple 1.09');
-  assert.ok(/scale\(1\.14\)/.test(lastDecl(apple, '.lumen-grid__items .lumen-gcard.focus')), 'постер сетки Apple 1.14');
+  assert.ok(/scale\(1\.05\)/.test(lastDecl(apple, '.lumen-hub__tiles .lumen-tile.focus')), 'плитка хаба Apple 1.05');
+  assert.ok(/scale\(1\.08\)/.test(lastDecl(apple, '.lumen-grid__items .lumen-gcard.focus')), 'постер сетки Apple 1.08');
+  /* QA U11: рост постера сетки и плитки хаба в каждую сторону — меньше
+     зазора до соседа (GRID_GAP .88em) при самой крупной плитке: 5 колонок
+     постеров, 4 колонки плиток на 77em ширины сетки FHD. */
+  const W = 1920 / 22.811 - 2 * 3.51;
+  const gcardW = (W - 4 * 0.88) / 5;
+  const tileW = (W - 3 * 0.88) / 4;
+  assert.ok(gcardW * (1.08 - 1) / 2 < 0.88 * 0.75, 'постер сетки наезжает: ' + gcardW);
+  assert.ok(tileW * (1.05 - 1) / 2 < 0.88 * 0.75, 'плитка хаба наезжает: ' + tileW);
   assert.ok(/scale\(1\.09\)/.test(lastDecl(apple, '.lumen-card .lumen-episodes .lumen-episode.focus')), 'серия Apple 1.09');
   for (const table of [css, apple]) {
     const snap = ruleBodies(table).filter((r) => r.selectors.some((s) => /^\.lumen-(hub|grid)\.lumen-motion-(lite|off) \.lumen-(tile|gcard)\.focus$/.test(s)));

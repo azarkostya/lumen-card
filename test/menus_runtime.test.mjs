@@ -1026,3 +1026,54 @@ test('A6: карточка без анализа (сериал, не-русск�
   }
   fulls[0]({ type: 'start', body: EMPTY });
 });
+
+/* QA U9: штатный ряд «Коллекция» — дубль нашего ряда «Смотреть по порядку».
+   Тот же приём, что у рядов анализа и серий: на 'start' поле
+   data.collection снимается (Lampa кладёт ряд, только если results непуст —
+   app.min.js:39978), на 'complite' возвращается. */
+function collectionData() {
+  return { movie: { id: 7, title: 'Чужой', belongs_to_collection: { id: 8091, name: 'Чужой' } }, collection: { results: [{ id: 348 }, { id: 679 }] } };
+}
+
+test('QA U9: штатный ряд «Коллекция» не создаётся при нашем ряде франшизы, complite возвращает данные', () => {
+  const { LC, fulls } = setup({});
+  LC.franchise = { rowEnabled: () => true, render: () => { }, cancel: () => { }, clearRow: () => { } };
+  LC.init();
+  const data = collectionData();
+  const col = data.collection;
+  fulls[0]({ type: 'start', body: EMPTY, object: {}, data: data });
+  assert.equal(data.collection, null, 'Lampa всё ещё построит свою «Коллекцию»');
+  fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+  assert.equal(data.collection, col, 'коллекция не вернулась в данные карточки');
+  assert.ok(!data.lumen_collection, 'след от подмены остался в данных Lampa');
+});
+
+test('QA U9: без нашего ряда (выключен, нет belongs_to_collection, одна часть) «Коллекция» остаётся', () => {
+  const cases = [
+    [false, collectionData()],
+    [true, Object.assign(collectionData(), { movie: { id: 7, title: 'Чужой' } })],
+    [true, Object.assign(collectionData(), { collection: { results: [{ id: 348 }] } })]
+  ];
+  for (const [on, data] of cases) {
+    const { LC, fulls } = setup({});
+    LC.franchise = { rowEnabled: () => on, render: () => { }, cancel: () => { }, clearRow: () => { } };
+    LC.init();
+    const col = data.collection;
+    fulls[0]({ type: 'start', body: EMPTY, object: {}, data: data });
+    assert.equal(data.collection, col, JSON.stringify(data));
+  }
+});
+
+test('QA U9: без complite коллекцию возвращает destroy своей активности', () => {
+  const { LC, fulls } = setup({});
+  LC.franchise = { rowEnabled: () => true, render: () => { }, cancel: () => { }, clearRow: () => { } };
+  LC.init();
+  const object = {};
+  const data = collectionData();
+  const col = data.collection;
+  fulls[0]({ type: 'start', body: EMPTY, object: object, data: data });
+  assert.equal(data.collection, null);
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: object });
+  assert.equal(data.collection, col);
+  assert.ok(!data.lumen_collection);
+});

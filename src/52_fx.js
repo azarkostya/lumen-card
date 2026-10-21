@@ -399,6 +399,15 @@
     /* Огни зимней сцены: золото, янтарь, красный, зелёный, холодный
        голубой. Порядок значим — индекс цвета хранит поле rot частицы. */
     var LIGHTS = [[255, 206, 120], [255, 160, 64], [255, 86, 72], [108, 214, 138], [150, 200, 255]];
+    /* QA U5: в стиле Apple TV (lumen_flat) огни нейтральные — холодный
+       белый в пять оттенков (тот же порядок индексов, что у LIGHTS). */
+    var LIGHTS_COLD = [[244, 248, 255], [226, 236, 255], [236, 242, 252], [214, 228, 250], [250, 251, 255]];
+    function flatLook() {
+      try { return !!(LC.pref && LC.pref('lumen_flat', false)); } catch (e) { return false; }
+    }
+    function lightsNow() {
+      return flatLook() ? LIGHTS_COLD : LIGHTS;
+    }
 
     /* ctx['fill']() вместо ctx.fill(): скобочная запись обходит сторожа
        scripts/es5check.mjs, который ловит Array.prototype.fill по паттерну
@@ -991,7 +1000,7 @@
               glow(ctx, s.bulb[p.rot], s.S, p.x, p.y, p.size * 4, p.size * 4, a);
               return;
             }
-            dot(ctx, p, rgba(LIGHTS[p.rot], 1), a);
+            dot(ctx, p, rgba(lightsNow()[p.rot], 1), a);
             return;
           }
           if (!s) {
@@ -1016,9 +1025,10 @@
             bokeh: [],
             bulb: []
           };
-          for (var i = 0; i < LIGHTS.length; i++) {
-            out.bokeh.push(bokeh(g, LIGHTS[i]));
-            out.bulb.push(bulb(g, LIGHTS[i]));
+          var lights = lightsNow();
+          for (var i = 0; i < lights.length; i++) {
+            out.bokeh.push(bokeh(g, lights[i]));
+            out.bulb.push(bulb(g, lights[i]));
           }
           return out;
         }
@@ -1499,7 +1509,8 @@
     function spritesFor(name, color, scale) {
       var preset = presets[name];
       if (!preset || typeof preset.sprites !== 'function') return null;
-      var key = name + '|' + color + '|' + Math.round(scale * 100);
+      /* Огни зимней сцены зависят от стиля (lightsNow) — стиль в ключе. */
+      var key = name + '|' + color + '|' + Math.round(scale * 100) + (flatLook() ? '|flat' : '');
       if (Object.prototype.hasOwnProperty.call(sprite_cache, key)) return sprite_cache[key];
       var made = null;
       try {

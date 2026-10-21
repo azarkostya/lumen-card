@@ -388,3 +388,16 @@ test('v2 окна: раскладка G0 не меняет меню карточ
     }
   }
 });
+
+/* QA U4: счётчик Shots в окне «Источник» — в строку после «Смотреть
+   нарезки», а не абсолютом left:12em плагина поверх текста. */
+test('v2 окна: счётчик Shots в окне «Источник» стоит в строке подзаголовка', () => {
+  for (const st of [{}, { lumen_flat: 'true' }]) {
+    const { css } = build(st);
+    const d = eff(css, G + '.selectbox-item__subtitle .shots-view-button__count');
+    assert.equal(prop(d, 'position'), 'static');
+    assert.equal(prop(d, 'display'), 'inline-block');
+    assert.ok(prop(d, 'margin-left'));
+    assert.ok(eff(css, 'html body .selectbox.lumen-select:not(.lumen-cardmenu) .selectbox-item__subtitle .shots-view-button__count').indexOf('position:static') !== -1);
+  }
+});

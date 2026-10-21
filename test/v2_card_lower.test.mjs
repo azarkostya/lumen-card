@@ -78,8 +78,8 @@ test('36: заголовок ряда — L 30/700, A 38/600 −0.01em', () => {
   assert.match(a, /letter-spacing:-\.01em/);
 });
 
-test('36: постеры рядов — одна ширина 201 px (8.81em), фокус v2', () => {
-  for (const css of [lumen, apple]) assert.match(rule(css, L + '.lumen-lower--cards .card'), /width:8\.81em/);
+test('36: постеры рядов — одна ширина 217 px (9.52em, как на главной), фокус v2', () => {
+  for (const css of [lumen, apple]) assert.match(rule(css, L + '.lumen-lower--cards .card'), /width:9\.52em/);
   assert.match(rule(lumen, L + '.lumen-lower--cards .card.focus .card__view'), /scale\(1\.1\).*outline:\.13em solid/);
   const a = rule(apple, L + '.lumen-lower--cards .card.focus .card__view');
   assert.match(a, /scale\(1\.14\)/);

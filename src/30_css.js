@@ -618,6 +618,15 @@
     scaleWideL: 1.08,
     scalePosterA: 1.14,
     scaleWideA: 1.09,
+    /* QA U11: в СЕТКАХ (подборка, плитки хаба) соседи стоят через
+       GRID_GAP .88em, и ×1.14 / ×1.09 Apple TV наезжали на них: постер
+       сетки шириной 12.1–14.5em растёт на .85–1.01em в каждую сторону (и
+       вниз — на 1.4em поля ряда), плитка хаба 18.6em — на .84em, плюс тень.
+       Подъём в сетках меньше: ×1.08 постер (≤ .58em), ×1.05 плитка
+       (≤ .47em) — зазор до соседа остаётся. Ряды главной, поиска и
+       карточки — со своими ×1.14 / ×1.09. */
+    scaleGridA: 1.08,
+    scaleGridWideA: 1.05,
     shadowL: '0 .6em 1.25em rgba(0,0,0,.5)',
     shadowA: '0 .75em 1.35em rgba(0,0,0,.55)',
     buttonScaleA: 1.04,
@@ -7056,8 +7065,8 @@
        и светлым блоком .12 в фокусе, текст остаётся белым. */
     if (APPLE) {
       css.push('body .lumen-main .card.focus .card__view,.lumen-hub__tiles .lumen-tile.focus,.lumen-grid__items .lumen-gcard.focus .card__view,.lumen-full .card.focus .card__view,.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{' + V2_IMG_A + '}');
-      css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleWideA) + '}');
-      css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scalePosterA) + '}');
+      css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleGridWideA) + '}');
+      css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scaleGridA) + '}');
       css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after,.lumen-grid__items.lumen-dim .lumen-gcard:not(.focus) .card__view:after,.lumen-full.lumen-dim .card:not(.focus) .card__view:after{display:none}');
       css.push('.lumen-hub.lumen-motion-full .lumen-tile,.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durA) + '}');
       css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideA) + ';' + V2_IMG_A + ';border-color:transparent;background:none;background-color:' + P.panel + '}');
