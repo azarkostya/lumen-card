@@ -2303,6 +2303,8 @@
           if (look && b.file_path !== main && slideSimilar(look, poster, b.file_path)) return false;
           return !keyArt || keyArt === main || b.file_path !== keyArt;
         });
+        /* Без weak намеренно: «2 кадра» слабого ТВ — только для карточки
+           (разбор у LC.slideshow.maxFramesFor). */
         var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
         if (!paths || paths.length <= 1) return;
         var slideShow = function (path, done) {
