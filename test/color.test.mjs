@@ -2567,3 +2567,45 @@ test('v1.4 P0-1: смена темы переписывает основной �
     assert.equal(doc.getElementById('lumen-accent-deep'), null, 'выключение снимает и узел цвета');
   });
 });
+
+/* 1.4 (ревью): план раскладки (две пробные сборки + разбор листьев) —
+   только при смене сигнатуры настроек, которые читает сборка. Повторный
+   injectCss с теми же настройками план не строит; смена темы, плоского
+   вида или акцента — строит. */
+test('1.4: план раскладки кэшируется по сигнатуре настроек сборки', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const storage = { lumen_accent_auto: 'true', lumen_theme: 'warm' };
+    const ctx = cssFullCtx(dom, storage);
+    const LC = ctx.LC;
+    const doc = dom.globals.document;
+    assert.equal(LC.injectCss(), true);
+    const plans = LC.cssWrites.plan;
+    const deep0 = doc.getElementById('lumen-accent-deep').innerHTML;
+    const main0 = doc.getElementById('lumen-card-css').innerHTML;
+    assert.equal(LC.injectCss(), true);
+    assert.equal(LC.injectCss(), true);
+    assert.equal(LC.cssWrites.plan, plans, 'та же сигнатура — план не строится заново');
+    assert.equal(doc.getElementById('lumen-card-css').innerHTML, main0, 'таблица та же');
+    assert.equal(doc.getElementById('lumen-accent-deep').innerHTML, deep0, 'узел цвета тот же');
+    storage.lumen_some_unrelated = 'x';
+    LC.injectCss();
+    assert.equal(LC.cssWrites.plan, plans, 'настройка, которую сборка не читает, плана не трогает');
+    storage.lumen_theme = 'black';
+    LC.injectCss();
+    assert.equal(LC.cssWrites.plan, plans + 1, 'смена темы — новый план');
+    LC.injectCss();
+    assert.equal(LC.cssWrites.plan, plans + 1);
+    storage.lumen_flat = true;
+    LC.injectCss();
+    assert.equal(LC.cssWrites.plan, plans + 2, 'плоский вид — новый план');
+    storage.lumen_flat = false;
+    storage.lumen_theme = 'warm';
+    LC.injectCss();
+    assert.equal(doc.getElementById('lumen-card-css').innerHTML, main0, 'вернули настройки — та же таблица');
+    assert.equal(doc.getElementById('lumen-accent-deep').innerHTML, deep0);
+    LC.removeCss();
+    LC.injectCss();
+    assert.equal(LC.cssWrites.plan, plans + 4, 'после снятия стилей план строится заново');
+  });
+});

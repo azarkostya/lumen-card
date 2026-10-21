@@ -7688,7 +7688,51 @@
 
   /* Счётчики записей узлов — самотесту и тестам (сколько раз за сценарий
      переписан основной узел и сколько раз — только узел цвета). */
-  LC.cssWrites = { full: 0, deep: 0 };
+  LC.cssWrites = { full: 0, deep: 0, plan: 0 };
+
+  /* 1.4 (ревью): план раскладки — две пробные сборки и разбор листьев всей
+     таблицы, втрое дороже самой сборки. Он зависит только от того, КАКИЕ
+     правила собираются, а не от цвета кадра (цвет подставляют пробы), —
+     поэтому пересчитывается лишь при смене сигнатуры: всех настроек, которые
+     buildParts прочёл через LC.pref за эту сборку (тема, плоский вид,
+     плотность, масштаб, шрифт, плитки, область цвета, акцент, метки… —
+     список собирается сам, ручного перечня, который отстанет от кода, нет),
+     размеров экрана, от которых зависят кегли, и числа кусков сборки.
+     plan_sig === null — плана для текущих настроек нет. */
+  var plan_sig = null;
+
+  function screenSig() {
+    var u = LC.util || {};
+    var out = [];
+    var fns = ['viewportW', 'viewportH', 'screenBaseEm', 'lampaCardK'];
+    for (var i = 0; i < fns.length; i++) {
+      try { out.push(typeof u[fns[i]] === 'function' ? u[fns[i]]() : ''); } catch (e) { out.push(''); }
+    }
+    return out.join(',');
+  }
+
+  /* Сборка с записью прочитанных настроек: { parts, sig }. */
+  function buildPartsSig() {
+    var orig = LC.pref;
+    var seen = {};
+    var reads = [];
+    LC.pref = function (name) {
+      var v = orig.apply(this, arguments);
+      if (!Object.prototype.hasOwnProperty.call(seen, name)) {
+        seen[name] = true;
+        reads.push(name + '=' + v);
+      }
+      return v;
+    };
+    var parts;
+    try {
+      parts = buildParts();
+    } finally {
+      LC.pref = orig;
+    }
+    reads.sort();
+    return { parts: parts, sig: reads.join('|') + '#' + screenSig() + '#' + parts.length };
+  }
 
   function writeMain(el, text) {
     if (text === card_css_text) return;
@@ -7741,18 +7785,25 @@
         (document.head || document.getElementsByTagName('head')[0] || document.body).appendChild(el);
         card_css_text = null;
       }
-      var parts = buildParts();
-      /* v1.4 P0-1: план раскладки строится на каждой полной сборке — она и
-         есть смена настроек. Сбой плана таблицу не роняет: она пишется
-         одним узлом, как до разделения. */
+      var built = buildPartsSig();
+      var parts = built.parts;
+      /* v1.4 P0-1: план раскладки — по сигнатуре настроек (plan_sig выше):
+         та же сигнатура — прежний план, иначе (или если кусок разошёлся с
+         планом по форме) — строится заново. Сбой плана таблицу не роняет:
+         она пишется одним узлом, как до разделения. */
       var split = null;
       try {
-        deep_plan = deepPlan(parts);
-        split = deepSplit(parts, deep_plan);
+        if (plan_sig === built.sig && deep_plan) split = deepSplit(parts, deep_plan);
+        if (!split) {
+          LC.cssWrites.plan++;
+          deep_plan = deepPlan(parts);
+          split = deepSplit(parts, deep_plan);
+        }
       } catch (ePlan) {
         warn('css deep plan failed', ePlan);
       }
       if (!split) deep_plan = null;
+      plan_sig = split ? built.sig : null;
       writeMain(el, split ? split.base : parts.join('\n'));
       writeDeep(el, split ? split.deep : '');
       written = true;
@@ -7787,6 +7838,7 @@
       if (deep && deep.parentNode) deep.parentNode.removeChild(deep);
       deep_css_text = null;
       deep_plan = null;
+      plan_sig = null;
     } catch (e) {
       warn('css remove failed', e);
     }
