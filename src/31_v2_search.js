@@ -265,6 +265,12 @@
       css.push(RES + ' .search-looking{padding-left:1.5em}');
       css.push(RES + ' .search-looking__text{max-width:20em;margin-top:5.5em;font-family:' + FB + ';font-weight:' + (APPLE ? '600' : '700') + ';font-size:1.67em;line-height:1.2;color:' + P.text + '}');
       css.push(hasMask + '{' + RES + ' .search-looking__text:before{content:"";display:block;width:1.47em;height:1.47em;margin-bottom:.37em;color:' + MUTED + ';' + maskDecl(LC.icons.maskUrl('search')) + '}}');
+      /* QA U6 (P3-11): «ничего не найдено» — вторая строка-подсказка.
+         Пустой результат Lampa рисует тем же .search-looking__text, что и
+         «Начните вводить…» (Results.empty, app.min.js 42056), но только при
+         непустом запросе — у поля тогда стоит filled. */
+      var nofoundHint = typeof LC.lang === 'function' ? LC.lang('lumen_search_nofound_hint') : '';
+      if (nofoundHint) css.push(S + ' .search__input.filled ~ .search__results .search-looking__text:after{content:"' + ('' + nofoundHint).replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ') + '";display:block;margin-top:.5em;font-weight:500;font-size:.66em;line-height:1.3;color:' + MUTED + '}');
       css.push(RES + ' .broadcast__text{padding-left:1.3em;font-family:' + FB + ';font-size:1.27em;color:' + (APPLE ? 'rgba(235,235,245,.85)' : P.soft) + '}');
 
       return css.join('\n');

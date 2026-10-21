@@ -1090,6 +1090,8 @@
     lumen_search_source: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
     /* Финальная проверка, L4: карточка из кэша поиска Lampa, а подборки в
        каталоге уже нет. */
+    /* QA U6: вторая строка под «ничего не найдено» (src/31_v2_search.js). */
+    lumen_search_nofound_hint: { ru: 'Проверьте раскладку или попробуйте английское название', en: 'Check the keyboard layout or try the English title', uk: 'Перевірте розкладку або спробуйте англійську назву' },
     lumen_search_gone: { ru: 'Подборка больше недоступна', en: 'This collection is no longer available', uk: 'Підбірка більше недоступна' },
     /* Подпись кнопки поиска в шапке хаба (design-spec-main §0.8) — верхним
        регистром, как остальные метки-капсы плагина. Task 27 сделал её

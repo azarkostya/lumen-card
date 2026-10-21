@@ -479,3 +479,14 @@ test('v2 поиск: колонка результатов обрезана сл
   const src = readFileSync(new URL('../src/31_v2_search.js', import.meta.url), 'utf8');
   assert.match(src, /RES \+ '\{-webkit-clip-path:inset\(-20em -20em -20em 1em\);clip-path:inset\(-20em -20em -20em 1em\)\}'/);
 });
+
+/* QA U6 (P3-11): вторая строка под «ничего не найдено» — только при
+   заполненном поле (пустой результат), тихим цветом. */
+test('v2 экран 38: пустой результат — подсказка про раскладку второй строкой', () => {
+  for (const st of [{}, APPLE]) {
+    const { css } = build(st);
+    const r = rules(css, 'body.search--open .search .search__input.filled ~ .search__results .search-looking__text:after{');
+    assert.equal(r.length, 1);
+    assert.match(r[0], /content:"Проверьте раскладку или попробуйте английское название";display:block/);
+  }
+});
