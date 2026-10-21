@@ -1135,7 +1135,9 @@ test('holB: пауза при листании — после нажатия п�
   env(({ doc, tick }) => {
     const keys = [];
     doc.addEventListener = (type, fn) => { if (type === 'keydown') keys.push(fn); };
-    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    /* v1.4: в «Лёгких» праздничная сцена — статичный кадр (тест ниже),
+       движение и пауза при листании — в «Полных». */
+    const fx = freshFx({ motionMode: () => 'full', fxHeavy: () => false });
     const timers = fakeTimers();
     fx._timers = timers.hook;
     fx.mount(fakeNode(960, 360), 'winter');
@@ -1172,5 +1174,80 @@ test('holB: keydown снимается, когда слоёв не остало�
     assert.equal(keys.length, 1, 'новый монтаж возвращает слушатель');
     fx.unmountAll();
     assert.equal(keys.length, 0);
+  });
+});
+
+/* ====================================================================== */
+/* v1.4 «Слабый ТВ»: праздничная сцена в «Лёгких» и на слабой приставке —  */
+/* статичный кадр: один рисунок, без кадрового цикла 30 fps.              */
+/* ====================================================================== */
+
+test('v1.4: в «Лёгких» праздничная сцена рисуется один раз и цикл не крутится', () => {
+  env(({ tick, pending }) => {
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    const layer = fakeNode(960, 360);
+    const inst = fx.mount(layer, 'halloween');
+    assert.ok(inst, 'сцена смонтирована, не выключена');
+    assert.equal(layer.children.length, 1, 'канвас на месте');
+    const before = inst.particles().map((p) => p.x + ',' + p.y).join(';');
+    tick(40);
+    assert.equal(fx.stats().steps, 1, 'кадр нарисован ровно один раз');
+    assert.equal(pending(), 0, 'следующий кадр не заказан — вместо цикла редкая перепроверка');
+    for (let i = 0; i < 5; i++) { if (timers.live().length) timers.fire(); tick(40); }
+    assert.equal(fx.stats().steps, 1, 'перепроверки ничего не перерисовывают');
+    assert.equal(inst.particles().map((p) => p.x + ',' + p.y).join(';'), before, 'частицы стоят на месте');
+    const ctx = layer.children[0].getContext('2d');
+    assert.ok(ctx.calls.indexOf('clearRect') !== -1, 'рисунок был');
+    fx.unmountAll();
+  });
+});
+
+test('v1.4: на слабой приставке праздничная сцена статична и в «Полных» по «Авто»; ручные «Полные» — анимация', () => {
+  const weak = { weakInfo: () => ({ kind: 'tvbox' }) };
+  for (const [stored, still] of [['auto', true], ['full', false]]) {
+    env(({ tick }) => {
+      const fx = freshFx({ motionMode: () => 'full', fxHeavy: () => false, perf: weak, pref: (n, d) => (n === 'lumen_motion' ? stored : d) });
+      fx._timers = fakeTimers().hook;
+      fx.mount(fakeNode(960, 360), 'winter');
+      tick(40); tick(40); tick(40);
+      if (still) assert.equal(fx.stats().steps, 1, 'слабая, «Авто»: один кадр');
+      else assert.ok(fx.stats().steps >= 2, 'слабая, «Полные» руками: движется');
+      fx.unmountAll();
+    });
+  }
+});
+
+test('v1.4: в «Полных» на обычном железе праздничная сцена движется, как прежде', () => {
+  env(({ tick, pending }) => {
+    const fx = freshFx({ motionMode: () => 'full', perf: { weakInfo: () => null } });
+    fx._timers = fakeTimers().hook;
+    fx.mount(fakeNode(960, 360), 'halloween');
+    tick(40); tick(40); tick(40);
+    assert.ok(fx.stats().steps >= 2);
+    assert.equal(pending(), 1, 'цикл крутится');
+    fx.unmountAll();
+  });
+});
+
+test('v1.4: статичная сцена, ожившая после удержания с другим цветом, перерисовывается один раз', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    const layer = fakeNode(960, 360);
+    fx.mount(layer, 'winter', { color: '#FFFFFF' });
+    tick(40);
+    assert.equal(fx.stats().steps, 1);
+    fx.unmount(layer);
+    fx.mount(layer, 'winter', { color: '#FF0000' });
+    if (timers.live().length) timers.fire();
+    tick(40);
+    assert.equal(fx.stats().steps, 2, 'новый цвет — новый рисунок');
+    if (timers.live().length) timers.fire();
+    tick(40);
+    assert.equal(fx.stats().steps, 2, 'и снова стоит');
+    fx.unmountAll();
   });
 });
