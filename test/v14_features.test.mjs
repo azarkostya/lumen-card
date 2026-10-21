@@ -64,6 +64,10 @@ test('hiddenKey: тот же ключ, что Timeline.link у Lampa', () => {
   assert.equal(P.hiddenKey({ id: 9, original_title: 'C', source: 'cub' }), 'movie_9');
   assert.equal(P.hiddenKey({ id: 9, original_title: 'C', source: 'Kino-Pub' }), 'kinopub_movie_9');
   assert.equal(P.hiddenKey({}), '');
+  /* Ревью 1.4: тип — только по original_name, ровно как Timeline.link
+     (app.min.js:24483); иначе ключ метки разошёлся бы с записью Timeline. */
+  assert.equal(P.hiddenKey({ id: 11, name: 'D', number_of_seasons: 3, first_air_date: '2020-01-01' }), 'movie_11');
+  assert.equal(P.hiddenKey({ id: 0, original_name: 'E' }), '', 'id 0 Lampa не привязывает');
 });
 
 function movie(id, title) { return { id: id, title: title, original_title: title }; }

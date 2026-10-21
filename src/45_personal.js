@@ -258,15 +258,18 @@
        Своя метка показа в Storage (HIDDEN_KEY): {ключ карточки: момент
        скрытия, мс}. Таймкоды, история и 'thrown' Lampa не трогаются.
        Ключ — тот же, что Lampa кладёт в запись Timeline (road.card,
-       Timeline.link, app.min.js:24482): тип по original_name, источник
-       префиксом, если он не tmdb/cub. По нему новая запись просмотра
+       Timeline.link, app.min.js:24482): тип ТОЛЬКО по original_name (как у
+       Lampa — ни number_of_seasons, ни first_air_date, иначе сериал без
+       original_name получил бы 'tv_', а запись Timeline — 'movie_', и
+       метка не снялась бы), источник префиксом, если он не tmdb/cub; id 0
+       Lampa не привязывает. По нему новая запись просмотра
        (LC.personal.onTimeline) снимает метку, и карточка возвращается. */
     var HIDDEN_KEY = 'lumen_cw_hidden';
     var HIDDEN_MAX = 100;
 
     function hiddenKey(card) {
-      if (!card || card.id == null || card.id === '') return '';
-      var type = (card.original_name || card.number_of_seasons || card.first_air_date) ? 'tv' : 'movie';
+      if (!card || !card.id) return '';
+      var type = card.original_name ? 'tv' : 'movie';
       var source = (card.source || 'tmdb') + '';
       var key = type + '_' + card.id;
       if (source !== 'tmdb' && source !== 'cub') key = source + '_' + key;
