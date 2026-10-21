@@ -553,6 +553,17 @@
       en: 'Main parser did not respond — torrents from the backup',
       uk: 'Основний парсер не відповів — роздачі із запасного'
     },
+    /* 1.4: файлы сериала в TorrServer — фокус на серии, где остановились
+       (src/65_torrents.js, resumeIndex). */
+    lumen_ts_resume_focus_name: { ru: 'Фокус на следующей серии', en: 'Focus on the next episode', uk: 'Фокус на наступній серії' },
+    lumen_ts_resume_focus_descr: {
+      ru: 'В списке файлов сериала курсор сразу на серии после досмотренной.',
+      en: 'In a series file list the cursor starts on the episode after the one you finished.',
+      uk: 'У списку файлів серіалу курсор одразу на серії після переглянутої.'
+    },
+    /* 1.4: метки раздачи в списке торрентов (src/65_torrents.js, addTags). */
+    lumen_tt_dub: { ru: 'Дубляж', en: 'Dub', uk: 'Дубляж' },
+    lumen_tt_noru: { ru: 'Нет русской дорожки', en: 'No Russian audio', uk: 'Без російської доріжки' },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
        поверх карточки стоит дороже выигрыша). */
@@ -720,6 +731,20 @@
       ru: 'Скрывает блоки самой Lampa со следующего открытия карточки.',
       en: 'Hides "Metadata" and "Moods", Lampa own blocks, from the next time you open a card.',
       uk: 'Ховає «Метадані» й «Настрої» — блоки самої Lampa — з наступного відкриття картки.'
+    },
+    /* 1.4: кнопка Shots и лишние значки шапки Lampa (src/85_header.js,
+       LC.headHide). Оба выключены по умолчанию: это интерфейс самой Lampa. */
+    lumen_hide_shots_name: { ru: 'Скрыть Shots', en: 'Hide Shots', uk: 'Сховати Shots' },
+    lumen_hide_shots_descr: {
+      ru: 'Убирает кнопку Shots с карточки и её значок из шапки.',
+      en: 'Removes the Shots button from the card and its icon from the top bar.',
+      uk: 'Прибирає кнопку Shots з картки та її значок із шапки.'
+    },
+    lumen_hide_head_icons_name: { ru: 'Скрыть лишние значки шапки', en: 'Hide extra top bar icons', uk: 'Сховати зайві значки шапки' },
+    lumen_hide_head_icons_descr: {
+      ru: 'Остаются поиск, настройки и профиль; без уведомлений, трансляции, ленты и премиума.',
+      en: 'Keeps search, settings and profile; no notices, broadcast, feed or premium.',
+      uk: 'Лишаються пошук, налаштування й профіль; без сповіщень, трансляції, стрічки й преміуму.'
     },
 
     /* Task 15/20 (фаза 2): группа настроек главной. 1.0.2: в главном
@@ -1537,6 +1562,15 @@
     /* «Запасной парсер» читается на каждом поиске раздач
        (src/66_parserfb.js) — применять на лету нечего. */
     if (name === 'lumen_parser_fallback') return true;
+    /* 1.4: «Фокус на следующей серии» читается при каждом открытии списка
+       файлов (src/65_torrents.js) — применять на лету нечего. */
+    if (name === 'lumen_ts_resume_focus') return true;
+    /* 1.4: Shots и лишние значки шапки — классы на body (LC.headHide,
+       src/85_header.js), снимаются и ставятся сразу. */
+    if (name === 'lumen_hide_shots' || name === 'lumen_hide_head_icons') {
+      try { if (LC.headHide) LC.headHide.apply(); } catch (eHeadHide) {}
+      return true;
+    }
     if (name === 'lumen_tsclean') {
       try { if (LC.tsclean) LC.tsclean.apply(); } catch (eTsclean) {}
       return true;

@@ -166,12 +166,16 @@ test('LIST: полный набор ключей 1.0.2 — старые имен
     'lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start', 'lumen_rows_dedupe',
     'lumen_hide_watched',
+    /* 1.4: Shots и лишние значки шапки */
+    'lumen_hide_shots', 'lumen_hide_head_icons',
     /* 1.3: «Вернуться к просмотру» и его срок */
     'lumen_resume', 'lumen_resume_ttl',
     /* 1.3: «Автоочистка TorrServer» */
     'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
     /* «Запасной парсер» */
     'lumen_parser_fallback',
+    /* 1.4: фокус на следующей серии в файлах TorrServer */
+    'lumen_ts_resume_focus',
     /* пульт и окна */
     'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
     'lumen_ambient_delay',
@@ -245,11 +249,13 @@ const MORE_GROUPS = [
     'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows',
     /* 1.3: «Вернуться к просмотру» — рядом с личными рядами («Досмотреть»). */
     'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
-    'lumen_rows_dedupe', 'lumen_hide_watched']],
+    'lumen_rows_dedupe', 'lumen_hide_watched',
+    /* 1.4: Shots и лишние значки шапки — в конец группы. */
+    'lumen_hide_shots', 'lumen_hide_head_icons']],
   /* 1.2: «Что нового после обновления» — сразу за меню по удержанию OK. */
   /* 1.3: «Автоочистка TorrServer» — сразу за «Оформлением торрентов». */
   ['lumen_group_remote', ['lumen_context_menu', 'lumen_whatsnew', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
-    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_parser_fallback', 'lumen_ambient_source', 'lumen_ambient_delay']],
+    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_parser_fallback', 'lumen_ts_resume_focus', 'lumen_ambient_source', 'lumen_ambient_delay']],
   /* «Для разработчика» — в самом низу второго экрана. */
   ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem',
     'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]

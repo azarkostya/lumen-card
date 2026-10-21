@@ -60,11 +60,11 @@ const LUMEN_SAMPLES = {
   black_solid: { lumen_theme: 'black', lumen_solid: true, lumen_card_accent: 'wine' }
 };
 
-/* Снимок Lumen после слияния окон и поиска v2 и обрезки ленты поиска (21.10.2026; правки Apple TV его не меняют). Если Lumen меняют
+/* Снимок Lumen после слияния окон и поиска v2, обрезки ленты поиска (21.10.2026) и 1.4: U13 экрана раздач, метки раздач (правки Apple TV его не меняют). Если Lumen меняют
    намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '8ced199cfba8be96b7048b964911fdb35c52db8f1e6e0ec3582bffaddbfe3fdc',
-  black_solid: '4b8f2f64801c25d63aa94830a2749fa31cebcac20e30c037ea92ec08037e927a'
+  warm: '9c44f2abe072255abd5b5ad74a0a5a838f85c4c3f74ed88381b3d4f97ee4431f',
+  black_solid: '9ce5d4296f641b73e9ded4f476547ae9e5057195c05adb5a342c60dc8726fb30'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

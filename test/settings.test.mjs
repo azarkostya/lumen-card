@@ -107,6 +107,8 @@ function setup(opts) {
   /* 1.3: «Автоочистка TorrServer» — перезаводит свой таймер (apply). */
   LC.tsclean = { apply: mark('tsclean') };
   LC.tshealth = { apply: mark('tshealth') };
+  /* 1.4: Shots и лишние значки шапки — классы на body (LC.headHide). */
+  LC.headHide = { apply: mark('headhide') };
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
   LC.applyHeroSizePref = mark('herosize');
   /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
@@ -305,6 +307,9 @@ test('каждая настройка применяется ровно один
     lumen_manifest_url: ['rows'],
     /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной — один путь. */
     lumen_hide_watched: ['rows'],
+    /* 1.4: Shots и лишние значки шапки — классы на body сразу. */
+    lumen_hide_shots: ['headhide'],
+    lumen_hide_head_icons: ['headhide'],
     lumen_rows_limit: ['rows'],
     lumen_home_rows: ['rows'],
     /* Task 57 (фаза 5): дедупликация между рядами — тот же путь: окно
@@ -350,6 +355,8 @@ test('каждая настройка применяется ровно один
     /* «Запасной парсер» читается на каждом поиске раздач
        (src/66_parserfb.js) — применять на лету нечего. */
     lumen_parser_fallback: [],
+    /* 1.4: «Фокус на следующей серии» читается при открытии списка файлов. */
+    lumen_ts_resume_focus: [],
     /* 1.0.2: «Ускорители пульта» — мини-карта и быстрое листание, одни и
        те же две подписки на клавиатуру Lampa. */
     lumen_remote_boost: ['nav'],

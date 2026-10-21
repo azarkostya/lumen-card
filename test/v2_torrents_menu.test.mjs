@@ -46,7 +46,7 @@ function rule(css, selectorPart) {
 }
 
 test('39: экран раздач — фон темы, постер и описание скрыты, шапка компактная', () => {
-  assert.match(lumen, /body\.lumen-torrents-on \.activity\.lumen-torrents\{background-color:#0B0908\}/);
+  assert.match(lumen, /body\.lumen-torrents-on \.activity\.lumen-torrents\{background-color:#0B0908;/);
   assert.match(rule(lumen, '.explorer-card__descr'), /display:none !important/);
   assert.match(rule(lumen, 'body.lumen-torrents-on .activity.lumen-torrents .explorer-card__title'), /font-size:2\.455em/);
 });

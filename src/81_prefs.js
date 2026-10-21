@@ -277,6 +277,11 @@
       /* Task 57: фильм из ряда выше в нижних не повторяется. */
       { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      /* 1.4: кнопка Shots (плагин CUB) и лишние значки шапки Lampa
+         (LC.headHide, src/85_header.js) — интерфейс самой Lampa, поэтому
+         оба ВЫКЛЮЧЕНЫ по умолчанию. Применяются сразу. */
+      { name: 'lumen_hide_shots', type: 'trigger', 'default': false, label: 'lumen_hide_shots_name', descr: 'lumen_hide_shots_descr' },
+      { name: 'lumen_hide_head_icons', type: 'trigger', 'default': false, label: 'lumen_hide_head_icons_name', descr: 'lumen_hide_head_icons_descr' },
 
       { name: 'lumen_group_remote', type: 'title', label: 'lumen_group_remote' },
       /* Task 26: удержание OK — штатный жест Lampa, мы лишь дописываем в
@@ -303,6 +308,10 @@
       /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
          ответил или ничего не нашёл: поиск по второму адресу Lampa. */
       { name: 'lumen_parser_fallback', type: 'trigger', 'default': false, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },
+      /* 1.4: файлы сериала — фокус на серии после досмотренной
+         (src/65_torrents.js). Навигация внутри оформления пути, поэтому
+         включён; без «Оформления торрентов» не действует. */
+      { name: 'lumen_ts_resume_focus', type: 'trigger', 'default': true, label: 'lumen_ts_resume_focus_name', descr: 'lumen_ts_resume_focus_descr' },
       /* Task 22: сам выключатель заставки — в главном разделе («Движение»),
          здесь то, что настраивают один раз. */
       { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
