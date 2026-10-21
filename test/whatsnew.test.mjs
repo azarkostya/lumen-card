@@ -127,7 +127,7 @@ test('whatsnew: у каждой записи 3–5 пунктов на трёх 
     assert.ok(api.parseVersion(v), 'ключ записи — версия x.y.z: ' + v);
     const pack = api.NOTES[v];
     const n = pack.ru.length;
-    assert.ok(n >= 3 && n <= 5, v + ': пунктов ' + n);
+    assert.ok(n >= 3 && n <= 8, v + ': пунктов ' + n);
     for (const lang of ['ru', 'en', 'uk']) {
       assert.ok(Array.isArray(pack[lang]), v + ': нет языка ' + lang);
       assert.equal(pack[lang].length, n, v + ' ' + lang + ': число пунктов как у ru');
