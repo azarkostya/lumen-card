@@ -145,63 +145,50 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
 /* Полный набор ключей: имена не переименованы (профили пользователей живут
    с ними), слитые пункты получили новые ключи, а четыре бывших
    «консольных» выключателя теперь в разделе. */
-test('LIST: полный набор ключей 1.0.2 — старые имена не переименованы', () => {
+test('LIST: полный набор ключей 1.5 — старые имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
     'lumen_enabled',
-    /* Внешний вид */
-    'lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale',
-    /* Главная */
-    'lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows',
-    /* 1.2: детский режим */
-    'lumen_kids',
-    /* Карточка фильма */
-    'lumen_reviews', 'lumen_kp_key', 'lumen_franchise',
-    /* Движение */
-    'lumen_motion', 'lumen_fx', 'lumen_ambient',
-    'lumen_more',
-    /* Дополнительно: оформление */
-    'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo', 'lumen_hero_logo',
-    'lumen_badges', 'lumen_next_ep_badge', 'lumen_posters',
-    /* карточка и главная */
-    'lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
-    'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_start', 'lumen_rows_dedupe',
-    'lumen_hide_watched',
-    /* 1.4: Shots и лишние значки шапки */
-    'lumen_hide_shots', 'lumen_hide_head_icons',
-    /* 1.3: «Вернуться к просмотру» и его срок */
-    'lumen_resume', 'lumen_resume_ttl',
-    /* 1.3: «Автоочистка TorrServer» */
-    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
-    /* «Запасной парсер» */
+    /* главный экран */
+    'lumen_style', 'lumen_look', 'lumen_hero_size', 'lumen_hero_media', 'lumen_home_rows', 'lumen_rows_limit',
+    'lumen_kids', 'lumen_franchise', 'lumen_torrserver', 'lumen_motion', 'lumen_weak', 'lumen_more',
+    /* «Цвет и вид…» */
+    'lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme', 'lumen_font', 'lumen_scale',
+    'lumen_tile_size', 'lumen_flat', 'lumen_badges', 'lumen_hero_logo', 'lumen_posters',
+    /* «Слабый телевизор…» */
+    'lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill',
+    /* «TorrServer…» */
+    'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
     'lumen_parser_fallback',
-    /* 1.4: фокус на следующей серии в файлах TorrServer */
-    'lumen_ts_resume_focus',
-    /* пульт и окна */
-    'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents', 'lumen_ambient_source',
-    'lumen_ambient_delay',
-    /* 1.2: окно «Что нового» после обновления */
-    'lumen_whatsnew',
-    /* для разработчика */
-    'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem', 'lumen_rowmem_bytes',
-    'lumen_netmem', 'lumen_prefill'
+    /* «Дополнительно…» */
+    'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
+    'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows', 'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
+    'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_ambient', 'lumen_ambient_source',
+    'lumen_ambient_delay', 'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew',
+    'lumen_whatsnew_show', 'lumen_hide_shots', 'lumen_hide_head_icons', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url'
   ].sort());
 });
 
 /* Убраны из раздела, но НЕ из плагина: ключи читаются как раньше. Слитые
-   ключи тоже — их дочитывают места чтения (LC.prefs.MERGED). */
-test('1.0.2: убранные и слитые ключи в разделе больше не стоят', () => {
+   ключи тоже — их дочитывают места чтения (LC.prefs.MERGED). 1.5: в
+   раздел не вернулись «Логотип в карточке» (слит в «Логотип названия») и
+   «Серия в «Досмотреть»» (слита в «Метки на постерах»). */
+test('убранные и слитые ключи в разделе больше не стоят', () => {
   for (const gone of ['lumen_reviews_mode', 'lumen_kp_hint', 'lumen_roulette_unseen', 'lumen_card_fonts',
     'lumen_hero_trailer', 'lumen_franchise_button', 'lumen_franchise_row', 'lumen_minimap', 'lumen_fastscroll',
-    'lumen_preset_appletv', 'lumen_preset_lumen']) {
+    'lumen_preset_appletv', 'lumen_preset_lumen', 'lumen_card_logo', 'lumen_next_ep_badge']) {
     assert.equal(prefs.find(gone), null, 'пункт вернулся в раздел: ' + gone);
   }
   assert.deepEqual(prefs.MERGED, {
     lumen_font: ['lumen_card_fonts'],
     lumen_hero_media: ['lumen_hero_trailer'],
     lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
-    lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll']
+    lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll'],
+    lumen_hero_logo: ['lumen_card_logo']
   });
   for (const key of Object.keys(prefs.MERGED)) assert.ok(prefs.find(key), 'нового пункта нет в разделе: ' + key);
+  /* Логотип: тот же смысл «включено», что у старого ключа. */
+  assert.equal(prefs.mergedOn('lumen_hero_logo', false), false);
+  assert.equal(prefs.mergedOn('lumen_hero_logo', 'true'), true);
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
@@ -232,34 +219,42 @@ test('фаза 3: масштаб — четыре ступени от «мель
   assert.equal(prefs.find('lumen_scale').vprefix, 'lumen_scale_');
 });
 
-/* 1.0.2: два экрана. Тест закрепляет и состав групп, и их порядок, и то,
+/* 1.5: пять экранов. Тест закрепляет и состав групп, и их порядок, и то,
    на каком экране стоит пункт: перестановка — решение, а не побочный
-   эффект правки соседней строки. */
+   эффект правки соседней строки. Экран без заголовков групп — одна группа
+   с именем null. */
 const MAIN_GROUPS = [
-  ['lumen_group_look', ['lumen_style', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_font', 'lumen_scale']],
-  /* 1.2: «Детский режим» — шестой строкой «Главной» (решение пользователя 29.09). */
-  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_tile_size', 'lumen_rows_limit', 'lumen_home_rows', 'lumen_kids']],
-  ['lumen_group_card', ['lumen_reviews', 'lumen_kp_key', 'lumen_franchise']],
-  ['lumen_group_motion', ['lumen_motion', 'lumen_fx', 'lumen_ambient', 'lumen_more']]
+  ['lumen_group_look', ['lumen_style', 'lumen_look']],
+  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_home_rows', 'lumen_rows_limit', 'lumen_kids']],
+  ['lumen_group_card', ['lumen_franchise', 'lumen_torrserver']],
+  ['lumen_group_motion', ['lumen_motion', 'lumen_weak', 'lumen_more']]
 ];
-const MORE_GROUPS = [
-  ['lumen_group_style', ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_accent_scope', 'lumen_card_logo',
-    'lumen_hero_logo', 'lumen_badges', 'lumen_next_ep_badge', 'lumen_posters']],
-  ['lumen_group_screens', ['lumen_fx_heavy', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
-    'lumen_card_progress', 'lumen_hide_meta', 'lumen_moods', 'lumen_personal_rows',
-    /* 1.3: «Вернуться к просмотру» — рядом с личными рядами («Досмотреть»). */
-    'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
-    'lumen_rows_dedupe', 'lumen_hide_watched',
-    /* 1.4: Shots и лишние значки шапки — в конец группы. */
-    'lumen_hide_shots', 'lumen_hide_head_icons']],
-  /* 1.2: «Что нового после обновления» — сразу за меню по удержанию OK. */
-  /* 1.3: «Автоочистка TorrServer» — сразу за «Оформлением торрентов». */
-  ['lumen_group_remote', ['lumen_context_menu', 'lumen_whatsnew', 'lumen_remote_boost', 'lumen_menus', 'lumen_torrents',
-    'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_parser_fallback', 'lumen_ts_resume_focus', 'lumen_ambient_source', 'lumen_ambient_delay']],
-  /* «Для разработчика» — в самом низу второго экрана. */
-  ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url', 'lumen_rowmem',
-    'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
-];
+const SECTION_GROUPS = {
+  /* Весь цвет — одной группой (до 1.5 — пять мест на двух экранах). */
+  look: [
+    ['lumen_group_color', ['lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme']],
+    ['lumen_group_style', ['lumen_font', 'lumen_scale', 'lumen_tile_size', 'lumen_flat', 'lumen_badges',
+      'lumen_hero_logo', 'lumen_posters']]
+  ],
+  weak: [
+    [null, ['lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
+  ],
+  torrserver: [
+    [null, ['lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
+      'lumen_parser_fallback']]
+  ],
+  more: [
+    ['lumen_group_film', ['lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
+      'lumen_card_progress', 'lumen_hide_meta']],
+    ['lumen_group_rows', ['lumen_moods', 'lumen_personal_rows', 'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
+      'lumen_rows_dedupe', 'lumen_hide_watched']],
+    ['lumen_group_ambient', ['lumen_fx', 'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
+    ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew', 'lumen_whatsnew_show',
+      'lumen_hide_shots', 'lumen_hide_head_icons']],
+    /* «Для разработчика» — в самом низу. */
+    ['lumen_group_dev', ['lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url']]
+  ]
+};
 
 function groupsOf(entries) {
   const groups = [];
@@ -270,40 +265,64 @@ function groupsOf(entries) {
       groups.push(current);
       continue;
     }
-    assert.ok(current, 'пункт вне группы: ' + e.name);
+    if (!current) { current = [null, []]; groups.push(current); }
     current[1].push(e.name);
   }
   return groups;
 }
 
-test('1.0.2: главный раздел — выключатель, четыре группы и «Дополнительно…» последней строкой', () => {
-  const main = LIST.filter((e) => e.section !== 'more');
+/* 1.5 (аудит 1.3.1: «около 60 строк»): главный экран — 13 самых нужных
+   строк: выключатель, «Стиль», главная, франшизы, анимации и четыре
+   кнопки на экраны по темам; «Дополнительно…» — последней. */
+test('1.5: главный экран — 13 строк в заданном порядке, «Дополнительно…» последней', () => {
+  const main = LIST.filter((e) => !e.section);
   assert.deepEqual(groupsOf(main.slice(1)), MAIN_GROUPS);
-  const rows = main.filter((e) => e.type !== 'title');
-  /* 18 строк — столько согласовал автор: всё, что меняют чаще; 1.2 —
-     19-я, «Детский режим» (решение пользователя 29.09). */
-  assert.equal(rows.length, 19, 'строк в главном разделе: ' + rows.length);
-  assert.equal(rows[rows.length - 1].name, 'lumen_more');
-  assert.equal(prefs.find('lumen_more').type, 'button');
-  for (const e of main) assert.equal(e.section, undefined, 'у пункта главного раздела нет section: ' + e.name);
+  const rows = main.filter((e) => e.type !== 'title').map((e) => e.name);
+  assert.deepEqual(rows, ['lumen_enabled', 'lumen_style', 'lumen_look', 'lumen_hero_size', 'lumen_hero_media',
+    'lumen_home_rows', 'lumen_rows_limit', 'lumen_kids', 'lumen_franchise', 'lumen_torrserver', 'lumen_motion',
+    'lumen_weak', 'lumen_more']);
+  assert.ok(rows.length >= 12 && rows.length <= 13, 'строк на главном экране: ' + rows.length);
+  /* Главный экран — строго впереди, экраны по темам не перемешаны. */
+  const first = LIST.findIndex((e) => e.section);
+  assert.ok(LIST.slice(first).every((e) => e.section), 'пункт главного экрана оказался среди экранов по темам');
 });
 
-test('1.0.2: второй экран — четыре группы, «Для разработчика» в самом низу', () => {
-  const more = LIST.filter((e) => e.section === 'more');
-  assert.deepEqual(groupsOf(more), MORE_GROUPS);
-  /* Главный раздел — строго впереди: экраны не перемешаны. */
-  const first = LIST.findIndex((e) => e.section === 'more');
-  assert.ok(LIST.slice(first).every((e) => e.section === 'more'), 'пункт главного раздела оказался среди второго экрана');
-  assert.equal(more[more.length - 1].name, 'lumen_prefill');
-  const dev = more.findIndex((e) => e.name === 'lumen_group_dev');
-  assert.ok(more.slice(dev + 1).every((e) => e.type !== 'title'), 'после «Для разработчика» есть ещё группа');
+test('1.5: у каждого экрана по теме — своя кнопка на главном экране', () => {
+  assert.deepEqual(prefs.SECTIONS, { look: 'lumen_look', weak: 'lumen_weak', torrserver: 'lumen_torrserver', more: 'lumen_more' });
+  for (const section of Object.keys(prefs.SECTIONS)) {
+    const button = prefs.find(prefs.SECTIONS[section]);
+    assert.equal(button.type, 'button', section);
+    assert.equal(button.section, undefined, 'кнопка — на главном экране: ' + section);
+  }
 });
 
-test('1.0.2: в главном разделе группы короткие — не длиннее шести строк', () => {
-  /* Было ≤ 5; 1.2 — «Главная» с «Детским режимом» шестой строкой
-     (решение пользователя 29.09, вопрос 3.1 плана 1.2). */
-  for (const [title, items] of MAIN_GROUPS) {
-    assert.ok(items.length >= 1 && items.length <= 6, 'группа ' + title + ': ' + items.length);
+test('1.5: экраны по темам — состав и порядок групп; «Для разработчика» в самом низу', () => {
+  const order = [];
+  for (const e of LIST) if (e.section && order.indexOf(e.section) === -1) order.push(e.section);
+  assert.deepEqual(order, ['look', 'weak', 'torrserver', 'more'], 'экраны идут в порядке своих кнопок, каждый одним куском');
+  for (const section of order) {
+    assert.deepEqual(groupsOf(LIST.filter((e) => e.section === section)), SECTION_GROUPS[section], section);
+  }
+  assert.equal(LIST[LIST.length - 1].name, 'lumen_manifest_url');
+});
+
+test('1.5: цвет настраивается в одном месте — все пункты цвета в группе «Цвет»', () => {
+  for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme']) {
+    assert.equal(prefs.find(key).section, 'look', key);
+  }
+  /* «Стиль» ставит набор разом и остаётся на главном экране. */
+  assert.equal(prefs.find('lumen_style').section, undefined);
+});
+
+test('1.5: ключ Кинопоиска — в «Дополнительно…»', () => {
+  assert.equal(prefs.find('lumen_kp_key').section, 'more');
+  assert.equal(prefs.find('lumen_reviews').section, 'more');
+});
+
+test('1.5: в группах не больше семи строк', () => {
+  for (const [title, items] of MAIN_GROUPS) assert.ok(items.length >= 1 && items.length <= 7, title + ': ' + items.length);
+  for (const section of Object.keys(SECTION_GROUPS)) {
+    for (const [title, items] of SECTION_GROUPS[section]) assert.ok(items.length >= 1 && items.length <= 7, section + '/' + title + ': ' + items.length);
   }
 });
 
@@ -330,7 +349,8 @@ test('1.0.2: выключатели для разработчика — пере
        железе — прежний false. */
     const value = typeof e['default'] === 'function' ? e['default']() : e['default'];
     assert.equal(value, want[key], key);
-    assert.equal(e.section, 'more', key);
+    /* 1.5: из «Для разработчика» — в «Слабый телевизор…». */
+    assert.equal(e.section, 'weak', key);
   }
 });
 
@@ -380,9 +400,9 @@ test('Task 71: логотип в кадре — переключатель, по
   assert.equal(entry.type, 'trigger');
   assert.equal(entry['default'], true);
   assert.ok(entry.descr, 'с дивана без описания не понять, что пункт меняет');
-  /* 1.0.2: рядом с логотипом в карточке — оба про одно и то же. */
-  const names = LIST.map((e) => e.name);
-  assert.equal(names[names.indexOf('lumen_card_logo') + 1], 'lumen_hero_logo');
+  /* 1.5: одна строка на оба логотипа — логотип карточки слит сюда. */
+  assert.equal(prefs.find('lumen_card_logo'), null);
+  assert.deepEqual(prefs.MERGED.lumen_hero_logo, ['lumen_card_logo']);
 });
 
 /* Волна 4 (ТВ 2026-09-24): «нет ротации списков в начале, постоянно только
@@ -653,55 +673,33 @@ test('1.0.2: описание «Стиля» говорит, что меняет
   }
 });
 
-/* Ревью 1.0.2 (возврат сторожа Task 73/A6): описание «Стиля» называет ВЕСЬ
-   набор — иначе человек узнаёт о правке своей настройки уже после выбора.
-   Разные у двух стилей пункты стиль меняет; одинаковые — возвращает из
-   ручного значения, и это описание тоже обязано сказать: «Кадр над рядами»
-   на «Крупный», логотип в кадре — включён. «Логотипы» во множественном
-   числе были неправдой: логотип карточки (lumen_card_logo) в набор не
-   входит. Набор изменился — сторож требует поправить описание. */
-test('ревью 1.0.2: описание «Стиля» называет все пункты набора — что меняет и что возвращает', () => {
+/* Ревью 1.0.2 требовало, чтобы описание «Стиля» перечисляло ВЕСЬ набор.
+   1.5 (аудит 1.3.1, читаемость с трёх метров): описание — не длиннее двух
+   строк, как у всех пунктов, и называет только то, что стили РАЗЛИЧАЕТ:
+   тему, цвета, шрифт, метки и плоский вид. Весь набор — названиями самих
+   пунктов — перечисляет уведомление после выбора (applyPreset, сторож в
+   test/settings.test.mjs). Разные у стилей пункты изменились — сторож
+   требует пересмотреть описание. */
+test('1.5: описание «Стиля» — две строки, называет то, чем стили различаются', () => {
   const LC = loadStrings();
-  const S = LC.STRINGS;
-  const pack = S.lumen_style_descr;
+  const pack = LC.STRINGS.lumen_style_descr;
   const lumen = prefs.presetValues('lumen');
   const apple = prefs.presetValues('appletv');
   const differ = prefs.PRESET_KEYS.filter((k) => lumen[k] !== apple[k]).sort();
   assert.deepEqual(differ, ['lumen_accent_scope', 'lumen_badges', 'lumen_card_accent', 'lumen_flat', 'lumen_font',
     'lumen_hide_meta', 'lumen_theme'], 'разные у стилей пункты изменились — поправить описание «Стиля»');
-  /* Одинаковые пункты: значение, к которому стиль возвращает. */
-  assert.equal(lumen.lumen_hero_size, 'large');
-  assert.equal(apple.lumen_hero_size, 'large');
-  assert.equal(lumen.lumen_hero_logo, true);
-  assert.equal(apple.lumen_hero_logo, true);
   assert.equal(prefs.PRESET_KEYS.indexOf('lumen_card_logo'), -1, 'логотип карточки в набор не входит');
-
-  const q = { ru: (t) => '«' + t + '»', en: (t) => '"' + t + '"', uk: (t) => '«' + t + '»' };
-  const colours = { ru: 'цвета', en: 'colours', uk: 'кольори' };
-  const named = {
-    lumen_theme: { ru: ['тему'], en: ['theme'], uk: ['тему'] },
-    lumen_card_accent: colours,
-    lumen_accent_scope: colours,
-    lumen_accent_auto: colours,
-    lumen_font: { ru: ['шрифт'], en: ['font'], uk: ['шрифт'] },
-    lumen_badges: { ru: ['метки'], en: ['badges'], uk: ['мітки'] },
-    lumen_flat: { ru: ['плоское'], en: ['flat'], uk: ['пласке'] },
-    lumen_hide_meta: 'lumen_hide_meta_name',
-    lumen_hero_size: ['lumen_hero_size_name', 'lumen_hero_size_large'],
-    lumen_hero_logo: { ru: ['включает логотип в кадре'], en: ['turns the hero logo on'], uk: ['вмикає логотип у кадрі'] }
+  const must = {
+    ru: ['тему', 'цвета', 'шрифт', 'метки', 'плоский'],
+    en: ['theme', 'colours', 'font', 'badges', 'flat'],
+    uk: ['тему', 'кольори', 'шрифт', 'мітки', 'плаский']
   };
-  assert.deepEqual(Object.keys(named).sort(), prefs.PRESET_KEYS.slice().sort(), 'набор стиля изменился — поправить описание «Стиля»');
+  const limit = { ru: 90, uk: 90, en: 92 };
   for (const lang of LANGS) {
     const text = pack[lang];
-    for (const key of Object.keys(named)) {
-      const want = named[key];
-      let parts;
-      if (typeof want === 'string') parts = [q[lang](S[want][lang])];
-      else if (Array.isArray(want)) parts = want.map((k) => q[lang](S[k][lang]));
-      else parts = [].concat(want[lang]);
-      for (const part of parts) assert.ok(text.indexOf(part) !== -1, lang + ': ' + key + ' — нет «' + part + '»: ' + text);
-    }
-    assert.equal(/логотипы|logos|логотипи/i.test(text), false, lang + ': «логотипы» во множественном — логотип карточки стиль не трогает: ' + text);
+    for (const part of must[lang]) assert.ok(text.indexOf(part) !== -1, lang + ': нет «' + part + '»: ' + text);
+    assert.ok(text.length <= limit[lang], lang + ': ' + text.length + ' знаков');
+    assert.equal(/логотипы|logos|логотипи/i.test(text), false, lang + ': «логотипы» во множественном: ' + text);
   }
 });
 
@@ -760,15 +758,14 @@ test('1.0.2: описания пунктов короткие — не длин�
    замер в Golos Text и Inter: русские и украинские 90 знаков — две строки,
    99 — уже три; латиница уже, ей 92. Проверяются ВСЕ строки *_descr словаря
    на трёх языках, не только пункты LIST (кнопка теста, «Дополнительно…»).
-   Исключение одно — «Стиль»: его описание обязано назвать весь набор
-   пресета (сторож «ревью 1.0.2» выше), и в две строки оно не входит. */
+   1.5 (аудит 1.3.1, читаемость с трёх метров): исключений больше нет —
+   «Стиль» тоже в две строки, а у каждого пункта LIST описание есть. */
 test('v2, экран 41: описания пунктов — не длиннее двух строк (90 знаков, en — 92), во всех трёх языках', () => {
   const LC = loadStrings();
-  const LONG_OK = ['lumen_style_descr'];
   const limit = { ru: 90, uk: 90, en: 92 };
   let seen = 0;
   for (const key of Object.keys(LC.STRINGS)) {
-    if (!/_descr$/.test(key) || LONG_OK.indexOf(key) !== -1) continue;
+    if (!/_descr$/.test(key)) continue;
     const pack = LC.STRINGS[key];
     if (!pack || typeof pack !== 'object') continue;
     seen++;
@@ -779,6 +776,10 @@ test('v2, экран 41: описания пунктов — не длиннее
     }
   }
   assert.ok(seen >= 50, 'описаний подозрительно мало: ' + seen);
+  for (const e of LC.prefs.LIST) {
+    if (e.type === 'title') continue;
+    assert.ok(/_descr$/.test(e.descr), 'описание пункта вне проверки длины: ' + e.name + ' → ' + e.descr);
+  }
 });
 
 /* Шрифт грузится из интернета, и без него вид молча не меняется — это
@@ -1462,7 +1463,7 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
     /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
     /* v1.4: lumen_hero_media и lumen_rowmem_bytes — с платформенным
        дефолтом-функцией; их сверяет тест ниже (как lumen_fx_heavy). */
-    'lumen_posters', 'lumen_card_logo',
+    'lumen_posters',
     /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
     'lumen_home_start',
     /* 1.0.2: слитые пункты и бывшие «консольные» выключатели — теперь в

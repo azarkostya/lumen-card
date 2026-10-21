@@ -199,8 +199,6 @@ test('долг ревью (п.2): каждая настройка раздела
        случается в любом случае: правила зависят от НАСТРОЙКИ, а не от того,
        поднялся ли модуль. */
     lumen_badges: ['injectCss'],
-    /* «Досмотреть»: серия у сериала — читается при построении главной. */
-    lumen_next_ep_badge: [],
     /* Task 26 (фаза 3): пункты в меню карточки — applyCardmenuPref, вне
        POINTS: он только ставит и снимает две подписки. */
     lumen_context_menu: [],
@@ -245,12 +243,9 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_hero_media: [],
     /* Task 71 (фаза 6): логотип названия в кадре главной —
        LC.hero.applyLogoPref (вне POINTS: он перерисовывает героя той же
-       моделью, не трогая ни CSS, ни шаблон карточки). */
+       моделью, не трогая ни CSS, ни шаблон карточки). 1.5: и логотип
+       карточки — LC.header.applyLogoPref, тоже вне POINTS. */
     lumen_hero_logo: [],
-    /* Правка 2026-09-23: логотип названия в карточке —
-       LC.header.applyLogoPref (вне POINTS: он перерисовывает только узел
-       названия уже открытых карточек, не трогая ни CSS, ни шаблон). */
-    lumen_card_logo: [],
     /* Task 21 (фаза 3): атмосферы — LC.applyFxPref (вне POINTS: он
        пересобирает слой частиц открытого экрана, не трогая ни CSS, ни
        шаблон карточки). */
@@ -277,6 +272,12 @@ test('долг ревью (п.2): каждая настройка раздела
        «Дополнительно…» (Lampa.Settings.create здесь нет — no-op). */
     lumen_debug_bench: [],
     lumen_more: [],
+    /* 1.5: кнопки экранов по темам и повтор «Что нового» — тоже без
+       значения. */
+    lumen_look: [],
+    lumen_weak: [],
+    lumen_torrserver: [],
+    lumen_whatsnew_show: [],
     /* 1.0.2: выключатели «Для разработчика» читаются модулями на каждом
        шаге — применять нечего. */
     lumen_rowmem: [],
@@ -1003,22 +1004,6 @@ test('v2 экран 37: без complite серии возвращает выкл
   storageCbs[0]({ name: 'lumen_enabled' });
   assert.equal(data.episodes, eps, 'выключенный плагин оставил данные Lampa без серий');
   assert.ok(!data.lumen_episodes);
-});
-
-/* Ревью v2 (п.1): ключ Кинопоиска ввели/стёрли поверх открытой карточки —
-   строку «нужен ключ» в шапке «Комментариев» перечитывает и эта точка. */
-test('v2 экран 36: LC.applyReviewsPref перечитывает строку о ключе на открытой карточке', () => {
-  const { LC } = setup({});
-  LC.init();
-  const seen = [];
-  const cardBody = { length: 1 };
-  LC.cardLower = { refresh: (b) => seen.push(b) };
-  LC.active = { object: {}, body: cardBody, data: {} };
-  LC.applyReviewsPref();
-  assert.deepEqual(seen, [cardBody]);
-  LC.active = null;
-  LC.applyReviewsPref();
-  assert.equal(seen.length, 1, 'без открытой карточки — не зовётся');
 });
 
 test('A6: карточка без анализа (сериал, не-русский язык, анализ не готов) ничего не ломает', () => {

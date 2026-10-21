@@ -26,10 +26,6 @@
        «Настроения»): им — только кромка и заголовок. */
     var NAMES = { discuss: 1, persons: 1, cards: 1, metadata_chart: 1, metadata_tags: 1 };
 
-    function trim(s) {
-      return String(s == null ? '' : s).replace(/^\s+|\s+$/g, '');
-    }
-
     function nameOf(row) {
       if (!row) return '';
       if (typeof row === 'string') return row;
@@ -72,59 +68,10 @@
       return name === 'discuss' ? 'left' : 'right';
     }
 
-    /* Отзывы Кинопоиска без ключа — одна тихая строка в шапке
-       «Комментариев» вместо панели-подсказки (SPEC 36). */
-    function needsKeyLine() {
-      try {
-        if (!LC.pref('lumen_reviews', true)) return false;
-        return !trim(LC.pref('lumen_kp_key', ''));
-      } catch (e) { return false; }
-    }
-
-    /* Строка о ключе в шапке ряда — ровно по needsKeyLine(): нужна и её
-       нет — дописать, не нужна — снять. Возвращает «строка в шапке есть». */
-    function syncKeyLine(line) {
-      var head = line.find('.items-line__head').eq(0);
-      if (!head.length) return false;
-      var had = head.find('.lumen-lower__kp');
-      if (!needsKeyLine()) {
-        had.remove();
-        return false;
-      }
-      if (!had.length) head.find('.items-line__title').eq(0).after('<div class="lumen-lower__kp">' + LC.util.esc(LC.lang('lumen_lower_kp_line')) + '</div>');
-      return true;
-    }
-
-    /* Класс на теле активности прячет панель «нет ключа» в ряду описания —
-       только пока строка о ключе стоит в шапке «Комментариев». */
-    function markBody(body, on) {
-      if (!body || !body.length) return;
-      if (on) body.addClass('lumen-lower-kp');
-      else body.removeClass('lumen-lower-kp');
-    }
-
-    function decorateDiscuss(line, body) {
-      markBody(body, syncKeyLine(line));
-      labelAdd(line);
-    }
-
-    /* Ключ Кинопоиска ввели или стёрли в настройках поверх открытой
-       карточки: 'full' повторно не приходит, и строку о ключе вместе с
-       классом на теле перечитывает LC.applyReviewsPref (src/90_runtime.js).
-       body — тело активности карточки (e.body события 'full'). */
-    function refresh(body) {
-      try {
-        if (!body || !body.length) return;
-        var lines = body.find('.items-line.lumen-lower--discuss');
-        var on = false;
-        for (var i = 0; i < lines.length; i++) {
-          if (syncKeyLine(lines.eq(i))) on = true;
-        }
-        markBody(body, on);
-      } catch (err) {
-        warn('card lower refresh failed', err);
-      }
-    }
+    /* 1.5 (аудит U14/S8): без ключа Кинопоиска на карточке о ключе не
+       говорится ничего — ни панелью под описанием, ни строкой в шапке
+       «Комментариев» (была здесь с v2, экран 36). Про ключ один раз
+       рассказывает окно знакомства (src/82_onboard.js). */
 
     /* Подпись «Написать» у плитки добавления комментария: у Lampa там
        только иконка (::before), а макет даёт иконку и слово. */
@@ -198,7 +145,7 @@
           bindPair(e.item, side, first);
         }
         if (e.name === 'discuss') {
-          decorateDiscuss(line, e.body);
+          labelAdd(line);
           /* Плитку «Написать» ряд может дорисовать после build. */
           setTimeout(function () {
             try { labelAdd(line); } catch (e2) { }
@@ -209,16 +156,11 @@
       }
     }
 
-    /* Панель «Ключ API не задан» под рядом описания не рисуется: строка о
-       ключе — в шапке «Комментариев» (SPEC 36). Читает src/60_reviews.js. */
     var api = {
       tag: tag,
-      refresh: refresh,
       sideOf: sideOf,
       placeOf: placeOf,
-      bindPair: bindPair,
-      needsKeyLine: needsKeyLine,
-      quietKey: true
+      bindPair: bindPair
     };
     return api;
   })();
@@ -290,10 +232,6 @@
       css.push(L + '.lumen-lower--right .scroll--horizontal .scroll__content{padding-left:' + HALF + ';padding-right:' + HALF + '}');
       /* Колонки режутся по своей половине, а не маской Lampa по краям. */
       css.push(L + '.lumen-lower--left .scroll--mask,' + L + '.lumen-lower--right .scroll--mask{-webkit-mask-image:none;mask-image:none}');
-
-      /* Строка о ключе Кинопоиска в шапке «Комментариев». */
-      css.push(L + ' .lumen-lower__kp{margin-left:.78em;font-size:1.01em;font-weight:500;line-height:1.2;color:' + MUTED + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;min-width:0}');
-      css.push('body .lumen-lower-kp .lumen-descr-row .lumen-reviews[data-lumen-state="nokey"]{display:none}');
 
       /* Постеры «Рекомендаций», «Похожих», коллекции — одна ширина 217 px. */
       var C = L + '.lumen-lower--cards';

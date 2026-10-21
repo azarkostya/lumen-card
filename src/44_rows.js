@@ -669,7 +669,32 @@
        получат ответа: LC.sources.fetch мёртвого подписчика не уведомляет. */
     function bumpGen() {
       _homeGen++;
+      _rowsOk = 0;
+      _rowsFailed = 0;
       flushWaiting();
+    }
+
+    /* X4 (аудит 1.3.1): ряды, закрытые по ошибке или по дедлайну пустыми,
+       раньше молча пропадали — при лежащем интернете главная выглядела
+       «короткой», и было непонятно почему. Счёт — на одно построение
+       главной (bumpGen сбрасывает), закрытые уходом с главной
+       (flushWaiting) не в счёт. Половина и больше из хотя бы ROWS_FAIL_MIN
+       ответивших — одно уведомление Lampa.Noty за сеанс Lampa. */
+    var ROWS_FAIL_MIN = 4;
+    var _rowsOk = 0;
+    var _rowsFailed = 0;
+    var _rowsNoted = false;
+
+    function noteRow(gen, ok) {
+      if (gen !== _homeGen) return;
+      if (ok) _rowsOk++;
+      else _rowsFailed++;
+      var settled = _rowsOk + _rowsFailed;
+      if (_rowsNoted || settled < ROWS_FAIL_MIN || _rowsFailed * 2 < settled) return;
+      _rowsNoted = true;
+      try {
+        if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_rows_failed_noty'));
+      } catch (e) { }
     }
 
     /* Строилась ли главная с нашими рядами хоть раз за эту сессию Lampa. */
@@ -1518,6 +1543,8 @@
             item,
             1,
             function (json) {
+              /* X4: дедлайн подборки без единой карточки — та же ошибка. */
+              noteRow(gen, !(json && json.partial && !(json.results && json.results.length)));
               /* Фильтр досмотренных: Favorite + Timeline >= 95% */
               var hide = false;
               try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
@@ -1565,6 +1592,7 @@
             },
             function () {
               /* Ошибка загрузки: пустой ряд */
+              noteRow(gen, false);
               resolve({ results: [] });
             },
             alive
@@ -1588,6 +1616,9 @@
       knownIds: knownIds,
       viewedIds: viewedIds,
       bumpGen: bumpGen,
+      /* X4: счёт рядов, закрытых ошибкой, — наружу ради тестов. */
+      noteRow: noteRow,
+      gen: function () { return _homeGen; },
       /* Task 57: чистая часть наружу ради тестов, обёртка — ради
          activate/deactivate в src/90_runtime.js. */
       dedupeAcross: dedupeAcross,

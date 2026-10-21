@@ -275,6 +275,14 @@
       var resume = false;
       try { resume = !!(LC.resume && typeof LC.resume.busy === 'function' && LC.resume.busy()); } catch (eResume) { resume = false; }
       if (resume) { _timer = setT(tick, RETRY_DELAY); return; }
+      /* 1.5: окно знакомства (src/82_onboard.js) — два окна подряд не
+         открываются: пока оно ждёт или открыто, уступаем, а показанное в
+         этом сеансе снимает «Что нового» до следующего обновления. */
+      var onboard = LC.onboard;
+      try {
+        if (onboard && typeof onboard.shown === 'function' && onboard.shown()) { _pending = null; return; }
+        if (onboard && typeof onboard.busy === 'function' && onboard.busy()) { _timer = setT(tick, RETRY_DELAY); return; }
+      } catch (eOnboard) { }
       var ok = false;
       try { ok = !!(_ready && _ready()); } catch (e) { ok = false; }
       if (ok) {

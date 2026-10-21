@@ -1425,13 +1425,6 @@
      из истории, для которой complite не приходил) молча ждёт следующего
      открытия, как включение трейлера. */
   LC.applyReviewsPref = function () {
-    /* v2, экран 36: строка «нужен ключ» в шапке «Комментариев» открытой
-       карточки — по новому значению ключа (src/31_v2_card_lower.js). */
-    try {
-      if (LC.cardLower && LC.active && LC.active.body) LC.cardLower.refresh(LC.active.body);
-    } catch (eLower) {
-      warn('card lower refresh failed', eLower);
-    }
     try {
       var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
       if (!row || !row.length) return;
@@ -1898,7 +1891,7 @@
       warn('ambient install failed', eAmbient);
     }
     /* Ревью 1.0.2: «Назад» второго экрана настроек переживает
-       Lampa.Settings.update() (src/80_settings.js, moreOpened). */
+       Lampa.Settings.update() (src/80_settings.js, sectionOpened). */
     if (LC.followMoreBack) LC.followMoreBack(true);
     /* 1.3: «Вернуться к просмотру» — подписки на плеер, раздачу и видимость
        страницы и окно, если boot() в LC.init его ждёт (resumeReady ниже).
@@ -1933,6 +1926,13 @@
       if (LC.whatsnew && LC.whatsnew.schedule) LC.whatsnew.schedule(homeReady);
     } catch (eNew) {
       warn('whatsnew schedule failed', eNew);
+    }
+    /* 1.5: окно знакомства при первой установке — та же готовность главной
+       (src/82_onboard.js); «Что нового» ему уступает. */
+    try {
+      if (LC.onboard && LC.onboard.schedule) LC.onboard.schedule(homeReady);
+    } catch (eOnboard) {
+      warn('onboard schedule failed', eOnboard);
     }
   }
 
@@ -2081,6 +2081,7 @@
     /* 1.2: выключенный плагин таймера «Что нового» не держит; окно,
        которое ещё не показали, пропускается (как и по истечении минуты). */
     try { if (LC.whatsnew) LC.whatsnew.cancel(); } catch (eNewOff) {}
+    try { if (LC.onboard) LC.onboard.cancel(); } catch (eOnboardOff) {}
     /* 1.3: подписки «Вернуться к просмотру» и таймер окна снимаются;
        запись и счётчики остаются в Storage. */
     try { if (LC.resume) LC.resume.uninstall(); } catch (eResumeOff) {}
@@ -2706,6 +2707,10 @@
       /* 1.2: «Что нового» — ДО activate(): план главной при активации
          пишет свою эпоху, и после неё первая установка неотличима от
          обновления (src/82_whatsnew.js, detect). Показ — из activate(). */
+      /* 1.5: окно знакомства — ещё раньше «Что нового»: тот пишет ключ
+         версии, и после него первая установка неотличима от обновления
+         (src/82_onboard.js, detect). */
+      try { if (LC.onboard) LC.onboard.detect(); } catch (eOnboard) { warn('onboard detect failed', eOnboard); }
       try { if (LC.whatsnew) LC.whatsnew.detect(); } catch (eNew) { warn('whatsnew detect failed', eNew); }
 
       /* 1.3: холодный старт — счётчик перезапусков (HUD) и решение, ждёт

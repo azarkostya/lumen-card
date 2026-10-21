@@ -60,11 +60,12 @@ const LUMEN_SAMPLES = {
   black_solid: { lumen_theme: 'black', lumen_solid: true, lumen_card_accent: 'wine' }
 };
 
-/* Снимок Lumen после слияния окон и поиска v2, обрезки ленты поиска (21.10.2026) и 1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач (правки Apple TV его не меняют). Если Lumen меняют
+/* Снимок Lumen после слияния окон и поиска v2 и обрезки ленты поиска (21.10.2026; правки Apple TV его не меняют);
+   1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках. Если Lumen меняют
    намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'cddb67c6db5eb1bcb3385f18f83cc400b0974f4a49689321fe32e126a99f1d38',
-  black_solid: '4d7251c3ca13b25d073f17401ba6dcb13359b17d544512352bc9918800f5944a'
+  warm: 'a641538cb8bfddc6117505cd490229a419f99b300c1b604d82e4ed02ea552137',
+  black_solid: '91a5b8a097541bfe34f6c4019707947eef1fcfb4caecddef7285a5b5bb6b91b9'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

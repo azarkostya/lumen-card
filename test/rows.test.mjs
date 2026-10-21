@@ -1842,3 +1842,41 @@ test('kids: первая пачка из одних огрызков отдаё�
   s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
   assert.equal(got.length, 1);
 });
+
+/* X4 (аудит 1.3.1): ряды главной, закрытые ошибкой или пустым дедлайном, —
+   счёт на одно построение; половина и больше из хотя бы четырёх — одно
+   уведомление за сеанс. */
+test('X4: половина рядов главной не загрузилась — одно уведомление за сеанс', () => {
+  const notys = [];
+  globalThis.window = { Lampa: { Noty: { show: (t) => notys.push(t) } } };
+  globalThis.Lampa = globalThis.window.Lampa;
+  try {
+    const { api } = loadCtx('44_rows.js', { lang: (k) => k });
+    const gen = api.gen();
+    api.noteRow(gen, true);
+    api.noteRow(gen, false);
+    api.noteRow(gen, true);
+    assert.equal(notys.length, 0, 'ответили трое — рано судить');
+    api.noteRow(gen, true);
+    assert.equal(notys.length, 0, 'одна ошибка из четырёх');
+    /* Уход с главной: счёт заново, опоздавшие ответы старой главной не в счёт. */
+    api.bumpGen();
+    api.noteRow(gen, false);
+    api.noteRow(gen, false);
+    const g2 = api.gen();
+    api.noteRow(g2, false);
+    api.noteRow(g2, true);
+    api.noteRow(g2, false);
+    assert.equal(notys.length, 0);
+    api.noteRow(g2, true);
+    assert.deepEqual(notys, ['lumen_rows_failed_noty'], 'две из четырёх — уведомление');
+    api.noteRow(g2, false);
+    api.bumpGen();
+    const g3 = api.gen();
+    for (let i = 0; i < 6; i++) api.noteRow(g3, false);
+    assert.equal(notys.length, 1, 'одно за сеанс');
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});
