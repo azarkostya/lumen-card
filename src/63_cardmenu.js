@@ -139,6 +139,9 @@
         if (ctx.watched) out.push({ title: w.unwatched, lumen: 'unwatched' });
         else out.push({ title: w.watched, lumen: 'watched' });
       }
+      /* 1.4: карточка ряда «Досмотреть» (копия с меткой lumen_continue,
+         src/45_personal.js markContinue) — убрать её из ряда своей меткой. */
+      if (card.lumen_continue && ctx.cwHide && w.cwHide) out.push({ title: w.cwHide, lumen: 'cw_hide' });
       if (ctx.thrown) out.push({ title: w.unhide, lumen: 'unhide' });
       else out.push({ title: w.hide, lumen: 'hide' });
       return out;
@@ -200,7 +203,8 @@
         watched: LC.lang('lumen_menu_watched'),
         unwatched: LC.lang('lumen_menu_unwatched'),
         hide: LC.lang('lumen_menu_hide'),
-        unhide: LC.lang('lumen_menu_unhide')
+        unhide: LC.lang('lumen_menu_unhide'),
+        cwHide: LC.lang('lumen_menu_cw_hide')
       };
     }
 
@@ -268,6 +272,7 @@
         watched: isWatched(card),
         thrown: isThrown(card),
         roulette: !!(LC.roulette && typeof LC.roulette.openSimilar === 'function'),
+        cwHide: !!(LC.personal && typeof LC.personal.hideContinue === 'function'),
         resume: resumeItem(card)
       };
     }
@@ -514,6 +519,19 @@
       if (kind === 'unwatched') { setWatched(card, false); return; }
       if (kind === 'hide') { setThrown(card, true); return; }
       if (kind === 'unhide') { setThrown(card, false); return; }
+      if (kind === 'cw_hide') { hideContinue(card); return; }
+    }
+
+    /* 1.4: «Убрать из «Досмотреть»» — своя метка показа (LC.personal.
+       hideContinue); таймкоды и история Lampa не трогаются. Как и у
+       setThrown, из уже нарисованного ряда карточку не выдёргиваем: фокус
+       Lampa стоит на ней, а состав ряда пересчитывается при построении. */
+    function hideContinue(card) {
+      try {
+        if (LC.personal && typeof LC.personal.hideContinue === 'function' && LC.personal.hideContinue(card)) noty('lumen_menu_cw_hidden');
+      } catch (e) {
+        warn('cardmenu: continue hide failed', e);
+      }
     }
 
     /* ------------------------------------------------------------------ */
