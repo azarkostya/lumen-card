@@ -1073,6 +1073,64 @@ test('perf: новый ряд вне ряда — пересчитывается
   } finally { cleanupObserved(); }
 });
 
+/* v1.4 «Слабый ТВ»: записи наблюдателя — пачкой в ближайшем кадре
+   (requestAnimationFrame); уход с главной снимает заказанный кадр. */
+test('v1.4: записи наблюдателя разбираются пачкой в rAF — один кадр на серию вставок', () => {
+  const o = observed();
+  const frames = [];
+  const cancelled = [];
+  globalThis.window.requestAnimationFrame = (fn) => { frames.push(fn); return frames.length; };
+  globalThis.window.cancelAnimationFrame = (id) => { cancelled.push(id); };
+  try {
+    const line = dnode(['items-line']);
+    const body = dadd(line, dnode(['items-line__body']));
+    const a = dadd(body, dcard('Голодные игры: И вспыхнет пламя'));
+    o.cb([{ target: body, addedNodes: [a] }]);
+    const b = dadd(body, dcard('Голодные игры: Последняя глава'));
+    o.cb([{ target: body, addedNodes: [b] }]);
+    assert.equal(frames.length, 1, 'две записи — один заказанный кадр');
+    assert.ok(!a.lumen_badged && !b.lumen_badged, 'до кадра ничего не разобрано');
+    assert.deepEqual(o.calls, []);
+    frames[0]();
+    assert.equal(a.lumen_badged, true);
+    assert.equal(b.lumen_badged, true);
+    assert.deepEqual(o.calls, [2], 'ряд пересчитан один раз за пачку');
+    /* Новая запись после разбора — новый кадр. */
+    o.cb([{ target: body, addedNodes: [dadd(body, dcard('C'))] }]);
+    assert.equal(frames.length, 2);
+    o.api.unmount();
+    assert.deepEqual(cancelled, [2], 'уход с главной снимает заказанный кадр');
+    frames[1]();
+    assert.deepEqual(o.calls, [2], 'после ухода копилка не разбирается');
+  } finally { cleanupObserved(); }
+});
+
+test('v1.4: уход с главной отключает наблюдатель, возврат — один полный проход и новое наблюдение', () => {
+  let disconnects = 0;
+  let observes = 0;
+  class FakeObserver { constructor() {} observe() { observes++; } disconnect() { disconnects++; } }
+  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  try {
+    const { api } = runtime();
+    const first = makeCard({ release_date: '2026-12-17' });
+    const root = makeRoot([first]);
+    api.mount(root);
+    assert.equal(observes, 1);
+    api.detach(makeRoot([]));
+    assert.equal(disconnects, 1, 'чужая активность — наблюдатель отключён');
+    /* Пока главная в истории, в ней появилась карточка (догрузка ряда). */
+    const late = makeCard({ release_date: '2026-12-17' });
+    root._children.push(late);
+    api.mount(root);
+    assert.equal(observes, 2, 'возврат — новое наблюдение');
+    assert.equal(late.lumen_badged, true, 'возврат — полный проход scan');
+  } finally {
+    delete globalThis.window;
+    delete globalThis.MutationObserver;
+  }
+});
+
 /* ====================================================================== */
 /* «Досмотреть», сериал: серия вместо процента (episodeBadge).            */
 /* ====================================================================== */

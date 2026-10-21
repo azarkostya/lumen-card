@@ -255,8 +255,10 @@ test('bench: вторая таблица — самый длинный кадр 
   assert.equal(lines.length, 25, 'самый длинный случай занимает экран целиком:\n' + lines.join('\n'));
   assert.ok(lines.length <= api.MAX_LINES, 'таблица длиннее экрана: ' + lines.length + ' строк\n' + lines.join('\n'));
   for (const line of lines) assert.ok(line.length <= api.MAX_COLS, 'строка шире экрана: «' + line + '»');
-  const head = lines.findIndex((l) => /^\s*#\s+max\s+blk\s+js\s+r\+ev\s+st\+l\s+frc\s+other\s+script$/.test(l));
+  const head = lines.findIndex((l) => /^\s*#\s+max\s+blk\s+js\s+r\+ev\s+st\+l\s+frc\s+other\s+script( · other: .+)?$/.test(l));
   assert.ok(head > 0, 'заголовка второй таблицы нет:\n' + lines.join('\n'));
+  /* v1.4: подпись колонки «other» — в заголовке, без лишней строки. */
+  assert.ok(/ · other: pre-render, no JS \(GC, decode\)$/.test(lines[head]), 'подписи other нет: «' + lines[head] + '»');
   const rows = lines.slice(head + 1, head + 10);
   assert.equal(rows.length, 9);
   assert.ok(/^\s*9\s+12346\s/.test(rows[8]), 'у стадии stop scroll — своя строка фаз: «' + rows[8] + '»');

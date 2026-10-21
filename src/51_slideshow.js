@@ -54,9 +54,13 @@
     /* Максимум кадров по режиму анимаций (план: full 8, lite 4, off 1 без
        смены) — off даёт вызывающей стороне max=1, т.е. только главный
        кадр, и сама возможность завести таймер ротации отпадает в create()
-       ниже без отдельной проверки режима (urls.length <= 1). */
-    function maxFramesFor(mode) {
+       ниже без отдельной проверки режима (urls.length <= 1).
+       v1.4 «Слабый ТВ»: weak — слабая приставка (LC.perf.weakInfo); ей
+       хватает двух кадров вместо четырёх и восьми: каждый кадр — полный
+       растр в памяти декодера. Без второго аргумента — как было. */
+    function maxFramesFor(mode, weak) {
       if (mode === 'off') return 1;
+      if (weak) return 2;
       if (mode === 'lite') return 4;
       return 8;
     }
@@ -160,6 +164,13 @@
       var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
       var intervalFn = typeof opts.intervalMs === 'function' ? opts.intervalMs : function () { return 14000; };
       var show = typeof opts.show === 'function' ? opts.show : null;
+      /* v1.4 «Слабый ТВ»: opts.preloadMs — за сколько до смены грузить
+         следующий кадр заранее (Image() в HTTP-кэш и декодер). На слабой
+         приставке загрузка кадра w1280 занимает секунды, и без этого
+         смена запаздывала на время загрузки. 0 — как было: грузим в тик. */
+      var preloadMs = Number(opts.preloadMs) > 0 ? Number(opts.preloadMs) : 0;
+      var preloadTimer = null;
+      var preloaded = null; // {i, img} — заранее заказанный следующий кадр
 
       var alive = true;
       var paused = false;
@@ -176,8 +187,38 @@
         return isMounted(layer[0]);
       }
 
+      function stopPreload() {
+        if (preloadTimer) { clearTimeout(preloadTimer); preloadTimer = null; }
+      }
+
       function stopTimer() {
         if (timer) { clearInterval(timer); timer = null; }
+        stopPreload();
+      }
+
+      /* Заказ следующего кадра за preloadMs до тика. Тот же Image() потом
+         создаст ensureFrame — и получит картинку из кэша сразу. Ссылка на
+         заказ держится (preloaded), иначе сборщик мог бы снять загрузку. */
+      function preloadNext() {
+        preloadTimer = null;
+        if (!alive || paused || !frames || show) return;
+        if (!isLayerMounted() || !LC.util.onScreen(layer) || covered()) return;
+        var next = (idx + 1) % urls.length;
+        if (frames[next] || frames[next] === false || !urls[next]) return;
+        if (preloaded && preloaded.i === next) return;
+        try {
+          var img = new Image();
+          img.decoding = 'async';
+          img.src = urls[next];
+          preloaded = { i: next, img: img };
+        } catch (e) { preloaded = null; }
+      }
+
+      function schedulePreload() {
+        stopPreload();
+        if (!preloadMs || show || !timer) return;
+        var wait = intervalFn() - preloadMs;
+        preloadTimer = setTimeout(preloadNext, wait > 0 ? wait : 0);
       }
 
       function stopCleanupTimer() {
@@ -346,11 +387,15 @@
         });
       }
 
-      function advance() { tryFrom(1); }
+      function advance() {
+        tryFrom(1);
+        schedulePreload();
+      }
 
       function startTimer() {
         if (timer || !frames || urls.length <= 1) return;
         timer = setInterval(advance, intervalFn());
+        schedulePreload();
       }
 
       function activate() {
@@ -380,6 +425,7 @@
       function destroy() {
         alive = false;
         stopTimer();
+        preloaded = null;
         stopCleanupTimer();
         cleanupPending = null;
         if (pendingLoader) { pendingLoader.onload = null; pendingLoader.onerror = null; pendingLoader = null; }

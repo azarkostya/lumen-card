@@ -99,7 +99,9 @@ function makeEnv(opts) {
   const { api } = loadCtx('58_rowmem.js', {
     /* env.bytes === undefined — ключа в Storage нет: дефолт модуля. */
     pref: (name, def) => (name === 'lumen_rowmem' ? env.pref : name === 'lumen_rowmem_bytes' ? (env.bytes === undefined ? def : env.bytes) : def),
-    enabled: () => env.enabled
+    enabled: () => env.enabled,
+    /* v1.4: вердикт слабой приставки (src/68_perf.js). */
+    perf: opts.perf
   });
   let seq = 0;
   api._timers = {
@@ -465,4 +467,100 @@ test('rowmem: две главные в истории («Главная» из �
   R.uninstall();
   assert.equal(linesA.filter(asleep).length, 0, 'A проснулась');
   assert.equal(envB.lines.filter(asleep).length, 0, 'B проснулась');
+});
+
+/* ====================================================================== */
+/* v1.4 «Слабый ТВ»: ряды засыпают раньше (FAR_WEAK), карточки активного   */
+/* ряда дальше CARD_FAR экранов от фокуса — .card__view display:none.      */
+/* ====================================================================== */
+
+const WEAK = { weakInfo: () => ({ kind: 'tvbox' }) };
+
+/* Активный ряд с карточками «как в DOM»: .card__view, ширина карточки,
+   closest('.scroll'), класс focus на карточке под фокусом. */
+function cardRow(env, i, n, cardW) {
+  const l = line(n, { tag: 'a' + i + '_' });
+  l.cards.forEach((c) => {
+    const view = el(['card__view']);
+    c.view = view;
+    c.offsetWidth = cardW;
+    c.querySelector = (sel) => (sel === '.card__view' ? view : null);
+    c.closest = (sel) => (sel === '.card' ? c : sel === '.scroll' ? l.sc : null);
+  });
+  l.sc.querySelector = (sel) => (sel === '.card.focus' ? l.cards.find((c) => c.classList.contains('focus')) || null : null);
+  const base = l.sc.querySelectorAll;
+  l.sc.querySelectorAll = (sel) => (sel === '.card' ? l.cards.slice() : base(sel));
+  env.lines[i] = l;
+  env.comp.items[i] = l;
+  return l;
+}
+
+const hidden = (l) => l.cards.map((c, i) => (c.view.style.display === 'none' ? i : -1)).filter((i) => i >= 0);
+
+test('v1.4: слабая приставка — ряды засыпают с FAR_WEAK = 4, обычная — с FAR = 5', () => {
+  for (const [perf, want] of [[WEAK, [0, 1, 2, 3, 4, 5, 6, 7, 8]], [undefined, [0, 1, 2, 3, 4, 5, 6, 7]]]) {
+    const env = makeEnv({ rows: 16, active: 12, perf });
+    env.api.mount([env.root]);
+    env.advance(env.api.QUIET_MS + 5000);
+    const slept = env.lines.map((l, i) => (asleep(l) ? i : -1)).filter((i) => i >= 0);
+    assert.deepEqual(slept, want);
+  }
+  const R = makeEnv().api;
+  assert.equal(R.FAR_WEAK, 4);
+  assert.equal(R.decide(4, false, false, true, 4).sleep, true);
+  assert.equal(R.decide(4, false, false, true).sleep, false, 'без пятого аргумента — прежний FAR');
+});
+
+test('v1.4: слабая приставка — карточки активного ряда дальше 3 экранов спят, у фокуса живые; перевод фокуса будит соседей синхронно', () => {
+  const prevW = globalThis.innerWidth;
+  globalThis.innerWidth = 960;
+  try {
+    const env = makeEnv({ rows: 4, active: 0, perf: WEAK });
+    /* 960 / 160 = 6 карточек на экран: спят дальше 18, будятся в пределах 12. */
+    const row = cardRow(env, 0, 60, 160);
+    row.cards[5].classList.add('focus');
+    const R = env.api;
+    R.mount([env.root]);
+    env.advance(R.QUIET_MS + 5000);
+    const h = hidden(row);
+    assert.equal(h[0], 23, 'первая спящая — на 18 от фокуса');
+    assert.equal(h.length, 60 - 23);
+    assert.ok(row.cards.slice(0, 23).every((c) => c.view.style.display !== 'none'), 'у фокуса — живые');
+    assert.ok(row.cards.every((c) => c.classList.contains('layer--visible')), 'сама карточка (.selector) не тронута');
+    assert.equal(R.stats().cardViews, 37);
+
+    /* Прыжок CH+ на десять: цель и соседи в пределах 12 — живые сразу,
+       в обработчике захвата, до Lampa. */
+    row.cards[5].classList.remove('focus');
+    const target = row.cards[30];
+    env.root.listeners.filter((l) => l[0] === 'hover:focus' && l[2] === true).forEach((l) => l[1]({ target }));
+    for (let i = 18; i <= 42; i++) assert.notEqual(row.cards[i].view.style.display, 'none', 'карточка ' + i + ' не проснулась');
+    assert.equal(row.cards[50].view.style.display, 'none', 'дальние — спят дальше');
+  } finally {
+    globalThis.innerWidth = prevW;
+  }
+});
+
+test('v1.4: обычное железо — карточки активного ряда не спят; wakeAll будит и карточки', () => {
+  const prevW = globalThis.innerWidth;
+  globalThis.innerWidth = 960;
+  try {
+    const env = makeEnv({ rows: 4, active: 0 });
+    const row = cardRow(env, 0, 60, 160);
+    row.cards[5].classList.add('focus');
+    env.api.mount([env.root]);
+    env.advance(env.api.QUIET_MS + 5000);
+    assert.deepEqual(hidden(row), []);
+
+    const weak = makeEnv({ rows: 4, active: 0, perf: WEAK });
+    const wrow = cardRow(weak, 0, 60, 160);
+    wrow.cards[5].classList.add('focus');
+    weak.api.mount([weak.root]);
+    weak.advance(weak.api.QUIET_MS + 5000);
+    assert.ok(hidden(wrow).length > 0);
+    weak.api.wakeAll();
+    assert.deepEqual(hidden(wrow), [], 'выключение/смена размера окна — все карточки живые');
+  } finally {
+    globalThis.innerWidth = prevW;
+  }
 });

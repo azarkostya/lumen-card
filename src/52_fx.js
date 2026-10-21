@@ -39,7 +39,8 @@
   /*    здесь нет: «слабый» уже означает lite. Раунд holB, решение         */
   /*    пользователя: исключение — две праздничные сцены (Новый год и      */
   /*    Хэллоуин), они видны и в «Лёгких» и стоят после каждого нажатия    */
-  /*    пульта (CALM_MS) — allowedNow и paused ниже.                       */
+  /*    пульта (CALM_MS) — allowedNow и paused ниже. v1.4: в «Лёгких» и   */
+  /*    на слабой приставке они — статичный кадр без цикла (stillNow).     */
   /*                                                                       */
   /* Остановка гарантируется четырьмя независимыми путями, и любой из них  */
   /* достаточен: unmount/unmountAll (уход с карточки, выключение плагина), */
@@ -1244,8 +1245,8 @@
        обязан молчать в lite/off даже там, где LC.fxHeavy нет вовсе (тесты
        грузят 52_fx.js в одиночку). */
     /* Раунд holB: решение пользователя — праздничные частицы видны и в
-       «Лёгких» (30 fps, как везде; пауза при листании — CALM_MS ниже и у
-       героя FX_CALM_MS), прочие — только «Полные» + «Тяжёлые эффекты».
+       «Лёгких» (v1.4 — статичным кадром, stillNow ниже; в «Полных» 30 fps;
+       пауза при листании — CALM_MS ниже и у героя FX_CALM_MS), прочие — только «Полные» + «Тяжёлые эффекты».
        Праздничных сцен ровно две — winter (Новый год, Рождество) и
        halloween («оставим только Рождество и Хэллоуин»). */
     function allowedNow(name) {
@@ -1257,6 +1258,27 @@
         if (motion !== 'full') return false;
         if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
         return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* v1.4 «Слабый ТВ», решение владельца: праздничная сцена в «Лёгких» и на
+       слабой приставке (LC.perf.weakInfo, src/68_perf.js) — СТАТИЧНЫЙ кадр.
+       Частицы рисуются один раз (render с нулевым шагом) и дальше не
+       двигаются: канвас держит нарисованное сам, кадровый цикл 30 fps не
+       крутится — вместо него редкая перепроверка IDLE_MS (самопроверка и
+       конец удержания по-прежнему живут в loop). В «Полных» — анимация как
+       была; «Полные», выбранные на слабой приставке руками, — тоже: ручной
+       выбор не перетираем. */
+    function stillNow(preset) {
+      if (!preset || !preset.festive) return false;
+      try {
+        var motion = LC.motionMode();
+        if (motion === 'lite') return true;
+        if (motion !== 'full') return false;
+        if (!(LC.perf && typeof LC.perf.weakInfo === 'function' && LC.perf.weakInfo())) return false;
+        return typeof LC.pref !== 'function' || LC.pref('lumen_motion', 'auto') !== 'full';
       } catch (e) {
         return false;
       }
@@ -1576,8 +1598,14 @@
         var started = nowMs();
         var drawn = 0;
         for (i = 0; i < instances.length; i++) {
+          if (instances[i].still && instances[i].stillDone) continue;
           if (paused(instances[i])) continue;
           try {
+            if (instances[i].still) {
+              render(instances[i], 0);
+              instances[i].stillDone = true;
+              continue;
+            }
             render(instances[i], dt);
             drawn++;
           } catch (e) {
@@ -1778,6 +1806,8 @@
           keep: !!preset.keep,
           festive: !!preset.festive,
           leaving: 0,
+          still: stillNow(preset),
+          stillDone: false,
           color: color,
           safe: safeZone(opts.safe, lw, lh),
           sprites: spritesFor(name, color, ratio * unit),
@@ -1800,6 +1830,10 @@
        нового монтажа (цвет другой — и набор спрайтов свой). */
     function revive(inst, opts) {
       inst.leaving = 0;
+      /* Режим анимаций могли сменить, пока слой ждал: статичный кадр — по
+         нынешнему режиму и с новым цветом (перерисовка ниже). */
+      var still = stillNow(presets[inst.name]);
+      if (still !== inst.still) { inst.still = still; inst.stillDone = false; }
       inst.paused = typeof opts.paused === 'function' ? opts.paused : null;
       inst.safe = safeZone(opts.safe, inst.w, inst.h);
       var color = opts.color || '#FFFFFF';
@@ -1808,6 +1842,7 @@
         inst.color = color;
         inst.sprites = spritesFor(inst.name, color, inst.S);
         if (old && !spritesUsed(old)) closeSprites(old);
+        inst.stillDone = false;
       }
       wake();
     }

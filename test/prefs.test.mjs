@@ -320,7 +320,10 @@ test('1.0.2: выключатели для разработчика — пере
   for (const key of Object.keys(want)) {
     const e = prefs.find(key);
     assert.equal(e.type, 'trigger', key);
-    assert.equal(e['default'], want[key], key);
+    /* v1.4: у lumen_rowmem_bytes дефолт платформенный (функция); на обычном
+       железе — прежний false. */
+    const value = typeof e['default'] === 'function' ? e['default']() : e['default'];
+    assert.equal(value, want[key], key);
     assert.equal(e.section, 'more', key);
   }
 });
@@ -414,7 +417,11 @@ test('LIST: типы и значения по умолчанию', () => {
   assert.deepEqual(def.lumen_kp_key, ['input', '']);
   assert.deepEqual(def.lumen_menus, ['select', 'all']);
   assert.deepEqual(def.lumen_torrents, ['trigger', true]);
-  assert.deepEqual(def.lumen_hero_media, ['select', 'trailer']);
+  /* v1.4: платформенный дефолт — функция; на обычном железе «Кадры и
+     трейлер». */
+  assert.equal(def.lumen_hero_media[0], 'select');
+  assert.equal(typeof def.lumen_hero_media[1], 'function');
+  assert.equal(def.lumen_hero_media[1](), 'trailer');
   /* Решение пользователя 2026-09-26: 10 рядов подборок по умолчанию. */
   assert.deepEqual(def.lumen_rows_limit, ['select', '10']);
 });
@@ -1447,12 +1454,14 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
        Lampa.Storage.field и в сверку не попадали вовсе. */
     'lumen_motion', 'lumen_trailer', 'lumen_menus',
     /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
-    'lumen_posters', 'lumen_hero_media', 'lumen_card_logo',
+    /* v1.4: lumen_hero_media и lumen_rowmem_bytes — с платформенным
+       дефолтом-функцией; их сверяет тест ниже (как lumen_fx_heavy). */
+    'lumen_posters', 'lumen_card_logo',
     /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
     'lumen_home_start',
     /* 1.0.2: слитые пункты и бывшие «консольные» выключатели — теперь в
        разделе, и их дефолт обязан совпадать с местом чтения. */
-    'lumen_font', 'lumen_franchise', 'lumen_remote_boost', 'lumen_rowmem', 'lumen_rowmem_bytes',
+    'lumen_font', 'lumen_franchise', 'lumen_remote_boost', 'lumen_rowmem',
     'lumen_netmem', 'lumen_prefill', 'lumen_fx']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
@@ -1538,4 +1547,45 @@ test('решение 2026-09-26: подпись группы «Настроен�
 test('решение 2026-09-26: вкладка подборок в поиске Lampa — три языка', () => {
   const LC = loadStrings();
   assert.deepEqual(LC.STRINGS.lumen_search_source, { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' });
+});
+
+/* v1.4 «Слабый ТВ»: у пунктов с ПЛАТФОРМЕННЫМ дефолтом (функция в LIST)
+   сверять литерал не с чем — вместо этого каждое чтение в сборке обязано
+   брать дефолт из той же функции LC.prefs.<имя>, что и пункт, и ни одно не
+   смеет подставить литерал (два ответа на один вопрос — дефект Task 60). */
+test('v1.4: платформенные дефолты — каждое чтение берёт ту же функцию LC.prefs, литералов нет', () => {
+  const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
+  const lines = dist.split(/\r?\n/);
+  const FN = { lumen_fx_heavy: 'fxHeavyDefault', lumen_hero_media: 'heroMediaDefault', lumen_rowmem_bytes: 'rowmemBytesDefault' };
+  for (const key of Object.keys(FN)) {
+    assert.equal(typeof prefs.find(key)['default'], 'function', key + ': дефолт пункта — функция');
+    assert.equal(typeof prefs[FN[key]], 'function', key + ': LC.prefs.' + FN[key]);
+    let reads = 0;
+    lines.forEach((line, i) => {
+      if (line.indexOf("LC.pref('" + key + "'") === -1) return;
+      reads++;
+      assert.doesNotMatch(line, new RegExp("LC\\.pref\\('" + key + "',\\s*('|true\\b|false\\b|-?\\d)"), 'литерал вместо функции: dist:' + (i + 1));
+      const near = lines.slice(Math.max(0, i - 6), i + 1).join('\n');
+      assert.ok(near.indexOf('LC.prefs.' + FN[key] + '(') !== -1, 'чтение без LC.prefs.' + FN[key] + ': dist:' + (i + 1));
+    });
+    assert.ok(reads >= 1, key + ': чтение не найдено');
+  }
+});
+
+test('v1.4: на слабой приставке «Что в кадре» — «Только кадры», выгрузка постеров спящих рядов — включена; ручной выбор побеждает', () => {
+  const weak = { weakHardware: () => true, weakInfo: () => ({ kind: 'tvbox' }), mode: () => null };
+  withPrefs({ platform: { android: true }, perf: weak }, (LC) => {
+    assert.equal(LC.prefs.heroMediaDefault(LC.platformInfo()), 'frames');
+    assert.equal(LC.prefs.rowmemBytesDefault(LC.platformInfo()), true);
+    assert.equal(LC.prefs.find('lumen_hero_media')['default'](), 'frames');
+    assert.equal(LC.prefs.find('lumen_rowmem_bytes')['default'](), true);
+  });
+  withPrefs({ platform: { android: true } }, (LC) => {
+    assert.equal(LC.prefs.find('lumen_hero_media')['default'](), 'trailer', 'обычный Android — как было');
+    assert.equal(LC.prefs.find('lumen_rowmem_bytes')['default'](), false);
+  });
+  withPrefs({ platform: { android: true }, perf: weak, store: { lumen_hero_media: 'trailer', lumen_rowmem_bytes: 'false' } }, (LC) => {
+    assert.equal(LC.pref('lumen_hero_media', LC.prefs.heroMediaDefault(LC.platformInfo())), 'trailer', 'ручной выбор не перетирается');
+    assert.equal(LC.pref('lumen_rowmem_bytes', LC.prefs.rowmemBytesDefault(LC.platformInfo())), false);
+  });
 });

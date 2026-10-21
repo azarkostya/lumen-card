@@ -1717,8 +1717,16 @@
        стоял на месте, и там, где ролик не стартовал (телевизор), главная
        не менялась вовсе. Дефолт здесь и в LC.prefs.LIST сверяет
        test/prefs.test.mjs. */
+    /* v1.4: дефолт платформенный — на слабой приставке «Только кадры»
+       (LC.prefs.heroMediaDefault, src/81_prefs.js). */
     function heroMedia() {
-      try { return LC.pref ? LC.pref('lumen_hero_media', 'trailer') : 'trailer'; } catch (e) { return 'trailer'; }
+      var mediaDef;
+      try {
+        mediaDef = LC.prefs.heroMediaDefault(LC.platformInfo());
+      } catch (e0) {
+        mediaDef = 'trailer';
+      }
+      try { return LC.pref ? LC.pref('lumen_hero_media', mediaDef) : mediaDef; } catch (e) { return mediaDef; }
     }
 
     function trailerReady() {

@@ -92,6 +92,25 @@
       return !(platform.android || platform.tizen || platform.webos);
     }
 
+    /* v1.4 «Слабый ТВ»: ещё два платформенных дефолта — тем же приёмом, что
+       fxHeavyDefault: функция в 'default' пункта LIST и тот же вызов у места
+       чтения (сверку держит test/prefs.test.mjs, Task 60). Это значение
+       пункта по умолчанию, а не гейт: выбор, сделанный руками, хранится в
+       Storage и побеждает.
+       heroMediaDefault — на слабой приставке (platform.weak,
+       LC.perf.weakInfo) кадр главной по умолчанию «Только кадры»: iframe
+       YouTube поверх героя там стоит дороже, чем показывает.
+       rowmemBytesDefault — на слабой приставке выгрузка картинок спящих
+       рядов включена по умолчанию: память такого ТВ кончается раньше, чем
+       терпение зрителя на повторную подгрузку постеров. */
+    function heroMediaDefault(platform) {
+      return platform && platform.weak ? 'frames' : 'trailer';
+    }
+
+    function rowmemBytesDefault(platform) {
+      return !!(platform && platform.weak);
+    }
+
     /* Раздел «Lumen Card», версия 1.0.2. Автор 2026-09-27: «в настройках
        куча мусора; хочу шарить плагин другим людям — привести к нормальному
        виду». Было 53 пункта в одиннадцати группах одного длинного списка,
@@ -168,7 +187,7 @@
       { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
       /* Кадры с автотрейлером (дефолт) или только кадры (heroMedia,
          src/48_hero.js). 1.0.2: выключатель автотрейлера слит сюда. */
-      { name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': 'trailer', label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
+      { name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': function () { return heroMediaDefault(LC.platformInfo()); }, label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
       /* Правка 2026-09-26: ширина постера ряда и колонки сетки (TILES,
          GCARD_COLS_TILE в src/30_css.js); текст — за «Масштабом». */
       { name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
@@ -324,8 +343,9 @@
       { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' },
       { name: 'lumen_rowmem', type: 'trigger', 'default': true, label: 'lumen_rowmem_name', descr: 'lumen_rowmem_descr' },
       /* По умолчанию ВЫКЛЮЧЕНО до проверки на ТВ (bytesOn,
-         src/58_rowmem.js). */
-      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
+         src/58_rowmem.js); v1.4 — на слабой приставке включено
+         (rowmemBytesDefault выше). */
+      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': function () { return rowmemBytesDefault(LC.platformInfo()); }, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
       { name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'lumen_netmem_name', descr: 'lumen_netmem_descr' },
       { name: 'lumen_prefill', type: 'trigger', 'default': true, label: 'lumen_prefill_name', descr: 'lumen_prefill_descr' }
     ];
@@ -508,6 +528,7 @@
     return {
       LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
       motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
+      heroMediaDefault: heroMediaDefault, rowmemBytesDefault: rowmemBytesDefault,
       PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED, mergedOn: mergedOn,
       normalize: normalize, override: override, clearOverride: clearOverride,
       overridden: overridden, overrideOf: overrideOf
