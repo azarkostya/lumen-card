@@ -1701,3 +1701,42 @@ test('карта id: уборка кэша при нехватке места у
   assert.equal(env.ls.lumen_kpids, undefined, 'карта ушла вместе с кэшем');
   warnLog.length = 0;
 });
+
+/* 1.4: рейтинг IMDb — поле ratingImdb того же ответа films?imdbId. */
+test('1.4: imdbRateOf читает ratingImdb в том же формате, что КП', () => {
+  assert.equal(r.imdbRateOf({ ratingImdb: 8.1 }), 8.1);
+  assert.equal(r.imdbRateOf({ ratingImdb: '7.5' }), 7.5);
+  assert.equal(r.imdbRateOf({ ratingImdb: null }), 0);
+  assert.equal(r.imdbRateOf(null), 0);
+});
+
+test('1.4: рейтинг IMDb уходит на чип из ответа поиска, из карты id и из кэша — лишних запросов нет', () => {
+  const env = freshEnv();
+  const kp = [];
+  const imdb = [];
+  env.LC.applyKpRate = (v) => kp.push(v);
+  env.LC.applyImdbRate = (v) => imdb.push(v);
+
+  env.LC.reviews.load('tt15239678', 'KEY', () => { }, null, 1000);
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 7.8, ratingImdb: 8.5 }] });
+  assert.deepEqual(kp, [7.8]);
+  assert.deepEqual(imdb, [8.5]);
+  assert.equal(env.journal.calls.length, 2, 'запросов по-прежнему два: поиск и отзывы');
+  assert.deepEqual(env.store.lumen_kpids.tt15239678, [301, 7.8, 1000, 8.5], 'IMDb — четвёртым полем карты id');
+  env.journal.calls[1].ok(REVIEWS_OK);
+  assert.equal(env.store.lumen_rv_tt15239678.ri, 8.5, 'рейтинг IMDb лёг в кэш');
+
+  env.LC.reviews.load('tt15239678', 'KEY', () => { }, null, 1000);
+  assert.equal(env.journal.calls.length, 2, 'из кэша — без запросов');
+  assert.deepEqual(imdb, [8.5, 8.5]);
+  assert.deepEqual(warnLog, []);
+});
+
+test('1.4: onRate рендера получает и КП, и IMDb; без IMDb в ответе — ноль', () => {
+  const env = freshEnv();
+  const got = [];
+  env.LC.reviews.load('tt1', 'KEY', () => { }, null, 1000, (rate, imdbRate) => got.push([rate, imdbRate]));
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 7.8 }] });
+  assert.deepEqual(got, [[7.8, 0]]);
+  assert.deepEqual(env.store.lumen_kpids.tt1, [301, 7.8, 1000], 'без IMDb форма записи прежняя');
+});

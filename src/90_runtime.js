@@ -517,6 +517,9 @@
           /* 1.3: та же подписка двигает запись «Вернуться к просмотру»
              (src/71_resume.js): позиция, досмотр ≥95 % — следующая серия. */
           try { if (LC.resume && e && e.data) LC.resume.onTimeline(e.data); } catch (eResume) { warn('resume timeline failed', eResume); }
+          /* 1.4: новая запись просмотра возвращает карточку, убранную из
+             «Досмотреть» (LC.personal.onTimeline, src/45_personal.js). */
+          try { if (LC.personal && typeof LC.personal.onTimeline === 'function' && e && e.data) LC.personal.onTimeline(e.data); } catch (eCw) { warn('continue unhide failed', eCw); }
           /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
              кнопки «Смотреть» — второй слушатель Timeline не заводится
              (поправки координатора). Хэш записи здесь не нужен: карточка
@@ -1421,7 +1424,7 @@
      (CUB или парсер-сервер), её значение приоритетнее нашего. Разметку чипа не
      трогаем — пишем в первый div, ровно как это делает сама Lampa
      (app.min.js ~37878: .rate--kp .removeClass('hide').find('> div').eq(0)). */
-  LC.applyKpRate = function (rate, row) {
+  function fillRateChip(cls, rate, row) {
     try {
       var num = parseFloat(rate);
       if (!num || num <= 0) return;
@@ -1433,20 +1436,26 @@
          destroy, ни archive — план 0.2). */
       if (row && row.length && typeof row.closest === 'function') {
         var act = row.closest('.activity');
-        if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen-card .rate--kp');
+        if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen-card .' + cls);
       }
       /* Ревью (п.6): глобальный селектор — ТОЛЬКО когда row не передан (прямой
          вызов LC.applyKpRate). Если row есть, а чипа в его активности нет,
          значит карточка уже перестроена или ушла: писать в чужую активность
          нельзя — именно от этого и защищались в п.2. */
-      if (!chip && !row) chip = $(LC.util.ON_SCREEN_SEL + ' .lumen-card .rate--kp');
+      if (!chip && !row) chip = $(LC.util.ON_SCREEN_SEL + ' .lumen-card .' + cls);
       if (!chip || !chip.length || !chip.hasClass('hide')) return;
       chip.children().eq(0).text(num > 10 ? 10 : num);
       chip.removeClass('hide');
     } catch (e) {
-      warn('kp rate failed', e);
+      warn(cls + ' failed', e);
     }
-  };
+  }
+
+  LC.applyKpRate = function (rate, row) { fillRateChip('rate--kp', rate, row); };
+  /* 1.4: рейтинг IMDb (ratingImdb того же ответа Кинопоиска) — на чип
+     .rate--imdb по тем же правилам: только скрытый чип, значение Lampa
+     (imdb_rating из CUB/парсера) приоритетнее и не дублируется. */
+  LC.applyImdbRate = function (rate, row) { fillRateChip('rate--imdb', rate, row); };
 
   /* Task 31: плагин активен — LC.init дошёл до оформления (широкая
      раскладка, шаблон поддерживается). Пока false, смена lumen_menus/

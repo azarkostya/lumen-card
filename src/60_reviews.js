@@ -199,18 +199,25 @@
       return rate > 10 ? 10 : rate;
     }
 
+    /* 1.4: рейтинг IMDb — поле ratingImdb того же ответа films?imdbId (тот же
+       формат, что у ratingKinopoisk). Отдельного запроса нет. */
+    function imdbRateOf(item) {
+      return kpRateOf({ ratingKinopoisk: item && item.ratingImdb });
+    }
+
     /* Рейтинг ставит на чип .rate--kp рантайм (LC.applyKpRate, 90_runtime.js):
        он знает про DOM активной карточки, этот модуль — только про данные.
        Зовётся и на попадании в кэш, и на свежем ответе. */
-    function reportRate(rate, onRate) {
+    function reportRate(rate, onRate, imdb) {
       try {
-        if (!(rate > 0)) return;
+        if (!(rate > 0) && !(imdb > 0)) return;
         /* onRate задаёт render(): он знает, какому ряду принадлежит ответ, и
            не даёт рейтингу уехать на чужую карточку (ревью Task 10, п.2).
            Прямой вызов load() без него (тесты, будущие точки) остаётся на
            общем LC.applyKpRate. */
-        if (typeof onRate === 'function') { onRate(rate); return; }
-        if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+        if (typeof onRate === 'function') { onRate(rate, imdb); return; }
+        if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+        if (imdb > 0 && typeof LC.applyImdbRate === 'function') LC.applyImdbRate(imdb);
       } catch (e) {
         warn('kp rate apply failed', e);
       }
@@ -439,6 +446,8 @@
         /* Task 10: рейтинг КП лежит в той же записи — приводим к числу здесь,
            у единственной точки чтения кэша (как total выше). */
         rec.rate = parseFloat(rec.rate) || 0;
+        /* 1.4: рейтинг IMDb (ri) — в той же записи; у старых записей его нет. */
+        rec.ri = parseFloat(rec.ri) || 0;
         /* Жалоба 2026-09-27: «фильма на Кинопоиске нет» тоже помним (флаг nf,
            тот же короткий срок EMPTY_TTL, что у «отзывов нет») — иначе каждое
            открытие такой карточки стоило запроса поиска. */
@@ -453,7 +462,7 @@
     /* nf — фильм не найден на Кинопоиске (список при этом пуст, срок —
        EMPTY_TTL). Поле пишется только когда оно есть: прежние записи и
        записи с отзывами не меняют формы. */
-    function cacheWrite(imdbId, list, total, at, kp, rate, nf) {
+    function cacheWrite(imdbId, list, total, at, kp, rate, nf, ri) {
       try {
         var store = storage();
         if (!store || !imdbId) return;
@@ -482,13 +491,15 @@
         if (!put(store, INDEX_KEY, kept)) return;
         var rec = { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 };
         if (nf) rec.nf = 1;
+        if (ri > 0) rec.ri = ri;
         put(store, cacheKey(imdbId), rec);
       } catch (e) {
         warn('reviews cache write failed', e);
       }
     }
 
-    /* Карта IMDb → Кинопоиск (IDS_KEY). Запись — [kp, rate, at]. Читается
+    /* Карта IMDb → Кинопоиск (IDS_KEY). Запись — [kp, rate, at] или (1.4,
+       есть рейтинг IMDb) [kp, rate, at, ri]. Читается
        только то, что прошло проверку: imdb — tt и цифры, kp — 1-10 цифр (он
        идёт в путь запроса, как в B7), at — число не из будущего. Карта
        приходит из localStorage, поэтому всё прочее просто не считается
@@ -512,13 +523,13 @@
         var t = e[2];
         if (!/^\d{1,10}$/.test(kp)) return null;
         if (typeof t !== 'number' || now(at) < t || now(at) - t >= IDS_TTL) return null;
-        return { kp: kp, rate: kpRateOf({ ratingKinopoisk: e[1] }) };
+        return { kp: kp, rate: kpRateOf({ ratingKinopoisk: e[1] }), ri: kpRateOf({ ratingKinopoisk: e[3] }) };
       } catch (err) {
         return null;
       }
     }
 
-    function idRemember(imdbId, kp, rate, at) {
+    function idRemember(imdbId, kp, rate, at, ri) {
       try {
         var store = storage();
         if (!store || !IMDB_RE.test('' + imdbId) || !/^\d{1,10}$/.test('' + kp)) return;
@@ -535,6 +546,7 @@
         var out = {};
         for (var i = 0; i < keys.length; i++) out[keys[i]] = map[keys[i]];
         out[imdbId] = [parseInt(kp, 10), rate || 0, now(at)];
+        if (ri > 0) out[imdbId].push(ri);
         put(store, IDS_KEY, out);
       } catch (e) {
         warn('reviews ids write failed', e);
@@ -620,7 +632,7 @@
         if (rec) {
           /* Task 10: рейтинг КП — даже когда отзывов у фильма нет (отрицательный
              кэш): чип рейтинга от их наличия не зависит. */
-          reportRate(rec.rate, onRate);
+          reportRate(rec.rate, onRate, rec.ri);
           cb(cachedResult(rec));
           return null;
         }
@@ -630,7 +642,7 @@
 
         /* Второй шаг — отзывы по id Кинопоиска (из поиска или из карты
            IMDb → Кинопоиск). */
-        function fetchReviews(kp, rate) {
+        function fetchReviews(kp, rate, ri) {
           request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
             if (dead()) return;
             try {
@@ -644,12 +656,12 @@
                 /* Отрицательный кэш (Important 5): у фильма отзывов нет —
                    запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
                    запросами на каждое открытие карточки. */
-                cacheWrite(imdbId, [], 0, at, kp, rate);
+                cacheWrite(imdbId, [], 0, at, kp, rate, false, ri);
                 cb({ empty: true });
                 return;
               }
               var total = parseInt(resp && resp.total, 10) || list.length;
-              cacheWrite(imdbId, list, total, at, kp, rate);
+              cacheWrite(imdbId, list, total, at, kp, rate, false, ri);
               cb({ list: list, total: total });
             } catch (inner) {
               warn('reviews parse failed', inner);
@@ -662,8 +674,8 @@
            нужен, рейтинг берётся оттуда же. */
         var known = idLookup(imdbId, at);
         if (known) {
-          reportRate(known.rate, onRate);
-          fetchReviews(known.kp, known.rate);
+          reportRate(known.rate, onRate, known.ri);
+          fetchReviews(known.kp, known.rate, known.ri);
           return net;
         }
 
@@ -675,19 +687,20 @@
             /* Рейтинг ставим сразу, не дожидаясь второго запроса: к отзывам он
                отношения не имеет, а ответ уже на руках. */
             var rate = kpRateOf(item);
-            reportRate(rate, onRate);
+            var ri = imdbRateOf(item);
+            reportRate(rate, onRate, ri);
             /* Финальная проверка, B7: id Кинопоиска идёт в путь запроса
                (BASE + '/' + kp + '/reviews') — только цифры; иначе запроса
                нет, как и без id. Жалоба 2026-09-27: «не нашли» запоминается
                на EMPTY_TTL (флаг nf) — повторное открытие карточки не
                тратит запрос поиска. */
             if (!kp || !/^\d{1,10}$/.test('' + kp)) {
-              cacheWrite(imdbId, [], 0, at, 0, rate, true);
+              cacheWrite(imdbId, [], 0, at, 0, rate, true, ri);
               cb({ notfound: true });
               return;
             }
-            idRemember(imdbId, kp, rate, at);
-            fetchReviews(kp, rate);
+            idRemember(imdbId, kp, rate, at, ri);
+            fetchReviews(kp, rate, ri);
           } catch (e) {
             warn('reviews search failed', e);
             cb({ error: 'net' });
@@ -1423,7 +1436,7 @@
           } catch (e) {
             warn('reviews paint failed', e);
           }
-        }, function () { return stateOf(holder).gen === gen; }, undefined, function (rate) {
+        }, function () { return stateOf(holder).gen === gen; }, undefined, function (rate, imdbRate) {
           /* Ревью Task 10 (п.2): рейтинг принадлежит ИМЕННО этой карточке.
              Сторож alive() выше тут не спасает: при Activity.push A -> B Lampa
              для A не шлёт ни destroy, ни archive (план 0.2), поэтому ни
@@ -1431,7 +1444,9 @@
              зовётся — и рейтинг фильма A попал бы в чип уже открытой B. */
           if (stateOf(holder).gen !== gen) return;
           if (!isForeground(holder)) return;
-          if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate, row);
+          if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate, row);
+          /* 1.4: IMDb — в чип .rate--imdb, тоже только если Lampa его не дала. */
+          if (imdbRate > 0 && typeof LC.applyImdbRate === 'function') LC.applyImdbRate(imdbRate, row);
         });
       } catch (err) {
         warn('reviews render failed', err);
@@ -1490,6 +1505,7 @@
       normalize: normalize,
       splitSpoilers: splitSpoilers,
       kpRateOf: kpRateOf,
+      imdbRateOf: imdbRateOf,
       cacheRead: cacheRead,
       cacheWrite: cacheWrite,
       errorKind: errorKind,
