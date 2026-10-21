@@ -108,7 +108,7 @@
       return platform && platform.weak ? 'frames' : 'trailer';
     }
 
-    /* Раздел «Lumen Card», версия 1.5 («Настройки и знакомство»). Аудит
+    /* Раздел «Lumen Card», версия 1.4 («Настройки и знакомство»). Аудит
        1.3.1: около 60 строк на двух экранах, цвет настраивался в пяти
        местах. Стало пять экранов:
 
@@ -129,7 +129,7 @@
        он ничего не хранит и не имеет onChange. Кнопки экранов (type:
        'button') своего значения в Storage не держат.
 
-       1.5, слиты дубли (ключи остаются в Storage и читаются как раньше):
+       1.4, слиты дубли (ключи остаются в Storage и читаются как раньше):
          «Логотип в карточке» (lumen_card_logo) → «Логотип названия»
            (lumen_hero_logo): одна строка на оба места, старый ключ
            получает значение нового при правке (MERGED ниже);
@@ -178,7 +178,7 @@
          (styleOf ниже, syncStyle в 80_settings.js). Выбор Lumen или Apple TV
          пишет набор (applyPreset), «Свой» не пишет ничего. */
       { name: 'lumen_style', type: 'select', values: ['lumen', 'appletv', 'custom'], vprefix: 'lumen_style_', 'default': 'lumen', label: 'lumen_style_name', descr: 'lumen_style_descr' },
-      /* 1.5: кнопка на экран «Цвет и вид…» (openSection, src/80_settings.js). */
+      /* 1.4: кнопка на экран «Цвет и вид…» (openSection, src/80_settings.js). */
       { name: 'lumen_look', type: 'button', label: 'lumen_look_name', descr: 'lumen_look_descr' },
 
       { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
@@ -205,18 +205,18 @@
          порядку» (src/66_franchise.js) — одним выключателем. Выключенный
          ряд коллекцию не запрашивает. */
       { name: 'lumen_franchise', type: 'trigger', 'default': true, label: 'lumen_franchise_name', descr: 'lumen_franchise_descr' },
-      /* 1.5: кнопка на экран «TorrServer…». */
+      /* 1.4: кнопка на экран «TorrServer…». */
       { name: 'lumen_torrserver', type: 'button', label: 'lumen_torrserver_name', descr: 'lumen_torrserver_descr' },
 
       { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
-      /* 1.5: кнопка на экран «Слабый телевизор…». */
+      /* 1.4: кнопка на экран «Слабый телевизор…». */
       { name: 'lumen_weak', type: 'button', label: 'lumen_weak_name', descr: 'lumen_weak_descr' },
       /* 1.0.2: кнопка на экран «Дополнительно…» — последней строкой. */
       { name: 'lumen_more', type: 'button', label: 'lumen_more_name', descr: 'lumen_more_descr' }
     ];
 
-    /* 1.5: «Цвет и вид…». Цвет до 1.5 настраивался в пяти местах двух
+    /* 1.4: «Цвет и вид…». Цвет до 1.4 настраивался в пяти местах двух
        экранов — теперь одна группа: откуда цвет (кадр или «Акцентный
        цвет»), докуда он доходит и тема фона. «Стиль» остаётся на главном
        экране: он ставит весь набор разом. */
@@ -255,11 +255,11 @@
          В стиле Apple TV включён. */
       { name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
       /* Task 62a: три вида метки; старое значение переключателя читается
-         как новое (badgesMode ниже, LC.migratePrefs). 1.5: сюда же слита
+         как новое (badgesMode ниже, LC.migratePrefs). 1.4: сюда же слита
          «Серия в «Досмотреть»» — серия вместо процента и есть метка. */
       { name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
       /* Логотип названия в кадре главной (logoAllowed, src/48_hero.js) и,
-         с 1.5, в шапке карточки (renderLogo, src/85_header.js читает
+         с 1.4, в шапке карточки (renderLogo, src/85_header.js читает
          lumen_card_logo, которому правка этого пункта пишет то же значение
          — MERGED ниже). */
       { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
@@ -268,7 +268,7 @@
       { name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' }
     ];
 
-    /* 1.5: «Слабый телевизор…» — всё, что меняют ради скорости и памяти.
+    /* 1.4: «Слабый телевизор…» — всё, что меняют ради скорости и памяти.
        Четыре последних до 1.0.2 включались только из консоли, в 1.0.2 стояли
        в «Для разработчика»; значения по умолчанию прежние, и читают их те
        же места (src/58_rowmem.js, src/58_netmem.js, src/58_prefill.js) —
@@ -293,7 +293,7 @@
       { name: 'lumen_prefill', type: 'trigger', 'default': true, label: 'lumen_prefill_name', descr: 'lumen_prefill_descr' }
     ];
 
-    /* 1.5: «TorrServer…» — путь до плеера через TorrServer. */
+    /* 1.4: «TorrServer…» — путь до плеера через TorrServer. */
     var TS = [
       { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
       /* 1.4: файлы сериала — фокус на серии после досмотренной
@@ -318,7 +318,7 @@
       { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
       /* placeholder обязателен у type:'input': пустое поле Lampa показывает
          им, а без него в разделе стояло слово «undefined» (addPrefParam).
-         1.5: без ключа ряда отзывов на карточке нет вовсе (src/60_reviews.js),
+         1.4: без ключа ряда отзывов на карточке нет вовсе (src/60_reviews.js),
          про ключ один раз говорит окно знакомства (src/82_onboard.js). */
       { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
       { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
@@ -375,11 +375,11 @@
       { name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },
       { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
       /* 1.2: окно «Что нового» один раз после обновления плагина
-         (src/82_whatsnew.js); 1.5 — и окно знакомства при первой установке
+         (src/82_whatsnew.js); 1.4 — и окно знакомства при первой установке
          (src/82_onboard.js), выключатель у них общий. Читается при запуске
          и перед показом — выключенный пункт гасит и уже ждущее окно. */
       { name: 'lumen_whatsnew', type: 'trigger', 'default': true, label: 'lumen_whatsnew_name', descr: 'lumen_whatsnew_descr' },
-      /* 1.5: «Что нового» ещё раз — кнопка (onButtonFor). */
+      /* 1.4: «Что нового» ещё раз — кнопка (onButtonFor). */
       { name: 'lumen_whatsnew_show', type: 'button', label: 'lumen_whatsnew_show_name', descr: 'lumen_whatsnew_show_descr' },
       /* 1.4: кнопка Shots (плагин CUB) и лишние значки шапки Lampa
          (LC.headHide, src/85_header.js) — интерфейс самой Lampa, поэтому
@@ -413,7 +413,7 @@
        ниже; releaseMerged, src/80_settings.js), и дальше решает новый
        пункт. Однозначные случаи LC.migratePrefs переводит сразу.
 
-       1.5 (аудит 1.3.1, пункт про наследие 1.0.1): ветки чтения старых
+       1.4 (аудит 1.3.1, пункт про наследие 1.0.1): ветки чтения старых
        ключей ОСТАВЛЕНЫ. Окончательной миграции «у всех» не бывает:
        частичный выбор (выключена кнопка «Франшиза», ряд — нет; выключена
        одна из двух частей «Ускорителей пульта») перевести не во что — он
@@ -424,7 +424,7 @@
        раньше, чем будет решено отдать эти профили на значения по
        умолчанию.
 
-       1.5: «Логотип названия» (lumen_hero_logo) — одна строка на оба
+       1.4: «Логотип названия» (lumen_hero_logo) — одна строка на оба
        логотипа. Карточка по-прежнему читает только lumen_card_logo
        (src/85_header.js): прежний раздельный выбор остаётся в силе, пока
        пункт не тронут, а правка пишет то же значение и в старый ключ. */
@@ -859,7 +859,7 @@
     }
   };
 
-  /* 1.5: пункт, который в текущем режиме ничего не меняет, — ключ строки
+  /* 1.4: пункт, который в текущем режиме ничего не меняет, — ключ строки
      причины (LC.STRINGS) или ''. Строку раздела помечает «не действует»
      src/80_settings.js (markIdle). Условия — те же, что у мест чтения:
        lumen_accent_scope — LC.accentScope выше: без «Цвета фона от кадра»

@@ -1931,7 +1931,7 @@
     } catch (eNew) {
       warn('whatsnew schedule failed', eNew);
     }
-    /* 1.5: окно знакомства при первой установке — та же готовность главной
+    /* 1.4: окно знакомства при первой установке — та же готовность главной
        (src/82_onboard.js); «Что нового» ему уступает. */
     try {
       if (LC.onboard && LC.onboard.schedule) LC.onboard.schedule(homeReady);
@@ -2711,7 +2711,7 @@
       /* 1.2: «Что нового» — ДО activate(): план главной при активации
          пишет свою эпоху, и после неё первая установка неотличима от
          обновления (src/82_whatsnew.js, detect). Показ — из activate(). */
-      /* 1.5: окно знакомства — ещё раньше «Что нового»: тот пишет ключ
+      /* 1.4: окно знакомства — ещё раньше «Что нового»: тот пишет ключ
          версии, и после него первая установка неотличима от обновления
          (src/82_onboard.js, detect). */
       try { if (LC.onboard) LC.onboard.detect(); } catch (eOnboard) { warn('onboard detect failed', eOnboard); }
