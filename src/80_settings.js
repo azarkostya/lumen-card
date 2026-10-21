@@ -32,23 +32,55 @@
       en: 'Turn off to get the stock Lampa card back. Takes effect on the next card you open.',
       uk: 'Вимкніть — повернеться штатна картка Lampa. Діє з наступного відкриття.'
     },
-    /* Заголовки групп (штатный параметр Lampa type:'title'). 1.0.2: два
-       экрана — главный раздел (Внешний вид · Главная · Карточка фильма ·
-       Движение) и «Дополнительно…» (Оформление · Карточка и главная ·
-       Пульт и окна · Для разработчика); раскладка — LC.prefs.LIST
-       (src/81_prefs.js). */
+    /* Заголовки групп (штатный параметр Lampa type:'title'). 1.5: пять
+       экранов — главный (Внешний вид · Главная · Карточка фильма ·
+       Движение), «Цвет и вид…» (Цвет · Оформление), «Слабый телевизор…»,
+       «TorrServer…» и «Дополнительно…» (Карточка · Ряды главной · Праздники
+       и заставка · Пульт и окна · Для разработчика); раскладка —
+       LC.prefs.LIST (src/81_prefs.js). */
     lumen_group_look: { ru: 'Внешний вид', en: 'Look', uk: 'Зовнішній вигляд' },
     lumen_group_card: { ru: 'Карточка фильма', en: 'Film card', uk: 'Картка фільму' },
+    lumen_group_color: { ru: 'Цвет', en: 'Colour', uk: 'Колір' },
     lumen_group_style: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
-    lumen_group_screens: { ru: 'Карточка и главная', en: 'Card and home', uk: 'Картка й головна' },
+    lumen_group_film: { ru: 'Карточка', en: 'Card', uk: 'Картка' },
+    lumen_group_rows: { ru: 'Ряды главной', en: 'Home rows', uk: 'Ряди головної' },
+    lumen_group_ambient: { ru: 'Праздники и заставка', en: 'Holidays and screensaver', uk: 'Свята й заставка' },
     lumen_group_remote: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
     lumen_group_dev: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
+    /* 1.5: кнопки экранов по темам на главном экране раздела. */
+    lumen_look_name: { ru: 'Цвет и вид…', en: 'Colour and look…', uk: 'Колір і вигляд…' },
+    lumen_look_descr: {
+      ru: 'Цвет фона и акцента, тема, шрифт, масштаб, плитки, метки, логотип.',
+      en: 'Background and accent colour, theme, font, scale, tiles, badges, logo.',
+      uk: 'Колір тла й акценту, тема, шрифт, масштаб, плитки, мітки, логотип.'
+    },
+    lumen_weak_name: { ru: 'Слабый телевизор…', en: 'Slow TV…', uk: 'Слабкий телевізор…' },
+    lumen_weak_descr: {
+      ru: 'Прозрачность, плавные эффекты и память — если картинка тормозит.',
+      en: 'Transparency, smooth effects and memory — if the picture stutters.',
+      uk: 'Прозорість, плавні ефекти й пам’ять — якщо картинка гальмує.'
+    },
+    lumen_torrserver_name: { ru: 'TorrServer…', en: 'TorrServer…', uk: 'TorrServer…' },
+    lumen_torrserver_descr: {
+      ru: 'Оформление раздач, автоочистка, состояние сервера, запасной парсер.',
+      en: 'Torrent screens style, auto-cleanup, server status, backup parser.',
+      uk: 'Оформлення роздач, автоочищення, стан сервера, запасний парсер.'
+    },
     lumen_more_name: { ru: 'Дополнительно…', en: 'More…', uk: 'Додатково…' },
     lumen_more_descr: {
-      ru: 'Оформление, карточка и главная, пульт, для разработчика.',
-      en: 'Appearance, card and home, remote, for developers.',
-      uk: 'Оформлення, картка й головна, пульт, для розробника.'
+      ru: 'Отзывы и ключ Кинопоиска, ряды главной, заставка, пульт и окна.',
+      en: 'Kinopoisk reviews and key, home rows, screensaver, remote and dialogs.',
+      uk: 'Відгуки й ключ Кінопошуку, ряди головної, заставка, пульт і вікна.'
     },
+    /* 1.5: пометка пункта, который в текущем режиме ничего не меняет
+       (LC.prefIdle, src/81_prefs.js): «Не действует: …» — первой строкой
+       описания. */
+    lumen_idle_prefix: { ru: 'Не действует', en: 'Has no effect', uk: 'Не діє' },
+    lumen_idle_need_auto: { ru: 'выключен «Цвет фона от кадра»', en: '"Background colour from the film" is off', uk: 'вимкнено «Колір тла від кадру»' },
+    lumen_idle_flat: { ru: 'в плоском виде (стиль Apple TV) фон нейтральный', en: 'flat look (Apple TV style) keeps the background neutral', uk: 'у пласкому вигляді (стиль Apple TV) тло нейтральне' },
+    lumen_idle_motion_off: { ru: 'анимации выключены', en: 'animations are off', uk: 'анімації вимкнено' },
+    lumen_idle_need_full: { ru: 'нужны «Полные» анимации', en: 'needs "Full" animations', uk: 'потрібні «Повні» анімації' },
+    lumen_idle_need_no_hero: { ru: 'включён «Кадр над рядами»', en: '"Hero over the rows" is on', uk: 'увімкнено «Кадр над рядами»' },
     /* Task 62b, 1.0.2: готовый стиль — select «Стиль» (lumen_style) вместо
        двух кнопок. «Свой» — значение, которое ставит сам плагин, когда
        пункты набора правили вручную (syncStyle ниже), поэтому описание его
@@ -63,10 +95,13 @@
        возвращает из ручного значения. «Логотипы» во множественном числе
        были неправдой — логотип карточки в набор не входит. */
     lumen_style_name: { ru: 'Стиль', en: 'Style', uk: 'Стиль' },
+    /* 1.5: описание — не длиннее двух строк, как у всех пунктов (читаемость
+       с трёх метров). Весь набор перечисляет уведомление после выбора
+       (applyPreset) — названиями самих пунктов. */
     lumen_style_descr: {
-      ru: 'Lumen — тёплое оформление, Apple TV — чёрное и плоское. Меняет тему, цвета, шрифт, метки и «Скрывать блоки анализа Lampa», возвращает «Кадр над рядами» на «Крупный» и включает логотип в кадре. «Свой» — пункты меняли вручную.',
-      en: 'Lumen is warm, Apple TV is black and flat. Sets the theme, colours, font, badges and "Hide the Lampa analysis blocks", puts "Hero over the rows" back to "Large" and turns the hero logo on. "Custom" means items were changed by hand.',
-      uk: 'Lumen — тепле оформлення, Apple TV — чорне й пласке. Змінює тему, кольори, шрифт, мітки й «Ховати блоки аналізу Lampa», повертає «Кадр над рядами» на «Великий» і вмикає логотип у кадрі. «Свій» — пункти змінювали вручну.'
+      ru: 'Lumen — тёплый, Apple TV — чёрный и плоский: тему, цвета, шрифт, метки. «Свой» — правили.',
+      en: 'Lumen is warm, Apple TV black and flat: theme, colours, font, badges. "Custom": hand-edited.',
+      uk: 'Lumen — теплий, Apple TV — чорний і плаский: тему, кольори, шрифт, мітки. «Свій»: правили.'
     },
     lumen_style_lumen: { ru: 'Lumen', en: 'Lumen', uk: 'Lumen' },
     lumen_style_appletv: { ru: 'Apple TV', en: 'Apple TV', uk: 'Apple TV' },
@@ -286,16 +321,6 @@
     lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
     lumen_scale_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більше' },
     lumen_scale_huge: { ru: 'Ещё крупнее', en: 'Largest', uk: 'Ще більше' },
-    /* Правка 2026-09-23: логотип названия в шапке карточки (renderLogo,
-       src/85_header.js). Описание называет и цену — английский логотип
-       вместо русского названия, — иначе непонятно, зачем такой выключатель
-       вообще нужен. */
-    lumen_card_logo_name: { ru: 'Логотип в карточке', en: 'Logo on the card', uk: 'Логотип у картці' },
-    lumen_card_logo_descr: {
-      ru: 'Название фильма — логотипом, а не текстом. Нет логотипа на вашем языке — английский.',
-      en: 'The film title as its logo, not text. No logo in your language — the English one.',
-      uk: 'Назва фільму — логотипом, а не текстом. Немає логотипа вашою мовою — англійський.'
-    },
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
     /* Task 30: одним переключателем гасятся три места сразу (строка прогресса
        в карточке, подпись кнопки «Смотреть» и надписи в карточках серий) —
@@ -387,9 +412,9 @@
       uk: 'Відпускати запити екранів'
     },
     lumen_netmem_descr: {
-      ru: 'Закрытые карточки и подборки не держатся в памяти. Со следующего запуска Lampa.',
-      en: 'Closed cards and collections do not stay in memory. From the next Lampa start.',
-      uk: 'Закриті картки й підбірки не тримаються в пам’яті. З наступного запуску Lampa.'
+      ru: 'Подменяет две функции Lampa: закрытые экраны не держатся в памяти. Со следующего запуска.',
+      en: 'Replaces two Lampa functions so closed screens leave memory. From the next start.',
+      uk: 'Підміняє дві функції Lampa: закриті екрани не тримаються в пам’яті. З наступного запуску.'
     },
     lumen_prefill_name: { ru: 'Достройка рядов', en: 'Build rows ahead', uk: 'Добудова рядів' },
     lumen_prefill_descr: {
@@ -619,32 +644,20 @@
     lumen_reviews_hide: { ru: 'Скрыть спойлеры', en: 'Hide spoilers', uk: 'Сховати спойлери' },
     lumen_card_anon: { ru: 'Аноним', en: 'Anonymous', uk: 'Анонім' },
     /* Экран 13, панель 2: ключа нет — показываем путь до настройки, а не пустоту. */
-    lumen_card_reviews_nokey_title: { ru: 'Ключ API не задан', en: 'API key is not set', uk: 'Ключ API не задано' },
-    lumen_card_reviews_nokey_text: {
-      ru: 'Рейтинг Кинопоиска и отзывы недоступны без ключа.',
-      en: 'Kinopoisk rating and reviews are unavailable without a key.',
-      uk: 'Рейтинг Кінопошуку та відгуки недоступні без ключа.'
-    },
+    /* Путь до ключа: пояснение «ключ не принят» в ряду отзывов
+       (src/60_reviews.js) и окно знакомства (src/82_onboard.js). 1.5: ключ
+       — в «Дополнительно…»; без ключа ряда на карточке нет вовсе. */
     lumen_card_reviews_nokey_path: {
-      ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
-      en: 'Settings → Lumen Card → Kinopoisk API key',
-      uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
+      ru: 'Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API',
+      en: 'Settings → Lumen Card → More… → Kinopoisk API key',
+      uk: 'Налаштування → Lumen Card → Додатково… → Ключ Kinopoisk API'
     },
     /* Жалоба 2026-09-27: состояние ряда отзывов вместо тишины
        (src/60_reviews.js, STATES). Короткая строка встаёт в шапку ряда после
        «Кинопоиск ·», пояснение (_note) — под шапкой, только у сбоев. */
-    /* 2026-09-28: ключа нет вовсе — строка состояния есть всегда, и после
-       «Скрыть» на большой подсказке (src/60_reviews.js, paintNoKey). Ревью
-       1.0.2: только строкой шапки, без пояснения — путь до пункта даёт
-       большая подсказка, пока её не скрыли. */
-    lumen_reviews_st_nokey: { ru: 'ключ API не задан', en: 'API key not set', uk: 'ключ API не задано' },
-    /* v2, экран 36: строка о ключе в шапке «Комментариев» и подпись плитки
-       добавления комментария (src/31_v2_card_lower.js). */
-    lumen_lower_kp_line: {
-      ru: '· отзывы Кинопоиска — нужен ключ, Настройки → Lumen Card',
-      en: '· Kinopoisk reviews need a key, Settings → Lumen Card',
-      uk: '· відгуки Кінопошуку — потрібен ключ, Налаштування → Lumen Card'
-    },
+    /* 1.5: ключа нет вовсе — ряда нет (src/60_reviews.js), строк о нём на
+       карточке тоже нет. v2, экран 36: подпись плитки добавления
+       комментария (src/31_v2_card_lower.js). */
     lumen_lower_write: { ru: 'Написать', en: 'Write', uk: 'Написати' },
     lumen_reviews_st_key: { ru: 'ключ API не принят', en: 'API key rejected', uk: 'ключ API не прийнято' },
     lumen_reviews_st_key_note: {
@@ -686,15 +699,6 @@
       ru: 'Адрес своего каталога подборок (JSON). Пусто — каталог плагина, без сети — встроенный.',
       en: 'Your own collections catalog (JSON). Empty: the plugin catalog; offline: the built-in one.',
       uk: 'Свій каталог підбірок (JSON). Порожньо — каталог плагіна; офлайн — вбудований.'
-    },
-
-    /* Task 20: кнопка «Скрыть» на подсказке «Ключ API не задан» в ряду
-       отзывов карточки — пишет lumen_kp_hint = 'false'. 1.0.2:
-       переключателя в разделе больше нет. */
-    lumen_kp_hint_hide: {
-      ru: 'Скрыть',
-      en: 'Hide',
-      uk: 'Сховати'
     },
 
     /* A6 (волна A финального плана): «Метаданные» (Темп, Страх, Экшн…) и
@@ -909,11 +913,15 @@
        заголовка. Описание говорит, что бывает, когда логотипа нет или он не
        загрузился (остаётся обычный заголовок), — иначе пункт выглядел бы
        сломанным на половине фильмов. */
-    lumen_hero_logo_name: { ru: 'Логотип в кадре', en: 'Logo in the hero', uk: 'Логотип у кадрі' },
+    /* 1.5: одна строка на оба логотипа — в кадре главной и в шапке
+       карточки (бывший «Логотип в карточке», lumen_card_logo, слит сюда:
+       LC.prefs.MERGED). Описание называет и цену — английский логотип
+       вместо русского названия. */
+    lumen_hero_logo_name: { ru: 'Логотип названия', en: 'Title logo', uk: 'Логотип назви' },
     lumen_hero_logo_descr: {
-      ru: 'Название в кадре над рядами — логотипом фильма; пока он грузится или его нет — текстом.',
-      en: 'The hero title as the film logo; plain text while it loads or if there is none.',
-      uk: 'Назва в кадрі над рядами — логотипом фільму; доки він вантажиться чи його немає — текстом.'
+      ru: 'Название в кадре и в карточке — логотипом. Нет на вашем языке — английский.',
+      en: 'The title in the hero and on the card as a logo; English if none in your language.',
+      uk: 'Назва в кадрі та в картці — логотипом. Немає вашою мовою — англійський.'
     },
     /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок. Что
        обещает описание, держит тест «Размер плиток в рядах…»
@@ -959,12 +967,6 @@
     lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
     lumen_posters_original: { ru: 'Английские', en: 'English', uk: 'Англійські' },
     lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
-    lumen_next_ep_badge_name: { ru: 'Серия в «Досмотреть»', en: 'Episode in "Continue watching"', uk: 'Серія в «Додивитися»' },
-    lumen_next_ep_badge_descr: {
-      ru: 'У сериала в ряду «Досмотреть» — серия вместо процента: «S2·E5» или «S2·E4 · 12 мин».',
-      en: 'Series in "Continue watching" show the episode, not a percentage: "S2·E5", "S2·E4 · 12 min".',
-      uk: 'У серіалу в ряду «Додивитися» — серія замість відсотка: «S2·E5» або «S2·E4 · 12 хв».'
-    },
     lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
     lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
     lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
@@ -1142,9 +1144,47 @@
        строкой — без «<&${» (сторож в test/whatsnew.test.mjs). */
     lumen_whatsnew_name: { ru: 'Что нового после обновления', en: 'What\'s new after an update', uk: 'Що нового після оновлення' },
     lumen_whatsnew_descr: {
-      ru: 'Один раз после обновления плагина показывает, что изменилось.',
-      en: 'Shows what has changed, once after the plugin is updated.',
-      uk: 'Один раз після оновлення плагіна показує, що змінилося.'
+      ru: 'Окно об изменениях после обновления и окно знакомства при первой установке.',
+      en: 'The changes window after an update and the welcome window on first install.',
+      uk: 'Вікно змін після оновлення й вікно знайомства під час першого встановлення.'
+    },
+    /* 1.5: «Что нового» ещё раз — кнопка в «Пульте и окнах». */
+    lumen_whatsnew_show_name: { ru: 'Показать «Что нового»', en: 'Show "What\'s new"', uk: 'Показати «Що нового»' },
+    lumen_whatsnew_show_descr: {
+      ru: 'Ещё раз открыть окно с изменениями этой версии.',
+      en: 'Open the window with this version\'s changes again.',
+      uk: 'Ще раз відкрити вікно зі змінами цієї версії.'
+    },
+    /* 1.5: окно знакомства при первой установке (src/82_onboard.js). Пункты
+       — строками, без разметки; путь до настроек окно собирает из строк
+       раздела само (как подсказку «Что нового»). */
+    lumen_onboard_title: { ru: 'Lumen Card установлен', en: 'Lumen Card is installed', uk: 'Lumen Card встановлено' },
+    lumen_onboard_home: {
+      ru: 'Главная — кадр фильма над рядами подборок; карточка фильма, серии и раздачи — в одном стиле.',
+      en: 'Home has a film still above the collection rows; the film card, episodes and torrents share one style.',
+      uk: 'Головна — кадр фільму над рядами підбірок; картка фільму, серії й роздачі — в одному стилі.'
+    },
+    lumen_onboard_hold: {
+      ru: 'Удерживайте OK на постере — меню: трейлер, похожие, франшиза, отметка о просмотре, «Скрыть».',
+      en: 'Hold OK on a poster for a menu: trailer, similar, franchise, watched mark, "Hide".',
+      uk: 'Утримуйте OK на постері — меню: трейлер, схожі, франшиза, позначка перегляду, «Сховати».'
+    },
+    lumen_onboard_kp: {
+      ru: 'Отзывы и рейтинг Кинопоиска появятся с бесплатным ключом API (kinopoiskapiunofficial.tech):',
+      en: 'Kinopoisk reviews and rating appear with a free API key (kinopoiskapiunofficial.tech):',
+      uk: 'Відгуки й рейтинг Кінопошуку з’являться з безкоштовним ключем API (kinopoiskapiunofficial.tech):'
+    },
+    lumen_onboard_settings: {
+      ru: 'Всё настраивается в Настройки → Lumen Card; там же плагин выключается — вернётся обычная Lampa.',
+      en: 'Everything is in Settings → Lumen Card; turn the plugin off there to get plain Lampa back.',
+      uk: 'Усе налаштовується в Налаштування → Lumen Card; там само плагін вимикається — повернеться звичайна Lampa.'
+    },
+    lumen_onboard_ok: { ru: 'Начать', en: 'Start', uk: 'Почати' },
+    /* X4: ряды главной не загрузились (src/44_rows.js, один раз за сеанс). */
+    lumen_rows_failed_noty: {
+      ru: 'Lumen Card: половина подборок главной не загрузилась — проверьте интернет',
+      en: 'Lumen Card: half of the home collections failed to load — check the connection',
+      uk: 'Lumen Card: половина підбірок головної не завантажилася — перевірте інтернет'
     },
     lumen_whatsnew_title: { ru: 'Что нового в Lumen Card', en: 'What\'s new in Lumen Card', uk: 'Що нового в Lumen Card' },
     lumen_whatsnew_ok: { ru: 'Понятно', en: 'Got it', uk: 'Зрозуміло' },
@@ -1290,6 +1330,8 @@
        nolisten, собственных событий не поднимают. */
     releaseMerged(name);
     if (LC.prefs.PRESET_KEYS.indexOf(name) !== -1) syncStyle();
+    /* 1.5: пометка «не действует» у зависимых пунктов открытого экрана. */
+    refreshIdle(name);
     if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
     /* Task 35: подкраска фона от постера живёт в своём <style> и гаснет при
        полностью выключенном движении. Смена режима таблицу стилей не
@@ -1414,13 +1456,6 @@
       try { if (LC.applyFranchisePref) LC.applyFranchisePref(); } catch (eFr) {}
       return true;
     }
-    /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
-       открытой карточки (там же, где её рисует LC.reviews). 1.0.2: пункта
-       в разделе нет, значение пишет кнопка «Скрыть» на экране. */
-    if (name === 'lumen_kp_hint') {
-      LC.applyReviewsPref();
-      return true;
-    }
     /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами — это и
        новая таблица стилей (высота кадра и сдвиг области рядов считаются из
        одной величины), и жизнь самого узла героя: «Выключен» его снимает, а
@@ -1447,8 +1482,12 @@
        той же моделью: выключение возвращает текстовый заголовок на открытой
        главной сразу, включение показывает логотип, как только его картинка
        доедет (src/48_hero.js, applyLogoPref). */
+    /* 1.5: пункт один на оба логотипа — releaseMerged выше уже записал то
+       же значение в lumen_card_logo (без события), поэтому и карточка
+       перерисовывается отсюда. */
     if (name === 'lumen_hero_logo') {
       try { if (LC.hero && LC.hero.applyLogoPref) LC.hero.applyLogoPref(); } catch (eHeroLogo) {}
+      try { if (LC.header && LC.header.applyLogoPref) LC.header.applyLogoPref(); } catch (eCardLogo2) {}
       return true;
     }
     /* Task 25 (фаза 3): метки на постерах — наблюдатель ставится и снимается
@@ -1511,9 +1550,10 @@
       return true;
     }
     /* Кнопки-параметры своего значения не хранят — работу делает нажатие
-       (onButtonFor): самотест и переход во второй экран. Ветка нужна ради
-       контракта «у каждого пункта раздела своя ветка» (его держит тест). */
-    if (name === 'lumen_debug_bench' || name === 'lumen_more') return true;
+       (onButtonFor): самотест, переходы на экраны по темам и повтор окна
+       «Что нового». Ветка нужна ради контракта «у каждого пункта раздела
+       своя ветка» (его держит тест). */
+    if (name === 'lumen_debug_bench' || name === 'lumen_whatsnew_show' || sectionOfButton(name)) return true;
     /* 1.0.2: бывшие «консольные» выключатели, теперь в «Для разработчика».
        Их модули читают значение на каждом шаге (src/58_rowmem.js,
        src/58_prefill.js), а обёртки lumen_netmem ставятся при включении
@@ -1942,80 +1982,107 @@
   }
 
   /* -------------------------------------------------------------------- */
-  /* 1.0.2: второй экран раздела — «Дополнительно…».                        */
+  /* Экраны раздела по темам: «Цвет и вид…», «Слабый телевизор…»,           */
+  /* «TorrServer…» (1.5) и «Дополнительно…» (1.0.2).                        */
   /*                                                                        */
-  /* Это такой же экран параметров Lampa (Component$2), как «Lumen Card»,   */
-  /* только без своей папки в списке настроек: addComponent мы для него не  */
-  /* зовём (Main.update, app.min.js:8598-8610, показал бы его рядом с       */
-  /* «Lumen Card»). Экрану нужны лишь шаблон settings_<имя> (Template.get в */
-  /* Component$2) — его кладём сами тем же '<div></div>', что кладёт        */
+  /* Каждый — такой же экран параметров Lampa (Component$2), как «Lumen     */
+  /* Card», только без своей папки в списке настроек: addComponent мы для   */
+  /* него не зовём (Main.update, app.min.js:8598-8610, показал бы его рядом */
+  /* с «Lumen Card»). Экрану нужны лишь шаблон settings_<имя> (Template.get */
+  /* в Component$2) — его кладём сами тем же '<div></div>', что кладёт      */
   /* addComponent, — и параметры (SettingsApi.getParam).                    */
   /*                                                                        */
   /* Открывает его Lampa.Settings.create (create$b, app.min.js:10358):      */
   /* экран встаёт на место нашего, контроллер — тот же settings_component.  */
   /* «Назад» без onBack увело бы в общий список настроек Lampa             */
   /* (Component$2.back → Controller.toggle('settings')), поэтому onBack     */
-  /* заново открывает «Lumen Card» с фокусом на «Дополнительно…»            */
+  /* заново открывает «Lumen Card» с фокусом на кнопке этого экрана         */
   /* (last_index — индекс среди .selector экрана, заголовки групп не        */
-  /* .selector).                                                            */
+  /* .selector). Экран и его кнопка — LC.prefs.SECTIONS (src/81_prefs.js).  */
   /* -------------------------------------------------------------------- */
-  /* Имя второго экрана. Функция, а не переменная: модуль грузится и в
-     тестах без 00_head.js, где PLUGIN не определён. */
-  function moreComponent() {
-    return PLUGIN + '_more';
+  /* Имя экрана. Функция, а не переменная: модуль грузится и в тестах без
+     00_head.js, где PLUGIN не определён. */
+  function sectionComponent(section) {
+    return PLUGIN + '_' + section;
   }
 
-  function moreIndex() {
+  /* Экран, который открывает кнопка name, или ''. */
+  function sectionOfButton(name) {
+    var map = LC.prefs.SECTIONS;
+    for (var key in map) {
+      if (Object.prototype.hasOwnProperty.call(map, key) && map[key] === name) return key;
+    }
+    return '';
+  }
+
+  /* Экран по имени компонента Lampa, или ''. */
+  function sectionOfComponent(component) {
+    var map = LC.prefs.SECTIONS;
+    for (var key in map) {
+      if (Object.prototype.hasOwnProperty.call(map, key) && sectionComponent(key) === component) return key;
+    }
+    return '';
+  }
+
+  /* Индекс кнопки экрана среди строк главного экрана (заголовки групп
+     строками не считаются). */
+  function buttonIndex(button) {
     var at = 0;
     for (var i = 0; i < LC.prefs.LIST.length; i++) {
       var e = LC.prefs.LIST[i];
-      if (e.section === 'more') continue;
-      if (e.name === 'lumen_more') return at;
+      if (e.section) continue;
+      if (e.name === button) return at;
       if (e.type !== 'title') at++;
     }
     return 0;
   }
 
-  /* Стенд 960×540@2: last_index ставит фокус на «Дополнительно…», но лента
-     экрана к строке не едет — фокус при сборке экрана до его обработчика
-     прокрутки (updateScroll в Component$2, app.min.js:8420) не доходит, и
-     строка под фокусом остаётся ниже кромки (top 2412 px при окне 540).
-     Повторный фокус той же строки штатным Controller.collectionFocus уже
-     собранного экрана ленту к ней прокручивает (top 423). */
-  function backFromMore() {
+  /* Стенд 960×540@2: last_index ставит фокус на кнопку, но лента экрана к
+     строке не едет — фокус при сборке экрана до его обработчика прокрутки
+     (updateScroll в Component$2, app.min.js:8420) не доходит, и строка под
+     фокусом остаётся ниже кромки (top 2412 px при окне 540). Повторный
+     фокус той же строки штатным Controller.collectionFocus уже собранного
+     экрана ленту к ней прокручивает (top 423). */
+  function backTo(section) {
+    var button = LC.prefs.SECTIONS[section] || 'lumen_more';
     try {
-      Lampa.Settings.create(PLUGIN, { last_index: moreIndex() });
+      Lampa.Settings.create(PLUGIN, { last_index: buttonIndex(button) });
       if (typeof $ !== 'function' || !Lampa.Controller || typeof Lampa.Controller.collectionFocus !== 'function') return;
-      var row = $('.settings-param[data-name="lumen_more"]');
+      var row = $('.settings-param[data-name="' + button + '"]');
       if (row && row.length && row.hasClass('focus')) Lampa.Controller.collectionFocus(row[0], row.parent());
     } catch (e) {
       warn('settings back failed', e);
     }
   }
 
-  function openMore() {
+  function backFor(section) {
+    return function () { backTo(section); };
+  }
+
+  function openSection(section) {
     try {
       if (!window.Lampa || !Lampa.Settings || typeof Lampa.Settings.create !== 'function') return;
-      Lampa.Settings.create(moreComponent(), { onBack: backFromMore });
+      Lampa.Settings.create(sectionComponent(section), { onBack: backFor(section) });
     } catch (err) {
-      warn('settings more failed', err);
+      warn('settings section failed', err);
     }
   }
 
   /* Ревью 1.0.2: Lampa.Settings.update() пересоздаёт открытый экран
      заново — create$b(last, { last_index }) (update$f, app.min.js:10377-
-     10383) без нашего onBack, и «Назад» со второго экрана уводил в общий
+     10383) без нашего onBack, и «Назад» с экрана по теме уводил в общий
      список настроек Lampa. Зовёт update и сама Lampa: истёкший код
      удалённой настройки CUB (app.min.js:55759), выход из аккаунта. Событие
      'open' (create$b) несёт тот самый объект params, что держит экран, а
      onBack Lampa читает в момент нажатия (Component$2.back,
      app.min.js:8535), — достаточно дописать его в событии. Свой onBack
-     (openMore, чужой вызов) не трогаем. */
-  function moreOpened(e) {
+     (openSection, чужой вызов) не трогаем. */
+  function sectionOpened(e) {
     try {
-      if (e && e.name === moreComponent() && e.params && !e.params.onBack) e.params.onBack = backFromMore;
+      var section = e ? sectionOfComponent(e.name) : '';
+      if (section && e.params && !e.params.onBack) e.params.onBack = backFor(section);
     } catch (err) {
-      warn('settings more back failed', err);
+      warn('settings section back failed', err);
     }
   }
 
@@ -2026,18 +2093,32 @@
     try {
       var listener = window.Lampa && Lampa.Settings && Lampa.Settings.listener;
       if (!listener || typeof listener.follow !== 'function' || typeof listener.remove !== 'function') return;
-      listener.remove('open', moreOpened);
-      if (on) listener.follow('open', moreOpened);
+      listener.remove('open', sectionOpened);
+      if (on) listener.follow('open', sectionOpened);
     } catch (err) {
-      warn('settings more follow failed', err);
+      warn('settings section follow failed', err);
     }
   };
+
+  /* 1.5: «Что нового» ещё раз — заметки самой новой версии, не новее
+     текущей: у патча своей записи может не быть (pick, src/82_whatsnew.js). */
+  function showWhatsnew() {
+    try {
+      if (!LC.whatsnew) return;
+      var version = typeof LC.whatsnew.pick === 'function' ? LC.whatsnew.pick(null, LC.VERSION) : LC.VERSION;
+      if (version) LC.whatsnew.open(version);
+    } catch (e) {
+      warn('whatsnew show failed', e);
+    }
+  }
 
   /* Обработчик нажатия для параметров type:'button'. */
   function onButtonFor(name) {
     return function () {
-      if (name === 'lumen_home_rows') openHomeRows();
-      else if (name === 'lumen_more') openMore();
+      var section = sectionOfButton(name);
+      if (section) openSection(section);
+      else if (name === 'lumen_home_rows') openHomeRows();
+      else if (name === 'lumen_whatsnew_show') showWhatsnew();
       else if (name === 'lumen_debug_bench') {
         try { if (LC.bench) LC.bench.start(); } catch (e) { warn('bench start failed', e); }
       }
@@ -2045,6 +2126,59 @@
         try { if (LC.tsclean) LC.tsclean.runNow(); } catch (eTs) { warn('tsclean now failed', eTs); }
       }
     };
+  }
+
+  /* 1.5: пункт, который сейчас ничего не меняет (LC.prefIdle,
+     src/81_prefs.js), — имя приглушено, первой строкой описания
+     «Не действует: причина». Строку рисует Lampa (onRender у addParam); на
+     открытом экране пометку перерисовывает правка зависимости
+     (refreshIdle). Узел пометки — наш, класс описания — штатный: та же
+     раскладка и цвет, что у описания. */
+  function markIdle(item, name) {
+    try {
+      if (!item || typeof item.find !== 'function') return;
+      var reason = typeof LC.prefIdle === 'function' ? LC.prefIdle(name) : '';
+      var note = item.find('.lumen-pref-idle');
+      if (!reason) {
+        if (note.length) note.remove();
+        item.removeClass('lumen-pref--idle');
+        return;
+      }
+      var text = LC.lang('lumen_idle_prefix') + ': ' + LC.lang(reason);
+      item.addClass('lumen-pref--idle');
+      if (note.length) { note.text(text); return; }
+      note = $('<div class="settings-param__descr lumen-pref-idle"></div>');
+      note.text(text);
+      item.append(note);
+    } catch (e) {
+      warn('idle mark failed', e);
+    }
+  }
+
+  function idleRender(name) {
+    return function (item) { markIdle(item, name); };
+  }
+
+  /* Пункт, у которого бывает пометка: стоит справа в LC.prefIdleDeps. */
+  function idleCapable(name) {
+    var deps = LC.prefIdleDeps || {};
+    for (var key in deps) {
+      if (Object.prototype.hasOwnProperty.call(deps, key) && deps[key].indexOf(name) !== -1) return true;
+    }
+    return false;
+  }
+
+  function refreshIdle(name) {
+    try {
+      var deps = LC.prefIdleDeps && Object.prototype.hasOwnProperty.call(LC.prefIdleDeps, name) ? LC.prefIdleDeps[name] : null;
+      if (!deps || typeof $ !== 'function') return;
+      for (var i = 0; i < deps.length; i++) {
+        var row = $('.settings-param[data-name="' + deps[i] + '"]');
+        if (row && row.length) markIdle(row, deps[i]);
+      }
+    } catch (e) {
+      warn('idle refresh failed', e);
+    }
   }
 
   /* {sand:'Песок', …} для параметра select: подпись значения — либо
@@ -2059,7 +2193,7 @@
   }
 
   function addPrefParam(entry) {
-    var component = entry.section === 'more' ? moreComponent() : PLUGIN;
+    var component = entry.section ? sectionComponent(entry.section) : PLUGIN;
     var param = { name: entry.name, type: entry.type };
     var field = { name: LC.lang(entry.label) };
     if (entry.descr) field.description = LC.lang(entry.descr);
@@ -2090,6 +2224,7 @@
     }
     var data = { component: component, param: param, field: field, onChange: onChangeFor(entry.name) };
     if (entry.name === 'lumen_font') data.onRender = fontPreview;
+    if (idleCapable(entry.name)) data.onRender = idleRender(entry.name);
     if (entry.name === 'lumen_kp_key') {
       data.onRender = kpRender;
       var applyKp = data.onChange;
@@ -2117,12 +2252,16 @@
         icon: ICON,
         name: LC.lang('lumen_card_title')
       });
-      /* Второй экран — без папки в списке настроек (см. openMore). Свой
-         try: без шаблона не откроется только он, главный раздел — да. */
-      try {
-        if (Lampa.Template && typeof Lampa.Template.add === 'function') Lampa.Template.add('settings_' + moreComponent(), '<div></div>');
-      } catch (eTpl) {
-        warn('settings more template failed', eTpl);
+      /* Экраны по темам — без папок в списке настроек (см. openSection).
+         Свой try: без шаблона не откроется только этот экран, главный
+         раздел — да. */
+      for (var section in LC.prefs.SECTIONS) {
+        if (!Object.prototype.hasOwnProperty.call(LC.prefs.SECTIONS, section)) continue;
+        try {
+          if (Lampa.Template && typeof Lampa.Template.add === 'function') Lampa.Template.add('settings_' + sectionComponent(section), '<div></div>');
+        } catch (eTpl) {
+          warn('settings section template failed', eTpl);
+        }
       }
 
       /* Порядок пунктов, группы и экраны — LC.prefs.LIST (src/81_prefs.js). */

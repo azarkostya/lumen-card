@@ -594,7 +594,7 @@
     }
 
     /* cb(result): {list, total} — есть что показать; {nokey:true} — ключ
-       не задан (подсказка экрана 13); {noid:true} — у фильма нет IMDb id,
+       не задан (ряда нет, 1.5); {noid:true} — у фильма нет IMDb id,
        искать не по чему; {empty:true} — фильм найден, отзывов нет;
        {notfound:true} — Кинопоиск фильма не знает; {error: 'key' | 'quota'
        | 'busy' | 'net'} — запрос не удался (errorKind выше); null — нет
@@ -864,45 +864,19 @@
         '</div>';
     }
 
-    /* Экран 13, панель 2: ключа нет — вместо пустоты показываем, где его
-       взять (поправка контроллера). Task 20: единственный фокусируемый узел
-       внутри — кнопка «Скрыть»: подсказка висела на каждой карточке, пока
-       ключа нет, и убрать её было нечем. Кнопка гасит подсказку насовсем.
-       1.0.2: переключателя «Подсказка про ключ» в настройках больше нет, а
-       строка состояния «ключ API не задан» в шапке ряда остаётся и после
-       «Скрыть» (paintNoKey ниже). */
-    function hintHtml() {
-      return '<div class="lumen-reviews__hint">' +
-        '<div class="lumen-reviews__hint-ico"></div>' +
-        '<div class="lumen-reviews__hint-title">' + esc(lang('lumen_card_reviews_nokey_title')) + '</div>' +
-        '<div class="lumen-reviews__hint-text">' + esc(lang('lumen_card_reviews_nokey_text')) + '</div>' +
-        '<div class="lumen-reviews__hint-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' +
-        '<div class="lumen-reviews__hint-hide selector">' + esc(lang('lumen_kp_hint_hide')) + '</div>' +
-        '</div>';
-    }
-
-    /* Task 20: показывать ли подсказку про ключ (lumen_kp_hint, по умолчанию
-       да). Значение входит в подпись ряда (sign), поэтому переключение
-       настройки перерисовывает ряд, а не отсекается ранним return. */
-    function hintEnabled() {
-      try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
-    }
-
     /* Жалоба 2026-09-27: вместо тишины — строка состояния. Шапка та же, что
        у ряда (иконка, «Отзывы зрителей», «Кинопоиск»), а на месте счётчика —
        короткое состояние. У ошибок ключа и сети под шапкой ещё и пояснение:
        что случилось и что делать; у «отзывов нет» и «не найдено» — только
        строка шапки, чтобы фильм без отзывов не получал лишнего блока.
        Узлов .selector здесь нет: читать нечего по OK, и навигация ряда
-       описания остаётся прежней. Строки — src/80_settings.js. */
-    /* 2026-09-28: 'nokey' — ключа нет вовсе. Пользователь когда-то скрыл
-       большую подсказку кнопкой «Скрыть», ключ в настройках так и не
-       вписал, и ряд отзывов молчал: что их нет из-за ключа, было не понять.
-       Строка состояния теперь есть ВСЕГДА (paintNoKey). Ревью 1.0.2: она
-       всегда одна строка шапки — путь до ключа даёт большая подсказка, а
-       скрывший её выбрал тишину и второй подсказки не ждёт. */
+       описания остаётся прежней. Строки — src/80_settings.js.
+       1.5 (аудит U14/S8): ключа нет вовсе — ряда нет вовсе. Прежде на
+       КАЖДОЙ карточке стояли строка «ключ API не задан» и большая подсказка
+       с кнопкой «Скрыть»; про ключ теперь один раз говорит окно знакомства
+       (src/82_onboard.js), а ключ, который Кинопоиск не принял (401/403),
+       по-прежнему объясняется здесь — состояние 'key' с путём до пункта. */
     var STATES = {
-      nokey: { err: true },
       key: { err: true, path: true },
       quota: { err: true },
       busy: { err: true },
@@ -921,9 +895,7 @@
       return '';
     }
 
-    /* bare — только строка шапки, без пояснения: так рисуется ключ,
-       которого нет (paintNoKey). */
-    function statusHtml(kind, bare) {
+    function statusHtml(kind) {
       var def = STATES[kind] || STATES.net;
       var html = '<div class="lumen-reviews__head">' +
         '<span class="lumen-reviews__ico"></span>' +
@@ -931,7 +903,7 @@
         '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
         '<span class="lumen-reviews__total lumen-reviews__state">· ' + esc(lang('lumen_reviews_st_' + kind)) + '</span>' +
         '</div>';
-      if (def.err && !bare) {
+      if (def.err) {
         html += '<div class="lumen-reviews__note">' +
           '<div class="lumen-reviews__note-text">' + esc(lang('lumen_reviews_st_' + kind + '_note')) + '</div>' +
           (def.path ? '<div class="lumen-reviews__note-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' : '') +
@@ -940,23 +912,11 @@
       return html;
     }
 
-    function paintStatus(holder, kind, bare) {
+    function paintStatus(holder, kind) {
       var def = STATES[kind] || STATES.net;
       var block = $('<div class="lumen-reviews lumen-reviews--status ' + (def.err ? 'lumen-reviews--err' : 'lumen-reviews--quiet') + '" data-lumen-state="' + kind + '"></div>');
-      block.html(statusHtml(kind, bare));
+      block.html(statusHtml(kind));
       holder.append(block);
-    }
-
-    /* Ключа нет: строка состояния в шапке ряда — всегда, без пояснения;
-       под ней большая подсказка с кнопкой «Скрыть», пока её не скрыли.
-       Скрыли — остаётся одна строка «Кинопоиск · ключ API не задан»:
-       скрытие подсказки строку состояния не прячет. */
-    function paintNoKey(holder) {
-      paintStatus(holder, 'nokey', true);
-      /* v2, экран 36: панель не рисуется — строка о ключе стоит в шапке
-         «Комментариев» (src/31_v2_card_lower.js). */
-      if (LC.cardLower && LC.cardLower.quietKey) return;
-      if (hintEnabled()) paintHint(holder);
     }
 
     /* ------------------------------------------------------------------ */
@@ -1297,60 +1257,6 @@
       holder.append(block);
     }
 
-    function paintHint(holder) {
-      if (!hintEnabled()) return;
-      var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
-      block.html(hintHtml());
-      holder.append(block);
-      bindHint(block);
-      appendHintSelector(block);
-    }
-
-    /* Task 20: нажатие кнопки «Скрыть». Делегированием на корне блока — как
-       у карточек отзывов (bind выше): дети собраны из html-строки, отдельных
-       узлов для навешивания обработчиков у нас нет. */
-    function bindHint(block) {
-      try {
-        var el = block[0];
-        if (!el || typeof el.addEventListener !== 'function' || el.lumenHintBound) return;
-        el.lumenHintBound = true;
-        el.addEventListener('hover:enter', function (event) {
-          try {
-            var btn = $(event.target).closest('.lumen-reviews__hint-hide');
-            if (!btn || !btn.length) return;
-            /* Строка 'false': Storage.set с JS-false не сохраняется вовсе
-               (план 0.2). Запись поднимает listener 'change' → подсказка
-               исчезает с открытой карточки через LC.applyReviewsPref. */
-            Lampa.Storage.set('lumen_kp_hint', 'false');
-            /* Узел под фокусом только что исчез вместе с подсказкой — фокус
-               надо вернуть живой коллекции, иначе пульт «залипает» (тот же
-               приём, что у кнопки «Стоп» трейлера, src/55_trailer.js). */
-            var cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
-            if (cur && cur.name && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(cur.name);
-          } catch (e) {
-            warn('kp hint hide failed', e);
-          }
-        }, true);
-      } catch (err) {
-        warn('reviews hint bind failed', err);
-      }
-    }
-
-    /* Кнопка «Скрыть» — единственный .selector подсказки; в навигацию ряда
-       описания её отдаём той же проверкой, что карточки отзывов. */
-    function appendHintSelector(block) {
-      try {
-        if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
-        var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
-        if (!enabled || enabled.name !== 'full_descr') return;
-        if (!isForeground(block)) return;
-        var nodes = block.find('.lumen-reviews__hint-hide');
-        if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
-      } catch (e) {
-        warn('reviews hint collection failed', e);
-      }
-    }
-
     /* row — узел ряда описания (items_line), тот же, что получает
        LC.header.descr. Идемпотентно: build 'description' и страховочный
        complite приходят с одними данными — второй раз рендер пропускается по
@@ -1374,7 +1280,7 @@
         /* Task 28: режим показа входит в подпись — иначе переключатель в
            шапке менял бы настройку, а ряд оставался бы прежним (ранний
            return по совпавшей подписи). */
-        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0', modeOf()].join('|');
+        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), modeOf()].join('|');
 
         var state = stateOf(holder);
         if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -1393,7 +1299,8 @@
         row.removeClass('lumen-descr-row--reviews');
 
         if (!on) return;
-        if (!key) { paintNoKey(holder); state.painted = true; return; }
+        /* 1.5: без ключа ряда нет — ни строки, ни подсказки (STATES выше). */
+        if (!key) { state.painted = true; return; }
         /* Жалоба 2026-09-27: без IMDb id искать на Кинопоиске не по чему —
            говорим об этом строкой шапки, а не пустотой. */
         if (!imdb) { paintStatus(holder, 'noid'); state.painted = true; return; }
@@ -1408,7 +1315,7 @@
             if (current.gen !== gen) return;
             clearBlock(holder);
             if (!res) return;
-            if (res.nokey) { paintNoKey(holder); current.painted = true; return; }
+            if (res.nokey) { current.painted = true; return; }
             /* Жалоба 2026-09-27: сбой, «не найдено» и «отзывов нет» —
                строкой состояния, а не пустым местом. */
             var kind = stateKind(res);

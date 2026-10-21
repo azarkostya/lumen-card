@@ -597,91 +597,26 @@ test('render: повторный build/complite не дублирует блок
   assert.equal(env.journal.calls.length, 2, 'повторный рендер не ходит в сеть (данные уже в кэше/на экране)');
 });
 
-test('render: без ключа — строка состояния и подсказка экрана 13, сети нет', () => {
-  const env = freshEnv();
-  const d = makeDescrRow();
-  env.LC.reviews.render(d.row, DUNE);
-
-  assert.equal(env.journal.calls.length, 0);
-  const blocks = blocksOf(d);
-  assert.equal(blocks.length, 2, 'строка состояния в шапке и подсказка под ней');
-  /* 2026-09-28: строка шапки «Кинопоиск · ключ API не задан» есть всегда;
-     пояснение с путём при живой подсказке даёт она сама — без повтора. */
-  const status = blocks[0].html();
-  assert.ok(status.indexOf('Кинопоиск') !== -1 && status.indexOf('ключ API не задан') !== -1, status);
-  assert.equal(status.indexOf('lumen-reviews__note'), -1, 'пояснение — у подсказки, не дважды');
-  const html = blocks[1].html();
-  assert.ok(html.indexOf('lumen-reviews__hint') !== -1, 'ожидался блок-подсказка');
-  assert.ok(html.indexOf('Настройки → Lumen Card → Ключ Kinopoisk API') !== -1);
-  assert.equal(html.indexOf('lumen-review selector'), -1, 'карточек отзывов в подсказке нет');
-  /* Task 20: единственный фокусируемый узел подсказки — кнопка «Скрыть». */
-  assert.ok(html.indexOf('lumen-reviews__hint-hide selector') !== -1, 'ожидалась кнопка «Скрыть»');
-  assert.ok(html.indexOf('Скрыть') !== -1);
-  assert.equal(status.indexOf('selector'), -1, 'в строке состояния фокусируемых узлов нет');
-  assert.equal(d.row.hasClass('lumen-descr-row--reviews'), false, 'подсказка низкая — описание поджимать незачем');
-});
-
-/* 2026-09-28 (пользователь с ТВ: ключ не вписан, подсказку когда-то скрыл —
-   и ряд отзывов молчал): «Скрыть» убирает только большую подсказку. Строка
-   состояния «ключ API не задан» остаётся. Ревью 1.0.2: одна строка шапки —
-   без пояснения и пути; скрывший подсказку второй подсказки не ждёт. */
-test('ключ пуст, подсказка скрыта — одна строка «Кинопоиск · ключ API не задан»', () => {
-  const env = freshEnv({ store: { lumen_kp_hint: 'false' } });
-  const d = makeDescrRow();
-  env.LC.reviews.render(d.row, DUNE);
-
-  assert.equal(env.journal.calls.length, 0, 'без ключа в сеть не ходим');
-  const blocks = blocksOf(d);
-  assert.equal(blocks.length, 1, 'одна строка состояния, подсказки нет');
-  assert.ok(blocks[0].hasClass('lumen-reviews--err'), 'строка состояния, как у сбоев ключа');
-  const html = blocks[0].html();
-  assert.ok(html.indexOf('Отзывы зрителей') !== -1 && html.indexOf('Кинопоиск') !== -1, html);
-  assert.ok(html.indexOf('· ключ API не задан') !== -1, html);
-  assert.equal(html.indexOf('lumen-reviews__note'), -1, 'пояснения под строкой нет: ' + html);
-  assert.equal(html.indexOf('Настройки → Lumen Card'), -1, 'пути до ключа нет: ' + html);
-  assert.equal(html.indexOf('lumen-reviews__hint'), -1, 'большой подсказки нет');
-  assert.equal(html.indexOf('selector'), -1, 'фокусируемых узлов нет — навигация ряда описания прежняя');
-});
-
-test('ключ пуст: строка состояния переведена на три языка', () => {
-  const env = freshEnv();
-  for (const key of ['lumen_reviews_st_nokey']) {
-    const pack = env.LC.STRINGS[key];
-    assert.ok(pack, key);
-    for (const lang of ['ru', 'en', 'uk']) assert.ok(pack[lang] && pack[lang].trim(), key + '.' + lang);
-    assert.equal(new Set([pack.ru, pack.en, pack.uk]).size, 3, key + ': переводы совпадают дословно');
+/* 1.5 (аудит U14/S8): без ключа ряда отзывов нет вовсе — ни строки «ключ
+   API не задан», ни большой подсказки с «Скрыть» на каждой карточке. Про
+   ключ один раз говорит окно знакомства (src/82_onboard.js). */
+test('render: без ключа ряда нет — ни строки состояния, ни подсказки, сети нет', () => {
+  for (const store of [{}, { lumen_kp_hint: 'false' }]) {
+    const env = freshEnv({ store });
+    const d = makeDescrRow();
+    env.LC.reviews.render(d.row, DUNE);
+    assert.equal(env.journal.calls.length, 0, 'без ключа в сеть не ходим');
+    assert.equal(blocksOf(d).length, 0, 'ряда нет: ' + JSON.stringify(store));
+    assert.equal(d.row.hasClass('lumen-descr-row--reviews'), false);
+    /* Повторный build — тоже ничего: подпись совпала. */
+    env.LC.reviews.render(d.row, DUNE);
+    assert.equal(blocksOf(d).length, 0);
   }
-});
-
-test('Task 20: кнопка «Скрыть» пишет lumen_kp_hint = строку false и возвращает фокус', () => {
-  const env = freshEnv({ controller: 'full_descr' });
-  const d = makeDescrRow();
-  env.LC.reviews.render(d.row, DUNE);
-
-  const block = blocksOf(d).filter((b) => b.hasClass('lumen-reviews--hint'))[0];
-  const enter = (block._listeners || []).filter((l) => l.type === 'hover:enter')[0];
-  assert.ok(enter, 'на блоке подсказки обязан висеть слушатель hover:enter');
-  enter.fn({ type: 'hover:enter', target: new FakeEl(['lumen-reviews__hint-hide', 'selector']) });
-
-  /* Строка, а не JS-false: Storage.set(name, false) у Lampa не сохраняется. */
-  assert.equal(env.store.lumen_kp_hint, 'false');
-  assert.deepEqual(env.toggled, ['full_descr'], 'фокус возвращается живой коллекции');
-  assert.deepEqual(warnLog, []);
-});
-
-test('Task 20: подпись ряда учитывает подсказку — выключение перерисовывает, а не отсекается', () => {
   const env = freshEnv();
-  const d = makeDescrRow();
-  env.LC.reviews.render(d.row, DUNE);
-  assert.equal(blocksOf(d).filter((b) => b.hasClass('lumen-reviews--hint')).length, 1);
-
-  env.store.lumen_kp_hint = 'false';
-  env.LC.reviews.render(d.row, DUNE);
-  assert.equal(blocksOf(d).filter((b) => b.hasClass('lumen-reviews--hint')).length, 0,
-    'повторный рендер обязан снять подсказку, а не выйти по подписи');
-  assert.equal(blocksOf(d).length, 1, 'строка состояния остаётся');
-  assert.ok(blocksOf(d)[0].html().indexOf('· ключ API не задан') !== -1, 'строка шапки на месте');
-  assert.equal(blocksOf(d)[0].html().indexOf('lumen-reviews__note'), -1, 'одной строкой, без пояснения и пути');
+  for (const key of ['lumen_reviews_st_nokey', 'lumen_card_reviews_nokey_title', 'lumen_kp_hint_hide']) {
+    assert.equal(env.LC.STRINGS[key], undefined, 'строка убранной подсказки осталась: ' + key);
+  }
+  assert.deepEqual(warnLog, []);
 });
 
 /* Жалоба 2026-09-27: вместо пустого места — одна строка шапки «Отзывы
@@ -1509,6 +1444,7 @@ function renderWithError(status, step) {
 test('render: сбой запроса — строка состояния и пояснение; фокусируемых узлов нет, описание не поджато', () => {
   const cases = [
     [401, 'search', 'ключ API не принят', 'опечатка', true],
+    [403, 'search', 'ключ API не принят', 'опечатка', true],
     [402, 'search', 'лимит ключа исчерпан', '500 запросов в сутки', false],
     [402, 'reviews', 'лимит ключа исчерпан', '500 запросов в сутки', false],
     [429, 'search', 'слишком много запросов', 'через минуту', false],
@@ -1523,7 +1459,7 @@ test('render: сбой запроса — строка состояния и п�
     assert.ok(html.indexOf('Кинопоиск') !== -1, status + ': источник в шапке');
     assert.ok(html.indexOf('· ' + state) !== -1, status + ': состояние в шапке — ' + html);
     assert.ok(html.indexOf('lumen-reviews__note') !== -1 && html.indexOf(note) !== -1, status + ': пояснение — ' + html);
-    assert.equal(html.indexOf('Настройки → Lumen Card → Ключ Kinopoisk API') !== -1, path, status + ': путь до ключа только у неверного ключа');
+    assert.equal(html.indexOf('Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API') !== -1, path, status + ': путь до ключа только у неверного ключа');
     assert.equal(html.indexOf('selector'), -1, status + ': навигация ряда не меняется');
     assert.equal(html.indexOf('lumen-review--sk'), -1, status + ': скелетон снят');
     assert.equal(t.d.row.hasClass('lumen-descr-row--reviews'), false, status + ': описание не поджато');

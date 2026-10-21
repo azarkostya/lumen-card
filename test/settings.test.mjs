@@ -168,9 +168,11 @@ test('addSettings: порядок и типы параметров — как в
   LC.addSettings();
   assert.deepEqual(params.map((p) => p.param.name), LC.prefs.LIST.map((e) => e.name));
   assert.deepEqual(params.map((p) => p.param.type), LC.prefs.LIST.map((e) => e.type));
-  /* 1.0.2: второй экран — свой компонент Lampa, lumen_card_more. */
+  /* 1.0.2: второй экран — свой компонент Lampa, lumen_card_more; 1.5 —
+     у каждого экрана по теме свой (lumen_card_look и т. д.). */
   for (let i = 0; i < params.length; i++) {
-    const want = LC.prefs.LIST[i].section === 'more' ? 'lumen_card_more' : 'lumen_card';
+    const section = LC.prefs.LIST[i].section;
+    const want = section ? 'lumen_card_' + section : 'lumen_card';
     assert.equal(params[i].component, want, params[i].param.name);
   }
 });
@@ -293,9 +295,9 @@ test('каждая настройка применяется ровно один
        смены кадров у самого героя. */
     lumen_hero_media: ['heromedia'],
     /* Task 71 (фаза 6): логотип названия в кадре главной — перерисовка
-       героя: выключение возвращает текстовый заголовок сразу. */
-    lumen_hero_logo: ['herologo'],
-    lumen_card_logo: ['cardlogo'],
+       героя: выключение возвращает текстовый заголовок сразу. 1.5: пункт
+       один на оба логотипа — и шапка открытой карточки. */
+    lumen_hero_logo: ['herologo', 'cardlogo'],
     /* 1.0.2: «Франшизы» — кнопка и ряд одним пунктом, перерисовка
        открытой карточки, CSS не пересобирается. */
     lumen_franchise: ['franchise'],
@@ -326,8 +328,6 @@ test('каждая настройка применяется ровно один
     /* Task 25 (фаза 3): метки на постерах — узлы внутри уже нарисованных
        карточек, снимаются и ставятся на живом экране без его пересборки. */
     lumen_badges: ['badges'],
-    /* «Досмотреть»: серия у сериала — читается при построении главной. */
-    lumen_next_ep_badge: [],
     /* Task 26 (фаза 3): пункты в меню карточки — две подписки, ставятся и
        снимаются на лету; экран перерисовывать не нужно. */
     lumen_context_menu: ['cardmenu'],
@@ -408,7 +408,11 @@ test('каждая настройка применяется ровно один
     /* Кнопки своего значения не хранят, их проверяет нажатие (тесты
        ниже), поэтому здесь null. */
     lumen_debug_bench: null,
-    lumen_more: null
+    lumen_more: null,
+    lumen_look: null,
+    lumen_weak: null,
+    lumen_torrserver: null,
+    lumen_whatsnew_show: null
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();
@@ -935,26 +939,36 @@ test('1.0.2: значение нового пункта, совпадающее 
   assert.equal(typeof env.storage.lumen_card_fonts, 'undefined', 'ключа нет — это «включено», как у 1.0.1');
 });
 
-test('1.0.2: «Дополнительно…» открывает второй экран, «Назад» — снова «Lumen Card» с фокусом на кнопке', () => {
+test('1.5: кнопки экранов открывают свой экран, «Назад» — снова «Lumen Card» с фокусом на этой кнопке', () => {
   const env = setup();
   const created = [];
   const templates = [];
   globalThis.Lampa.Settings = { create: (name, params) => created.push([name, params]) };
   globalThis.Lampa.Template = { add: (name, html) => templates.push([name, html]) };
   env.LC.addSettings();
-  assert.deepEqual(templates, [['settings_lumen_card_more', '<div></div>']], 'шаблон экрана без папки в списке настроек');
-  assert.equal(env.components.length, 1, 'второй экран не заводит своей папки');
-  press(env, 'lumen_more');
-  assert.equal(created.length, 1);
-  assert.equal(created[0][0], 'lumen_card_more');
-  assert.equal(typeof created[0][1].onBack, 'function');
-  created[0][1].onBack();
-  assert.equal(created[1][0], 'lumen_card');
-  /* last_index — номер «Дополнительно…» среди строк экрана (заголовки групп
-     строками не считаются): 19-я строка, индекс 18 (1.2: + «Детский режим»). */
-  assert.deepEqual(created[1][1], { last_index: 18 });
-  const main = env.LC.prefs.LIST.filter((e) => e.section !== 'more' && e.type !== 'title');
-  assert.equal(main[18].name, 'lumen_more');
+  assert.deepEqual(templates, [
+    ['settings_lumen_card_look', '<div></div>'],
+    ['settings_lumen_card_weak', '<div></div>'],
+    ['settings_lumen_card_torrserver', '<div></div>'],
+    ['settings_lumen_card_more', '<div></div>']
+  ], 'шаблоны экранов без папок в списке настроек');
+  assert.equal(env.components.length, 1, 'экраны по темам не заводят своих папок');
+  /* last_index — номер кнопки среди строк главного экрана (заголовки групп
+     строками не считаются). */
+  const main = env.LC.prefs.LIST.filter((e) => !e.section && e.type !== 'title').map((e) => e.name);
+  const want = { lumen_look: 'lumen_card_look', lumen_weak: 'lumen_card_weak', lumen_torrserver: 'lumen_card_torrserver', lumen_more: 'lumen_card_more' };
+  for (const button of Object.keys(want)) {
+    created.length = 0;
+    press(env, button);
+    assert.equal(created.length, 1, button);
+    assert.equal(created[0][0], want[button]);
+    assert.equal(typeof created[0][1].onBack, 'function');
+    created[0][1].onBack();
+    assert.equal(created[1][0], 'lumen_card');
+    assert.deepEqual(created[1][1], { last_index: main.indexOf(button) }, button);
+  }
+  /* «Дополнительно…» — последняя, 13-я строка. */
+  assert.equal(main.indexOf('lumen_more'), 12);
 });
 
 /* Стенд 960×540@2: Lampa ставит фокус по last_index, но ленту к строке не
@@ -1020,7 +1034,7 @@ test('1.0.2: Lampa.Settings.update() на втором экране — «Наз
   assert.equal(lampa.created[1][1].last_index, 3, 'фокус Lampa ставит сама — last_index не тронут');
   lampa.Settings.back();
   assert.equal(lampa.created[2][0], 'lumen_card', '«Назад» — в «Lumen Card», а не в список Lampa');
-  assert.deepEqual(lampa.created[2][1], { last_index: 18 }, 'на кнопку «Дополнительно…»; главный экран своего onBack не получает');
+  assert.deepEqual(lampa.created[2][1], { last_index: 12 }, 'на кнопку «Дополнительно…»; главный экран своего onBack не получает');
 
   /* Чужой onBack у второго экрана не перетирается. */
   const foreign = () => { };
@@ -1354,4 +1368,125 @@ test('K4: маска ключа ставится и отложенно — по�
     timers.splice(0).forEach((fn) => fn());
     assert.equal(value.t, '••••1a2b');
   } finally { globalThis.setTimeout = realSetTimeout; }
+});
+
+/* ====================================================================== */
+/* 1.5: пометка «не действует» у зависимых пунктов.                        */
+/* ====================================================================== */
+
+/* Строка раздела, как её отдаёт Lampa в onRender: классы, дети (узлы
+   пометки) и find по классу пометки. */
+function fakeRow() {
+  const row = {
+    length: 1,
+    classes: [],
+    kids: [],
+    addClass(c) { if (this.classes.indexOf(c) === -1) this.classes.push(c); return this; },
+    removeClass(c) { this.classes = this.classes.filter((x) => x !== c); return this; },
+    append(node) { node.parentRow = row; this.kids.push(node); return this; },
+    find(sel) {
+      const list = sel === '.lumen-pref-idle' ? row.kids : [];
+      return {
+        length: list.length,
+        text(v) { list.forEach((n) => { n.t = v; }); return this; },
+        remove() { row.kids = row.kids.filter((n) => list.indexOf(n) === -1); return this; }
+      };
+    }
+  };
+  return row;
+}
+
+function withQuery(rows, fn) {
+  globalThis.$ = (sel) => {
+    if (typeof sel === 'string' && sel.charAt(0) === '<') return { t: '', text(v) { this.t = v; return this; } };
+    const m = /data-name="([^"]+)"/.exec(sel);
+    return m && rows[m[1]] ? rows[m[1]] : { length: 0 };
+  };
+  try { fn(); } finally { delete globalThis.$; }
+}
+
+test('1.5: LC.prefIdle — причины ровно по местам чтения', () => {
+  const cases = [
+    [{}, 'lumen_accent_scope', ''],
+    [{ lumen_accent_auto: 'false' }, 'lumen_accent_scope', 'lumen_idle_need_auto'],
+    [{}, 'lumen_accent_auto', ''],
+    [{ lumen_flat: 'true' }, 'lumen_accent_auto', 'lumen_idle_flat'],
+    [{ lumen_motion: 'off' }, 'lumen_accent_auto', 'lumen_idle_motion_off'],
+    [{}, 'lumen_fx_heavy', ''],
+    [{ lumen_motion: 'lite' }, 'lumen_fx_heavy', 'lumen_idle_need_full'],
+    [{ lumen_motion: 'off' }, 'lumen_fx_heavy', 'lumen_idle_need_full'],
+    [{}, 'lumen_moods', 'lumen_idle_need_no_hero'],
+    [{ lumen_hero_size: 'off' }, 'lumen_moods', ''],
+    [{}, 'lumen_theme', '']
+  ];
+  for (const [storage, name, want] of cases) {
+    const { LC } = setup({ storage });
+    assert.equal(LC.prefIdle(name), want, name + ' ' + JSON.stringify(storage));
+    if (want) for (const lang of ['ru', 'en', 'uk']) assert.ok(LC.STRINGS[want][lang], want + '.' + lang);
+  }
+});
+
+test('1.5: строка зависимого пункта помечена «Не действует: …», правка зависимости снимает пометку на открытом экране', () => {
+  const env = setup({ storage: { lumen_accent_auto: 'false' } });
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const scope = paramOf(env.params, 'lumen_accent_scope');
+  assert.equal(typeof scope.onRender, 'function');
+  for (const name of ['lumen_accent_auto', 'lumen_fx_heavy', 'lumen_moods']) {
+    assert.equal(typeof paramOf(env.params, name).onRender, 'function', name);
+  }
+  assert.equal(typeof paramOf(env.params, 'lumen_theme').onRender, 'undefined', 'у прочих пунктов пометки нет');
+  const row = fakeRow();
+  withQuery({ lumen_accent_scope: row }, () => {
+    scope.onRender(row);
+    assert.ok(row.classes.indexOf('lumen-pref--idle') !== -1);
+    assert.equal(row.kids.length, 1);
+    assert.equal(row.kids[0].t, 'Не действует: выключен «Цвет фона от кадра»');
+    /* Повторная отрисовка не дублирует пометку. */
+    scope.onRender(row);
+    assert.equal(row.kids.length, 1);
+    /* Включили «Цвет фона от кадра» — пометка снята сразу. */
+    env.Storage.set('lumen_accent_auto', 'true');
+    assert.equal(row.kids.length, 0);
+    assert.equal(row.classes.indexOf('lumen-pref--idle'), -1);
+  });
+});
+
+test('1.5: «Показать «Что нового»» открывает заметки самой новой версии не новее текущей', () => {
+  const env = setup();
+  const opened = [];
+  env.LC.VERSION = '1.3.2';
+  env.LC.whatsnew = { pick: (seen, v) => (seen === null && v === '1.3.2' ? '1.3.1' : null), open: (v) => opened.push(v) };
+  env.LC.addSettings();
+  press(env, 'lumen_whatsnew_show');
+  assert.deepEqual(opened, ['1.3.1']);
+  assert.equal(paramOf(env.params, 'lumen_whatsnew_show').component, 'lumen_card_more');
+  /* Без модуля — ничего не ломается. */
+  delete env.LC.whatsnew;
+  press(env, 'lumen_whatsnew_show');
+});
+
+test('1.5: Lampa.Settings.update() на экране «Цвет и вид…» — «Назад» на кнопку «Цвет и вид…»', () => {
+  const env = setup();
+  const lampa = settingsLikeLampa();
+  globalThis.Lampa.Settings = lampa.Settings;
+  env.LC.addSettings();
+  env.LC.followMoreBack(true);
+  press(env, 'lumen_look');
+  lampa.Settings.update();
+  assert.equal(lampa.created[1][0], 'lumen_card_look');
+  lampa.Settings.back();
+  assert.equal(lampa.created[2][0], 'lumen_card');
+  assert.deepEqual(lampa.created[2][1], { last_index: 2 });
+  env.LC.followMoreBack(false);
+});
+
+test('1.5: «Логотип названия» пишет то же значение в логотип карточки и перерисовывает оба', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  env.Storage.set('lumen_hero_logo', 'false');
+  assert.equal(env.storage.lumen_card_logo, 'false');
+  env.Storage.set('lumen_hero_logo', 'true');
+  assert.equal(env.storage.lumen_card_logo, 'true');
 });

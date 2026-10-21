@@ -64,6 +64,10 @@
       css.push('body .settings .settings-param__value{-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto;margin-left:.77em;max-width:100%;font-size:1.01em;line-height:1.3;text-align:right;word-wrap:break-word;overflow-wrap:break-word;color:' + SUB + '}');
       css.push('body .settings .settings-param__value:empty{display:none}');
       css.push('body .settings .settings-param__descr{opacity:1;margin-top:.17em;font-size:1.01em;line-height:1.3;color:' + SUB + '}');
+      /* 1.5: пункт, который в текущем режиме ничего не меняет (LC.prefIdle,
+         markIdle в src/80_settings.js): имя приглушено, причина — строкой
+         описания. В фокусе — как у всех. */
+      css.push('body .settings .settings-param.lumen-pref--idle:not(.focus) .settings-param__name,body .settings .settings-param.lumen-pref--idle:not(.focus) .settings-param__value{opacity:.6}');
       /* Секция: 23 px 600, светлее описаний. */
       css.push('body .settings .settings-param-title{padding:.96em .88em .35em}');
       css.push('body .settings .settings-param-title > span{font-size:1.01em;font-weight:600;color:' + SECTION + '}');

@@ -187,15 +187,25 @@ test('36: счётчики разделов — текст без плашек; 
   assert.match(rule(apple, '.lumen-descr-row .lumen-facts__grid'), /border-top:/);
 });
 
-test('36: без ключа панель отзывов не рисуется, строка — в шапке «Комментариев»', () => {
-  assert.match(rule(lumen, 'body .lumen-lower-kp .lumen-descr-row .lumen-reviews[data-lumen-state="nokey"]'), /display:none/);
-  withStorage({}, (LC) => {
-    assert.equal(LC.cardLower.quietKey, true);
-    assert.equal(LC.cardLower.needsKeyLine(), true);
-    assert.match(LC.STRINGS.lumen_lower_kp_line.ru, /нужен ключ/);
-  });
-  withStorage({ lumen_kp_key: 'abc' }, (LC) => assert.equal(LC.cardLower.needsKeyLine(), false));
-  withStorage({ lumen_reviews: false }, (LC) => assert.equal(LC.cardLower.needsKeyLine(), false));
+/* 1.5 (аудит U14/S8): без ключа Кинопоиска карточка о ключе молчит — ни
+   панели под описанием, ни строки в шапке «Комментариев»; про ключ один
+   раз говорит окно знакомства (src/82_onboard.js). */
+test('36: без ключа — ни панели отзывов, ни строки о ключе в шапке «Комментариев»', async () => {
+  assert.equal(lumen.indexOf('lumen-lower__kp'), -1);
+  assert.equal(lumen.indexOf('lumen-lower-kp'), -1);
+  const { FakeEl } = await import('./_fakedom.mjs');
+  globalThis.$ = (x) => x;
+  try { withStorage({}, (LC) => {
+    assert.equal(LC.STRINGS.lumen_lower_kp_line, undefined);
+    assert.equal(typeof LC.cardLower.refresh, 'undefined');
+    const title = new FakeEl(['items-line__title']);
+    const head = new FakeEl(['items-line__head'], [title]);
+    const line = new FakeEl(['items-line', 'lumen-lower', 'lumen-lower--discuss'], [head]);
+    const body = new FakeEl(['activity__body'], [line]);
+    LC.cardLower.tag({ type: 'build', name: 'discuss', item: { render: () => line }, body: body, link: { rows: [] }, data: {} });
+    assert.equal(head.find('.lumen-lower__kp').length, 0, 'без ключа строки в шапке нет');
+    assert.ok(!body.hasClass('lumen-lower-kp'));
+  }); } finally { delete globalThis.$; }
 });
 
 test('36: сторона ряда в паре берётся из списка рядов компонента', () => {
@@ -236,45 +246,6 @@ test('36: селекторы модуля — под корнями плагин
       }
     }
   });
-});
-
-/* Ревью v2 (п.1): ключ Кинопоиска ввели или стёрли в настройках поверх
-   открытой карточки — 'full' повторно не приходит, строку «нужен ключ» и
-   класс на теле активности перечитывает LC.cardLower.refresh(body). */
-test('36: refresh — строка о ключе и класс тела следуют за ключом без переоткрытия', async () => {
-  const { FakeEl } = await import('./_fakedom.mjs');
-  const storage = {};
-  globalThis.$ = (x) => x;
-  try { withStorage(storage, (LC) => {
-    const title = new FakeEl(['items-line__title']);
-    const head = new FakeEl(['items-line__head'], [title]);
-    const line = new FakeEl(['items-line', 'lumen-lower', 'lumen-lower--discuss'], [head]);
-    const body = new FakeEl(['activity__body'], [line]);
-    const item = { render: () => line };
-    LC.cardLower.tag({ type: 'build', name: 'discuss', item: item, body: body, link: { rows: [] }, data: {} });
-    assert.equal(head.find('.lumen-lower__kp').length, 1, 'без ключа строка в шапке');
-    assert.ok(body.hasClass('lumen-lower-kp'));
-
-    storage.lumen_kp_key = 'abc';
-    LC.cardLower.refresh(body);
-    assert.equal(head.find('.lumen-lower__kp').length, 0, 'ключ ввели — строка снята');
-    assert.ok(!body.hasClass('lumen-lower-kp'), 'ключ ввели — класс снят');
-
-    storage.lumen_kp_key = '';
-    LC.cardLower.refresh(body);
-    LC.cardLower.refresh(body);
-    assert.equal(head.find('.lumen-lower__kp').length, 1, 'ключ стёрли — строка вернулась, одна');
-    assert.ok(body.hasClass('lumen-lower-kp'));
-
-    storage.lumen_reviews = false;
-    LC.cardLower.refresh(body);
-    assert.equal(head.find('.lumen-lower__kp').length, 0, 'отзывы выключены — строки нет');
-    assert.ok(!body.hasClass('lumen-lower-kp'));
-
-    /* Пустое тело и мусор — не исключение. */
-    LC.cardLower.refresh(null);
-    LC.cardLower.refresh({ length: 0 });
-  }); } finally { delete globalThis.$; }
 });
 
 /* Ревью v2 (п.2): смена lumen_motion таблицу стилей не пересобирает —
