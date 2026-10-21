@@ -216,6 +216,65 @@
     }
   }
 
+  /* QA U9: штатный ряд Lampa «Коллекция» (app.min.js:39978-39987) — те же
+     части той же коллекции TMDB, что и наш ряд «Смотреть по порядку»
+     (src/66_franchise.js) в ряду описания. Когда наш ряд будет, штатный НЕ
+     СОЗДАЁТСЯ тем же приёмом, что ряды анализа (разбор у dropMetaData:
+     прятать CSS'ом нельзя — фокус уходит в скрытый ряд): Lampa кладёт его в
+     список, только если data.collection.results непуст, и читает поле
+     после 'start'; на 'complite' поле возвращается. Условие — то же, что у
+     нашего ряда: он включён, у фильма есть belongs_to_collection, и частей
+     хотя бы две (одну часть наш ряд не рисует). Кнопка «Франшиза» и сетка
+     коллекции не меняются. */
+  var COLLECTION_STASH = 'lumen_collection';
+  /* Снятые, но не возвращённые коллекции — как episodesPending выше. */
+  var collectionPending = [];
+
+  function dropCollectionRow(e) {
+    try {
+      var d = e && e.data;
+      var col = d && d.collection;
+      var movie = (d && d.movie) || {};
+      if (!col || !col.results || col.results.length < 2) return false;
+      if (!movie.belongs_to_collection || !movie.belongs_to_collection.id) return false;
+      if (!LC.franchise || typeof LC.franchise.rowEnabled !== 'function' || !LC.franchise.rowEnabled()) return false;
+      d[COLLECTION_STASH] = col;
+      d.collection = null;
+      collectionPending.push({ object: e.object, data: d });
+      return true;
+    } catch (err) {
+      warn('collection drop failed', err);
+      return false;
+    }
+  }
+
+  function restoreCollectionData(d) {
+    try {
+      if (!d || !d[COLLECTION_STASH]) return false;
+      for (var i = collectionPending.length - 1; i >= 0; i--) {
+        if (collectionPending[i].data === d) collectionPending.splice(i, 1);
+      }
+      d.collection = d[COLLECTION_STASH];
+      d[COLLECTION_STASH] = null;
+      return true;
+    } catch (err) {
+      warn('collection restore failed', err);
+      return false;
+    }
+  }
+
+  function restoreCollectionRow(e) {
+    return !!(e && restoreCollectionData(e.data));
+  }
+
+  /* object — активность, чью коллекцию вернуть; null — все незавершённые. */
+  function restorePendingCollections(object) {
+    var left = collectionPending.slice();
+    for (var i = 0; i < left.length; i++) {
+      if (object === null || left[i].object === object) restoreCollectionData(left[i].data);
+    }
+  }
+
   function restoreMetaData(e) {
     try {
       if (!e || !e.data || !e.data[META_STASH]) return false;
@@ -760,6 +819,7 @@
          снятые серии возвращаются в её данные при уходе с неё. */
       if (e.type === 'destroy' && e.component === 'full') {
         try { restorePendingEpisodes(e.object); } catch (eEpisodes) { warn('episodes pending failed', eEpisodes); }
+        try { restorePendingCollections(e.object); } catch (eCollections) { warn('collection pending failed', eCollections); }
       }
       if (e.type === 'destroy' && e.component === 'main') {
         try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
@@ -1166,6 +1226,7 @@
                перед проверкой data.metadata (app.min.js:38833-38842). */
             dropMetaData(e);
             dropEpisodesRow(e);
+            dropCollectionRow(e);
           } else if (e.type === 'build' && e.name === 'start') {
             var startRoot = findRoot(e);
             LC.header.decorate(startRoot, e.data);
@@ -1194,6 +1255,7 @@
                здесь же, после единственного чтения на app.min.js:38842. */
             restoreMetaData(e);
             restoreEpisodesRow(e);
+            restoreCollectionRow(e);
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
             /* Вторая, страховочная точка: вставка идемпотентна (старый блок
@@ -1912,6 +1974,7 @@
     try { if (LC.accent) LC.accent.destroy(); } catch (eAccentOff) {}
     /* v2, экран 37: выключенный плагин не оставляет данные Lampa без серий. */
     try { restorePendingEpisodes(null); } catch (eEpisodesOff) {}
+    try { restorePendingCollections(null); } catch (eCollectionsOff) {}
     /* Task 29: выключенный плагин не имеет права держать ни отложенного
        кадра замера, ни слоя перехода поверх экрана. Обе уборки идемпотентны
        и при отсутствии живых ресурсов не делают ничего. */

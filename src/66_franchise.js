@@ -632,6 +632,7 @@
       markWatched: markWatched,
       nextToWatch: nextToWatch,
       render: render,
+      rowEnabled: rowEnabled,
       clearRow: clearRow,
       cancel: cancel
     };
