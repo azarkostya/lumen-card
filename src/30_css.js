@@ -218,7 +218,10 @@
        ниже. Иначе тёплый кадр давал коричневый фон вместо чёрного. */
     var neutral = appleLook();
     try {
-      if (!neutral && LC.accent && typeof LC.accent.tint === 'function') {
+      /* v1.4 P0-1: пробный цвет кадра (colorProbe, у LC.injectCss) встаёт
+         на место подкраски — так находятся правила, зависящие от цвета. */
+      if (!neutral && colorProbe) p.bg = colorProbe.bg;
+      else if (!neutral && LC.accent && typeof LC.accent.tint === 'function') {
         var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
         if (tinted) p.bg = tinted;
       }
@@ -239,7 +242,8 @@
        кадром в доле ROWS_LEAK. */
     p.rows = p.bg;
     try {
-      if (!neutral && LC.accent && typeof LC.accent.rowsTint === 'function') {
+      if (!neutral && colorProbe) p.rows = colorProbe.rows;
+      else if (!neutral && LC.accent && typeof LC.accent.rowsTint === 'function') {
         var rows = LC.accent.rowsTint(p.soft, 4.5, ROWS_LEAK);
         if (rows) p.rows = rows;
       }
@@ -2233,7 +2237,8 @@
   function theme() {
     var auto = null;
     try {
-      if (!appleLook() && LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
+      if (!appleLook() && colorProbe) auto = colorProbe.t;
+      else if (!appleLook() && LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
     } catch (e) {
       warn('accent override failed', e);
     }
@@ -2333,7 +2338,7 @@
     };
   };
 
-  LC.buildCss = function () {
+  function buildParts() {
     var t = theme();
     /* Палитра читается на каждую сборку: смена темы и плотности подложек —
        это пересборка CSS, без перезахода в Lampa (src/80_settings.js). */
@@ -7253,14 +7258,484 @@
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());
 
-    return css.join('\n');
+    return css;
+  }
+
+  /* ==================================================================== */
+  /* v1.4 P0-1: цвет кадра без полной пересборки стиля.                    */
+  /* ==================================================================== */
+  /* Открытие и закрытие карточки (цвет фильма, src/57_color.js) и акцент
+     сезонной темы прежде переписывали всю таблицу — innerHTML на ~227 КБ и
+     ~1300 правил, — хотя от цвета зависит меньше пятой части. Теперь таблица
+     живёт в двух узлах:
+       lumen-card-css    — всё, что от цвета кадра не зависит; переписывается
+                           только полной сборкой (смена настроек, включение);
+       lumen-accent-deep — объявления, зависящие от цвета (акцент и подкраска
+                           фона), — их переписывает смена цвета, одна запись.
+     Какие объявления зависят от цвета, не размечено руками в сотнях
+     css.push: полная сборка собирает таблицу ещё дважды с ПРОБНЫМИ цветами
+     (DEEP_PROBES — заведомо разные во всех четырёх токенах акцента и в обоих
+     тонах фона) и сравнивает: что разошлось, то и цветное. Новое правило с
+     цветом попадёт в нужный узел само.
+     Каскад. Узел цвета стоит сразу ПОСЛЕ основного, поэтому цветное
+     объявление, которое в общей таблице проигрывало более позднему правилу
+     той же специфичности, теперь выигрывало бы. Такие более поздние
+     объявления переезжают в узел цвета вместе с ним (deepPlan, проход
+     «спор»): спором считается то же свойство (или его сокращённая запись),
+     та же важность, равная специфичность и цель, которая может быть одним
+     и тем же элементом (общий класс, id или тег у последнего звена
+     селектора, тот же псевдоэлемент). Проход идёт до неподвижной точки:
+     переехавшее объявление само спорит с теми, что ниже.
+     Страховка. Смена цвета собирает таблицу целиком (это строки в памяти, без
+     разбора стилей движком) и сверяет бесцветную часть с записанной; если
+     она всё-таки разошлась (правило, совпавшее у обоих пробных цветов), —
+     полная пересборка с новым планом. Ошибиться в сторону «устаревший
+     основной узел» план не может. */
+  var DEEP_ID = 'lumen-accent-deep';
+  var DEEP_PROBES = [
+    { t: { color: '#2F6BFF', light: '#DCE6FF', glow: 'rgba(47,107,255,0.45)', onac: '#F5F8FF' }, bg: '#0D1322', rows: '#13213F' },
+    { t: { color: '#FFD21F', light: '#FFF6CC', glow: 'rgba(255,210,31,0.25)', onac: '#1A1400' }, bg: '#211A07', rows: '#3E3210' }
+  ];
+  /* Пробный цвет на время сборки плана: его читают theme() и palette(). */
+  var colorProbe = null;
+  /* План раскладки текущих настроек (deepPlan) и последний текст узла цвета. */
+  var deep_plan = null;
+  var deep_css_text = null;
+
+  /* Подстрока text[a, b) без пробельных краёв. */
+  function cssCut(text, a, b) {
+    while (a < b && text.charCodeAt(a) <= 32) a++;
+    while (b > a && text.charCodeAt(b - 1) <= 32) b--;
+    return text.slice(a, b);
+  }
+
+  /* Конец строки в кавычках, открытой в text[at]: индекс закрывающей
+     кавычки (с учётом «\»), или конец текста. */
+  function cssQuoteEnd(text, at) {
+    var q = text.charAt(at);
+    var i = at + 1;
+    for (;;) {
+      var close = text.indexOf(q, i);
+      if (close < 0) return text.length;
+      var bs = 0;
+      for (var k = close - 1; k > at && text.charAt(k) === '\\'; k--) bs++;
+      if (bs % 2 === 0) return close;
+      i = close + 1;
+    }
+  }
+
+  /* Делит текст CSS на блоки верхнего уровня (правило, @media{…}, @keyframes
+     {…}, оператор с «;»). Скобки и кавычки внутри url()/content учтены.
+     Идёт прыжками по значимым символам (регулярка с lastIndex), а не по
+     каждому: на 227 КБ таблицы посимвольный проход стоил десятки мс. */
+  function cssBlocks(text) {
+    var out = [];
+    var depth = 0;
+    var paren = 0;
+    var start = 0;
+    var re = /[{}()"';]/g;
+    var m;
+    while ((m = re.exec(text))) {
+      var ch = m[0];
+      var i = m.index;
+      if (ch === '"' || ch === "'") { re.lastIndex = cssQuoteEnd(text, i) + 1; continue; }
+      if (ch === '(') { paren++; continue; }
+      if (ch === ')') { if (paren > 0) paren--; continue; }
+      if (paren) continue;
+      if (ch === '{') { depth++; continue; }
+      if (ch === '}') {
+        depth--;
+        if (depth !== 0) continue;
+      } else if (depth !== 0) continue;
+      var block = cssCut(text, start, i + 1);
+      if (block) out.push(block);
+      start = i + 1;
+    }
+    var tail = cssCut(text, start, text.length);
+    if (tail) out.push(tail);
+    return out;
+  }
+
+  /* Объявления тела правила: «;» на верхнем уровне, вне скобок и кавычек. */
+  function cssDecls(body) {
+    var out = [];
+    var paren = 0;
+    var start = 0;
+    var re = /[()"';]/g;
+    var m;
+    while ((m = re.exec(body))) {
+      var ch = m[0];
+      if (ch === '"' || ch === "'") { re.lastIndex = cssQuoteEnd(body, m.index) + 1; continue; }
+      if (ch === '(') { paren++; continue; }
+      if (ch === ')') { if (paren > 0) paren--; continue; }
+      if (paren) continue;
+      var d = cssCut(body, start, m.index);
+      if (d) out.push(d);
+      start = m.index + 1;
+    }
+    var tail = cssCut(body, start, body.length);
+    if (tail) out.push(tail);
+    return out;
+  }
+
+  /* Листья: правило со списком объявлений и цепочкой обёрток (@media,
+     @supports) или «сырой» блок (@keyframes, @font-face, оператор) — он
+     переезжает только целиком. */
+  function cssLeaves(text, ctx, out) {
+    out = out || [];
+    ctx = ctx || [];
+    var blocks = cssBlocks(text);
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      var open = b.indexOf('{');
+      if (open < 0 || b.charAt(b.length - 1) !== '}') {
+        out.push({ ctx: ctx, raw: b });
+        continue;
+      }
+      var pre = cssCut(b, 0, open);
+      var body = b.slice(open + 1, b.length - 1);
+      if (pre.charAt(0) === '@') {
+        if (/^@(media|supports)\b/i.test(pre)) cssLeaves(body, ctx.concat([pre]), out);
+        else out.push({ ctx: ctx, raw: b });
+        continue;
+      }
+      out.push({ ctx: ctx, sel: pre, decls: cssDecls(body) });
+    }
+    return out;
+  }
+
+  /* Форма листьев куска: число объявлений каждого («r» — сырой блок). По ней
+     раскладка видит, что кусок собрался той же формы, что при плане. */
+  function leafSig(leaves) {
+    var sig = [];
+    for (var i = 0; i < leaves.length; i++) sig.push(leaves[i].raw !== undefined ? 'r' : leaves[i].decls.length);
+    return sig.join(',');
+  }
+
+  /* Лист обратно в текст: только объявления с mark[k] === want. */
+  function leafText(leaf, mark, want) {
+    var text;
+    if (leaf.raw !== undefined) {
+      if (!!mark !== want) return '';
+      text = leaf.raw;
+    } else {
+      var keep = [];
+      for (var k = 0; k < leaf.decls.length; k++) if (!!mark[k] === want) keep.push(leaf.decls[k]);
+      if (!keep.length) return '';
+      text = leaf.sel + '{' + keep.join(';') + '}';
+    }
+    for (var c = leaf.ctx.length - 1; c >= 0; c--) text = leaf.ctx[c] + '{' + text + '}';
+    return text;
+  }
+
+  /* Семейство свойства для проверки спора: без префикса движка и по первому
+     слову (background-color спорит с background, border-top-color — с
+     border). Сокращения, которые этим не ловятся, добавлены явно; 'all'
+     спорит со всем. */
+  function propFamilies(decl) {
+    var colon = decl.indexOf(':');
+    var name = (colon < 0 ? decl : decl.slice(0, colon)).replace(/^\s+|\s+$/g, '').toLowerCase().replace(/^-(webkit|moz|ms|o)-/, '');
+    if (name === 'all') return ['*'];
+    var dash = name.indexOf('-');
+    var fam = [dash < 0 ? name : name.slice(0, dash)];
+    if (name === 'line-height') fam.push('font');
+    if (fam[0] === 'place') fam.push('align', 'justify');
+    if (name === 'row-gap' || name === 'column-gap' || name === 'grid-gap' || name === 'grid-row-gap' || name === 'grid-column-gap') fam.push('gap');
+    return fam;
+  }
+
+  /* Специфичность селектора строкой 'a,b,c'. */
+  function selSpec(sel) {
+    var a = 0;
+    var b = 0;
+    var c = 0;
+    var s = sel.replace(/:not\(((?:[^()]|\([^()]*\))*)\)/g, function (m, inner) {
+      var r = selSpec(inner).split(',');
+      a += +r[0];
+      b += +r[1];
+      c += +r[2];
+      return ' ';
+    });
+    s = s.replace(/\[[^\]]*\]/g, function () { b++; return ' '; });
+    s = s.replace(/::[-a-zA-Z]+|:(before|after|first-line|first-letter)\b/g, function () { c++; return ' '; });
+    s = s.replace(/:[-a-zA-Z]+(\([^()]*\))?/g, function () { b++; return ' '; });
+    s = s.replace(/#[-\w]+/g, function () { a++; return ' '; });
+    s = s.replace(/\.[-\w]+/g, function () { b++; return ' '; });
+    var rest = s.split(/[\s>+~]+/);
+    for (var i = 0; i < rest.length; i++) if (/^[a-zA-Z]/.test(rest[i])) c++;
+    return a + ',' + b + ',' + c;
+  }
+
+  /* Список селекторов правила: специфичность, псевдоэлемент и опознавательные
+     знаки (классы, id, тег) последнего звена — по ним видно, может ли
+     элемент быть одним и тем же. */
+  var sel_info_cache = {};
+  function selInfo(leaf) {
+    if (leaf.info) return leaf.info;
+    if (Object.prototype.hasOwnProperty.call(sel_info_cache, leaf.sel)) return (leaf.info = sel_info_cache[leaf.sel]);
+    var list = [];
+    var depth = 0;
+    var start = 0;
+    var sel = leaf.sel;
+    for (var i = 0; i <= sel.length; i++) {
+      var ch = i < sel.length ? sel.charAt(i) : ',';
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      else if (ch === ',' && depth === 0) {
+        var one = sel.slice(start, i).replace(/^\s+|\s+$/g, '');
+        start = i + 1;
+        if (!one) continue;
+        var flat = one.replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '').replace(/\[[^\]]*\]/g, '[]');
+        var chain = flat.split(/\s*[>+~]\s*|\s+/);
+        var last = chain[chain.length - 1] || '';
+        var pe = last.match(/::?(before|after|first-line|first-letter|placeholder|selection|-webkit-[-a-z]+|-moz-[-a-z]+)\b/);
+        list.push({
+          spec: selSpec(one),
+          pe: pe ? pe[1] : '',
+          marks: last.replace(/::?[-a-zA-Z]+(\([^()]*\))?/g, '').match(/[.#][-\w]+|^[a-zA-Z][-\w]*/g) || []
+        });
+      }
+    }
+    leaf.info = list;
+    sel_info_cache[sel] = list;
+    return list;
+  }
+
+  /* Реестр переехавших объявлений для прохода «спор»: слот (семейство
+     свойства + важность) → корзина (специфичность|псевдоэлемент) → знаки
+     последних звеньев. any — в корзине есть селектор без знаков (например
+     «> *»): с ним спорит любой. */
+  function rivalAdd(reg, slot, leaf) {
+    var info = selInfo(leaf);
+    var row = reg[slot] || (reg[slot] = {});
+    for (var i = 0; i < info.length; i++) {
+      var key = info[i].spec + '|' + info[i].pe;
+      var bin = row[key] || (row[key] = { any: false, marks: {} });
+      if (!info[i].marks.length) bin.any = true;
+      for (var m = 0; m < info[i].marks.length; m++) bin.marks[info[i].marks[m]] = true;
+    }
+  }
+
+  /* Спорит ли правило leaf с кем-то из слота: равная специфичность, тот же
+     псевдоэлемент, общий знак последнего звена (или знаков нет у одного). */
+  function rivalHit(reg, slot, leaf) {
+    var row = reg[slot];
+    if (!row) return false;
+    var info = selInfo(leaf);
+    for (var i = 0; i < info.length; i++) {
+      var bin = row[info[i].spec + '|' + info[i].pe];
+      if (!bin) continue;
+      if (bin.any || !info[i].marks.length) return true;
+      for (var m = 0; m < info[i].marks.length; m++) {
+        if (Object.prototype.hasOwnProperty.call(bin.marks, info[i].marks[m])) return true;
+      }
+    }
+    return false;
+  }
+
+  /* Сборка с пробным цветом. */
+  function probeParts(probe) {
+    colorProbe = probe;
+    try {
+      return buildParts();
+    } finally {
+      colorProbe = null;
+    }
+  }
+
+  /* План раскладки: для каждого куска css.push — null (весь бесцветный)
+     или пометки объявлений его листьев (true — в узел цвета). null целиком —
+     разложить нельзя (пробные сборки разошлись по форме): тогда таблица
+     пишется одним узлом, как прежде. */
+  function deepPlan(parts) {
+    var probes = [];
+    for (var p = 0; p < DEEP_PROBES.length; p++) {
+      probes.push(probeParts(DEEP_PROBES[p]));
+      if (probes[p].length !== parts.length) return null;
+    }
+    var items = [];
+    var leaves = [];
+    var any = false;
+    for (var i = 0; i < parts.length; i++) {
+      var own = cssLeaves(parts[i]);
+      var marks = null;
+      var differs = false;
+      for (p = 0; p < probes.length; p++) if (probes[p][i] !== parts[i]) differs = true;
+      if (differs) {
+        var other = [];
+        for (p = 0; p < probes.length; p++) {
+          other.push(cssLeaves(probes[p][i]));
+          if (other[p].length !== own.length) return null;
+        }
+        marks = [];
+        for (var l = 0; l < own.length; l++) {
+          var leaf = own[l];
+          var m = leaf.raw !== undefined ? false : [];
+          for (p = 0; p < other.length; p++) {
+            var o = other[p][l];
+            if (leaf.raw !== undefined) {
+              if (o.raw === undefined) return null;
+              if (o.raw !== leaf.raw) m = true;
+              continue;
+            }
+            if (o.raw !== undefined || o.sel !== leaf.sel || o.decls.length !== leaf.decls.length || o.ctx.join('|') !== leaf.ctx.join('|')) return null;
+            for (var k = 0; k < leaf.decls.length; k++) if (o.decls[k] !== leaf.decls[k]) m[k] = true;
+          }
+          if (m === true || (m && m.length)) any = true;
+          marks.push(m);
+        }
+      }
+      items.push({ leaves: own, marks: marks });
+      for (l = 0; l < own.length; l++) leaves.push({ item: i, at: l });
+    }
+    if (!any) return { n: parts.length, marks: [] };
+    /* Проход «спор» (разбор — в шапке раздела): идёт по листьям в порядке
+       таблицы и копит переехавшие объявления по семействам свойств. */
+    var moved = {};
+    for (var q = 0; q < leaves.length; q++) {
+      var it = items[leaves[q].item];
+      var lf = it.leaves[leaves[q].at];
+      var mk = it.marks ? it.marks[leaves[q].at] : undefined;
+      if (lf.raw !== undefined) continue;
+      for (var d = 0; d < lf.decls.length; d++) {
+        var fams = propFamilies(lf.decls[d]);
+        var imp = /!\s*important\s*$/i.test(lf.decls[d]) ? '!' : '';
+        var deep = !!(mk && mk[d]);
+        if (!deep) {
+          var slots = ['*' + imp];
+          for (var f = 0; f < fams.length; f++) slots.push(fams[f] + imp);
+          if (fams[0] === '*') {
+            for (var key in moved) {
+              if (Object.prototype.hasOwnProperty.call(moved, key) && (key.slice(-1) === '!') === !!imp) slots.push(key);
+            }
+          }
+          for (var s = 0; s < slots.length && !deep; s++) deep = rivalHit(moved, slots[s], lf);
+          if (deep) {
+            if (!it.marks) it.marks = [];
+            if (!it.marks[leaves[q].at]) it.marks[leaves[q].at] = [];
+            mk = it.marks[leaves[q].at];
+            mk[d] = true;
+          }
+        }
+        if (deep) {
+          for (f = 0; f < fams.length; f++) rivalAdd(moved, fams[f] + imp, lf);
+        }
+      }
+    }
+    var plan = { n: parts.length, marks: [], sig: [] };
+    for (i = 0; i < items.length; i++) {
+      plan.marks.push(items[i].marks || null);
+      plan.sig.push(items[i].marks ? leafSig(items[i].leaves) : null);
+    }
+    return plan;
+  }
+
+  /* Раскладка кусков сборки по плану: { base, deep } или null, если кусок
+     разошёлся с планом по форме (тогда нужна полная пересборка). */
+  function deepSplit(parts, plan) {
+    if (!plan || parts.length !== plan.n) return null;
+    var base = [];
+    var deep = [];
+    for (var i = 0; i < parts.length; i++) {
+      var marks = plan.marks[i];
+      if (!marks) {
+        base.push(parts[i]);
+        continue;
+      }
+      var leaves = cssLeaves(parts[i]);
+      if (leafSig(leaves) !== plan.sig[i]) return null;
+      for (var l = 0; l < leaves.length; l++) {
+        var mk = marks[l] || (leaves[l].raw !== undefined ? false : []);
+        var b = leafText(leaves[l], mk, false);
+        var d = leafText(leaves[l], mk, true);
+        if (b) base.push(b);
+        if (d) deep.push(d);
+      }
+    }
+    return { base: base.join('\n'), deep: deep.join('\n') };
+  }
+
+  /* mode: не задан — вся таблица одним текстом (как прежде); 'base' —
+     бесцветная часть (узел lumen-card-css); 'deep' — только цветная
+     (lumen-accent-deep). План строится заново на каждый вызов с режимом. */
+  LC.buildCss = function (mode) {
+    var parts = buildParts();
+    if (!mode) return parts.join('\n');
+    var split = deepSplit(parts, deepPlan(parts));
+    if (!split) return mode === 'deep' ? '' : parts.join('\n');
+    return mode === 'deep' ? split.deep : split.base;
   };
+
+  /* Узел цвета: сразу после основного; пустой текст снимает узел. */
+  function writeDeep(main, text) {
+    var node = document.getElementById(DEEP_ID);
+    if (!text) {
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+      deep_css_text = null;
+      return;
+    }
+    var parent = main.parentNode;
+    if (!node) {
+      node = document.createElement('style');
+      node.id = DEEP_ID;
+      node.type = 'text/css';
+      deep_css_text = null;
+    }
+    if (main.nextSibling !== node || node.parentNode !== parent) {
+      if (parent && typeof parent.insertBefore === 'function') parent.insertBefore(node, main.nextSibling || null);
+      else (document.head || document.getElementsByTagName('head')[0] || document.body).appendChild(node);
+    }
+    if (text !== deep_css_text) {
+      if ('styleSheet' in node && node.styleSheet) node.styleSheet.cssText = text;
+      else node.innerHTML = text;
+      deep_css_text = text;
+    }
+  }
 
   /* Последний записанный текст CSS карточки: тот же текст повторно в <style>
      не пишем — смена любой настройки lumen_card_* зовёт injectCss, а
      переразбор стилей на ТВ заметен (Task 35: замер текста buildCss при
-     настройках по умолчанию — 103 КБ, 2026-09-18). */
+     настройках по умолчанию — 103 КБ, 2026-09-18). С v1.4 здесь бесцветная
+     часть таблицы (узел цвета — deep_css_text выше). */
   var card_css_text = null;
+
+  /* Счётчики записей узлов — самотесту и тестам (сколько раз за сценарий
+     переписан основной узел и сколько раз — только узел цвета). */
+  LC.cssWrites = { full: 0, deep: 0 };
+
+  function writeMain(el, text) {
+    if (text === card_css_text) return;
+    if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
+    else el.innerHTML = text;
+    card_css_text = text;
+    LC.cssWrites.full++;
+  }
+
+  /* Смена цвета кадра (src/57_color.js: открытие и закрытие карточки,
+     акцент темы): переписывается только узел цвета. Полная пересборка —
+     только если основного узла ещё нет, плана нет (не разложилось) или
+     бесцветная часть разошлась с записанной (страховка, шапка раздела).
+     Отдаёт то же, что LC.injectCss. */
+  LC.injectColorCss = function () {
+    var main = null;
+    try { main = document.getElementById(STYLE_ID); } catch (e0) { main = null; }
+    if (!main || !deep_plan || card_css_text === null) return LC.injectCss();
+    var written = false;
+    try {
+      var split = deepSplit(buildParts(), deep_plan);
+      if (!split || split.base !== card_css_text) return LC.injectCss();
+      if (split.deep !== deep_css_text) LC.cssWrites.deep++;
+      writeDeep(main, split.deep);
+      written = true;
+      /* Экраны пути до плеера красятся акцентом (LC.tokens) — как и при
+         полной сборке, их CSS сверяется заново (пишется только при смене). */
+      if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
+      if (LC.accent && typeof LC.accent.restyle === 'function') LC.accent.restyle();
+    } catch (e) {
+      warn('color css inject failed', e);
+    }
+    return written;
+  };
 
   /* Сверка 2026-09-26: отдаёт, записана ли таблица стилей. false — LC.buildCss
      бросил (или узел не вставить): тогда рантайм не включает оформление вовсе
@@ -7279,12 +7754,20 @@
         (document.head || document.getElementsByTagName('head')[0] || document.body).appendChild(el);
         card_css_text = null;
       }
-      var text = LC.buildCss();
-      if (text !== card_css_text) {
-        if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
-        else el.innerHTML = text;
-        card_css_text = text;
+      var parts = buildParts();
+      /* v1.4 P0-1: план раскладки строится на каждой полной сборке — она и
+         есть смена настроек. Сбой плана таблицу не роняет: она пишется
+         одним узлом, как до разделения. */
+      var split = null;
+      try {
+        deep_plan = deepPlan(parts);
+        split = deepSplit(parts, deep_plan);
+      } catch (ePlan) {
+        warn('css deep plan failed', ePlan);
       }
+      if (!split) deep_plan = null;
+      writeMain(el, split ? split.base : parts.join('\n'));
+      writeDeep(el, split ? split.deep : '');
       written = true;
       /* Task 32: CSS экранов пути пересобирается вместе с CSS карточки
          (смена акцента/шрифтов); сама функция уважает ui_active и lumen_torrents. */
@@ -7313,6 +7796,10 @@
       var el = document.getElementById(STYLE_ID);
       if (el && el.parentNode) el.parentNode.removeChild(el);
       card_css_text = null;
+      var deep = document.getElementById(DEEP_ID);
+      if (deep && deep.parentNode) deep.parentNode.removeChild(deep);
+      deep_css_text = null;
+      deep_plan = null;
     } catch (e) {
       warn('css remove failed', e);
     }
