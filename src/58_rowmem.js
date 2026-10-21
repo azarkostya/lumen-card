@@ -52,6 +52,23 @@
   /* Переходы лент Lampa модуль не трогает (урок B1). Незнакомая форма      */
   /* компонента или ряда — тихий отказ.                                     */
   /*                                                                       */
+  /* v1.4 «Слабый ТВ» (только на слабой приставке, LC.perf.weakInfo):      */
+  /*   - ряды засыпают раньше: FAR_WEAK = 4 вместо FAR;                     */
+  /*   - «сон» карточек АКТИВНОГО ряда: дальше CARD_FAR экранов от фокуса   */
+  /*     ряда у карточки .card__view получает display:none (в простое).    */
+  /*     Сама .card (она и есть .selector Lampa) остаётся в раскладке со    */
+  /*     своей шириной: offsetParent не null (collectionSet с visible_only, */
+  /*     app.min.js:48238), offsetLeft соседей и прокрутка ряда те же;      */
+  /*     меняется только высота спящей карточки, а высоту ряда держат       */
+  /*     живые карточки у фокуса. На переводе фокуса, СИНХРОННО и до         */
+  /*     обработчиков Lampa (фаза захвата; класс focus Lampa ставит уже     */
+  /*     после 'hover:focus', app.min.js:48221-48229), карточки в пределах   */
+  /*     CARD_NEAR экранов от цели просыпаются. Риск — геометрия            */
+  /*     Navigator: соседи цели всегда живые (окно ±CARD_NEAR), поэтому     */
+  /*     шаг влево/вправо и прыжок CH± на десять карточек до спящей не       */
+  /*     достают. Окно — по экранам (ширина окна / ширина карточки), а не   */
+  /*     по числу карточек.                                                 */
+  /*                                                                       */
   /* Ушли с главной вглубь (detach) — её ряды спят дальше, а компонент      */
   /* остаётся в списке «припаркованных»: выключение плагина не с главной    */
   /* (uninstall) будит и их, иначе при «Назад» пустые полосы до перезапуска */
@@ -85,6 +102,11 @@
     /* Пауза, когда делать нечего или экран не тот. */
     var REST_MS = 3000;
     var MARK = 'lumen-rowmem-lv';
+    /* v1.4 «Слабый ТВ» (см. шапку): ряды — раньше, карточки активного ряда
+       — по экранам от фокуса ряда. */
+    var FAR_WEAK = 4;
+    var CARD_NEAR = 2;
+    var CARD_FAR = 3;
 
     var state = null;
     /* Главные, от которых ушли вглубь: [{root, comp}] (см. шапку). В истории
@@ -162,6 +184,18 @@
       }
     }
 
+    function weakTv() {
+      try {
+        return !!(LC.perf && typeof LC.perf.weakInfo === 'function' && LC.perf.weakInfo());
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function farRows() {
+      return weakTv() ? FAR_WEAK : FAR;
+    }
+
     /* Компонент главной (Main/Items$1): items — построенные ряды, active —
        ряд под фокусом. Только знакомая форма и только наш корень. */
     function component() {
@@ -197,11 +231,12 @@
 
     /* Чистая: что делать с рядом на расстоянии d от фокуса при его флагах
        {sleep, bytes}. Ответ: {wake, sleep, back, drop} — булевы. */
-    function decide(d, sleep, bytes, withBytes) {
+    function decide(d, sleep, bytes, withBytes, far) {
       var out = { wake: false, sleep: false, back: false, drop: false };
+      if (!(far > NEAR)) far = FAR;
       if (d <= NEAR && sleep) out.wake = true;
       if (d <= BYTES_NEAR && bytes) out.back = true;
-      if (d >= FAR && !sleep) out.sleep = true;
+      if (d >= far && !sleep) out.sleep = true;
       if (withBytes && d >= BYTES_FAR && !bytes && (sleep || out.sleep)) out.drop = true;
       return out;
     }
@@ -292,6 +327,110 @@
       return true;
     }
 
+    /* ---- v1.4: сон карточек активного ряда (см. шапку) ---- */
+
+    function viewOf(card) {
+      try {
+        return typeof card.querySelector === 'function' ? card.querySelector('.card__view') : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function showCard(card) {
+      if (!card || !card.lumen_rowmem_view) return false;
+      var view = viewOf(card);
+      if (view && view.style) view.style.display = '';
+      card.lumen_rowmem_view = false;
+      return true;
+    }
+
+    function hideCard(card) {
+      if (!card || card.lumen_rowmem_view) return false;
+      var view = viewOf(card);
+      if (!view || !view.style) return false;
+      view.style.display = 'none';
+      card.lumen_rowmem_view = true;
+      return true;
+    }
+
+    function indexIn(list, node) {
+      for (var i = 0; i < list.length; i++) if (list[i] === node) return i;
+      return -1;
+    }
+
+    /* Карточек на экран: ширина окна / ширина карточки (в простое, где
+       чтение раскладки ничего не стоит). Запоминается на ленте ряда — на
+       переводе фокуса раскладку не читаем. 0 — не узнать. */
+    function perScreen(sc, card) {
+      if (sc.lumen_rowmem_per > 0) return sc.lumen_rowmem_per;
+      var w = 0;
+      var sw = 0;
+      try { w = card.offsetWidth || 0; } catch (e) { w = 0; }
+      try { sw = window.innerWidth || 0; } catch (e2) { sw = 0; }
+      if (!(w > 0) || !(sw > 0)) return 0;
+      sc.lumen_rowmem_per = Math.max(1, Math.ceil(sw / w));
+      return sc.lumen_rowmem_per;
+    }
+
+    /* Простой: у активного ряда усыпить карточки дальше CARD_FAR экранов
+       от карточки под фокусом. true — кто-то уснул. */
+    function sleepCards(c) {
+      var line = c.items[c.active];
+      var sc = tape(line);
+      if (!sc || typeof sc.querySelector !== 'function') return false;
+      var focused = sc.querySelector('.card.focus');
+      if (!focused) return false;
+      var list = sc.querySelectorAll('.card');
+      var at = indexIn(list, focused);
+      if (at < 0) return false;
+      var per = perScreen(sc, focused);
+      if (!per) return false;
+      var far = CARD_FAR * per;
+      var n = 0;
+      for (var i = 0; i < list.length; i++) {
+        if (Math.abs(i - at) >= far && hideCard(list[i])) n++;
+      }
+      if (n) {
+        sc.lumen_rowmem_cards = true;
+        state.stats.cardViews += n;
+      }
+      return n > 0;
+    }
+
+    /* Перевод фокуса на карточку: соседи в пределах CARD_NEAR экранов —
+       живые. Без запомненной ширины — будим весь ряд (безопасно). */
+    function wakeCardsAround(card) {
+      if (!card || typeof card.closest !== 'function') return;
+      var sc = card.closest('.scroll');
+      if (!sc || !sc.lumen_rowmem_cards || typeof sc.querySelectorAll !== 'function') return;
+      var list = sc.querySelectorAll('.card');
+      var at = indexIn(list, card);
+      var per = sc.lumen_rowmem_per;
+      if (at < 0 || !(per > 0)) { wakeCards(sc); return; }
+      var reach = CARD_NEAR * per;
+      var from = Math.max(0, at - reach);
+      var to = Math.min(list.length - 1, at + reach);
+      for (var i = from; i <= to; i++) showCard(list[i]);
+    }
+
+    function wakeCards(sc) {
+      if (!sc || !sc.lumen_rowmem_cards || typeof sc.querySelectorAll !== 'function') return;
+      var list = sc.querySelectorAll('.card');
+      for (var i = 0; i < list.length; i++) showCard(list[i]);
+      sc.lumen_rowmem_cards = false;
+    }
+
+    function targetCard(e) {
+      try {
+        var t = e && e.target;
+        if (!t || typeof t.closest !== 'function') return null;
+        return t.closest('.card');
+      } catch (err) {
+        return null;
+      }
+    }
+
     /* Синхронная часть перевода фокуса: будит ближние, возвращает байты.
        Обходит только окно ±BYTES_NEAR — O(1) на нажатие. */
     function near(c) {
@@ -312,6 +451,7 @@
     function work(c) {
       var at = c.active;
       var withBytes = bytesOn();
+      var far = farRows();
       var best = -1;
       var bestD = -1;
       var what = null;
@@ -319,15 +459,15 @@
         var line = c.items[i];
         if (!line || line.lumen_rowmem_skip) continue;
         var d = Math.abs(i - at);
-        if (d < FAR) continue;
-        var dec = decide(d, !!line.lumen_rowmem_sleep, !!line.lumen_rowmem_bytes, withBytes);
+        if (d < far) continue;
+        var dec = decide(d, !!line.lumen_rowmem_sleep, !!line.lumen_rowmem_bytes, withBytes, far);
         if ((dec.sleep || dec.drop) && d > bestD) {
           best = i;
           bestD = d;
           what = dec;
         }
       }
-      if (best === -1) return false;
+      if (best === -1) return weakTv() ? sleepCards(c) : false;
       var target = c.items[best];
       if (what.sleep && !sleepLine(target)) {
         /* Ряд не той формы или не в раскладке — больше не пробуем. */
@@ -393,10 +533,11 @@
     }
 
     /* Перевод фокуса: ближние — сразу; усыпление — после QUIET_MS покоя. */
-    function onFocus() {
+    function onFocus(e) {
       if (!state) return;
       try {
         if (on()) {
+          wakeCardsAround(targetCard(e));
           var c = component();
           if (c) near(c);
         } else {
@@ -431,6 +572,7 @@
           line.lumen_rowmem_skip = false;
           if (line.lumen_rowmem_bytes) backBytes(line);
           if (line.lumen_rowmem_sleep) wakeLine(line);
+          wakeCards(tape(line));
         }
       } catch (e) {
         warn('rowmem: wake all failed', e);
@@ -471,7 +613,7 @@
         /* Вернулись на припаркованную главную — дальше она снова наша. */
         forget(root);
         state = { root: root, timer: null, idle: null, recheck: null, failed: 0, handler: onFocus, resize: onResize, touch: onTouch,
-          stats: { slept: 0, woke: 0, cards: 0, dropped: 0, back: 0 } };
+          stats: { slept: 0, woke: 0, cards: 0, dropped: 0, back: 0, cardViews: 0 } };
         if (!LC.focus.capture(root[0], state.handler)) state.handler = null;
         try { root[0].addEventListener('touchstart', state.touch, { capture: true, passive: true }); } catch (eT) { state.touch = null; }
         try { window.addEventListener('resize', state.resize); } catch (eR) { state.resize = null; }
@@ -547,12 +689,13 @@
 
     var api = {
       NEAR: NEAR, FAR: FAR, BYTES_FAR: BYTES_FAR, BYTES_NEAR: BYTES_NEAR, QUIET_MS: QUIET_MS, MARK: MARK,
+      FAR_WEAK: FAR_WEAK, CARD_NEAR: CARD_NEAR, CARD_FAR: CARD_FAR,
       decide: decide, plan: plan,
       mount: mount, unmount: unmount, uninstall: uninstall, detach: detach, owns: owns, forget: forget, mountCurrent: mountCurrent,
       wakeAll: wakeAll, tick: tick, onFocus: onFocus,
       active: function () { return !!state; },
       parked: function () { return parked.length; },
-      stats: function () { return state ? { slept: state.stats.slept, woke: state.stats.woke, cards: state.stats.cards, dropped: state.stats.dropped, back: state.stats.back } : null; },
+      stats: function () { return state ? { slept: state.stats.slept, woke: state.stats.woke, cards: state.stats.cards, dropped: state.stats.dropped, back: state.stats.back, cardViews: state.stats.cardViews } : null; },
       _timers: null,
       _idle: null
     };
