@@ -181,9 +181,30 @@
       return { state: days === null || days > 0 ? 'soon' : 'aired' };
     }
 
+    /* 1.4: статус сезона в строке «Продолжить» — «просмотрено 5 из 12».
+       Только чтение Timeline по сериям ПОСЛЕДНЕГО сезона (episodes — те же
+       e.data.episodes.episodes, что у serialProgress) и только для сезона
+       найденной серии: у запасного scanAll списка серий нет, и «из скольких»
+       неизвестно. Ни одной досмотренной — null (строка остаётся прежней). */
+    function seasonCount(movie, found, episodes, view, hash) {
+      if (!movie || !found || !found.season || !episodes || !episodes.length) return null;
+      var key = movie.original_name || movie.original_title || movie.name || movie.title;
+      if (!key) return null;
+      var done = 0, total = 0;
+      for (var i = 0; i < episodes.length; i++) {
+        var ep = episodes[i];
+        if (!ep || !(ep.episode_number > 0) || (parseInt(ep.season_number, 10) || 0) !== found.season) continue;
+        total++;
+        if (percentOf(view(episodeHash(found.season, ep.episode_number, key, hash))) >= WATCHED) done++;
+      }
+      if (!done || !total) return null;
+      return { done: done, total: total };
+    }
+
     return {
       movieProgress: movieProgress,
       serialProgress: serialProgress,
+      seasonCount: seasonCount,
       episodeState: episodeState,
       label: label
     };

@@ -409,6 +409,8 @@
        «Продолжить S2 E3» (экран 05). В самой строке прогресса подписи
        «ПРОДОЛЖИТЬ» больше нет: по design-spec §6 там таймкод и процент. */
     lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
+    /* 1.4: статус сезона в строке «Продолжить» (LC.progress.seasonCount). */
+    lumen_card_watched_of: { ru: 'просмотрено {n} из {t}', en: 'watched {n} of {t}', uk: 'переглянуто {n} з {t}' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
@@ -1034,6 +1036,17 @@
       ru: 'Скрыто — исчезнет из рядов при следующем обновлении',
       en: 'Hidden — it will leave the rows on the next refresh',
       uk: 'Сховано — зникне з рядів при наступному оновленні'
+    },
+    /* 1.4: «Убрать из «Досмотреть»» (LC.cardmenu, LC.personal.hideContinue). */
+    lumen_menu_cw_hide: {
+      ru: 'Убрать из «Досмотреть»',
+      en: 'Remove from Continue watching',
+      uk: 'Прибрати з «Додивитися»'
+    },
+    lumen_menu_cw_hidden: {
+      ru: 'Убрано из «Досмотреть»',
+      en: 'Removed from Continue watching',
+      uk: 'Прибрано з «Додивитися»'
     },
     lumen_menu_unhidden: {
       ru: 'Возвращено в рекомендации',
