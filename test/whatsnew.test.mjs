@@ -230,6 +230,7 @@ test('whatsnew: schedule — первая проверка через 4 с, ок
   assert.equal(p.size, 'medium');
   assert.equal(p.buttons.length, 1, 'одна кнопка — единственный .selector окна');
   assert.equal(p.buttons[0].name, 'Понятно');
+  assert.equal(p.buttons_position, 'outside', 'кнопка в подвале — на 960×540 всегда на экране (QA ТВ 21.10)');
   assert.equal(typeof p.onBack, 'function');
   for (const item of env.api.NOTES['1.2.0'].ru) {
     const esc = item.replace(/"/g, '&quot;');

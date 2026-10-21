@@ -99,6 +99,7 @@ test('onboard: schedule — окно поверх готовой главной;
   assert.equal(/[<&$]/.test(p.title), false, 'заголовок идёт в шаблон строкой');
   assert.equal(p.buttons.length, 1);
   assert.equal(p.buttons[0].name, 'Начать');
+  assert.equal(p.buttons_position, 'outside', 'кнопка в подвале, всегда на экране');
   const html = p.html.html;
   assert.ok(html.indexOf('Удерживайте OK') !== -1, html);
   assert.ok(html.indexOf('Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API') !== -1, html);

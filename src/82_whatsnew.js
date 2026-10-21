@@ -381,8 +381,22 @@
           html: $(html),
           size: 'medium',
           buttons: [{ name: LC.lang('lumen_whatsnew_ok'), onSelect: close }],
+          /* Кнопка — в подвале, вне прокрутки (штатный режим Lampa): 8 пунктов
+             не помещаются на 960×540, а кнопка внутри прокрутки уходила под
+             нижний край и не появлялась (QA на ТВ 21.10.2026). Вниз —
+             листает текст, в конце — на кнопку. */
+          buttons_position: 'outside',
           onBack: close
         });
+        /* Фокус сразу на кнопке в подвале: «ОК» закрывает окно, вверх/вниз
+           Lampa листает текст (roll → wheel), фокус остаётся на кнопке. */
+        try {
+          var foot = $('.modal .modal__footer');
+          if (foot.length && Lampa.Controller && typeof Lampa.Controller.collectionSet === 'function') {
+            Lampa.Controller.collectionSet(foot);
+            Lampa.Controller.collectionFocus(false, foot);
+          }
+        } catch (e4) { }
         return true;
       } catch (err) {
         warn('whatsnew open failed', err);
