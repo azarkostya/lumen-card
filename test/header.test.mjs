@@ -1270,6 +1270,28 @@ test('v2 экран 35: без оценки и описания — ни «★»
   });
 });
 
+/* 1.4: чипы ленты рейтингов скрыты всегда, поэтому IMDb/КП — текстом в мете
+   сразу за TMDB, тем же классом. Источник — поле карточки или открытый чип
+   (его заполняет Lampa либо LC.applyImdbRate из ответа Кинопоиска). */
+test('1.4: IMDb и КП — в мете за TMDB; поздний рейтинг перерисовывает мету', () => {
+  withFlat(false, () => {
+    const c = cardWithDescr();
+    const imdbVal = new FakeEl([]);
+    const imdb = new FakeEl(['full-start__rate', 'rate--imdb', 'hide'], [imdbVal, new FakeEl([])]);
+    c.rateLine._children.push(imdb); imdb._parentEl = c.rateLine;
+    const m = odyssey(); m.kp_rating = 7.94;
+    LC.header.decorate(c.root, { movie: m });
+    let html = c.meta.html();
+    assert.equal(html.indexOf('IMDb'), -1, 'скрытый пустой чип IMDb в мету не попадает');
+    assert.ok(html.indexOf('TMDB</span><span class="lumen-meta__sep">·</span><span class="lumen-meta__rate lumen-meta__rate--kp">KP' + NB + '7.9</span>') !== -1, html);
+    imdbVal.text('7.5'); imdb.removeClass('hide');
+    LC.header.refreshMeta(c.root);
+    html = c.meta.html();
+    assert.ok(html.indexOf('<span class="lumen-meta__rate lumen-meta__rate--imdb">IMDb' + NB + '7.5</span>') !== -1, html);
+    assert.ok(html.indexOf('IMDb') < html.indexOf('KP'), 'порядок: TMDB, IMDb, КП');
+  });
+});
+
 /* Правка 2026-09-23 (разбор композиции, п.2.1): длинное название режется по
    своему разделителю, а не по ширине колонки. Доля названий с разделителем
    и разбор правила — у LC.cardinfo.titleParts. */

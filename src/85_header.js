@@ -113,6 +113,24 @@
     return '★' + nb + v.toFixed(1) + (apple ? '' : nb + 'TMDB');
   }
 
+  /* 1.4: IMDb и КП — тем же текстом в мете, сразу за TMDB. Чипы ленты
+     рейтингов у нас скрыты всегда (src/30_css.js, экран 35), поэтому
+     значение, которое Lampa (imdb_rating/kp_rating CUB или парсера) или
+     LC.applyImdbRate/applyKpRate (ответ Кинопоиска, src/60_reviews.js)
+     ставят на чип, иначе нигде не видно. Источник — поле карточки, а если
+     его нет — открытый чип .rate--imdb/.rate--kp той же карточки. */
+  var EXTRA_RATES = [['imdb', 'imdb_rating', 'IMDb'], ['kp', 'kp_rating', 'KP']];
+
+  function extraRate(root, movie, key, field) {
+    var v = parseFloat(movie && movie[field]);
+    if (!(v > 0)) {
+      var chip = root.find('.rate--' + key);
+      if (chip && chip.length && !chip.hasClass('hide')) v = parseFloat(chip.children().eq(0).text());
+    }
+    if (!(v > 0)) return '';
+    return LC.util.NBSP + (v > 10 ? 10 : v).toFixed(1);
+  }
+
   function renderMeta(root, movie) {
     var parts = [];
     var serial = isSerial(movie);
@@ -187,6 +205,15 @@
       if (html.length) html.push('<span class="lumen-meta__sep">·</span>');
       html.push('<span class="lumen-meta__rate">' + esc(rating) + '</span>');
     }
+    for (var r = 0; r < EXTRA_RATES.length; r++) {
+      var extra = extraRate(root, movie, EXTRA_RATES[r][0], EXTRA_RATES[r][1]);
+      if (!extra) continue;
+      if (html.length) html.push('<span class="lumen-meta__sep">·</span>');
+      html.push('<span class="lumen-meta__rate lumen-meta__rate--' + EXTRA_RATES[r][0] + '">' + esc(EXTRA_RATES[r][2] + extra) + '</span>');
+    }
+    /* Рейтинг КП/IMDb может прийти позже (ответ Кинопоиска) — refreshMeta
+       перерисует строку той же карточкой. */
+    root.data('lumenMetaMovie', movie);
 
     root.find('.lumen-meta').html(html.join(''));
     root.addClass('lumen--meta');
@@ -2431,8 +2458,18 @@
     } catch (e) { }
   }
 
+  /* 1.4: перерисовать мету карточки после позднего рейтинга (fillRateChip,
+     src/90_runtime.js). Без карточки, сохранённой renderMeta, — ничего. */
+  function refreshMeta(root) {
+    if (!root || !root.length || !root.hasClass('lumen-card')) return;
+    var movie = root.data('lumenMetaMovie');
+    if (!movie) return;
+    try { renderMeta(root, movie); } catch (e) { warn('meta refresh failed', e); }
+  }
+
   LC.header = {
     decorate: decorate,
+    refreshMeta: refreshMeta,
     applyLogoPref: applyLogoPref,
     mergePeople: mergePeople,
     installPeople: installPeople,

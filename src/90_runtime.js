@@ -1501,6 +1501,10 @@
       if (!chip || !chip.length || !chip.hasClass('hide')) return;
       chip.children().eq(0).text(num > 10 ? 10 : num);
       chip.removeClass('hide');
+      /* 1.4: чипы ленты скрыты CSS — рейтинг виден только текстом в мете. */
+      if (LC.header && typeof LC.header.refreshMeta === 'function' && typeof chip.closest === 'function') {
+        LC.header.refreshMeta(chip.closest('.lumen-card'));
+      }
     } catch (e) {
       warn(cls + ' failed', e);
     }

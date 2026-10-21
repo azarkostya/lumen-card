@@ -1269,6 +1269,30 @@ test('1.4: LC.applyImdbRate заполняет rate--imdb только когд�
   assert.deepEqual(warnLog, []);
 });
 
+/* 1.4: ratingImdb из ответа Кинопоиска -> чип .rate--imdb -> строка меты
+   («IMDb 7.5»): чипы ленты скрыты CSS, видно рейтинг только в мете. */
+test('1.4: LC.applyImdbRate — «IMDb 7.5» в строке меты карточки', () => {
+  const { LC } = initLC();
+  const value = new FakeEl([]);
+  const chip = new FakeEl(['full-start__rate', 'rate--imdb', 'hide'], [value, new FakeEl([])]);
+  const rateLine = new FakeEl(['full-start-new__rate-line'], [chip]);
+  const meta = new FakeEl(['lumen-meta']);
+  const card = new FakeEl(['full-start-new', 'lumen-card'], [meta, rateLine]);
+  const activity = new FakeEl(['activity'], [card]);
+  activity.find = (sel) => (sel === '.lumen-card .rate--imdb' ? chip : EMPTY);
+  const row = new FakeEl(['items-line', 'lumen-descr-row']);
+  row._closestActivity = activity;
+  /* Модуль шапки здесь заглушен: сама строка «IMDb 7.5» из открытого чипа —
+     тест «1.4: IMDb и КП — в мете…» в test/header.test.mjs. */
+  const refreshed = [];
+  LC.header = { refreshMeta: (r) => { refreshed.push(r); meta.html('IMDb ' + value.text()); } };
+  LC.applyImdbRate(7.5, row);
+  assert.equal(chip.hasClass('hide'), false);
+  assert.deepEqual(refreshed, [card], 'перерисована мета именно этой карточки');
+  assert.ok(meta.html().indexOf('IMDb 7.5') !== -1, meta.html());
+  assert.deepEqual(warnLog, []);
+});
+
 /* ====================================================================== */
 /* Ревью Task 10: выключенный плагин не должен ничего оживлять.           */
 /* ====================================================================== */
