@@ -226,7 +226,7 @@
   /* --- CSS экрана 36 (точка подключения — LC.v2css, src/30_css.js) ---
      Числа макета — FHD, em — от базового кегля Lampa 22.811 px:
      80 px = 3.51em, 40 = 1.75em, 30 = 1.32em, 38 = 1.67em, 23 = 1.01em,
-     201 = 8.81em, 110 = 4.82em, 195 = 8.55em, 320 = 14.03em,
+     217 = 9.52em, 110 = 4.82em, 195 = 8.55em, 320 = 14.03em,
      300 = 13.15em, 150 = 6.58em, 120 = 5.26em, 16 = .7em, 52 = 2.28em. */
   LC.v2css = LC.v2css || [];
   LC.v2css.push({
@@ -295,17 +295,33 @@
       css.push(L + ' .lumen-lower__kp{margin-left:.78em;font-size:1.01em;font-weight:500;line-height:1.2;color:' + MUTED + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;min-width:0}');
       css.push('body .lumen-lower-kp .lumen-descr-row .lumen-reviews[data-lumen-state="nokey"]{display:none}');
 
-      /* Постеры «Рекомендаций», «Похожих», коллекции — одна ширина 201 px. */
+      /* Постеры «Рекомендаций», «Похожих», коллекции — одна ширина 217 px. */
       var C = L + '.lumen-lower--cards';
       css.push(C + ' .mapping--line > * + *{margin-left:' + HALF + '}');
-      css.push(C + ' .card{width:8.81em}');
+      css.push(C + ' .card{width:9.52em;will-change:auto}');
       css.push(C + ' .card__view{border-radius:' + V2.rImg + 'em}');
       css.push(LM + '.lumen-lower--cards .card__view{' + TR + '}');
       css.push(C + ' .card__img{border-radius:' + V2.rImg + 'em}');
+      /* QA U10: штатная анимация фокуса Lampa (animation-card-focus)
+         перебивала масштаб — снята, как на главной; правило — до фокуса
+         (тест читает последнее правило селектора). */
+      css.push(C + ' .card.focus .card__view,' + C + ' .card.hover .card__view,' + C + ' .card.animate-trigger-enter .card__view{-webkit-animation:none !important;animation:none !important}');
       css.push(C + ' .card.focus .card__view{' + IMG_FOCUS + '}');
       css.push(C + ' .card.focus .card__view:after,' + C + ' .card.hover .card__view:after{display:none}');
       css.push(C + ' .card__title{font-size:1.01em;font-weight:500;line-height:1.25;margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;max-height:none;display:block}');
-      css.push(C + ' .card__age{font-size:1.01em;line-height:1.25;color:' + MUTED + '}');
+      css.push(C + ' .card__age{font-size:1.01em;font-weight:500;line-height:1.25;margin-top:.1em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');
+      /* QA U10: «Коллекция», «Рекомендации», «Похожие» — постер главной
+         (src/30_css.js, .lumen-main .card): 217 px (9.52em, седьмая
+         колонка, как ряды поиска), подпись в одну строку с «…» (и «год ·
+         ★» тоже), без пёстрых плашек TV/качества, значки состояния мельче
+         в правом верхнем углу (плашка рейтинга Lampa остаётся: подпись
+         здесь LC.badges не дописывает). Слой will-change Lampa снят, как
+         на главной (в одном правиле с шириной — её сторожит тест). */
+      css.push(C + ' .card.focus{z-index:2}');
+      css.push(C + ' .card__type,' + C + ' .card__quality{display:none}');
+      css.push(C + ' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+      css.push(C + ' .card__icon{width:1.25em;height:1.25em}');
+      css.push(C + ' .card.focus .card-watched{display:none}');
 
       /* «Актеры»: круг 110 px, имя и роль под ним, без белой плашки. */
       var Pp = L + '.lumen-lower--persons';
