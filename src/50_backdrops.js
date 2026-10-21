@@ -352,7 +352,10 @@
       var gen = nextGen(layer);
 
       var main = LC.cardinfo.backdropPath(movie);
-      var max = LC.slideshow.maxFramesFor(LC.motionMode());
+      /* v1.4 «Слабый ТВ»: на слабой приставке два кадра, а следующий
+         грузится за PRELOAD_WEAK_MS до смены (src/51_slideshow.js). */
+      var weak = weakTv();
+      var max = LC.slideshow.maxFramesFor(LC.motionMode(), weak);
       var paths = pickBackdrops(movie.images, main, max);
       /* Task 39: тот же размер, что у одиночного кадра (backdropUrl) — кадры
          слайдшоу занимают тот же слой на весь экран. Считается один раз на
@@ -361,6 +364,7 @@
       var frameSize = LC.util.frameSize(LC.util.screenPx());
       var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, frameSize, tmdbImageFn(), apiImgFn()); });
       var slideshowOpts = { enabled: slideshowEnabled, intervalMs: slideIntervalMs };
+      if (weak) slideshowOpts.preloadMs = PRELOAD_WEAK_MS;
 
       var controller = LC.slideshow.create(layer, urls, slideshowOpts);
       layer.data('lumenSlideshow', controller);
@@ -439,6 +443,16 @@
        шапку src/51_slideshow.js), поэтому смена режима применяется на лету. */
     try { if (LC.motionMode() === 'off') return false; } catch (e) { }
     return !!LC.pref('lumen_slideshow', true);
+  }
+
+  var PRELOAD_WEAK_MS = 3000;
+
+  function weakTv() {
+    try {
+      return !!(LC.perf && typeof LC.perf.weakInfo === 'function' && LC.perf.weakInfo());
+    } catch (e) {
+      return false;
+    }
   }
 
   function slideIntervalMs() {

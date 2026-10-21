@@ -711,3 +711,28 @@ test('revive() (fix, R5): ротация нового контроллера с�
   assert.equal(activeAfter.length, 1, 'активный кадр НОВОГО контроллера не должен был пострадать от отложенной уборки старого');
   assert.equal(activeAfter[0]._css['background-image'], activeBg);
 });
+
+/* v1.4 «Слабый ТВ»: на слабой приставке у карточки два кадра и подгрузка
+   следующего за 3 с до смены. */
+test('v1.4: слабая приставка — 2 кадра в слайдшоу карточки и preloadMs 3000', () => {
+  for (const weak of [true, false]) {
+    const LC = freshLC({ motion: 'lite', prefs: { lumen_slideshow: true } });
+    LC.perf = { weakInfo: () => (weak ? { kind: 'tvbox' } : null) };
+    const seen = [];
+    const originalCreate = LC.slideshow.create;
+    LC.slideshow.create = function (layer, urls, opts) { seen.push({ urls, opts }); return originalCreate(layer, urls, opts); };
+    const body = fakeBody();
+    LC.backdrops.apply(null, body, {
+      id: 1, backdrop_path: '/a.jpg',
+      images: { backdrops: [mk('/a.jpg', null, 9), mk('/b.jpg', null, 8), mk('/c.jpg', null, 7), mk('/d.jpg', null, 6), mk('/e.jpg', null, 5)] }
+    });
+    assert.equal(seen.length, 1);
+    if (weak) {
+      assert.equal(seen[0].urls.length, 2, 'слабая: два кадра');
+      assert.equal(seen[0].opts.preloadMs, 3000);
+    } else {
+      assert.equal(seen[0].urls.length, 4, 'обычная: четыре в «Лёгких»');
+      assert.equal(seen[0].opts.preloadMs, undefined);
+    }
+  }
+});

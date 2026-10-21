@@ -554,3 +554,59 @@ test('slideshow opts.show: ритм и очередь — контроллера
   ctrl.destroy();
   assert.equal(intervals[intervals.length - 1].cleared, true, 'destroy снимает таймер');
 });
+
+/* ====================================================================== */
+/* v1.4 «Слабый ТВ»: два кадра и подгрузка следующего заранее.            */
+/* ====================================================================== */
+
+test('v1.4: maxFramesFor на слабой приставке — 2 кадра (кроме «Выкл»)', () => {
+  const LC = freshLC();
+  assert.equal(LC.slideshow.maxFramesFor('full', true), 2);
+  assert.equal(LC.slideshow.maxFramesFor('lite', true), 2);
+  assert.equal(LC.slideshow.maxFramesFor('off', true), 1);
+  assert.equal(LC.slideshow.maxFramesFor('lite', false), 4, 'обычное железо — как было');
+});
+
+test('v1.4: preloadMs — следующий кадр заказывается за 3 с до смены, а тик берёт его без задержки', () => {
+  const LC = freshLC();
+  const waits = [];
+  globalThis.setTimeout = (fn, ms) => { waits.push(ms); return fakeSetTimeout(fn); };
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(2), { enabled: () => true, intervalMs: () => 14000, preloadMs: 3000 });
+  ctrl.activate();
+  assert.equal(waits[0], 11000, 'заказ — за 3 с до тика');
+  assert.equal(loaders.length, 0, 'до срока ничего не грузится');
+  fireTimer(1);
+  assert.equal(loaders.length, 1, 'следующий кадр заказан заранее');
+  assert.ok(String(loaders[0].src).includes('f1.jpg'));
+  fireInterval(1);
+  assert.equal(loaders.length, 2, 'тик создаёт кадр тем же адресом (из кэша)');
+  assert.ok(String(loaders[1].src).includes('f1.jpg'));
+  assert.equal(waits[waits.length - 1], 11000, 'после смены — следующий заказ');
+  ctrl.destroy();
+  assert.equal(timers[timers.length - 1].cleared, true, 'destroy снимает заказ');
+});
+
+test('v1.4: без preloadMs заранее ничего не грузится — как было', () => {
+  const LC = freshLC();
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(2), { enabled: () => true, intervalMs: () => 14000 });
+  ctrl.activate();
+  assert.equal(timers.length, 0, 'таймера подгрузки нет');
+  ctrl.destroy();
+});
+
+test('v1.4: pause() снимает заказ подгрузки; resume() ставит снова', () => {
+  const LC = freshLC();
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(2), { enabled: () => true, intervalMs: () => 14000, preloadMs: 3000 });
+  ctrl.activate();
+  assert.equal(timers.length, 1);
+  ctrl.pause();
+  assert.equal(timers[0].cleared, true);
+  ctrl.resume();
+  assert.equal(timers.length, 2);
+  assert.equal(timers[1].cleared, false);
+  ctrl.destroy();
+  assert.equal(timers[1].cleared, true);
+});
