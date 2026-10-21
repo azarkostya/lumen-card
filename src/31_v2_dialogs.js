@@ -136,6 +136,17 @@
       css.push(g(['.selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + ON + ' !important}');
       css.push(g(['.selectbox-item--checked.focus .selectbox-item__checkbox::after']) + '{color:' + FILL + ' !important;border-color:' + FILL + ' !important}');
       css.push(g(['.selectbox-item.selected.focus:not(.nomark)::after', '.selectbox-item.picked.focus::after']) + '{color:' + ON + ' !important;border-color:' + ON + ' !important}');
+      /* QA U4: окно «Источник» (Select кнопки «Смотреть», app.min.js
+         38808) — у пункта Shots подзаголовок «Смотреть нарезки <span
+         class="shots-view-button__count">12</span>» (plugins/shots/utils/
+         view.js), а плагин ставит счётчик абсолютом left:12em под поля
+         Lampa (shots/css/style.scss) — при наших полях и кегле он ложился
+         на текст. Счётчик — в строку после текста, видом счётчика вкладок
+         поиска (src/31_v2_search.js). Весом G: меню карточки (своё,
+         src/31_v2_torrents_menu.js) пункта Shots не содержит. */
+      css.push(g(['.selectbox-item__subtitle .shots-view-button__count']) + '{position:static;display:inline-block;vertical-align:middle;margin-left:.45em;padding:.12em .4em;min-width:1.4em;border-radius:.44em;font-size:.8em;font-weight:600;line-height:1.2;text-align:center}');
+      css.push(g(['.selectbox-item__subtitle .shots-view-button__count']) + '{background:rgba(' + P.textRgb + ',.14);color:inherit}');
+      css.push(g(['.selectbox-item.focus .selectbox-item__subtitle .shots-view-button__count']) + '{background:rgba(0,0,0,.14);color:inherit}');
 
       /* ---------------- Modal ---------------- */
       /* M0 (раскладка) — те же селекторы, что у пути; M (цвета) — с html:
