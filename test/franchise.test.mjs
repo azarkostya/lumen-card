@@ -474,3 +474,41 @@ test('сверка: «Смотреть по порядку» выключен �
   assert.equal(d.row.hasClass('lumen-descr-row--franchise'), false);
   assert.deepEqual(warnLog, []);
 });
+
+/* 1.4 (ревью, U9): штатная «Коллекция» снята (src/90_runtime.js,
+   dropCollectionRow), а наш запрос упал или пришёл пустым — ряд рисуется из
+   коллекции, которую Lampa уже получила сама (data.lumen_collection до
+   complite, data.collection после). */
+test('1.4: ошибка или пустой ответ нашего запроса — ряд из сохранённой коллекции Lampa', () => {
+  const lampaCol = { id: 726871, name: 'Дюна (Коллекция)', parts: DUNE_PARTS, results: DUNE_PARTS.slice(0, 19) };
+  for (const [label, data] of [
+    ['до complite (lumen_collection)', Object.assign({}, DATA, { lumen_collection: lampaCol, collection: null })],
+    ['после complite (collection)', Object.assign({}, DATA, { collection: lampaCol })]
+  ]) {
+    const env = freshEnv();
+    const d = makeDescrRow();
+    env.LC.franchise.render(d.row, data);
+    env.requests[0].err();
+    assert.equal(blocksOf(d).length, 1, label + ': ряд нарисован');
+    assert.equal(blocksOf(d)[0].hasClass('lumen-fr--sk'), false, label);
+    assert.ok(blocksOf(d)[0].html().indexOf('data-lumen-fr="0"') >= 0, label);
+    assert.equal(d.row.hasClass('lumen-descr-row--franchise'), true, label);
+  }
+  const env = freshEnv();
+  const d = makeDescrRow();
+  env.LC.franchise.render(d.row, Object.assign({}, DATA, { lumen_collection: lampaCol }));
+  env.requests[0].ok({ id: 726871, parts: [] });
+  assert.equal(blocksOf(d).length, 1, 'пустой ответ — тоже из сохранённой');
+  const env2 = freshEnv();
+  env2.Lampa.Api.sources.tmdb.get = function () { throw new Error('tmdb broken'); };
+  const d2 = makeDescrRow();
+  env2.LC.franchise.render(d2.row, Object.assign({}, DATA, { lumen_collection: lampaCol }));
+  assert.equal(blocksOf(d2).length, 1, 'запрос не ушёл — тоже из сохранённой');
+  /* Сохранённой нет — как раньше: пусто. */
+  const env3 = freshEnv();
+  const d3 = makeDescrRow();
+  env3.LC.franchise.render(d3.row, DATA);
+  env3.requests[0].err();
+  assert.equal(blocksOf(d3).length, 0);
+  assert.deepEqual(warnLog, []);
+});

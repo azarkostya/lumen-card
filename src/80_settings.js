@@ -806,9 +806,9 @@
        выключателем (lumen_franchise). */
     lumen_franchise_name: { ru: 'Франшизы', en: 'Franchises', uk: 'Франшизи' },
     lumen_franchise_descr: {
-      ru: 'Кнопка «Франшиза» и ряд «Смотреть по порядку» у фильмов из серии.',
-      en: 'The "Franchise" button and the "Watch in order" row for films in a series.',
-      uk: 'Кнопка «Франшиза» і ряд «Дивитися по порядку» у фільмів із серії.'
+      ru: 'Кнопка «Франшиза» и ряд «Смотреть по порядку» — он заменяет штатную «Коллекцию».',
+      en: 'The "Franchise" button and the "Watch in order" row, which replaces "Collection".',
+      uk: 'Кнопка «Франшиза» і ряд «Дивитися по порядку» — він замінює штатну «Колекцію».'
     },
     lumen_hide_watched_name: {
       ru: 'Скрывать досмотренное',

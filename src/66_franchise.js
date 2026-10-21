@@ -513,6 +513,25 @@
       try { return LC.pref ? !!LC.pref('lumen_franchise', true) && !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
     }
 
+    /* 1.4 (ревью, U9): штатную «Коллекцию» рантайм снимает, пока наш ряд
+       включён (dropCollectionRow, src/90_runtime.js), а наш ряд — отдельный
+       запрос. Вернуть штатный ряд после ошибки нельзя: Lampa кладёт ряды в
+       список один раз, до complite, а наш ответ приходит позже. Поэтому
+       запасной путь — нарисовать наш ряд из той коллекции, что Lampa уже
+       получила сама: она лежит в data.lumen_collection (снята до 'start')
+       или снова в data.collection (возвращена на 'complite'); формат тот
+       же ответ collection/<id> TMDB (parts, у Lampa ещё results). Меньше
+       двух частей — нечего показывать, как и в основном пути. */
+    function savedParts(data) {
+      try {
+        var col = data && (data.lumen_collection || data.collection);
+        var parts = col && (col.parts || col.results);
+        return parts && parts.length >= 2 ? parts : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
     /* row — узел ряда описания (items_line), тот же, что получают
        LC.header.descr и LC.reviews.render. Идемпотентно: 'build'
        'description' и страховочный complite приходят с одними данными —
@@ -551,19 +570,25 @@
 
         paintSkeleton(holder);
 
+        var paintParts = function (current, parts) {
+          current.parts = parts;
+          paint(holder, current);
+          row.addClass('lumen-descr-row--franchise');
+          current.painted = true;
+        };
+
         var sent = requestCollection(collection.id, function (json) {
           try {
             var current = stateOf(holder);
             if (current.gen !== gen) return;
             clearBlock(holder);
             var parts = (json && json.parts) || [];
+            /* Пустой ответ — запасной путь из коллекции Lampa (savedParts). */
+            if (parts.length < 2) parts = savedParts(data) || parts;
             /* Одна часть — это не франшиза: смотреть по порядку нечего, а
                кнопка «Франшиза» и так ведёт в сетку коллекции. */
             if (parts.length < 2) return;
-            current.parts = parts;
-            paint(holder, current);
-            row.addClass('lumen-descr-row--franchise');
-            current.painted = true;
+            paintParts(current, parts);
           } catch (e) {
             warn('franchise paint failed', e);
           }
@@ -572,6 +597,10 @@
             var current = stateOf(holder);
             if (current.gen !== gen) return;
             clearBlock(holder);
+            /* Ошибка запроса — штатная «Коллекция» уже снята, без запасного
+               пути на карточке не осталось бы ни одного ряда частей. */
+            var saved = savedParts(data);
+            if (saved) paintParts(current, saved);
           } catch (e) {
             warn('franchise error path failed', e);
           }
@@ -582,7 +611,11 @@
            скелетон остался бы на карточке навсегда. Найдено живьём
            2026-09-17, когда инструментирование проверки сломало
            Lampa.Api.sources.tmdb.get: плашки висели до ухода с карточки. */
-        if (!sent) clearBlock(holder);
+        if (!sent) {
+          clearBlock(holder);
+          var saved = savedParts(data);
+          if (saved) paintParts(state, saved);
+        }
       } catch (err) {
         warn('franchise render failed', err);
       }
