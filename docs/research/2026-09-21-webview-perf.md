@@ -1,10 +1,10 @@
 # Производительность WebView на Android TV (MediaTek, 4×A55, ~2 ГБ) — ресёрч 2026-09-21
 
-Внешний ресёрч (document-specialist, Opus) по заказу координатора после замера 21 fps на Philips 50PUS8057/60. Источники — код Chromium `main`, официальные доки, баг-трекеры; где данных нет — так и написано. Полный список ссылок в конце.
+Внешний ресёрч (document-specialist, Opus) по заказу координатора после замера 21 fps на тестовом ТВ на Android TV 11. Источники — код Chromium `main`, официальные доки, баг-трекеры; где данных нет — так и написано. Полный список ссылок в конце.
 
 ## 0. Какой у нас Chromium — снять первым
 
-Philips на Android TV 11: легаси-WebView 2021/22 — `Chrome/77`; Google TV-платформы на той же ОС — System WebView из Play, легко `Chrome/125+`. Снимается из JS: `navigator.userAgent.match(/Chrome\/(\d+)/)[1]`, `/\bwv\b/.test(navigator.userAgent)`. При ≥123 доступен Long Animation Frames API; при 77 — нет `content-visibility`, `fetchpriority`. **Добавить мажор Chromium в HUD (Task 55).**
+ТВ на Android TV 11 (как тестовый): легаси-WebView 2021/22 — `Chrome/77`; Google TV-платформы на той же ОС — System WebView из Play, легко `Chrome/125+`. Снимается из JS: `navigator.userAgent.match(/Chrome\/(\d+)/)[1]`, `/\bwv\b/.test(navigator.userAgent)`. При ≥123 доступен Long Animation Frames API; при 77 — нет `content-visibility`, `fetchpriority`. **Добавить мажор Chromium в HUD (Task 55).**
 
 ## 1. Память и растеризация
 
@@ -70,7 +70,7 @@ Android: тайл 256 px, >16 тайлов на экран → 384, ≥40 → 51
 
 FPS: считать **гистограмму дельт rAF**, не среднее — пики на 33/50 мс = GPU-bound, вставания на 200 мс = декод/layout/JS. Checkerboarding из JS не виден — только `adb logcat | grep -i "tile memory"`; комбинация «дельты 16-20 мс, но чёрные полосы» = растеризация не успевает, main thread ни при чём.
 
-Remote debugging: `setWebContentsDebuggingEnabled(true)` должно вызвать приложение-хост; device-wide переключателя нет. Рабочий путь — свой минимальный APK-контейнер с WebView и тем же URL → `chrome://inspect`. **WebView DevTools** работает на user-build без root: `adb shell am start -a "com.android.webview.SHOW_DEV_UI"` → Flags: `SHOW_COMPOSITED_LAYER_BORDERS` (границы слоёв прямо на ТВ), `DISABLE_GPU_RASTERIZATION`, `WEBVIEW_SURFACE_CONTROL`, **`WEBVIEW_SURFACE_CONTROL_FOR_TV`**. Командная строка (`--force-gpu-mem-available-mb`) — только userdebug/eng, на Philips `user` — закрыто.
+Remote debugging: `setWebContentsDebuggingEnabled(true)` должно вызвать приложение-хост; device-wide переключателя нет. Рабочий путь — свой минимальный APK-контейнер с WebView и тем же URL → `chrome://inspect`. **WebView DevTools** работает на user-build без root: `adb shell am start -a "com.android.webview.SHOW_DEV_UI"` → Flags: `SHOW_COMPOSITED_LAYER_BORDERS` (границы слоёв прямо на ТВ), `DISABLE_GPU_RASTERIZATION`, `WEBVIEW_SURFACE_CONTROL`, **`WEBVIEW_SURFACE_CONTROL_FOR_TV`**. Командная строка (`--force-gpu-mem-available-mb`) — только userdebug/eng, на тестовом ТВ `user` — закрыто.
 
 ## 6. Известные проблемы WebView на TV
 Подтверждено: checkerboard/пустые области при скролле (chromium 552398, 559665, rn-webview#2683); отдельная TV-ветка SurfaceControl в WebView (флаг `_FOR_TV`); WebView не блокирует GPU-фичи как Chrome; известная проблема разрешения WebView на Android TV (android-webview-dev «Adjust the real webview resolution for Android TV»).
@@ -113,4 +113,4 @@ Remote debugging: `setWebContentsDebuggingEnabled(true)` должно вызва
 - mdn/browser-compat-data#16560 (performance.memory в WebView)
 - csswg-drafts#9337 · nyk.dev content-visibility intrinsic size · New in Chrome 85 · Marcy Sutton content-visibility a11y
 - TMDB talk: Image sizes; WebP/AVIF планов нет; guillaumetech JPEG scaling in Chrome
-- UA Philips Google TV TA7 (Android 11 + Chrome/125 wv) — user-agents.net
+- UA Google TV TA7 (Android 11 + Chrome/125 wv) — user-agents.net
