@@ -183,12 +183,17 @@ test('убранные и слитые ключи в разделе больше
     lumen_hero_media: ['lumen_hero_trailer'],
     lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
     lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll'],
-    lumen_hero_logo: ['lumen_card_logo']
+    lumen_hero_logo: ['lumen_card_logo'],
+    lumen_badges: ['lumen_next_ep_badge']
   });
   for (const key of Object.keys(prefs.MERGED)) assert.ok(prefs.find(key), 'нового пункта нет в разделе: ' + key);
   /* Логотип: тот же смысл «включено», что у старого ключа. */
   assert.equal(prefs.mergedOn('lumen_hero_logo', false), false);
   assert.equal(prefs.mergedOn('lumen_hero_logo', 'true'), true);
+  /* 1.4: серия в «Досмотреть» — метка; выключены метки — выключена и она. */
+  assert.equal(prefs.mergedOn('lumen_badges', 'off'), false);
+  for (const v of ['poster', 'caption', 'true', undefined]) assert.equal(prefs.mergedOn('lumen_badges', v), true, String(v));
+  assert.equal(prefs.mergedOn('lumen_badges', 'false'), false, 'старое булево «выкл»');
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
@@ -1176,6 +1181,7 @@ test('1.0.2: места чтения дочитывают старые ключ�
   assert.match(src('64_nav.js'), /boostOn\(\) && LC\.pref\('lumen_fastscroll', true\)/);
   assert.match(src('30_css.js'), /LC\.pref\('lumen_font', FONT_DEFAULT\) !== 'system' && !!LC\.pref\(PLUGIN \+ '_fonts', true\)/);
   assert.match(src('48_hero.js'), /LC\.pref\('lumen_hero_trailer', true\)/);
+  assert.match(src('62_badges.js'), /LC\.pref\('lumen_next_ep_badge', true\)/);
 });
 
 /* Пункт читается ровно одной функцией — иначе дефолт вызова и дефолт

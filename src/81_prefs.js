@@ -436,7 +436,10 @@
       lumen_hero_media: ['lumen_hero_trailer'],
       lumen_franchise: ['lumen_franchise_button', 'lumen_franchise_row'],
       lumen_remote_boost: ['lumen_minimap', 'lumen_fastscroll'],
-      lumen_hero_logo: ['lumen_card_logo']
+      lumen_hero_logo: ['lumen_card_logo'],
+      /* 1.4: «Серия в «Досмотреть»» убрана из раздела — правка «Меток на
+         постерах» пишет и её ключ (src/62_badges.js читает его). */
+      lumen_badges: ['lumen_next_ep_badge']
     };
 
     /* Ревью 1.0.2: значение старых ключей, которое отвечает значению нового
@@ -447,6 +450,7 @@
     function mergedOn(name, value) {
       if (name === 'lumen_font') return value !== 'system';
       if (name === 'lumen_hero_media') return value !== 'frames';
+      if (name === 'lumen_badges') return badgesMode(value) !== 'off';
       return boolOf(value, true);
     }
 
@@ -862,16 +866,23 @@
      причины (LC.STRINGS) или ''. Строку раздела помечает «не действует»
      src/80_settings.js (markIdle). Условия — те же, что у мест чтения:
        lumen_accent_scope — LC.accentScope выше: без «Цвета фона от кадра»
-         всегда 'full';
+         всегда 'full'; в плоском виде цвета кадра нет вовсе (как у
+         lumen_accent_auto ниже);
        lumen_accent_auto — плоский вид (стиль Apple TV): theme() и palette()
          в src/30_css.js цвет кадра не читают; в режиме «Выкл» подкраски нет
          вовсе (motionOn, src/57_color.js);
        lumen_fx_heavy — LC.fxHeavy выше: только при полных анимациях;
        lumen_moods — чипы встают только без кадра над рядами
-         (src/49_moods.js, LC.moods.mount по узлу героя). */
+         (src/49_moods.js, LC.moods.mount по узлу героя);
+       lumen_ts_resume_focus — фокус ставит наш экран раздач
+         (src/65_torrents.js): при выключенном lumen_torrents его нет. */
   LC.prefIdle = function (name) {
     try {
-      if (name === 'lumen_accent_scope') return LC.pref('lumen_accent_auto', true) ? '' : 'lumen_idle_need_auto';
+      if (name === 'lumen_accent_scope') {
+        if (LC.pref('lumen_flat', false)) return 'lumen_idle_flat';
+        return LC.pref('lumen_accent_auto', true) ? '' : 'lumen_idle_need_auto';
+      }
+      if (name === 'lumen_ts_resume_focus') return LC.pref('lumen_torrents', true) ? '' : 'lumen_idle_need_torrents';
       if (name === 'lumen_accent_auto') {
         if (LC.pref('lumen_flat', false)) return 'lumen_idle_flat';
         return LC.motionMode() === 'off' ? 'lumen_idle_motion_off' : '';
@@ -886,7 +897,8 @@
      пометку у пунктов справа, если они на открытом экране. */
   LC.prefIdleDeps = {
     lumen_accent_auto: ['lumen_accent_scope'],
-    lumen_flat: ['lumen_accent_auto'],
+    lumen_flat: ['lumen_accent_auto', 'lumen_accent_scope'],
+    lumen_torrents: ['lumen_ts_resume_focus'],
     lumen_style: ['lumen_accent_auto', 'lumen_accent_scope'],
     lumen_motion: ['lumen_accent_auto', 'lumen_fx_heavy'],
     lumen_hero_size: ['lumen_moods']

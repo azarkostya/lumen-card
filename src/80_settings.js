@@ -80,6 +80,7 @@
     lumen_idle_flat: { ru: 'в плоском виде (стиль Apple TV) фон нейтральный', en: 'flat look (Apple TV style) keeps the background neutral', uk: 'у пласкому вигляді (стиль Apple TV) тло нейтральне' },
     lumen_idle_motion_off: { ru: 'анимации выключены', en: 'animations are off', uk: 'анімації вимкнено' },
     lumen_idle_need_full: { ru: 'нужны «Полные» анимации', en: 'needs "Full" animations', uk: 'потрібні «Повні» анімації' },
+    lumen_idle_need_torrents: { ru: 'выключено «Оформление торрентов»', en: '"Torrents style" is off', uk: 'вимкнено «Оформлення торентів»' },
     lumen_idle_need_no_hero: { ru: 'включён «Кадр над рядами»', en: '"Hero over the rows" is on', uk: 'увімкнено «Кадр над рядами»' },
     /* Task 62b, 1.0.2: готовый стиль — select «Стиль» (lumen_style) вместо
        двух кнопок. «Свой» — значение, которое ставит сам плагин, когда
@@ -1870,8 +1871,11 @@
           if (!Object.prototype.hasOwnProperty.call(values, keys[i])) continue;
           if (presetStored(keys[i]) !== '') continue;
           var want = values[keys[i]];
+          /* 1.4 (ревью): без releaseMerged — дописанное значение по
+             умолчанию не «человек тронул пункт», и старый ключ (прежний
+             раздельный выбор lumen_card_logo под MERGED.lumen_hero_logo)
+             остаётся в силе. */
           Lampa.Storage.set(keys[i], typeof want === 'boolean' ? (want ? 'true' : 'false') : String(want), true);
-          releaseMerged(keys[i]);
         }
       }
       syncStyle();

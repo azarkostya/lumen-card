@@ -217,3 +217,26 @@ test('баг стиля: чистый профиль без выбранного
   boot(ls);
   assert.deepEqual(ls, {});
 });
+
+/* 1.4 (ревью): сверка при старте дописывает недостающие пункты набора
+   Apple TV значением стиля, но это НЕ «человек тронул пункт»: старый ключ
+   слитого пункта (lumen_card_logo под MERGED.lumen_hero_logo) хранит
+   прежний раздельный выбор и не должен перетираться. */
+test('1.4: bootStyle дописывает lumen_hero_logo, не трогая lumen_card_logo', () => {
+  const ls = { lumen_style: 'appletv', lumen_card_logo: 'false' };
+  boot(ls);
+  assert.equal(ls.lumen_hero_logo, 'true', 'недостающий пункт набора дописан');
+  assert.equal(ls.lumen_card_logo, 'false', 'прежний выбор «Логотип в карточке: выкл» на месте');
+});
+
+/* 1.4: «Серия в «Досмотреть»» убрана из раздела — правка «Меток на
+   постерах» пишет и её ключ (MERGED.lumen_badges). */
+test('1.4: правка «Меток на постерах» пишет и lumen_next_ep_badge', () => {
+  const ls = {};
+  const run = boot(ls);
+  /* Storage.set с событием — как выбор в select Lampa (followStorage). */
+  run.Storage.set('lumen_badges', 'off');
+  assert.equal(ls.lumen_next_ep_badge, 'false', 'метки выключены — выключена и серия');
+  run.Storage.set('lumen_badges', 'caption');
+  assert.equal(ls.lumen_next_ep_badge, 'true');
+});

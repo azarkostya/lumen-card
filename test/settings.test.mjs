@@ -1416,6 +1416,10 @@ test('1.5: LC.prefIdle — причины ровно по местам чтен�
   const cases = [
     [{}, 'lumen_accent_scope', ''],
     [{ lumen_accent_auto: 'false' }, 'lumen_accent_scope', 'lumen_idle_need_auto'],
+    [{ lumen_flat: 'true' }, 'lumen_accent_scope', 'lumen_idle_flat'],
+    [{ lumen_flat: 'true', lumen_accent_auto: 'false' }, 'lumen_accent_scope', 'lumen_idle_flat'],
+    [{}, 'lumen_ts_resume_focus', ''],
+    [{ lumen_torrents: 'false' }, 'lumen_ts_resume_focus', 'lumen_idle_need_torrents'],
     [{}, 'lumen_accent_auto', ''],
     [{ lumen_flat: 'true' }, 'lumen_accent_auto', 'lumen_idle_flat'],
     [{ lumen_motion: 'off' }, 'lumen_accent_auto', 'lumen_idle_motion_off'],
@@ -1439,7 +1443,7 @@ test('1.5: строка зависимого пункта помечена «Н�
   env.LC.followStorage();
   const scope = paramOf(env.params, 'lumen_accent_scope');
   assert.equal(typeof scope.onRender, 'function');
-  for (const name of ['lumen_accent_auto', 'lumen_fx_heavy', 'lumen_moods']) {
+  for (const name of ['lumen_accent_auto', 'lumen_fx_heavy', 'lumen_moods', 'lumen_ts_resume_focus']) {
     assert.equal(typeof paramOf(env.params, name).onRender, 'function', name);
   }
   assert.equal(typeof paramOf(env.params, 'lumen_theme').onRender, 'undefined', 'у прочих пунктов пометки нет');
