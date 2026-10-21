@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 /* Task 24: акцент интерфейса от постера фильма.
 
@@ -267,6 +267,16 @@ function fakeDom(opts) {
       node.parentNode = null;
       head.lastChild = head.childNodes.length ? head.childNodes[head.childNodes.length - 1] : null;
       return node;
+    },
+    /* v1.4 P0-1: узел цвета встаёт сразу после основной таблицы. */
+    insertBefore: function (node, ref) {
+      if (!ref) return head.appendChild(node);
+      const at = head.childNodes.indexOf(node);
+      if (at !== -1) head.childNodes.splice(at, 1);
+      head.childNodes.splice(head.childNodes.indexOf(ref), 0, node);
+      node.parentNode = head;
+      head.lastChild = head.childNodes[head.childNodes.length - 1];
+      return node;
     }
   };
   state.head = head;
@@ -278,7 +288,19 @@ function fakeDom(opts) {
     },
     createElement: function (tag) {
       if (tag !== 'canvas') {
-        return { tagName: tag.toUpperCase(), id: '', type: '', textContent: '', innerHTML: '', parentNode: null };
+        const node = { tagName: tag.toUpperCase(), id: '', type: '', textContent: '', innerHTML: '', parentNode: null, writes: 0 };
+        let html = '';
+        Object.defineProperty(node, 'innerHTML', {
+          get: function () { return html; },
+          set: function (v) { html = v; node.writes++; }
+        });
+        Object.defineProperty(node, 'nextSibling', {
+          get: function () {
+            if (node.parentNode !== head) return null;
+            return head.childNodes[head.childNodes.indexOf(node) + 1] || null;
+          }
+        });
+        return node;
       }
       return {
         width: 0,
@@ -1155,13 +1177,13 @@ test('css: узел подкраски стоит в <head> после осно�
     }
 
     ctx.LC.injectCss();
-    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent', 'lumen-accent-focus'], 'наши узлы переехали в конец');
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent-deep', 'lumen-accent', 'lumen-accent-focus'], 'наши узлы переехали в конец (v1.4: узел цвета таблицы — сразу за основным)');
 
     /* Цвет подкраски считается от фона темы, поэтому смена темы обязана
        переписать и наш узел — иначе он остался бы с цветом прежней. */
     storage.lumen_theme = 'black';
     ctx.LC.injectCss();
-    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent', 'lumen-accent-focus'], 'порядок сохранён');
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent-deep', 'lumen-accent', 'lumen-accent-focus'], 'порядок сохранён');
     assert.notEqual(accentNode(dom).textContent, warmRules, 'подкраска пересчитана от нового фона');
   });
 });
@@ -1961,10 +1983,12 @@ test('css: injectCss — false, когда таблица стилей не со
   const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
   withDom(dom, () => {
     const ctx = cssCtx(dom, { lumen_theme: 'warm' });
-    const build = ctx.LC.buildCss;
-    ctx.LC.buildCss = () => { throw new Error('css boom'); };
+    /* v1.4 P0-1: injectCss собирает куски таблицы сам (buildParts), мимо
+       LC.buildCss, — сбой сборки изображается сбоем её последнего куска. */
+    const icons = ctx.LC.icons.css;
+    ctx.LC.icons.css = () => { throw new Error('css boom'); };
     assert.equal(ctx.LC.injectCss(), false);
-    ctx.LC.buildCss = build;
+    ctx.LC.icons.css = icons;
     assert.equal(ctx.LC.injectCss(), true);
   });
 });
@@ -2293,5 +2317,253 @@ test('RV5-b: постер фильма в пути, показ закрепил 
     ctx.LC.accent.applyFor(MOVIE);
     assert.deepEqual(paints, [], 'цвет фильма сменился после закрепления: ' + paints.join(','));
     assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), '#B82828', 'карточка и возврат — цвет кадра');
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/* v1.4 P0-1: цвет кадра без полной пересборки стиля.                     */
+/* ---------------------------------------------------------------------- */
+
+/* Тот же LC, что у cssCtx, плюс v2-модули (src/31_*.js): их куски тоже
+   красятся акцентом и фоном и должны разложиться наравне с остальными. */
+function cssFullCtx(dom, storage) {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  const load = (name) => new Function('LC', 'module', readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8'))(LC, module);
+  const Lampa = {
+    Storage: { get: (name, def) => (name in storage ? storage[name] : def), field: (name) => storage[name] },
+    TMDB: { image: (path) => 'https://image.tmdb.org/' + path }
+  };
+  dom.globals.window.Lampa = Lampa;
+  dom.globals.Lampa = Lampa;
+  globalThis.Lampa = Lampa;
+  load('10_util.js');
+  load('20_icons.js');
+  load('80_settings.js');
+  load('81_prefs.js');
+  load('30_css.js');
+  for (const name of readdirSync(new URL('../src/', import.meta.url)).filter((n) => /^31_.*\.js$/.test(n)).sort()) load(name);
+  load('57_color.js');
+  let full = 0;
+  const inject = LC.injectCss;
+  LC.injectCss = function () { full++; return inject(); };
+  return { LC: LC, injects: () => full };
+}
+
+/* Мини-разбор CSS теста — НЕ код плагина: тройки «обёртки | селектор |
+   объявление» в порядке таблицы. Им сверяется склейка двух узлов с прежней
+   единой таблицей. */
+function cssSplitTop(text) {
+  const out = [];
+  let depth = 0, paren = 0, start = 0, quote = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) { if (ch === '\\') i++; else if (ch === quote) quote = ''; continue; }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') paren++;
+    else if (ch === ')') paren--;
+    else if (paren) continue;
+    else if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (!depth) { out.push(text.slice(start, i + 1).trim()); start = i + 1; } }
+    else if (ch === ';' && !depth) { out.push(text.slice(start, i + 1).trim()); start = i + 1; }
+  }
+  if (text.slice(start).trim()) out.push(text.slice(start).trim());
+  return out.filter(Boolean);
+}
+function cssDeclsOf(body) {
+  const out = [];
+  let quote = '', paren = 0, start = 0;
+  for (let i = 0; i <= body.length; i++) {
+    const ch = i < body.length ? body[i] : ';';
+    if (quote) { if (ch === '\\') i++; else if (ch === quote) quote = ''; continue; }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') paren++;
+    else if (ch === ')') paren--;
+    else if (ch === ';' && !paren) { const d = body.slice(start, i).trim(); if (d) out.push(d); start = i + 1; }
+  }
+  return out;
+}
+function cssTriples(text, wrap) {
+  const out = [];
+  for (const block of cssSplitTop(text)) {
+    const open = block.indexOf('{');
+    if (open < 0) { out.push({ wrap: wrap || '', sel: '', decl: block, key: (wrap || '') + '#' + block }); continue; }
+    const pre = block.slice(0, open).trim();
+    const body = block.slice(open + 1, -1);
+    if (/^@(media|supports)/.test(pre)) { out.push(...cssTriples(body, (wrap || '') + pre + '>')); continue; }
+    if (pre[0] === '@') { out.push({ wrap: wrap || '', sel: '', decl: block, key: (wrap || '') + '#' + block }); continue; }
+    for (const decl of cssDeclsOf(body)) out.push({ wrap: wrap || '', sel: pre, decl: decl, key: (wrap || '') + pre + '{' + decl });
+  }
+  return out;
+}
+function propName(decl) {
+  return decl.slice(0, decl.indexOf(':')).trim().toLowerCase().replace(/^-(webkit|moz|ms|o)-/, '');
+}
+/* Свойства, которые одно объявление перекрывает у другого: то же имя или
+   сокращение/развёрнутая запись (background ↔ background-color). */
+function propsOverlap(a, b) {
+  return a === b || b.indexOf(a + '-') === 0 || a.indexOf(b + '-') === 0;
+}
+
+/* Сверка раскладки с единой таблицей одной конфигурации:
+   - склейка двух узлов — те же объявления, что у buildCss() (мультимножество);
+   - внутри каждого узла порядок прежний (подпоследовательность);
+   - каскад: ни одно объявление узла цвета не обогнало более позднее
+     объявление ТОГО ЖЕ селектора в основном узле на том же свойстве — такое
+     обгон точно меняет вид (тот же элемент, та же специфичность). */
+function checkSplit(full, base, deep, label) {
+  const F = cssTriples(full);
+  const B = cssTriples(base);
+  const D = cssTriples(deep);
+  const sorted = (list) => list.map((x) => x.key).sort();
+  assert.deepEqual(sorted(B.concat(D)), sorted(F), label + ': склейка узлов — те же объявления, что у единой таблицы');
+  /* Подпоследовательности: позиции объявлений узла цвета в единой таблице. */
+  const deepAt = new Set();
+  let p = 0;
+  for (let i = 0; i < F.length && p < D.length; i++) if (F[i].key === D[p].key) { deepAt.add(i); p++; }
+  assert.equal(p, D.length, label + ': порядок узла цвета — тот же, что в единой таблице');
+  let q = 0;
+  for (let i = 0; i < F.length && q < B.length; i++) if (!deepAt.has(i) && F[i].key === B[q].key) q++;
+  assert.equal(q, B.length, label + ': порядок основного узла — тот же, что в единой таблице');
+  const later = [];
+  for (let i = 0; i < F.length; i++) {
+    if (!deepAt.has(i) || !F[i].sel) continue;
+    const pd = propName(F[i].decl);
+    const imp = /!important/.test(F[i].decl);
+    for (let j = i + 1; j < F.length; j++) {
+      if (deepAt.has(j) || F[j].sel !== F[i].sel) continue;
+      if (/!important/.test(F[j].decl) !== imp || !propsOverlap(pd, propName(F[j].decl))) continue;
+      later.push(F[i].sel + ' { ' + F[i].decl + ' } обгоняет { ' + F[j].decl + ' }');
+    }
+  }
+  assert.deepEqual(later, [], label + ': каскад нарушен');
+}
+
+test('v1.4 P0-1: основной узел + узел цвета равны единой таблице, основной от цвета не зависит', () => {
+  const configs = [
+    { label: 'Lumen, по умолчанию', storage: { lumen_accent_auto: 'true' } },
+    { label: 'Lumen, чёрная тема и плотные подложки', storage: { lumen_accent_auto: 'true', lumen_theme: 'black', lumen_solid: true } },
+    { label: 'Lumen, «только фон»', storage: { lumen_accent_auto: 'true', lumen_accent_scope: 'veil', lumen_card_accent: 'ice' } },
+    { label: 'Apple TV', storage: { lumen_accent_auto: 'true', lumen_flat: true, lumen_card_accent: 'graphite' } }
+  ];
+  /* Состояния цвета: без цвета, Хэллоуин (акцент темы #E07B2C), подкраска
+     фона без акцента, и оба вместе с другим акцентом. */
+  const states = [
+    { theme: null, rgb: null },
+    { theme: '#E07B2C', rgb: null },
+    { theme: null, rgb: { r: 40, g: 90, b: 200 } },
+    { theme: '#3060E0', rgb: { r: 200, g: 60, b: 40 } },
+    { theme: '#30C060', rgb: { r: 30, g: 160, b: 90 } }
+  ];
+  for (const cfg of configs) {
+    const dom = fakeDom({});
+    withDom(dom, () => {
+      const ctx = cssFullCtx(dom, cfg.storage);
+      let base0 = null;
+      for (const st of states) {
+        ctx.LC.accent.setTheme(st.theme);
+        ctx.LC.accent.drive(st.rgb);
+        const full = ctx.LC.buildCss();
+        const base = ctx.LC.buildCss('base');
+        const deep = ctx.LC.buildCss('deep');
+        const label = cfg.label + ', ' + JSON.stringify(st);
+        checkSplit(full, base, deep, label);
+        if (base0 === null) base0 = base;
+        assert.ok(base === base0, label + ': основной узел изменился от цвета кадра');
+        if (cfg.storage.lumen_flat) {
+          /* Apple TV нейтральный: цвет кадра и тема не видны нигде — узла
+             цвета нет, таблица целиком в основном. */
+          assert.equal(deep, '', label + ': в Apple TV узла цвета нет');
+          assert.equal(base, full, label);
+        } else {
+          assert.ok(deep.length > 0, label + ': цветные правила есть');
+          assert.ok(deep.length < full.length * 0.2, label + ': узел цвета ≪ таблицы: ' + deep.length + ' из ' + full.length);
+        }
+      }
+    });
+  }
+});
+
+/* Узел цвета несёт акцент фильма и подкраску; в основном их нет. */
+test('v1.4 P0-1: цвета фильма — в узле цвета, не в основном', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = cssFullCtx(dom, { lumen_accent_auto: 'true', lumen_card_accent: 'ice' });
+    ctx.LC.accent.setTheme('#E07B2C');
+    const t = ctx.LC.tokens();
+    const base = ctx.LC.buildCss('base');
+    const deep = ctx.LC.buildCss('deep');
+    assert.ok(deep.indexOf(t.accent) !== -1, 'акцент темы в узле цвета');
+    assert.equal(base.indexOf(t.accent), -1, 'акцента темы в основном узле нет');
+    assert.equal(base.indexOf('#7FB7C9'), -1, 'и акцента настроек там нет — основной узел бесцветный');
+  });
+});
+
+test('v1.4 P0-1: открыть карточку с новым цветом и закрыть — ни одной полной пересборки', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = cssFullCtx(dom, { lumen_accent_auto: 'true' });
+    const LC = ctx.LC;
+    const doc = dom.globals.document;
+    assert.equal(LC.injectCss(), true, 'включение плагина — полная сборка');
+    const main = doc.getElementById('lumen-card-css');
+    const deep = doc.getElementById('lumen-accent-deep');
+    assert.ok(main && deep, 'оба узла таблицы на месте');
+    assert.deepEqual(headIds(dom).slice(0, 2), ['lumen-card-css', 'lumen-accent-deep'], 'узел цвета — сразу за основным');
+    const fullBefore = ctx.injects();
+    const mainWrites = main.writes;
+    const deepWrites = deep.writes;
+    const deep0 = deep.innerHTML;
+
+    /* Цикл: карточка с новым цветом → закрыть → вторая карточка → закрыть →
+       тема Хэллоуина и её снятие. */
+    LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' }, true);
+    dom.state.images[0].onload();
+    assert.ok(LC.accent.current(), 'предусловие: цвет фильма стоит');
+    const warm = deep.innerHTML;
+    assert.notEqual(warm, deep0, 'узел цвета перекрашен цветом фильма');
+    assert.ok(warm.indexOf(LC.accent.current().color) !== -1, 'в узле цвета — акцент фильма');
+    LC.accent.destroy();
+    assert.equal(deep.innerHTML, deep0, 'закрыли карточку — узел цвета вернулся к акценту настроек');
+    LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' }, true);
+    dom.state.images[1].onload();
+    assert.notEqual(deep.innerHTML, warm, 'второй фильм — свой цвет');
+    LC.accent.destroy();
+    LC.accent.setTheme('#E07B2C');
+    assert.ok(deep.innerHTML.indexOf(LC.tokens().accent) !== -1, 'Хэллоуин: акцент темы в узле цвета');
+    LC.accent.setTheme(null);
+    assert.equal(deep.innerHTML, deep0);
+
+    assert.equal(ctx.injects() - fullBefore, 0, 'полная пересборка (LC.injectCss) за цикл не звалась');
+    assert.equal(main.writes, mainWrites, 'основной узел (~200 КБ) не переписан ни разу');
+    assert.ok(deep.writes - deepWrites >= 5, 'узел цвета переписан на каждой смене цвета: ' + (deep.writes - deepWrites));
+    assert.ok(deep.innerHTML.length < main.innerHTML.length / 5, 'узел цвета ≪ основного: ' + deep.innerHTML.length + ' против ' + main.innerHTML.length);
+    assert.deepEqual(headIds(dom).slice(0, 2), ['lumen-card-css', 'lumen-accent-deep'], 'порядок узлов сохранён');
+  });
+});
+
+/* Смена настройки — по-прежнему полная сборка: основной узел пересобран, а
+   выключение плагина снимает оба узла. */
+test('v1.4 P0-1: смена темы переписывает основной узел, выключение снимает оба', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const storage = { lumen_accent_auto: 'true', lumen_theme: 'warm' };
+    const ctx = cssFullCtx(dom, storage);
+    const doc = dom.globals.document;
+    ctx.LC.injectCss();
+    const main = doc.getElementById('lumen-card-css');
+    const before = main.innerHTML;
+    storage.lumen_theme = 'black';
+    ctx.LC.injectCss();
+    assert.notEqual(main.innerHTML, before, 'тема — свойство основного узла');
+    storage.lumen_flat = true;
+    ctx.LC.injectCss();
+    assert.equal(doc.getElementById('lumen-accent-deep'), null, 'Apple TV: узел цвета снят');
+    storage.lumen_flat = false;
+    ctx.LC.injectCss();
+    assert.ok(doc.getElementById('lumen-accent-deep'), 'Lumen: узел цвета вернулся');
+    ctx.LC.removeCss();
+    assert.equal(doc.getElementById('lumen-card-css'), null);
+    assert.equal(doc.getElementById('lumen-accent-deep'), null, 'выключение снимает и узел цвета');
   });
 });
