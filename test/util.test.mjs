@@ -417,6 +417,20 @@ test('frameSize: original — только выше 1080p', () => {
   assert.equal(u.frameSize(3840), 'original', 'честное 4K-окно');
 });
 
+/* v1.4 «Слабый ТВ»: на слабой приставке кадр не больше w1280 при любом
+   растре; без вердикта (null) и без модуля замеров — прежнее правило. */
+test('v1.4: frameSize на слабой приставке — не больше w1280', () => {
+  const { api, LC } = loadCtx('10_util.js');
+  LC.perf = { weakInfo: () => ({ kind: 'tvbox' }) };
+  assert.equal(api.frameSize(3840), 'w1280', '4K-панель слабой приставки');
+  assert.equal(api.frameSize(2259), 'w1280');
+  assert.equal(api.frameSize(1280), 'w1280');
+  LC.perf = { weakInfo: () => null };
+  assert.equal(api.frameSize(3840), 'original', 'обычное железо — как было');
+  LC.perf = { weakInfo: () => { throw new Error('x'); } };
+  assert.equal(api.frameSize(3840), 'original', 'сбой вердикта — прежнее правило');
+});
+
 /* Ревью Task 39 (п.1): кадр-подложка (фон результата рулетки, opacity .22)
    в original не уходит никогда — его не рассматривают. */
 test('scrimSize: кадр с потолком w1280 вместо original', () => {
