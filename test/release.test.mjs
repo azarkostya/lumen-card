@@ -1,6 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { localProblems } from '../scripts/release.mjs';
+import { localProblems, behaviorPrefProblems, BEHAVIOR_PREFS, betaSoakWarning } from '../scripts/release.mjs';
 
 /* Релиз 1.0.0: номер версии живёт в одном месте — LC.VERSION в
    src/00_head.js; баннер dist берёт его при сборке, CHANGELOG.md обязан
@@ -24,4 +24,33 @@ test('релиз: проверка ловит несобранный dist, пр�
   const r = localProblems((p) => (p in files ? files[p] : null));
   assert.equal(r.version, '1.0.1');
   assert.equal(r.problems.length, 4, r.problems.join('\n'));
+});
+
+/* Пункты, меняющие поведение Lampa, по умолчанию выключены (исключение —
+   lumen_netmem, решение владельца): сверка в scripts/release.mjs. */
+test('релиз: дефолты пунктов, меняющих поведение Lampa, совпадают со списком в release.mjs', () => {
+  assert.deepEqual(behaviorPrefProblems(read), []);
+  assert.equal(BEHAVIOR_PREFS.lumen_tsclean, false);
+  assert.equal(BEHAVIOR_PREFS.lumen_netmem, true);
+});
+
+test('релиз: проверка дефолтов ловит включённый по умолчанию пункт, пропавший пункт и скрытие вне списка', () => {
+  const src = "{ name: 'lumen_tsclean', type: 'trigger', 'default': true, label: 'a' },\n" +
+    "{ name: 'lumen_ts_health', type: 'trigger', 'default': false, label: 'b' },\n" +
+    "{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'c' },\n" +
+    "{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'd' },\n" +
+    "{ name: 'lumen_hide_other', type: 'trigger', 'default': true, label: 'e' },\n";
+  const p = behaviorPrefProblems((f) => (f === 'src/81_prefs.js' ? src : null));
+  assert.equal(p.length, 3, p.join('\n'));
+  assert.match(p.join('\n'), /lumen_tsclean: default = true/);
+  assert.match(p.join('\n'), /lumen_parser_fallback не найден/);
+  assert.match(p.join('\n'), /lumen_hide_other/);
+  assert.equal(behaviorPrefProblems(() => null).length, 1);
+});
+
+test('релиз: бета держится ≥48 ч — моложе коммит даёт предупреждение', () => {
+  const now = Date.parse('2026-10-21T12:00:00Z');
+  assert.match(betaSoakWarning('2026-10-20T12:00:00Z', now), /моложе 48 ч \(24 ч\)/);
+  assert.equal(betaSoakWarning('2026-10-19T12:00:00Z', now), '');
+  assert.equal(betaSoakWarning('мусор', now), '');
 });

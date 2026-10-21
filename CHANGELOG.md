@@ -4,8 +4,8 @@
 `docs/plans/2026-09-22-lumen-final.md`.
 
 **Где брать.** Стабильная версия — ветка `main`: в Lampa **Настройки → Расширения → Добавить
-плагин** → `https://azarkostya.github.io/lumen-card/lumen.js`. Бета — ветка `feat/lumen-v2`:
-`https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/lumen.js` — **вместо**
+плагин** → `https://azarkostya.github.io/lumen-card/lumen.js`. Бета — ветка `beta`:
+`https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@beta/lumen.js` — **вместо**
 стабильного адреса, а не рядом с ним (два адреса сразу — какая сборка запустится первой, та и
 будет). Номер версии виден в первой строке сборки (`// Lumen Card for Lampa v1.0.0`), в строке
 HUD и в таблице самотеста.
@@ -197,7 +197,7 @@ HUD и в таблице самотеста.
 ## 1.0.0 — 2026-09-27
 
 Первая стабильная версия: плагин переехал из ветки разработки `feat/lumen-v2` в `main`, GitHub
-Pages отдаёт `main`. Ветка `feat/lumen-v2` остаётся для бета-проверок.
+Pages отдаёт `main`. Ветка `feat/lumen-v2` осталась для бета-проверок, позже её заменила ветка `beta` (адрес `@beta`); `feat/lumen-v2` устарела.
 
 ### Что умеет
 

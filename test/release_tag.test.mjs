@@ -153,7 +153,7 @@ test('релиз по тегу: tagBuildUrl — тот же адрес, что �
 
 /* Порядок в README: тег → проверка тега → ветки → сброс jsDelivr → сверка. */
 test('релиз по тегу: README — тег пушится раньше main, --tag между ними, потом --purge и --remote', () => {
-  const readme = read('README.md');
+  const readme = read('docs/DEV.md');
   const from = readme.indexOf('### Выпуск версии');
   const section = readme.slice(from, readme.indexOf('\n### ', from + 1));
   const at = (needle) => {

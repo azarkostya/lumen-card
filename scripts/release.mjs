@@ -9,7 +9,10 @@
 //                                            нём = LC.VERSION; если тег v<VERSION> уже
 //                                            есть (на origin, а до push — локально),
 //                                            его сборка — ровно этот dist; origin
-//                                            недоступен — предупреждение;
+//                                            недоступен — предупреждение; дефолты пунктов,
+//                                            меняющих поведение Lampa (BEHAVIOR_PREFS) —
+//                                            выкл, кроме lumen_netmem; коммит моложе 48 ч —
+//                                            предупреждение (бета держится ≥48 ч);
 //   node scripts/release.mjs --purge         сбросить кэш jsDelivr (lumen.js, dist,
 //                                            manifest.json) для ветки --ref;
 //   node scripts/release.mjs --remote        сверить, что GitHub Pages и jsDelivr @ref
@@ -23,12 +26,12 @@
 //                                            (и по адресу загрузчика с ?v=<BUILD>).
 //                                            Гонять ПОСЛЕ push тега и ДО push main: Pages
 //                                            отдаст новый lumen.js, и он сразу попросит
-//                                            сборку по тегу (README, «Выпуск версии»);
-//   --ref <ветка>  ветка jsDelivr, по умолчанию main (бета — feat/lumen-v2);
+//                                            сборку по тегу (docs/DEV.md, «Выпуск версии»);
+//   --ref <ветка>  ветка jsDelivr, по умолчанию main (бета — beta; старая feat/lumen-v2 устарела);
 //   --sha <rev>    коммит, с которым сверяется хостинг, по умолчанию HEAD.
 //
 // Pages берёт файлы из той ветки, что выбрана в настройках репозитория
-// (Settings → Pages); с релиза 1.0.0 это main. Порядок выпуска — README,
+// (Settings → Pages); с релиза 1.0.0 это main. Порядок выпуска — docs/DEV.md,
 // раздел «Выпуск версии»: тег → --tag → ветки → --purge → --remote.
 import { readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -92,6 +95,56 @@ export function stampProblems(read) {
   const version = loaderVersion(loader);
   if (!version || !m || version !== m[1]) out.push('VERSION в lumen.js («' + version + '») не LC.VERSION' + (m ? ' ' + m[1] : '') + ' — нужна сборка');
   return out;
+}
+
+/* Пункты настроек, меняющие поведение самой Lampa (удаляют чужое, ходят по
+   другим адресам, прячут штатные элементы). Зритель обязан включать их
+   сам: перед выпуском сверяем, что у каждого 'default' в src/81_prefs.js —
+   ожидаемый. Список явный: новый такой пункт — сюда же, в том же коммите.
+   lumen_netmem включён по решению владельца (согласованное исключение). */
+export const BEHAVIOR_PREFS = {
+  lumen_tsclean: false,          // автоочистка TorrServer удаляет раздачи
+  lumen_ts_health: false,        // точка «Состояние TorrServer» ходит на сервер
+  lumen_parser_fallback: false,  // запасной парсер — второй адрес поиска
+  lumen_rowmem_bytes: false,     // учёт байтов в рядах — до проверки на ТВ
+  lumen_hide_shots: false,       // будущий: скрытие Shots (если появится)
+  lumen_hide_head_icons: false,  // будущий: скрытие иконок шапки (если появится)
+  lumen_netmem: true             // исключение: включён по решению владельца
+};
+/* Будущие пункты, которых в списке может ещё не быть. */
+const BEHAVIOR_OPTIONAL = ['lumen_hide_shots', 'lumen_hide_head_icons'];
+
+export function behaviorPrefProblems(read) {
+  const src = read('src/81_prefs.js');
+  if (src === null || src === undefined) return ['нет src/81_prefs.js — дефолты пунктов, меняющих поведение Lampa, не сверить'];
+  const out = [];
+  const names = Object.keys(BEHAVIOR_PREFS);
+  for (const name of names) {
+    const m = new RegExp("\\{ name: '" + name + "',[^}]*?'default': (true|false)").exec(src);
+    if (!m) {
+      if (BEHAVIOR_OPTIONAL.indexOf(name) < 0) out.push('пункт ' + name + ' не найден в src/81_prefs.js (переименован? обнови BEHAVIOR_PREFS в release.mjs)');
+    } else if ((m[1] === 'true') !== BEHAVIOR_PREFS[name]) {
+      out.push('пункт ' + name + ': default = ' + m[1] + ', ожидался ' + BEHAVIOR_PREFS[name] + ' (меняет поведение Lampa — по умолчанию выключен)');
+    }
+  }
+  // Любой lumen_hide_* вне списка — тоже под проверкой: должен быть выключен.
+  const re = /\{ name: '(lumen_hide_[a-z_]+)',[^}]*?'default': (true|false)/g;
+  let m;
+  while ((m = re.exec(src))) {
+    if (names.indexOf(m[1]) < 0 && m[2] === 'true') out.push('пункт ' + m[1] + ' скрывает штатное и включён по умолчанию — выключи или внеси в BEHAVIOR_PREFS');
+  }
+  return out;
+}
+
+/* Правило выпуска: бета держится не меньше 48 часов перед main. Локально
+   видно только возраст коммита выпуска (перемотка не меняет его дату), поэтому
+   это предупреждение, а не отказ: коммит моложе 48 ч — выпуск рано. */
+export const BETA_SOAK_HOURS = 48;
+export function betaSoakWarning(commitIso, nowMs) {
+  const t = Date.parse(commitIso || '');
+  if (!isFinite(t)) return '';
+  const hours = (nowMs - t) / 3600000;
+  return hours >= BETA_SOAK_HOURS ? '' : 'коммит выпуска моложе ' + BETA_SOAK_HOURS + ' ч (' + Math.floor(hours) + ' ч): бета должна продержаться ≥' + BETA_SOAK_HOURS + ' ч перед main';
 }
 
 /* Сборка тега v<версия> неизменна: jsDelivr отдаёт её с max-age на год
@@ -175,7 +228,7 @@ async function main() {
 
   const readLocal = (p) => { try { return readFileSync(join(root, p), 'utf8'); } catch (e) { return null; } };
   const local = localProblems(readLocal);
-  local.problems = local.problems.concat(stampProblems(readLocal));
+  local.problems = local.problems.concat(stampProblems(readLocal), behaviorPrefProblems(readLocal));
   let warnings = [];
   if (local.version) {
     // Без запроса пароля и не дольше 30 с: недоступный origin — предупреждение.
@@ -183,6 +236,10 @@ async function main() {
       stdio: ['ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0' }) });
     const t = tagDist(local.version, git);
     warnings = t.warnings;
+    try {
+      const soak = betaSoakWarning(git(['log', '-1', '--format=%cI', rev]).trim(), Date.now());
+      if (soak) warnings.push(soak);
+    } catch (e) { /* нет git — без предупреждения */ }
     local.problems = local.problems.concat(t.problems, tagProblems(local.version, readLocal('dist/lumen_card.js'), t.dist));
   }
   console.log('версия ' + (local.version || '?') + ', локальные проверки: ' + (local.problems.length ? 'ЕСТЬ РАСХОЖДЕНИЯ' : 'ok') +
