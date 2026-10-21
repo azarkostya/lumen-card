@@ -2518,9 +2518,42 @@
     return [a.join(',') + '{display:none !important}', b.join(',') + '{display:none !important}'];
   }
 
+  /* Пункт Shots в окне «Источник» (после «Смотреть»): Lampa строит его
+     из кнопок карточки, и скрытая стилем кнопка всё равно попадает в
+     список (QA ТВ 21.10.2026). Узнаём по иконке #sprite-shots или по кнопке
+     .shots-view-button и убираем на preshow — до отрисовки списка. */
+  function isShotsItem(it) {
+    if (!it) return false;
+    if (typeof it.icon === 'string' && it.icon.indexOf('sprite-shots') !== -1) return true;
+    var b = it.btn;
+    return !!(b && typeof b.hasClass === 'function' && b.hasClass('shots-view-button'));
+  }
+
+  function filterShots(e) {
+    try {
+      var body = document.body;
+      if (!body || !body.classList || !body.classList.contains(HIDE_SHOTS)) return;
+      var a = e && e.active;
+      if (!a || !a.items || !a.items.length) return;
+      var kept = [];
+      for (var i = 0; i < a.items.length; i++) if (!isShotsItem(a.items[i])) kept.push(a.items[i]);
+      if (kept.length !== a.items.length && kept.length) a.items = kept;
+    } catch (err) { }
+  }
+
+  var shotsFollowed = false;
+  function followShots() {
+    if (shotsFollowed) return;
+    try {
+      var L = window.Lampa && Lampa.Select && Lampa.Select.listener;
+      if (L && typeof L.follow === 'function') { L.follow('preshow', filterShots); shotsFollowed = true; }
+    } catch (e) { }
+  }
+
   /* on === false — снять оба класса (плагин выключен); иначе — по
      настройкам. */
   function applyHeadHide(on) {
+    followShots();
     try {
       var body = document.body;
       if (!body || !body.classList) return;
@@ -2536,5 +2569,7 @@
   LC.headHide = {
     css: headHideCss,
     apply: applyHeadHide,
+    isShotsItem: isShotsItem,
+    filterShots: filterShots,
     HEAD_EXTRA: HEAD_EXTRA
   };

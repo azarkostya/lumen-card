@@ -155,6 +155,43 @@ test('1.4: LC.headHide.apply — классы по настройкам, false �
   }
 });
 
+/* QA ТВ 21.10.2026: пункт Shots в окне «Источник» строится из кнопок
+   карточки — при «Скрыть Shots» он убирается на preshow. */
+test('1.4: «Скрыть Shots» убирает пункт Shots из окна «Источник» (preshow), остальное не трогает', () => {
+  const LC = header();
+  let handler = null;
+  const on = new Set();
+  globalThis.document = { body: { classList: { add: (c) => on.add(c), remove: (c) => on.delete(c), contains: (c) => on.has(c) } } };
+  const storage = { lumen_hide_shots: 'true' };
+  globalThis.window = { Lampa: { Storage: { get: (n, d) => (n in storage ? storage[n] : d), field: (n) => storage[n] }, Select: { listener: { follow: (n, fn) => { assert.equal(n, 'preshow'); handler = fn; } } } } };
+  globalThis.Lampa = globalThis.window.Lampa;
+  try {
+    LC.headHide.apply();
+    LC.headHide.apply();
+    assert.equal(typeof handler, 'function', 'подписка на preshow');
+    const shotsBtn = { hasClass: (c) => c === 'shots-view-button' };
+    const items = () => [
+      { title: 'Торренты', icon: '<svg><use xlink:href="#sprite-torrent"></use></svg>' },
+      { title: 'Shots', icon: '<svg><use xlink:href="#sprite-shots"></use></svg>', btn: shotsBtn },
+      { title: 'Трейлеры', icon: '<svg><use xlink:href="#sprite-trailer"></use></svg>' },
+      { title: 'Добавить источник', add_source: true }
+    ];
+    const e = { active: { items: items() } };
+    handler(e);
+    assert.deepEqual(e.active.items.map((i) => i.title), ['Торренты', 'Трейлеры', 'Добавить источник']);
+    assert.equal(LC.headHide.isShotsItem({ btn: shotsBtn }), true, 'и по кнопке без иконки');
+    storage.lumen_hide_shots = 'false';
+    LC.headHide.apply();
+    const e2 = { active: { items: items() } };
+    handler(e2);
+    assert.equal(e2.active.items.length, 4, 'выключено — список как у Lampa');
+  } finally {
+    delete globalThis.document;
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});
+
 test('U13: экран раздач — кадр под шапкой, прокрутка раздач по высоте колонки', () => {
   const LC = {};
   const module = { exports: null, lumen: true };
