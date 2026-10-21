@@ -122,6 +122,13 @@ test('modeFor: auto -> off на tizen/webos (экономия ТВ), иначе 
   assert.equal(t.modeFor('auto', { tizen: false, webos: false }), 'on');
 });
 
+test('v1.4: auto на слабой Android-приставке -> off; явное on руками остаётся; сильный Android -> on', () => {
+  assert.equal(t.modeFor('auto', { android: true, weak: true }), 'off');
+  assert.equal(t.modeFor(undefined, { android: true, weak: true }), 'off');
+  assert.equal(t.modeFor('on', { android: true, weak: true }), 'on');
+  assert.equal(t.modeFor('auto', { android: true, weak: false }), 'on');
+});
+
 test('modeFor: незнакомое значение (undefined/null/пусто/мусор) — как auto', () => {
   assert.equal(t.modeFor(undefined, {}), 'on');
   assert.equal(t.modeFor(null, { webos: true }), 'off');

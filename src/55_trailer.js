@@ -215,12 +215,16 @@
     /* stored — сырое значение lumen_trailer ('auto'|'on'|'off'), platform —
        {tizen, webos}. 'auto' на Tizen/webOS -> 'off' (экономия ТВ: iframe
        YouTube поверх карточки там дороже выигрыша), иначе 'on'. Незнакомое
-       значение считается как 'auto' — так же, как LC.motionModeFor. */
+       значение считается как 'auto' — так же, как LC.motionModeFor.
+       v1.4 «Слабый ТВ»: 'auto' на слабой Android-приставке (platform.weak
+       && platform.android, LC.platformInfo) — тоже 'off'. Явное 'on' руками
+       остаётся 'on'. */
     function modeFor(stored, platform) {
       if (stored !== 'on' && stored !== 'off') stored = 'auto';
       if (stored !== 'auto') return stored;
       platform = platform || {};
       if (platform.tizen || platform.webos) return 'off';
+      if (platform.weak && platform.android) return 'off';
       return 'on';
     }
 
@@ -239,6 +243,13 @@
           platform.webos = !!Lampa.Platform.is('webos');
         }
       } catch (e2) { }
+      try {
+        if (typeof LC.platformInfo === 'function') {
+          var info = LC.platformInfo();
+          platform.android = !!info.android;
+          platform.weak = !!info.weak;
+        }
+      } catch (e3) { }
       return modeFor(stored, platform);
     }
 

@@ -145,10 +145,18 @@
        навсегда, а каждая ошибка идёт в TMDB.broken → ImageMirror.broken
        (:19273-19291): 20 ошибок за 10 с — зеркало картинок забанено, выбор
        другого сохраняется в Storage (tmdb_img_mirror). Включить:
-       Lampa.Storage.set('lumen_rowmem_bytes', 'true'). */
+       Lampa.Storage.set('lumen_rowmem_bytes', 'true').
+       v1.4: на слабой приставке дефолт — включено (LC.prefs.
+       rowmemBytesDefault, src/81_prefs.js); выбор руками побеждает. */
     function bytesOn() {
+      var bytesDef;
       try {
-        return LC.pref ? LC.pref('lumen_rowmem_bytes', false) === true : false;
+        bytesDef = LC.prefs.rowmemBytesDefault(LC.platformInfo());
+      } catch (e0) {
+        bytesDef = false;
+      }
+      try {
+        return LC.pref ? LC.pref('lumen_rowmem_bytes', bytesDef) === true : bytesDef;
       } catch (e) {
         return false;
       }
