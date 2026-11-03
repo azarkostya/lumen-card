@@ -25701,6 +25701,49 @@ _timers:null
 return api;
 })();
 if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.parserfb;
+/* ---- 66_regionblock.js ---- */
+LC.regionblock=(function(){
+var _host=null;
+var _store;
+var _on=false;
+function settings(){
+return(typeof window!=='undefined'&&window.lampa_settings)||null;
+}
+function enabled(){
+try{return LC.pref('lumen_region_unblock',false)===true;}catch(e){}
+return false;
+}
+function install(){
+var S=settings();
+if(!S||_on)return _on;
+var d=Object.getOwnPropertyDescriptor(S,'lgbt');
+if(d&&!d.configurable)return false;
+_store=S.lgbt;
+Object.defineProperty(S,'lgbt',{
+configurable:true,
+enumerable:true,
+get:function(){return enabled()?undefined:_store;},
+set:function(v){_store=v;}
+});
+_host=S;
+_on=true;
+return true;
+}
+function uninstall(){
+if(!_on||!_host)return;
+Object.defineProperty(_host,'lgbt',{value:_store,writable:true,configurable:true,enumerable:true});
+_host=null;
+_store=undefined;
+_on=false;
+}
+return{
+install:install,
+uninstall:uninstall,
+enabled:enabled,
+installed:function(){return _on;}
+};
+})();
+if(typeof module!=='undefined'&&module&&module.lumen)module.exports=LC.regionblock;
 /* ---- 66_tsclean.js ---- */
 LC.tsclean=(function(){
 var KEY='lumen_tsclean_played';
@@ -29514,6 +29557,16 @@ ru:'Скрывает блоки самой Lampa со следующего от�
 en:'Hides "Metadata" and "Moods", Lampa own blocks, from the next time you open a card.',
 uk:'Ховає «Метадані» й «Настрої» — блоки самої Lampa — з наступного відкриття картки.'
 },
+lumen_region_unblock_name:{
+ru:'Без региональной блокировки',
+en:'No regional block',
+uk:'Без регіонального блокування'
+},
+lumen_region_unblock_descr:{
+ru:'Карточка открывается вместо экрана «Контент ограничен».',
+en:'The card opens instead of the "Content restricted" screen.',
+uk:'Картка відкривається замість екрана «Контент обмежено».'
+},
 lumen_hide_shots_name:{ru:'Скрыть Shots',en:'Hide Shots',uk:'Сховати Shots'},
 lumen_hide_shots_descr:{
 ru:'Убирает кнопку Shots с карточки и её значок из шапки.',
@@ -29977,6 +30030,7 @@ return true;
 if(name==='lumen_theme'||name==='lumen_solid'||name==='lumen_scale'||
 name==='lumen_accent_scope'||name==='lumen_flat'||name==='lumen_tile_size'){LC.injectCss();return true;}
 if(name==='lumen_hide_meta')return true;
+if(name==='lumen_region_unblock')return true;
 if(name==='lumen_card_logo'){
 try{if(LC.header&&LC.header.applyLogoPref)LC.header.applyLogoPref();}catch(eCardLogo){}
 return true;
@@ -30600,6 +30654,7 @@ var MORE=[
 {name:'lumen_hide_shots',type:'trigger','default':false,label:'lumen_hide_shots_name',descr:'lumen_hide_shots_descr'},
 {name:'lumen_hide_head_icons',type:'trigger','default':false,label:'lumen_hide_head_icons_name',descr:'lumen_hide_head_icons_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
+{name:'lumen_region_unblock',type:'trigger','default':false,label:'lumen_region_unblock_name',descr:'lumen_region_unblock_descr'},
 {name:'lumen_debug_hud',type:'trigger','default':false,label:'lumen_debug_hud_name',descr:'lumen_debug_hud_descr'},
 {name:'lumen_debug_bench',type:'button',label:'lumen_debug_bench_name',descr:'lumen_debug_bench_descr'},
 {name:'lumen_manifest_url',type:'input','default':'',label:'lumen_manifest_url',descr:'lumen_manifest_url_descr',placeholder:'lumen_pref_default_catalog'}
@@ -33806,6 +33861,11 @@ if(LC.parserfb)LC.parserfb.install();
 warn('parserfb install failed',eParserFb);
 }
 try{
+if(LC.regionblock)LC.regionblock.install();
+}catch(eRegion){
+warn('regionblock install failed',eRegion);
+}
+try{
 if(LC.whatsnew&&LC.whatsnew.schedule)LC.whatsnew.schedule(homeReady);
 }catch(eNew){
 warn('whatsnew schedule failed',eNew);
@@ -33897,6 +33957,7 @@ try{if(LC.onboard)LC.onboard.cancel();}catch(eOnboardOff){}
 try{if(LC.resume)LC.resume.uninstall();}catch(eResumeOff){}
 try{if(LC.tsclean)LC.tsclean.uninstall();}catch(eTscleanOff){}
 try{if(LC.parserfb)LC.parserfb.uninstall();}catch(eParserFbOff){}
+try{if(LC.regionblock)LC.regionblock.uninstall();}catch(eRegionOff){}
 }
 var pending_refresh=null;
 function activeComponentName(){
