@@ -1932,6 +1932,13 @@
     } catch (eParserFb) {
       warn('parserfb install failed', eParserFb);
     }
+    /* «Без региональной блокировки»: геттер на lampa_settings.lgbt
+       (src/66_regionblock.js). */
+    try {
+      if (LC.regionblock) LC.regionblock.install();
+    } catch (eRegion) {
+      warn('regionblock install failed', eRegion);
+    }
     /* 1.2: окно «Что нового», если detect() в LC.init его ждёт; показ —
        только поверх готовой главной (homeReady ниже). */
     try {
@@ -2102,6 +2109,9 @@
     try { if (LC.tsclean) LC.tsclean.uninstall(); } catch (eTscleanOff) {}
     /* «Запасной парсер»: Lampa.Parser.get снова исходный. */
     try { if (LC.parserfb) LC.parserfb.uninstall(); } catch (eParserFbOff) {}
+    /* «Без региональной блокировки»: lampa_settings.lgbt снова обычное
+       свойство. */
+    try { if (LC.regionblock) LC.regionblock.uninstall(); } catch (eRegionOff) {}
   }
 
   /* -------------------------------------------------------------------- */

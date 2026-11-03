@@ -389,6 +389,9 @@
 
       /* «Для разработчика» — последней группой, в самом низу. */
       { name: 'lumen_group_dev', type: 'title', label: 'lumen_group_dev' },
+      /* Экран «Контент ограничен» Lampa (src/66_regionblock.js). По
+         умолчанию выключен: поведение Lampa без спроса не меняем. */
+      { name: 'lumen_region_unblock', type: 'trigger', 'default': false, label: 'lumen_region_unblock_name', descr: 'lumen_region_unblock_descr' },
       /* Task 31: строка замеров в углу экрана (src/69_hud.js). */
       { name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
       /* Волна производительности: самотест (src/69_bench.js); кнопка. */

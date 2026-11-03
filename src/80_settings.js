@@ -742,6 +742,17 @@
       en: 'Hides "Metadata" and "Moods", Lampa own blocks, from the next time you open a card.',
       uk: 'Ховає «Метадані» й «Настрої» — блоки самої Lampa — з наступного відкриття картки.'
     },
+    /* «Без региональной блокировки» (src/66_regionblock.js). */
+    lumen_region_unblock_name: {
+      ru: 'Без региональной блокировки',
+      en: 'No regional block',
+      uk: 'Без регіонального блокування'
+    },
+    lumen_region_unblock_descr: {
+      ru: 'Карточка открывается вместо экрана «Контент ограничен».',
+      en: 'The card opens instead of the "Content restricted" screen.',
+      uk: 'Картка відкривається замість екрана «Контент обмежено».'
+    },
     /* 1.4: кнопка Shots и лишние значки шапки Lampa (src/85_header.js,
        LC.headHide). Оба выключены по умолчанию: это интерфейс самой Lampa. */
     lumen_hide_shots_name: { ru: 'Скрыть Shots', en: 'Hide Shots', uk: 'Сховати Shots' },
@@ -1467,6 +1478,9 @@
        открытом экране применять нечего, поэтому ветка пустая; своя она
        потому, что иначе имя ушло бы дальше как чужое. */
     if (name === 'lumen_hide_meta') return true;
+    /* «Без региональной блокировки» читается геттером при каждой проверке
+       Lampa (src/66_regionblock.js) — применять на лету нечего. */
+    if (name === 'lumen_region_unblock') return true;
     /* Правка 2026-09-23: логотип названия в карточке. Уже открытые карточки
        перерисовываются сразу (LC.header.applyLogoPref): выключение
        возвращает текст, включение ставит логотип тем же путём, что и при
