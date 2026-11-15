@@ -134,7 +134,9 @@
       try {
         if (typeof n.timeout === 'function') n.timeout(TIMEOUT);
         n.silent(url + '/echo', function (data) {
-          cb(data !== null && typeof data !== 'undefined' && String(data).length > 0);
+          /* Ответ TorrServer — версия: «MatriX.150», у старых — число. Другой
+             веб-сервер на том же адресе живым не считается. */
+          cb(data !== null && typeof data !== 'undefined' && /^\s*(MatriX|\d)/i.test(String(data)));
         }, function () { cb(false); }, false, params(url));
       } catch (e) {
         cb(false);

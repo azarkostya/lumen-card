@@ -110,6 +110,14 @@ test('tsauto: пустой ответ 200 — не «отвечает»', () => 
   assert.equal(env.reqs[0].url, TWO + '/echo');
 });
 
+test('tsauto: на адресе основного отвечает не TorrServer — не «отвечает»', () => {
+  const env = setup();
+  env.api.install();
+  env.api.check();
+  env.reqs.shift().ok('<html>login</html>');
+  assert.equal(env.reqs[0].url, TWO + '/echo');
+});
+
 test('tsauto: оба молчат — ничего не пишем', () => {
   const env = setup({ storage: { torrserver_use_link: 'one' } });
   env.api.install();
