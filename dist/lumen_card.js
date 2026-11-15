@@ -5215,11 +5215,11 @@ id:'romance',title:'Романтика',i18n:{en:'Romance',uk:'Романтик�
 sources:{movie:{type:'discover',params:{genres:'10749,18',sort_by:'vote_average.desc',filter:{without_genres:'99,16,27','vote_count.gte':2000}}}}
 },
 {
-id:'kids-toons',title:'Мультсериалы для детей',i18n:{en:'Cartoons for Kids',uk:'Мультсеріали для дітей'},group:'theme',kids:true,animation:true,cover:'/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+id:'kids-toons',title:'Мультсериалы для детей',i18n:{en:'Cartoons for Kids',uk:'Мультсеріали для дітей'},group:'theme',kids:true,kidsOnly:true,animation:true,cover:'/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
 sources:{tv:{type:'discover',params:{genres:'16,10762',sort_by:'popularity.desc',filter:{'vote_count.gte':20}}}}
 },
 {
-id:'toddlers',title:'Для самых маленьких',i18n:{en:'For Little Ones',uk:'Для найменших'},group:'theme',kids:true,animation:true,cover:'/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+id:'toddlers',title:'Для самых маленьких',i18n:{en:'For Little Ones',uk:'Для найменших'},group:'theme',kids:true,kidsOnly:true,animation:true,cover:'/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
 sources:{
 movie:{type:'discover',params:{genres:'16,10751',sort_by:'popularity.desc',filter:{certification_country:'US','certification.lte':'G','vote_count.gte':50}}},
 tv:{type:'discover',params:{genres:10762,sort_by:'popularity.desc',filter:{certification_country:'US',certification:'TV-Y','vote_count.gte':20}}}
@@ -5827,6 +5827,7 @@ return{ok:false,reason:'bad_cover: '+c.id};
 }
 if(typeof c.animation!=='undefined'&&typeof c.animation!=='boolean')delete c.animation;
 if(typeof c.kids!=='undefined'&&typeof c.kids!=='boolean')delete c.kids;
+if(typeof c.kidsOnly!=='undefined'&&typeof c.kidsOnly!=='boolean')delete c.kidsOnly;
 }
 var themes=m.themes||[];
 for(i=0;i<themes.length;i++){
@@ -10359,6 +10360,7 @@ for(i=0;i<manifest.collections.length;i++){
 c=manifest.collections[i];
 if(!c||!c.id||off(c.id))continue;
 if(offSeason(c,month))continue;
+if(c.kidsOnly===true&&!o.kids)continue;
 pool.push(c);
 weight.push(home[c.id]?2:1);
 }
@@ -10650,6 +10652,8 @@ if(_manifest&&LC.rows&&typeof LC.rows.adventRow==='function')advent=LC.rows.adve
 if(advent&&!rowOn(advent.name)){offRows.push(advent);advent=null;}
 var leads=read(LEADS_KEY,'[]');
 if(!Array.isArray(leads))leads=[];
+var kidsMode=false;
+try{kidsMode=!!(LC.kids&&LC.kids.enabled());}catch(eKids){}
 var plan=planHome({
 manifest:_manifest,
 picked:picked,
@@ -10660,6 +10664,7 @@ recentLeads:recentLeads(leads,epoch.n),
 limit:limit,
 mode:mode,
 advent:!!advent,
+kids:kidsMode,
 off:function(id){return!rowOn('lumen_'+id);}
 });
 unregister();

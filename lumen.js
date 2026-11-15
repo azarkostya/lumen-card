@@ -16,7 +16,7 @@
   /* Метка сборки: первые 10 hex sha256 от dist/lumen_card.js. Вписывает её
      scripts/build.mjs, руками не править (build.mjs --check ловит
      расхождение с dist). */
-  var BUILD = 'e79976b1a0';
+  var BUILD = 'c516e07fbf';
   /* Версия выпуска (LC.VERSION из src/00_head.js) — тег v<VERSION>, с
      которого Pages-загрузчик берёт сборку на jsDelivr. Тоже вписывает
      scripts/build.mjs; --check ловит расхождение. */

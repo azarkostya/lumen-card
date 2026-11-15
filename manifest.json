@@ -2943,6 +2943,7 @@
       },
       "group": "theme",
       "kids": true,
+      "kidsOnly": true,
       "animation": true,
       "cover": "/ogMd4e3A0uSNwZADzgC23zCByoi.jpg",
       "sources": {
@@ -2967,6 +2968,7 @@
       },
       "group": "theme",
       "kids": true,
+      "kidsOnly": true,
       "animation": true,
       "cover": "/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg",
       "sources": {
