@@ -295,11 +295,18 @@
 
     /* 1.4: «TorrServer…» — путь до плеера через TorrServer. */
     var TS = [
+      /* 1.4: восемь пунктов — две группы (не больше семи строк в группе):
+         экраны раздач и поиск, затем сам сервер. */
+      { name: 'lumen_group_ts_view', type: 'title', label: 'lumen_group_ts_view' },
       { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
       /* 1.4: файлы сериала — фокус на серии после досмотренной
          (src/65_torrents.js). Навигация внутри оформления пути, поэтому
          включён; без «Оформления торрентов» не действует. */
       { name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'lumen_ts_resume_focus_name', descr: 'lumen_ts_resume_focus_descr' },
+      /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
+         ответил или ничего не нашёл: поиск по второму адресу Lampa. */
+      { name: 'lumen_parser_fallback', type: 'trigger', 'default': false, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' },
+      { name: 'lumen_group_ts_server', type: 'title', label: 'lumen_group_ts_server' },
       /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js). По умолчанию
          ВЫКЛЮЧЕНА: плагин без спроса чужих раздач не удаляет. */
       { name: 'lumen_tsclean', type: 'trigger', 'default': false, label: 'lumen_tsclean_name', descr: 'lumen_tsclean_descr' },
@@ -308,9 +315,9 @@
       { name: 'lumen_tsclean_now', type: 'button', label: 'lumen_tsclean_now_name', descr: 'lumen_tsclean_now_descr' },
       /* Точка «TorrServer не отвечает» на карточке (src/66_tshealth.js). */
       { name: 'lumen_ts_health', type: 'trigger', 'default': false, label: 'lumen_ts_health_name', descr: 'lumen_ts_health_descr' },
-      /* «Запасной парсер» (src/66_parserfb.js) — основной Jackett не
-         ответил или ничего не нашёл: поиск по второму адресу Lampa. */
-      { name: 'lumen_parser_fallback', type: 'trigger', 'default': false, label: 'lumen_parser_fallback_name', descr: 'lumen_parser_fallback_descr' }
+      /* 1.4: «Автовыбор TorrServer» (src/66_tsauto.js). По умолчанию
+         ВЫКЛЮЧЕН: пишет настройку Lampa torrserver_use_link. */
+      { name: 'lumen_ts_auto', type: 'trigger', 'default': false, label: 'lumen_ts_auto_name', descr: 'lumen_ts_auto_descr' }
     ];
 
     var MORE = [
@@ -875,7 +882,9 @@
        lumen_moods — чипы встают только без кадра над рядами
          (src/49_moods.js, LC.moods.mount по узлу героя);
        lumen_ts_resume_focus — фокус ставит наш экран раздач
-         (src/65_torrents.js): при выключенном lumen_torrents его нет. */
+         (src/65_torrents.js): при выключенном lumen_torrents его нет;
+       lumen_ts_auto — выбирать не из чего без второго адреса Lampa
+         (torrserver_url_two, src/66_tsauto.js). */
   LC.prefIdle = function (name) {
     try {
       if (name === 'lumen_accent_scope') {
@@ -883,6 +892,10 @@
         return LC.pref('lumen_accent_auto', true) ? '' : 'lumen_idle_need_auto';
       }
       if (name === 'lumen_ts_resume_focus') return LC.pref('lumen_torrents', true) ? '' : 'lumen_idle_need_torrents';
+      if (name === 'lumen_ts_auto') {
+        var two = window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function' ? Lampa.Storage.get('torrserver_url_two', '') : '';
+        return two && String(two).replace(/^\s+|\s+$/g, '') ? '' : 'lumen_idle_need_ts_two';
+      }
       if (name === 'lumen_accent_auto') {
         if (LC.pref('lumen_flat', false)) return 'lumen_idle_flat';
         return LC.motionMode() === 'off' ? 'lumen_idle_motion_off' : '';
@@ -901,7 +914,11 @@
     lumen_torrents: ['lumen_ts_resume_focus'],
     lumen_style: ['lumen_accent_auto', 'lumen_accent_scope'],
     lumen_motion: ['lumen_accent_auto', 'lumen_fx_heavy'],
-    lumen_hero_size: ['lumen_moods']
+    lumen_hero_size: ['lumen_moods'],
+    /* Адрес Lampa, не наш пункт: правку им мы не слышим — пометка
+       обновляется при следующем открытии экрана. Строка здесь, чтобы у
+       пункта была пометка вовсе (idleCapable, src/80_settings.js). */
+    torrserver_url_two: ['lumen_ts_auto']
   };
 
   /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen

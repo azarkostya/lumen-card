@@ -3228,3 +3228,15 @@ test('tshealth: complite — LC.tshealth.check(root); исключение не 
   assert.deepEqual(roots, [root]);
   assert.equal(calls.schedule.length, 1, 'трейлер заведён, как обычно');
 });
+
+/* 1.4: «Автовыбор TorrServer» (src/66_tsauto.js): complite карточки зовёт
+   LC.tsauto.check; исключение модуля карточку не роняет. */
+test('tsauto: complite — LC.tsauto.check(); исключение не мешает остальному', () => {
+  let n = 0;
+  const { full, calls } = initLC({ setup: (LC) => { LC.tsauto = { check: () => { n++; throw new Error('boom'); } }; } });
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const body = new FakeEl(['activity__body']);
+  full[0]({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } });
+  assert.equal(n, 1);
+  assert.equal(calls.schedule.length, 1, 'трейлер заведён, как обычно');
+});

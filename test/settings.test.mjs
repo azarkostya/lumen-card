@@ -107,6 +107,7 @@ function setup(opts) {
   /* 1.3: «Автоочистка TorrServer» — перезаводит свой таймер (apply). */
   LC.tsclean = { apply: mark('tsclean') };
   LC.tshealth = { apply: mark('tshealth') };
+  LC.tsauto = { apply: mark('tsauto') };
   /* 1.4: Shots и лишние значки шапки — классы на body (LC.headHide). */
   LC.headHide = { apply: mark('headhide') };
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
@@ -352,6 +353,8 @@ test('каждая настройка применяется ровно один
     lumen_tsclean_now: null,
     /* «Состояние TorrServer» — снимает точку при выключении (apply). */
     lumen_ts_health: ['tshealth'],
+    /* 1.4: «Автовыбор TorrServer» — свой таймер и проход (apply). */
+    lumen_ts_auto: ['tsauto'],
     /* «Запасной парсер» читается на каждом поиске раздач
        (src/66_parserfb.js) — применять на лету нечего. */
     lumen_parser_fallback: [],
@@ -1421,6 +1424,8 @@ test('1.5: LC.prefIdle — причины ровно по местам чтен�
     [{ lumen_flat: 'true', lumen_accent_auto: 'false' }, 'lumen_accent_scope', 'lumen_idle_flat'],
     [{}, 'lumen_ts_resume_focus', ''],
     [{ lumen_torrents: 'false' }, 'lumen_ts_resume_focus', 'lumen_idle_need_torrents'],
+    [{}, 'lumen_ts_auto', 'lumen_idle_need_ts_two'],
+    [{ torrserver_url_two: 'http://127.0.0.1:8090' }, 'lumen_ts_auto', ''],
     [{}, 'lumen_accent_auto', ''],
     [{ lumen_flat: 'true' }, 'lumen_accent_auto', 'lumen_idle_flat'],
     [{ lumen_motion: 'off' }, 'lumen_accent_auto', 'lumen_idle_motion_off'],

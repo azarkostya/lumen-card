@@ -218,6 +218,8 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_tsclean_now: [],
     /* «Состояние TorrServer» — своя точка (LC.tshealth.apply). */
     lumen_ts_health: [],
+    /* 1.4: «Автовыбор TorrServer» — своя точка (LC.tsauto.apply). */
+    lumen_ts_auto: [],
     /* «Запасной парсер» — читается на каждом поиске раздач, CSS и экран
        не трогает. */
     lumen_parser_fallback: [],

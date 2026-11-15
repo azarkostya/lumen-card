@@ -1340,6 +1340,9 @@
                 setTimeout(function () { try { LC.headHide.markShots(root); } catch (eSh2) {} }, 1500);
               }
             } catch (eSh) {}
+            /* 1.4: «Автовыбор TorrServer» — до кнопки «Торренты» выбрать
+               живой адрес; не чаще раза в 60 с (src/66_tsauto.js). */
+            try { if (LC.tsauto) LC.tsauto.check(); } catch (eTsAuto) {}
             /* Task 29: замер «сколько у этого железа занимает первый кадр
                тяжёлого экрана» — отсюда и до второго requestAnimationFrame.
                Точка вызова последняя в обработчике намеренно: замер обязан
@@ -1925,6 +1928,13 @@
     } catch (eTsclean) {
       warn('tsclean install failed', eTsclean);
     }
+    /* 1.4: «Автовыбор TorrServer» — первая проверка через 4 с, подписка на
+       создание экрана раздач (src/66_tsauto.js). */
+    try {
+      if (LC.tsauto) LC.tsauto.install();
+    } catch (eTsAuto) {
+      warn('tsauto install failed', eTsAuto);
+    }
     /* «Запасной парсер»: обёртка Lampa.Parser.get; без Parser — ничего
        (src/66_parserfb.js). */
     try {
@@ -2107,6 +2117,8 @@
     /* 1.3: выключенный плагин TorrServer не чистит: таймер и начатый
        проход снимаются (src/66_tsclean.js). */
     try { if (LC.tsclean) LC.tsclean.uninstall(); } catch (eTscleanOff) {}
+    /* 1.4: «Автовыбор TorrServer» — таймер, подписка и начатый проход. */
+    try { if (LC.tsauto) LC.tsauto.uninstall(); } catch (eTsAutoOff) {}
     /* «Запасной парсер»: Lampa.Parser.get снова исходный. */
     try { if (LC.parserfb) LC.parserfb.uninstall(); } catch (eParserFbOff) {}
     /* «Без региональной блокировки»: lampa_settings.lgbt снова обычное

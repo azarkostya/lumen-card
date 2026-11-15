@@ -40,6 +40,7 @@ test('релиз: проверка дефолтов ловит включённ�
     "{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'c' },\n" +
     "{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'd' },\n" +
     "{ name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'f' },\n" +
+    "{ name: 'lumen_ts_auto', type: 'trigger', 'default': false, label: 'h' },\n" +
     "{ name: 'lumen_hide_other', type: 'trigger', 'default': true, label: 'e' },\n";
   const p = behaviorPrefProblems((f) => (f === 'src/81_prefs.js' ? src : null));
   assert.equal(p.length, 3, p.join('\n'));
@@ -59,6 +60,7 @@ test('релиз: дефолт-функция у пункта из BEHAVIOR_PREF
     "{ name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'c' },\n" +
     "{ name: 'lumen_rowmem_bytes', type: 'trigger', 'default': function () { return rowmemBytesDefault(LC.platformInfo()); }, label: 'd' },\n" +
     "{ name: 'lumen_ts_resume_focus', type: 'trigger', 'default': false, label: 'f' },\n" +
+    "{ name: 'lumen_ts_auto', type: 'trigger', 'default': false, label: 'h' },\n" +
     "{ name: 'lumen_hide_other', type: 'trigger', 'default': function () { return true; }, label: 'e' },\n";
   const p = behaviorPrefProblems((f) => (f === 'src/81_prefs.js' ? src : null));
   assert.equal(p.length, 2, p.join('\n'));

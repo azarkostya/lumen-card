@@ -106,6 +106,7 @@ export const BEHAVIOR_PREFS = {
   lumen_tsclean: false,          // автоочистка TorrServer удаляет раздачи
   lumen_ts_health: false,        // точка «Состояние TorrServer» ходит на сервер
   lumen_parser_fallback: false,  // запасной парсер — второй адрес поиска
+  lumen_ts_auto: false,          // автовыбор TorrServer пишет torrserver_use_link
   lumen_hide_shots: false,       // будущий: скрытие Shots (если появится)
   lumen_hide_head_icons: false,  // будущий: скрытие иконок шапки (если появится)
   lumen_rowmem_bytes: false,     // выгрузка постеров: сбои картинок -> ImageMirror.broken меняет зеркало

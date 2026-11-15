@@ -158,7 +158,7 @@ test('LIST: полный набор ключей 1.5 — старые имена
     'lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill',
     /* «TorrServer…» */
     'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
-    'lumen_parser_fallback',
+    'lumen_ts_auto', 'lumen_parser_fallback',
     /* «Дополнительно…» */
     'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
@@ -245,8 +245,8 @@ const SECTION_GROUPS = {
     [null, ['lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
   ],
   torrserver: [
-    [null, ['lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
-      'lumen_parser_fallback']]
+    ['lumen_group_ts_view', ['lumen_torrents', 'lumen_ts_resume_focus', 'lumen_parser_fallback']],
+    ['lumen_group_ts_server', ['lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_ts_auto']]
   ],
   more: [
     ['lumen_group_film', ['lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',

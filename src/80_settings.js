@@ -47,6 +47,8 @@
     lumen_group_ambient: { ru: 'Праздники и заставка', en: 'Holidays and screensaver', uk: 'Свята й заставка' },
     lumen_group_remote: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
     lumen_group_dev: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
+    lumen_group_ts_view: { ru: 'Раздачи', en: 'Torrents', uk: 'Роздачі' },
+    lumen_group_ts_server: { ru: 'Сервер', en: 'Server', uk: 'Сервер' },
     /* 1.4: кнопки экранов по темам на главном экране раздела. */
     lumen_look_name: { ru: 'Цвет и вид…', en: 'Colour and look…', uk: 'Колір і вигляд…' },
     lumen_look_descr: {
@@ -62,9 +64,9 @@
     },
     lumen_torrserver_name: { ru: 'TorrServer…', en: 'TorrServer…', uk: 'TorrServer…' },
     lumen_torrserver_descr: {
-      ru: 'Оформление раздач, автоочистка, состояние сервера, запасной парсер.',
-      en: 'Torrent screens style, auto-cleanup, server status, backup parser.',
-      uk: 'Оформлення роздач, автоочищення, стан сервера, запасний парсер.'
+      ru: 'Оформление раздач, запасной парсер, автоочистка, состояние и автовыбор сервера.',
+      en: 'Torrent screens style, backup parser, auto-cleanup, server status and auto-select.',
+      uk: 'Оформлення роздач, запасний парсер, автоочищення, стан і автовибір сервера.'
     },
     lumen_more_name: { ru: 'Дополнительно…', en: 'More…', uk: 'Додатково…' },
     lumen_more_descr: {
@@ -82,6 +84,7 @@
     lumen_idle_need_full: { ru: 'нужны «Полные» анимации', en: 'needs "Full" animations', uk: 'потрібні «Повні» анімації' },
     lumen_idle_need_torrents: { ru: 'выключено «Оформление торрентов»', en: '"Torrents style" is off', uk: 'вимкнено «Оформлення торентів»' },
     lumen_idle_need_no_hero: { ru: 'включён «Кадр над рядами»', en: '"Hero over the rows" is on', uk: 'увімкнено «Кадр над рядами»' },
+    lumen_idle_need_ts_two: { ru: 'в Lampa не задан второй адрес TorrServer', en: 'no second TorrServer address in Lampa', uk: 'у Lampa не задано другу адресу TorrServer' },
     /* Task 62b, 1.0.2: готовый стиль — select «Стиль» (lumen_style) вместо
        двух кнопок. «Свой» — значение, которое ставит сам плагин, когда
        пункты набора правили вручную (syncStyle ниже), поэтому описание его
@@ -571,6 +574,15 @@
       en: 'TorrServer is not responding. You can pick the backup link in Settings → TorrServer',
       uk: 'TorrServer не відповідає. Запасне посилання можна вибрати: Налаштування → TorrServer'
     },
+    /* 1.4: «Автовыбор TorrServer» (src/66_tsauto.js). */
+    lumen_ts_auto_name: { ru: 'Автовыбор TorrServer', en: 'TorrServer auto-select', uk: 'Автовибір TorrServer' },
+    lumen_ts_auto_descr: {
+      ru: 'Основной адрес не отвечает — Lampa берёт второй. Проверка при запуске и на карточке',
+      en: 'Main address down — Lampa uses the second one. Checked at start and on a card',
+      uk: 'Основна адреса не відповідає — Lampa бере другу. Перевірка під час запуску й на картці'
+    },
+    lumen_ts_auto_two: { ru: 'TorrServer: переключено на второй адрес', en: 'TorrServer: switched to the second address', uk: 'TorrServer: перемкнено на другу адресу' },
+    lumen_ts_auto_one: { ru: 'TorrServer: переключено на основной', en: 'TorrServer: switched to the main address', uk: 'TorrServer: перемкнено на основну' },
     /* «Запасной парсер» (src/66_parserfb.js). */
     lumen_parser_fallback_name: { ru: 'Запасной парсер', en: 'Backup parser', uk: 'Запасний парсер' },
     lumen_parser_fallback_descr: {
@@ -1660,6 +1672,12 @@
        (src/66_tshealth.js, apply); включили — со следующего открытия. */
     if (name === 'lumen_ts_health') {
       try { if (LC.tshealth) LC.tshealth.apply(); } catch (eTsh) {}
+      return true;
+    }
+    /* 1.4: «Автовыбор TorrServer» — включили: проверка через 4 с;
+       выключили: таймер и начатый проход сняты (src/66_tsauto.js, apply). */
+    if (name === 'lumen_ts_auto') {
+      try { if (LC.tsauto) LC.tsauto.apply(); } catch (eTsAuto) {}
       return true;
     }
     if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
