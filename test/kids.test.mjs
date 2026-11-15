@@ -218,6 +218,34 @@ test('kids: validate — не boolean снимается у подборки и 
   }
 });
 
+/* 1.4: kidsOnly — подборка только для детского режима (во взрослой
+   ротации главной её нет, src/47_homeplan.js). */
+test('kids: kidsOnly — ровно «Для самых маленьких» и «Мультсериалы для детей», только true и вместе с kids', () => {
+  const only = M.DEFAULT.collections.filter((c) => c.kidsOnly === true).map((c) => c.id);
+  assert.deepEqual(only.slice().sort(), ['kids-toons', 'toddlers']);
+  for (const c of M.DEFAULT.collections) {
+    assert.ok(typeof c.kidsOnly === 'undefined' || c.kidsOnly === true, 'тег только true: ' + c.id);
+    if (c.kidsOnly) assert.equal(c.kids, true, 'kidsOnly без kids: ' + c.id);
+    if (c.kidsOnly) assert.equal(M.DEFAULT.home.indexOf(c.id), -1, 'kidsOnly в наборе по умолчанию: ' + c.id);
+  }
+});
+
+test('kids: validate — kidsOnly не boolean снимается, каталог принят', () => {
+  for (const bad of ['yes', 1, null, {}]) {
+    const m = catalog();
+    m.collections[0].kidsOnly = bad;
+    delete m.hubGroups;
+    m.moods.forEach((x) => { x.sources = { movie: { type: 'discover', params: {} } }; });
+    m.collections.forEach((x) => { x.sources = { movie: { type: 'discover', params: {} } }; });
+    delete m.themes;
+    delete m.ambient;
+    const r = M.validate(m);
+    assert.equal(r.ok, true, JSON.stringify(bad) + ': ' + r.reason);
+    assert.equal('kidsOnly' in m.collections[0], false);
+    assert.equal(m.collections.length, 4);
+  }
+});
+
 /* ---- get / load / raw в детском режиме ----------------------------------- */
 
 function withManifest(kidsOn, url, reply) {

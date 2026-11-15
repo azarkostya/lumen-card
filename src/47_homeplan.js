@@ -182,7 +182,8 @@
     /* Состав подборок ротации: лидер первым, потом (не в декабре с
        адвентом) сезонная в свой месяц, если лидер не она, потом остальные
        по перестановке — всего limit.
-       Пул — весь каталог, кроме сезонных не в свой месяц; набор
+       Пул — весь каталог, кроме сезонных не в свой месяц и (вне
+       детского режима, o.kids) подборок с тегом kidsOnly; набор
        manifest.home — с двойным весом. Выбранный вручную состав (picked) —
        ровно он, крутится только его порядок. */
     function choose(o, month, limit) {
@@ -212,6 +213,11 @@
           c = manifest.collections[i];
           if (!c || !c.id || off(c.id)) continue;
           if (offSeason(c, month)) continue;
+          /* 1.4: kidsOnly («Для самых маленьких», «Мультсериалы для
+             детей») — только для детского режима: во взрослой ротации их не
+             ждут. В хабе и поиске подборок они есть, а выбранный вручную
+             состав (picked выше) их берёт — выбор пользователя. */
+          if (c.kidsOnly === true && !o.kids) continue;
           pool.push(c);
           weight.push(home[c.id] ? 2 : 1);
         }
@@ -607,6 +613,8 @@
       if (advent && !rowOn(advent.name)) { offRows.push(advent); advent = null; }
       var leads = read(LEADS_KEY, '[]');
       if (!Array.isArray(leads)) leads = [];
+      var kidsMode = false;
+      try { kidsMode = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
 
       var plan = planHome({
         manifest: _manifest,
@@ -618,6 +626,7 @@
         limit: limit,
         mode: mode,
         advent: !!advent,
+        kids: kidsMode,
         off: function (id) { return !rowOn('lumen_' + id); }
       });
 

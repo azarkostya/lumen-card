@@ -110,7 +110,12 @@
          Росомаха» (R, жанры 28/35/878 — фильтром не отличить) и сериалы
          Netflix 18+ («Джессика Джонс» без стоп-жанров); «Люди Икс» — «Логан»
          (R); «Классика Marvel» — «Блэйд» и «Каратель» (R); DC — решение
-         пользователя. Не boolean — поле отбрасывается (validate). */
+         пользователя. Не boolean — поле отбрасывается (validate).
+         kidsOnly (необязательное, 1.4) — true у подборок только для
+         детского режима («Для самых маленьких», «Мультсериалы для детей»;
+         ставится вместе с kids): вне детского режима план главной не берёт
+         их в ротацию (src/47_homeplan.js), хаб, поиск и выбранный вручную
+         состав — как прочие. Не boolean — поле отбрасывается (validate). */
       collections: [
 
         /* === FRANCHISE (47 подборок) === */
@@ -1286,11 +1291,11 @@
              Остаются «Студия Marvel: Легенды» и «Общий сбор» (4-я и 8-я) — это
              документальные выпуски, признака отсечь их нет. */
         {
-          id: 'kids-toons', title: 'Мультсериалы для детей', i18n: { en: 'Cartoons for Kids', uk: 'Мультсеріали для дітей' }, group: 'theme', kids: true, animation: true, cover: '/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
+          id: 'kids-toons', title: 'Мультсериалы для детей', i18n: { en: 'Cartoons for Kids', uk: 'Мультсеріали для дітей' }, group: 'theme', kids: true, kidsOnly: true, animation: true, cover: '/ogMd4e3A0uSNwZADzgC23zCByoi.jpg',
           sources: { tv: { type: 'discover', params: { genres: '16,10762', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 20 } } } }
         },
         {
-          id: 'toddlers', title: 'Для самых маленьких', i18n: { en: 'For Little Ones', uk: 'Для найменших' }, group: 'theme', kids: true, animation: true, cover: '/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
+          id: 'toddlers', title: 'Для самых маленьких', i18n: { en: 'For Little Ones', uk: 'Для найменших' }, group: 'theme', kids: true, kidsOnly: true, animation: true, cover: '/h3uqFk7sZRJvLZDdLiFB9qwbL07.jpg',
           sources: {
             movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'G', 'vote_count.gte': 50 } } },
             tv:    { type: 'discover', params: { genres: 10762, sort_by: 'popularity.desc', filter: { certification_country: 'US', certification: 'TV-Y', 'vote_count.gte': 20 } } }
@@ -2160,6 +2165,8 @@
         if (typeof c.animation !== 'undefined' && typeof c.animation !== 'boolean') delete c.animation;
         /* 1.2: тег детского режима — так же. */
         if (typeof c.kids !== 'undefined' && typeof c.kids !== 'boolean') delete c.kids;
+        /* 1.4: «только для детского режима» — так же. */
+        if (typeof c.kidsOnly !== 'undefined' && typeof c.kidsOnly !== 'boolean') delete c.kidsOnly;
       }
       var themes = m.themes || [];
       for (i = 0; i < themes.length; i++) {

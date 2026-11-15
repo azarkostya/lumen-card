@@ -351,6 +351,40 @@ test('planHome: состав, выбранный вручную, — крути�
   assert.deepEqual(own, ['star-wars', 'xmas-comedy']);
 });
 
+/* 1.4: владелец — «Для самых маленьких» на взрослой главной — баг. Тег
+   kidsOnly: вне детского режима в ротацию не идут, в детском — как прочие,
+   выбранные вручную — остаются. */
+const KIDS_ONLY = ['toddlers', 'kids-toons'];
+function kidsCatalog() {
+  return loadCtx('41_kids.js', { pref: (k, d) => (k === 'lumen_kids' ? true : d) }).api.catalog(CATALOG);
+}
+
+test('planHome: kidsOnly во взрослом режиме не встаёт ни в одну эпоху (и лидером тоже)', function () {
+  for (var n = 1; n <= 300; n++) {
+    var p = plan({ epoch: n });
+    collections(p).forEach(function (s) { assert.equal(KIDS_ONLY.indexOf(s.id), -1, 'эпоха ' + n + ': ' + s.id); });
+    assert.equal(KIDS_ONLY.indexOf(p.lead), -1, 'лидер эпохи ' + n);
+    collections(plan({ epoch: n, mode: 'history' })).forEach(function (s) { assert.equal(KIDS_ONLY.indexOf(s.id), -1, 'история, эпоха ' + n); });
+  }
+});
+
+test('planHome: kidsOnly в детском режиме — в ротации', function () {
+  var seen = {};
+  var kids = kidsCatalog();
+  for (var n = 1; n <= 60; n++) {
+    collections(plan({ epoch: n, manifest: kids, kids: true })).forEach(function (s) { seen[s.id] = 1; });
+  }
+  KIDS_ONLY.forEach(function (id) { assert.ok(seen[id], 'детский режим: ' + id); });
+});
+
+test('planHome: kidsOnly, выбранный вручную, остаётся и во взрослом режиме', function () {
+  var picked = ['toddlers', 'star-wars', 'kids-toons', 'pixar'];
+  for (var n = 1; n <= 12; n++) {
+    var ids = collections(plan({ epoch: n, picked: picked })).map(function (s) { return s.id; }).sort();
+    assert.deepEqual(ids, picked.slice().sort());
+  }
+});
+
 test('planHome: подборки из набора по умолчанию выпадают вдвое чаще остальных', function () {
   var home = {};
   CATALOG.home.forEach(function (id) { home[id] = 1; });
@@ -684,6 +718,22 @@ test('apply: «Потому что вы смотрели» — один из п�
     got[m[1]] = 1;
   }
   assert.ok(Object.keys(got).length >= 3, 'по эпохам исходный фильм меняется: ' + Object.keys(got));
+});
+
+test('apply: kidsOnly — взрослый режим без них, детский (lumen_kids) — с ними', function () {
+  const off = {}, on = {};
+  for (let n = 0; n < 40; n++) {
+    const a = setupApply({ now: Date.UTC(2026, 8, 24, 11, 0) + n * 4 * 3600000 });
+    a.H.apply({ start: true, manifest: CATALOG });
+    a.H.apply({ fresh: true }).slots.forEach(function (s) { off[s.id] = 1; });
+  }
+  KIDS_ONLY.forEach(function (id) { assert.ok(!off[id], 'взрослый режим: ' + id); });
+  for (let n = 0; n < 40; n++) {
+    const b = setupApply({ prefs: { lumen_kids: true } });
+    loadInto(b.LC, '41_kids.js');
+    withRandom((n + 0.5) / 40, () => b.H.apply({ start: true, manifest: b.LC.kids.catalog(CATALOG) }).slots.forEach(function (s) { on[s.id] = 1; }));
+  }
+  KIDS_ONLY.forEach(function (id) { assert.ok(on[id], 'детский режим: ' + id); });
 });
 
 test('apply: «Сначала «Досмотреть»» — личные ряды сверху, как до волны 4', function () {
