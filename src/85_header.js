@@ -1495,6 +1495,7 @@
       var data = { movie: movie, episodes: { season_number: n, episodes: list } };
       renderEpisodes(root, data);
       renderSeasons(root, data);
+      renderPins(root, movie);
     };
     if (cache[n]) return apply(cache[n]);
     if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.seasons !== 'function') return;
@@ -2394,6 +2395,40 @@
     }
   }
 
+  function renderPins(root, movie, on) {
+    if (!LC.pins) return;
+    var container = root.find('.buttons--container');
+    if (!container.length) return;
+    var row = root.find('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    var season = info ? info.season : 0;
+    var normal = container.find('.view--torrent').not('.hide').eq(0);
+    var pin = on === false || !normal.length ? null : LC.pins.get(movie, season);
+    var button = container.find('.view--lumen-pin');
+    if (!pin) {
+      button.remove();
+      root.find('.button--priority.view--lumen-pin').remove();
+      return;
+    }
+    if (!button.length) {
+      button = $('<div class="full-start__button view--lumen-pin"><svg><use xlink:href="#sprite-torrent"></use></svg><span></span></div>');
+      button.find('span').text(LC.lang('lumen_pins_open'));
+      container.prepend(button);
+    }
+    button.data('subtitle', LC.pins.subtitle(pin));
+    button.off('hover:enter.lumenPins').on('hover:enter.lumenPins', function () {
+      LC.pins.open(movie, season, function () { normal.trigger('hover:enter'); });
+    });
+  }
+
+  function refreshPins(on) {
+    $('.lumen-card').each(function () {
+      var root = $(this);
+      var movie = root.data('lumenMetaMovie');
+      if (movie) renderPins(root, movie, on);
+    });
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -2413,6 +2448,7 @@
     try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
     try { renderSeasons(root, data); } catch (e) { warn('seasons failed', e); }
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
+    try { renderPins(root, movie); } catch (e) { warn('pin button failed'); }
   }
 
   /* -------------------------------------------------------------------- */
@@ -2549,6 +2585,7 @@
   LC.header = {
     decorate: decorate,
     refreshMeta: refreshMeta,
+    refreshPins: refreshPins,
     applyLogoPref: applyLogoPref,
     mergePeople: mergePeople,
     installPeople: installPeople,

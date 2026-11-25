@@ -157,7 +157,7 @@ test('LIST: полный набор ключей 1.5 — старые имена
     /* «Слабый телевизор…» */
     'lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill',
     /* «TorrServer…» */
-    'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
+    'lumen_pins_enabled', 'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
     'lumen_ts_auto', 'lumen_parser_fallback',
     /* «Дополнительно…» */
     'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
@@ -245,7 +245,7 @@ const SECTION_GROUPS = {
     [null, ['lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
   ],
   torrserver: [
-    ['lumen_group_ts_view', ['lumen_torrents', 'lumen_ts_resume_focus', 'lumen_parser_fallback']],
+    ['lumen_group_ts_view', ['lumen_pins_enabled', 'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_parser_fallback']],
     ['lumen_group_ts_server', ['lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_ts_auto']]
   ],
   more: [
@@ -1472,7 +1472,7 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
        1.4 — снова литерал. */
     'lumen_posters', 'lumen_rowmem_bytes',
     /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
-    'lumen_home_start', 'lumen_cw_days',
+    'lumen_home_start', 'lumen_cw_days', 'lumen_pins_enabled',
     /* 1.0.2: слитые пункты и бывшие «консольные» выключатели — теперь в
        разделе, и их дефолт обязан совпадать с местом чтения. */
     'lumen_font', 'lumen_franchise', 'lumen_remote_boost', 'lumen_rowmem',

@@ -790,3 +790,10 @@ test('tsclean: «Очистить сейчас» при выключенном �
   assert.equal(noty.length, 1);
   assert.equal(noty[0], 'lumen_tsclean_now_fail');
 });
+
+test('tsclean: закреплённая вручную раздача защищена без срока', () => {
+  const { api } = loadCtx('66_tsclean.js');
+  const movie = tor(H, 24 * 200);
+  assert.equal(api.removable(movie, {}, T0, '', {idle:86400000}), true);
+  assert.equal(api.removable(movie, {}, T0, '', {idle:86400000, pins:{[H]:true}}), false);
+});

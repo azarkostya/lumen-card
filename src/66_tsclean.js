@@ -240,7 +240,7 @@
     function removable(torrent, map, now, current, rule) {
       if (!torrent || typeof torrent !== 'object') return false;
       var hash = hashOf(torrent.hash);
-      if (!hash || hash === current) return false;
+      if (!hash || hash === current || (rule && rule.pins && rule.pins[hash])) return false;
       if (!idle(torrent)) return false;
       var ts = Number(torrent.timestamp);
       if (!isFinite(ts) || ts <= 0) return false;
@@ -588,7 +588,7 @@
             return;
           }
           /* Срок и защита — один раз на проход. */
-          var rule = { idle: idleMs(), keep: protectedSet() };
+          var rule = { idle: idleMs(), keep: protectedSet(), pins: LC.pins ? LC.pins.protectedHashes() : null };
           var byHash = {};
           for (var i = 0; i < list.length; i++) {
             var h = hashOf(list[i] && list[i].hash);
@@ -613,6 +613,7 @@
                свежей карте и свежим часам. */
             var tnow = now();
             var fresh = load();
+            if (LC.pins) rule.pins = LC.pins.protectedHashes();
             if (!clockOk(tnow, fresh) || !removable(byHash[hash], fresh, tnow, _current, rule)) { next(); return; }
             if (typeof n0.timeout === 'function') n0.timeout(REM_TIMEOUT);
             n0.silent(url + '/torrents', function () {

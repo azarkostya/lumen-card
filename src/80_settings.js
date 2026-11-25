@@ -1077,6 +1077,23 @@
       en: 'The trailer took too long to load — try again',
       uk: 'Трейлер не встиг завантажитися — спробуйте ще раз'
     },
+    lumen_pins_name: { ru: 'Моя раздача', en: 'My pinned torrent', uk: 'Моя роздача' },
+    lumen_pins_descr: {
+      ru: 'Закрепите раздачу удержанием OK и открывайте её с карточки без поиска.',
+      en: 'Hold OK to pin a torrent and reopen it from the title page without searching.',
+      uk: 'Утримуйте OK, щоб закріпити роздачу й відкрити її з картки без пошуку.'
+    },
+    lumen_pins_fallback: {
+      ru: 'Закреплённая раздача не открылась. Открываем обычный поиск.',
+      en: 'The pinned torrent did not open. Opening the regular search.',
+      uk: 'Закріплена роздача не відкрилася. Відкриваємо звичайний пошук.'
+    },
+    lumen_pins_open: { ru: 'Моя раздача', en: 'My pinned torrent', uk: 'Моя роздача' },
+    lumen_pins_pin: { ru: 'Закрепить как мою раздачу', en: 'Pin as my torrent', uk: 'Закріпити як мою роздачу' },
+    lumen_pins_unpin: { ru: 'Открепить', en: 'Unpin', uk: 'Відкріпити' },
+    lumen_pins_drop: { ru: 'Открепить мою раздачу', en: 'Unpin my torrent', uk: 'Відкріпити мою роздачу' },
+    lumen_pins_mine: { ru: 'Моя', en: 'Pinned', uk: 'Моя' },
+    lumen_pins_was_seeding: { ru: 'сидов было', en: 'previous seeds:', uk: 'сидів було' },
     lumen_episode_mark_title: { ru: 'Отметки просмотра', en: 'Watch status', uk: 'Позначки перегляду' },
     lumen_episode_mark_through: { ru: 'Просмотрено до этой серии', en: 'Mark watched through this episode', uk: 'Переглянуто до цієї серії' },
     lumen_episode_unmark: { ru: 'Снять отметку с этой серии', en: 'Clear this episode’s watch status', uk: 'Зняти позначку з цієї серії' },
@@ -1462,6 +1479,10 @@
     }
     if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
+    if (name === 'lumen_pins_enabled') {
+      if (LC.header && LC.header.refreshPins) LC.header.refreshPins();
+      return true;
+    }
     if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
     /* Правка пользователя 2026-09-16 (п.6): гарнитура меняется на лету, как
        акцент: подменяется <link> на Google Fonts (адрес зависит от пары) и

@@ -869,16 +869,47 @@
        Android.openTorrent с тем же magnet; встроенный клиент — штатное окно
        файлов (серия с таймкодом там подсвечена), по magnet, а без него —
        по хэшу из базы TorrServer (Torrent.open). */
-    function reopen(rec) {
+    function startTorrent(element, hash, card) {
       if (!Lampa.Torrent) return false;
-      var t = rec.torrent;
-      if (t && t.magnet && typeof Lampa.Torrent.start === 'function') {
-        Lampa.Torrent.start({ MagnetUri: t.magnet, Link: t.magnet, title: t.title, Title: t.title, poster: t.poster || rec.card.img || '' }, rec.card);
-      } else if (rec.torrent_hash && typeof Lampa.Torrent.open === 'function') {
-        Lampa.Torrent.open(rec.torrent_hash, rec.card);
+      if (element && typeof Lampa.Torrent.start === 'function') {
+        Lampa.Torrent.start(element, card);
+      } else if (hash && typeof Lampa.Torrent.open === 'function') {
+        Lampa.Torrent.open(hash, card);
       } else {
         return false;
       }
+      return true;
+    }
+
+    function torrentElement(t, card) {
+      if (!t || !(t.magnet || t.link)) return null;
+      return {
+        MagnetUri: t.magnet || '', Link: t.magnet || t.link, title: t.title,
+        Title: t.title, poster: t.poster || card.img || ''
+      };
+    }
+
+    function openTorrent(t, card) {
+      var element = torrentElement(t, card);
+      if (!element) return false;
+      if (Lampa.Torrent && Lampa.Torrent.opened) Lampa.Torrent.opened(null);
+      if (!startTorrent(element, '', card)) return false;
+      noteContinue(card);
+      tsclean(function (ts) { ts.onTorrent(element, card); });
+      var nowAt = now();
+      _torrent = { magnet: element.Link, title: element.title, poster: element.poster, card_id: card.id, at: nowAt };
+      if (appMode()) {
+        markExt();
+        if (enabled()) {
+          var rec = fromTorrent(element, card, nowAt);
+          if (rec) save(rec);
+        }
+      }
+      return true;
+    }
+
+    function reopen(rec) {
+      if (!startTorrent(torrentElement(rec.torrent, rec.card), rec.torrent_hash, rec.card)) return false;
       if (rec.kind === 'torrent-app') {
         /* Новый сеанс в TorrServe: убьёт Lampa снова — окно снова нужно. */
         var fresh = load();
@@ -1067,6 +1098,7 @@
       onActivity: onActivity,
       menuItem: menuItem,
       resumeNow: resumeNow,
+      openTorrent: openTorrent,
       raise: raise,
       stats: stats,
       statsLine: statsLine,

@@ -298,6 +298,7 @@
       /* 1.4: восемь пунктов — две группы (не больше семи строк в группе):
          экраны раздач и поиск, затем сам сервер. */
       { name: 'lumen_group_ts_view', type: 'title', label: 'lumen_group_ts_view' },
+      { name: 'lumen_pins_enabled', type: 'trigger', 'default': true, label: 'lumen_pins_name', descr: 'lumen_pins_descr' },
       { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
       /* 1.4: файлы сериала — фокус на серии после досмотренной
          (src/65_torrents.js). Навигация внутри оформления пути, поэтому

@@ -150,6 +150,7 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_franchise: ['applyFranchisePref'],
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
+    lumen_pins_enabled: [],
     /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка
        каталога (applyRowsPref, вне POINTS). */
     lumen_manifest_url: [],
