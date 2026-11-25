@@ -973,3 +973,19 @@ test('пачка A: «Лёгкие» убирают переходы строк,
     s.includes('.lumen-motion-lite') && s.endsWith('.torrent-filter .simple-button')) &&
     /(?:^|;)transition:background-color/.test(decl)));
 });
+
+test('пачка A: у предзагрузки свечение текста только в «Полных», логотип без фильтра', () => {
+  const table = rules().flatMap(parse).filter(Boolean);
+  const fill = '.media-loading__mark-fill .media-loading__title';
+  const declarations = (suffix) => table.filter(({ selectors }) => selectors.some((s) => s.endsWith(suffix)));
+  const title = declarations(fill);
+  const glow = /(?:^|;)text-shadow:0 /;
+  assert.doesNotMatch(t.css(), /drop-shadow/);
+  assert.ok(title.some(({ selectors, decl }) => selectors.every((s) => s.includes('.lumen-motion-full')) && glow.test(decl)));
+  assert.ok(title.every(({ selectors, decl }) => !glow.test(decl) || selectors.every((s) => s.includes('.lumen-motion-full'))));
+  for (const mode of ['lite', 'off']) {
+    assert.ok(declarations('.media-loading__status').some(({ selectors, decl }) =>
+      selectors.some((s) => s.includes('.lumen-motion-' + mode)) &&
+      /(?:^|;)box-shadow:0 [\d.]+em 0 /.test(decl)), mode);
+  }
+});

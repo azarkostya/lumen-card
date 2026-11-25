@@ -485,11 +485,13 @@
       r.push('/* 40 Предзагрузка — media-loading: вуаль, название-фолбэк, пилюля статуса */');
       r.push(T(['.media-loading']) + '{background-color:' + k.bg + ';font-family:' + k.fontBody + '}');
       r.push(T(['.media-loading__shade']) + '{background:linear-gradient(0deg,rgba(' + k.bgRgb + ',.98) 0%,rgba(' + k.bgRgb + ',.72) 34%,rgba(' + k.bgRgb + ',.3) 100%)}');
-      /* Тусклая копия 12 %, яркая (ширину двигает JS Lampa по прогрессу) — акцент с glow. */
+      /* Тусклая копия 12 %, яркая (ширину двигает Lampa) — акцент. */
       r.push(T(['.media-loading__mark-background']) + '{opacity:.12}');
       r.push(T(['.media-loading__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.403em;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:' + k.text + ';text-shadow:none}');
-      r.push(T(['.media-loading__mark-fill .media-loading__title']) + '{color:' + k.accent + ';text-shadow:0 0 .94em ' + k.acglow + '}');
-      r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:drop-shadow(0 0 .6em ' + k.acglow + ');filter:drop-shadow(0 0 .6em ' + k.acglow + ')}');
+      var fillTitle = ['.media-loading__mark-fill .media-loading__title'];
+      r.push(T(fillTitle) + '{color:' + k.accent + ';text-shadow:none}');
+      r.push(TM('full', fillTitle) + '{text-shadow:0 0 .94em ' + k.acglow + '}');
+      r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:none;filter:none}');
       /* Пульс 1→1.02 / 2 с вместо штатного mediaLoadingPulse — только в full; lite/off — без пульса. */
       r.push(TM('full', markSel) + '{-webkit-animation:lumen-tp-soft 2s ease-in-out infinite;animation:lumen-tp-soft 2s ease-in-out infinite}');
       r.push(TM('lite', markSel) + ',' + TM('off', markSel) + '{-webkit-animation:none !important;animation:none !important;-webkit-transform:none;transform:none}');
@@ -499,6 +501,8 @@
          Фон — светлая полупрозрачная заливка с рамкой, а не rgba(bg,.62) экспорта: у нижнего
          края вуаль .98 и тёмная пилюля сливалась с фоном (живой регресс Task 33). */
       r.push(T(['.media-loading__status']) + '{bottom:5.644em;padding:.695em 1.216em;border-radius:1.302em;border:.043em solid rgba(' + k.textRgb + ',.24);background-color:rgba(' + k.textRgb + ',.1);-webkit-box-shadow:0 .608em 1.737em rgba(0,0,0,.35);box-shadow:0 .608em 1.737em rgba(0,0,0,.35);color:' + k.muted + ';font-family:' + k.fontBody + ';font-size:1.01em}');
+      var status = ['.media-loading__status'];
+      r.push(TM('lite', status) + ',' + TM('off', status) + '{-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.35);box-shadow:0 .2em 0 rgba(0,0,0,.35)}');
       r.push(T(['.media-loading__peers-value']) + '{color:' + k.muted + '}');
       r.push(T(['.media-loading__peers-icon']) + '{display:none}');
       r.push(T(['.media-loading__peers:before']) + '{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.3em;height:1.3em;margin-right:.5em;background-color:' + k.accent + '}');
