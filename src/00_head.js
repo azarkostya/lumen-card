@@ -21,6 +21,13 @@
      (src/81_prefs.js) — она имеет приоритет над этим значением. */
   LC.MANIFEST_URL = 'https://azarkostya.github.io/lumen-card/manifest.json';
 
+  /* Ассеты совпадают по ревизии с JS: локальный стенд, ветка CDN или тег. */
+  var script = typeof document !== 'undefined' ? document.currentScript : null;
+  var assetRoot = script && /^(https?:\/\/[^?#]+\/)dist\/lumen_card\.js(?:[?#].*)?$/i.exec(script.src || '');
+  LC.assetUrl = function (path) {
+    return (assetRoot ? assetRoot[1] : 'https://azarkostya.github.io/lumen-card/') + path;
+  };
+
   var PLUGIN = 'lumen_card';
 
   /* Тихий лог в консоль — ошибка в отрисовке не должна ронять плагин. */

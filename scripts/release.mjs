@@ -51,7 +51,29 @@ export function tagBuildUrl(version, build) {
    сборки (?v=BUILD); сбрось его раньше dist — и ТВ между двумя сбросами
    попросит dist/lumen_card.js?v=<новая> и может получить из кэша jsDelivr
    старую сборку, которую браузер запомнит под новым адресом (max-age 7 дней). */
-const FILES = ['dist/lumen_card.js', 'manifest.json', 'lumen.js'];
+const NEWYEAR = 'assets/newyear/v1/';
+export const RELEASE_FILES = [
+  ...[
+    'ornaments-warm.webp',
+    'snowflakes.webp',
+    'garland-warm-still.webp',
+    'garland-warm-a.webp',
+    'garland-warm-b.webp',
+    'half/garland-warm-a.webp',
+    'half/garland-warm-b.webp',
+    'garland-cold-still.webp',
+    'garland-cold-a.webp',
+    'garland-cold-b.webp',
+    'half/garland-cold-a.webp',
+    'half/garland-cold-b.webp',
+    'garland-cold2-still.webp',
+    'garland-cold2-a.webp',
+    'garland-cold2-b.webp',
+    'half/garland-cold2-a.webp',
+    'half/garland-cold2-b.webp',
+  ].map(file => NEWYEAR + file),
+  'dist/lumen_card.js', 'manifest.json', 'lumen.js'
+];
 
 /* Локальные проверки. read(path) → текст файла относительно корня или null. */
 export function localProblems(read) {
@@ -256,7 +278,7 @@ async function main() {
   failed = failed || local.problems.length > 0;
 
   if (process.argv.includes('--purge')) {
-    for (const f of FILES) {
+    for (const f of RELEASE_FILES) {
       const url = 'https://purge.jsdelivr.net/gh/' + REPO + '@' + ref + '/' + f;
       try {
         const r = await fetch(url);
@@ -315,7 +337,7 @@ async function main() {
     // ТВ (без своего «?release=»: проверяется то, что лежит в кэше CDN под
     // этим адресом).
     const build = loaderBuild(show('lumen.js').toString('utf8'));
-    const checks = FILES.map((f) => [f, bases]);
+    const checks = RELEASE_FILES.map((f) => [f, bases]);
     if (build) checks.push(['dist/lumen_card.js', bases.map(([name, base]) => [name, base, '?v=' + build])]);
     else console.log('  (в lumen.js коммита нет метки BUILD — сборка до 1.1)');
     for (const [f, where] of checks) {
