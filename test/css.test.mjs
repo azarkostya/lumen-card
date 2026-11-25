@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 /* LC.buildCss() читает LC.pref (Storage 'proxy_tmdb' и т.п.) и PLUGIN — обе
    вещи объявлены в 00_head.js, но test/_load.mjs грузит модули по одному в
@@ -59,7 +59,7 @@ function tokensWith(storage) {
    им (Storage.field отдаёт значение из кэша в памяти), и от одной из них —
    'interface_size' — зависят оба порога раскладки (screenEm, src/30_css.js).
    Ключ тот же самый, поэтому вторая заглушка смотрит в тот же объект. */
-function withStorage(storage, fn, innerWidth) {
+function withStorage(storage, fn, innerWidth, layers = []) {
   const LC = {};
   const module = { exports: null, lumen: true };
   const Lampa = {
@@ -83,6 +83,7 @@ function withStorage(storage, fn, innerWidth) {
     loadInto(LC, module, '20_icons.js');
     loadInto(LC, module, '80_settings.js');
     loadInto(LC, module, '81_prefs.js');
+    for (const layer of layers) loadInto(LC, module, layer);
     loadInto(LC, module, '30_css.js');
     return fn(LC);
   } finally {
@@ -90,6 +91,11 @@ function withStorage(storage, fn, innerWidth) {
     delete globalThis.Lampa;
   }
 }
+
+const v2Layers = readdirSync(new URL('../src/', import.meta.url))
+  .filter((name) => /^31_v2_.*\.js$/.test(name)).sort();
+const cssAll = [false, true].map((apple) => withStorage(apple ? { lumen_flat: 'true' } : {},
+  (LC) => LC.buildCss(), 960, v2Layers));
 
 /* Правка 2026-09-26 (пользователь: «давай всегда строго как на стартовой»):
    сжатое состояние героя главной — за флагом LC.heroCompact
@@ -228,7 +234,6 @@ test('правка 2026-09-23: двухуровневое название — �
 /* v2 «Единый стиль», экран 33: единственные тени с размытием — статичные
    тени фокуса картинки (Lumen, Apple TV) и кнопки Apple TV (токены V2,
    src/30_css.js). Только на правилах фокуса и никогда в переходе. */
-const V2_SHADOWS = ['0 .6em 1.25em', '0 .75em 1.35em', '0 .44em .96em'];
 
 const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-whatsnew', '.lumen-hub', '.lumen-grid', '.lumen-full', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
@@ -1166,8 +1171,10 @@ test('buildCss: модал отзыва (экран 08) — свой корен�
   assert.ok(tone && tone.indexOf('#D9622B') !== -1, 'тон модала — те же токены, что у карточки');
   const text = findDecl(css, (sel) => sel === '.lumen-review-modal__text');
   assert.ok(text, 'правило текста модала не найдено');
-  assert.ok(text.indexOf('font-size:1.01em') !== -1, 'Task 63: текст окна — 23 px = 1.01em');
-  assert.ok(text.indexOf('overflow:auto') !== -1 && text.indexOf('max-height:50vh') !== -1, 'длинный отзыв прокручивается внутри окна');
+  const description = findDecl(css, (sel) => sel === '.lumen-descr-modal__text');
+  assert.equal(declProp(text, 'font-size'), declProp(description, 'font-size'));
+  assert.equal(declProp(text, 'line-height'), '1.3');
+  assert.doesNotMatch(text, /max-height:|overflow:/, 'длинный отзыв прокручивает Scroll модала');
   const title = findDecl(css, (sel) => sel === '.lumen-review-modal__title');
   assert.ok(title && title.indexOf('font-size:1.58em') !== -1, 'заголовок 36px = 1.58em');
 });
@@ -2023,8 +2030,8 @@ test('Task 38: ни одного box-shadow с размытием больше .
      Нулевой радиус пишется без единицы («0 .2em 0», Task 50) — такая запись
      проверке радиуса не подлежит, но форму ниже проходить обязана. */
   const offenders = [];
-  for (const m of css.matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
-    if (parseFloat(m[2]) > 0.8 && V2_SHADOWS.indexOf(m[0].replace(/^box-shadow:/, '')) === -1) offenders.push(m[0]);
+  for (const m of cssAll.join('\n').matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
+    if (parseFloat(m[2]) > 0.8) offenders.push(m[0]);
   }
   assert.deepEqual(offenders, [], 'радиус тени WebView считает по площади вокруг элемента, а таких элементов на экране десятки');
   /* Заодно: другой формы записи тени в таблице быть не должно — иначе
@@ -2994,7 +3001,7 @@ test('Task 50: подложка фокуса карточки без размы�
    у них своя копия этой проверки в test/torrents.test.mjs. */
 test('Task 50c: ни одной тени с размытием ни на одном правиле фокуса', () => {
   const shadows = [];
-  for (const r of ruleBodies(css)) {
+  for (const r of cssAll.flatMap(ruleBodiesWithMedia)) {
     if (!r.selectors.some((s) => /\.focus\b|\.hover\b/.test(s))) continue;
     for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(r.selectors.join(',') + ' -> ' + m[1]);
   }
@@ -3004,10 +3011,7 @@ test('Task 50c: ни одной тени с размытием ни на одн�
      франшизы, «Крутить» и карточки полки «как Apple TV» тени больше нет —
      фокус у них кольцом (тесты «фокус на всех экранах» ниже). */
   assert.ok(shadows.length >= 14, 'теней на правилах фокуса нашлось подозрительно мало — проверка почти пустая: ' + shadows.length);
-  /* v2 «Единый стиль», экран 33: исключение — статичные тени токенов V2
-     (фокус картинки и кнопки Apple TV) и их снятие (none). */
-  const v2 = (s) => V2_SHADOWS.some((t) => s.indexOf('-> ' + t + ' rgba(0,0,0,') !== -1) || /-> none$/.test(s);
-  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s) && !v2(s)), [],
+  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s) && !/-> none(?: !important)?$/.test(s)), [],
     'тень с ненулевым размытием на шаге фокуса');
 });
 
@@ -3286,10 +3290,22 @@ function ruleBodiesWithMedia(cssText) {
       media = line.slice(0, line.indexOf('{'));
       body = line.slice(line.indexOf('{') + 1);
     }
+    /* Скобки внутри строк атрибутов (например, data-skbtn="{SIM}")
+       не являются границами правила. */
+    const structure = body.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g,
+      (quoted) => quoted.replace(/[{},]/g, ' '));
     const re = /([^{}]+)\{([^{}]*)\}/g;
     let m;
-    while ((m = re.exec(body))) {
-      out.push({ media: media, selectors: m[1].split(',').map((s) => s.trim()).filter(Boolean), decl: m[2] });
+    while ((m = re.exec(structure))) {
+      let offset = m.index;
+      const selectors = m[1].split(',').map((sel) => {
+        const original = body.slice(offset, offset + sel.length).trim();
+        offset += sel.length + 1;
+        return original;
+      }).filter(Boolean);
+      const open = m.index + m[1].length;
+      const decl = body.slice(open + 1, re.lastIndex - 1);
+      out.push({ media, selectors, decl });
     }
   }
   return out;
@@ -6394,13 +6410,12 @@ test('Task 51: карточка ряда главной — 217×325 (7 коло
     'ряд главной перестал строиться с mapping: line — селектор зазора надо пересматривать');
 });
 
-/* Task 42: карточка ряда без рамки и штатных бейджей. Фокус показывают
-   увеличение постера и акцентная подложка под ним, а не кольцо. */
-test('Task 42: фокус карточки ряда — увеличение и подложка вместо кольца', () => {
+/* Task 42: штатная рамка Lampa заменена кольцом внутри кромки. */
+test('Task 42: фокус карточки ряда — увеличение и кольцо внутри кромки', () => {
   /* Штатное кольцо Lampa (.card.focus .card__view::after, app.css:3466 —
      content:"" и border .3em #fff) снимается целиком, вместе с вариантом
      для мыши. */
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__view:after'), 'display:none', 'кольцо фокуса снято');
+  assert.equal(declProp(effDecl(css, '.lumen-main .card.focus .card__view:after'), 'display'), 'block', 'итоговое кольцо фокуса видно');
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.hover .card__view:after'), 'display:none', 'и его вариант для мыши');
 
   /* Увеличение — на самом постере, а не на .card: подпись под ним стоит на
@@ -6413,7 +6428,7 @@ test('Task 42: фокус карточки ряда — увеличение и 
   assert.ok(scaled.indexOf('transform:scale(1.1)') !== -1, 'увеличение в фокусе: ' + scaled);
   assert.ok(scaled.indexOf('-webkit-transform:scale(1.1)') !== -1, 'старым webkit-движкам нужен префикс: ' + scaled);
   /* Акцентная подложка — на том же узле (AR.cardFocus, src/30_css.js),
-     кольца больше нет. Размытия у неё нет вовсе (Task 50) — форму и
+     кольцо находится поверх постера. Размытия у неё нет вовсе (Task 50) — форму и
      единственность держит отдельный тест ниже. */
   assert.ok(scaled.indexOf('box-shadow:0 .2em 0 rgba(232,184,122,0.35)') !== -1, 'подложка цветом акцента: ' + scaled);
 
@@ -7623,7 +7638,28 @@ const TEXT_LESS_BOXES = ['.lumen-card .lumen-progress',
   '.lumen-card .lumen-stop', '.lumen-card .lumen-franchise',
   '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text'];
 
-test('Task 63: ни один текст интерфейса не мельче минимума tvOS', () => {
+/* Кегль-доля рассчитывается от фактического текста-родителя своей таблицы. */
+const V2_TEXT_PARENTS = [
+  [/\.search-source__count$/, /\.search-source$/],
+  [/\.search-looking__text:after$/, /\.search-looking__text$/],
+  [/\.explorer-card__head-rate > span$/, /\.explorer-card__head-rate$/],
+  [/\.torrent-file__title \.exe$/, /\.torrent-file__title$/],
+  [/\.shots-view-button__count$/, /\.selectbox-item__subtitle$/, '.selectbox-item__subtitle']
+];
+/* В этих контейнерах собственный кегль управляет геометрией, у текста
+   внутри есть отдельный селектор со своим кеглем. */
+const V2_LAYOUT_BOXES = [/\.search-history-key$/, /(?:lumen-lower--persons|lumen-lower--left|lumen-lower--right) \.full-person$/];
+
+for (const [mode, table] of cssAll.entries()) test('Task 63: ни один текст интерфейса не мельче минимума tvOS, стиль ' + mode, () => {
+  const css = table;
+  const allRules = ruleBodiesWithMedia(css);
+  const parentSize = new Map(V2_TEXT_PARENTS.map(([child, parent, nativeParent]) => {
+    const values = allRules.filter((r) => r.selectors.some((sel) => parent.test(sel)))
+      .map((r) => declProp(r.decl, 'font-size')).filter((value) => /^[\d.]+em$/.test(value ?? ''));
+    if (!values.length && nativeParent) return [child, lampaDecl(lampaCss(), nativeParent, 'font-size')];
+    assert.ok(values.length, String(parent));
+    return [child, Math.min(...values.map(parseFloat))];
+  }));
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);
   assert.equal(zoom, 1.1, 'множитель блока героя изменился — пересчитать эффективные кегли');
 
@@ -7667,7 +7703,7 @@ test('Task 63: ни один текст интерфейса не мельче �
          задан сокращением font:, а не font-size, поэтому сюда он и не
          попадает — проверяем явно, чтобы исключение осталось осознанным. */
       if (sel.indexOf('lumen-hud') !== -1) continue;
-      if (TEXT_LESS_BOXES.indexOf(sel) !== -1) continue;
+      if (TEXT_LESS_BOXES.indexOf(sel) !== -1 || V2_LAYOUT_BOXES.some((p) => p.test(sel))) continue;
       const found = /^([\d.]+)em$/.exec(value.trim());
       assert.ok(found, 'кегль задан не в em, и минимум по нему не посчитать: ' + sel + ' {' + value + '}');
       const inHero = HERO_TEXT_KIDS.some((cls) => sel.indexOf(cls) !== -1);
@@ -7678,7 +7714,9 @@ test('Task 63: ни один текст интерфейса не мельче �
       const inTitle = sel.indexOf('lumen-title__') !== -1;
       const inRowTitle = /\.items-line__title\s/.test(sel);
       const inMeta = sel.indexOf('.lumen-meta__') !== -1;
-      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1) * (inMeta ? metaMin : 1);
+      const v2Parent = V2_TEXT_PARENTS.find(([child]) => child.test(sel));
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1) * (inMeta ? metaMin : 1) *
+        (v2Parent ? parentSize.get(v2Parent[0]) : 1);
       checked++;
       if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
     }
@@ -8108,17 +8146,28 @@ test('Task 73: сетка подборки и хаб — плитки без п�
   assert.ok(/scale\(1\.05\)/.test(lastDecl(flatCss, '.lumen-hub__tiles .lumen-tile.focus')));
 });
 
-/* Плоский вид обязан быть ДОБАВКОЙ в конце таблицы: ни одно прежнее правило
-   не исчезает и не переписывается на месте, а всё новое живёт в четырёх
-   известных корнях. Рядов главной среди них нет — инвариант раскладки
-   («низ подписи первого ряда ≤ 532») считается по тем же правилам, что и
-   без настройки. */
-test('Task 73: плоский вид только дописывает правила — и только карточке, сетке и хабу', () => {
+/* В плоском виде добавляются свои правила, а в кольцах картинок меняется
+   цвет. Правила раскладки главной остаются общими для обоих стилей. */
+test('Task 73: плоский вид сохраняет общие правила и меняет цвет колец', () => {
   const key = (r) => r.selectors.join(',') + '{' + r.decl + '}';
   const base = ruleBodies(css).map(key);
-  const flat = ruleBodies(flatCss).map(key);
-  for (const rule of base) {
-    assert.ok(flat.indexOf(rule) !== -1, 'правило обычного вида пропало при плоском: ' + rule.slice(0, 120));
+  const flatRules = ruleBodies(flatCss);
+  const flat = flatRules.map(key);
+  const rings = [
+    '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after',
+    '.lumen-hub__tiles .lumen-tile.focus:after',
+    '.lumen-grid__items .lumen-gcard.focus .card__view:after',
+    '.lumen-full .card.focus .card__view:after',
+    '.lumen-main .card.focus .card__view:after',
+    '.lumen-card .lumen-episodes .lumen-episode.focus:after'
+  ];
+  for (const rule of ruleBodies(css)) {
+    if (flat.includes(key(rule))) continue;
+    assert.equal(rule.selectors.length, 1);
+    assert.ok(rings.includes(rule.selectors[0]), 'общие стили изменились: ' + key(rule));
+    const appleRing = flatRules.find((r) => r.selectors.length === 1 && r.selectors[0] === rule.selectors[0]);
+    assert.ok(appleRing, 'потеряно кольцо: ' + rule.selectors[0]);
+    assert.equal(appleRing.decl, rule.decl.replace(tokensWith({}).text, '#F2F2F3'));
   }
   const ROOTS = ['.lumen-descr-row ', '.lumen-card .lumen-episode', '.lumen-grid ', '.lumen-hub__tiles '];
   const added = ruleBodies(flatCss).filter((r) => base.indexOf(key(r)) === -1);
@@ -8799,49 +8848,25 @@ const FOCUS_RULES = [
   '.lumen-full .card.focus .card__view:after'
 ];
 
-test('v2, экран 33: картинка в фокусе — рамка снаружи с зазором и статичная тень (Lumen), тень без рамки (Apple TV)', () => {
-  const IMG = [
-    'body .lumen-main .card.focus .card__view',
-    '.lumen-hub__tiles .lumen-tile.focus',
-    '.lumen-grid__items .lumen-gcard.focus .card__view',
-    '.lumen-full .card.focus .card__view',
-    '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster',
-    '.lumen-card .lumen-episodes .lumen-episode.focus'
-  ];
+test('дизайн A: светлое кольцо внутри кромки картинки в обоих стилях', () => {
+  const selectors = FOCUS_RULES.concat([
+    '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after',
+    '.lumen-card .lumen-episodes .lumen-episode.focus:after'
+  ]);
   for (const theme of ['warm', 'black']) {
-    const P = tokensWith({ lumen_theme: theme });
-    const lumen = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
-    const apple = withStorage({ lumen_theme: theme, lumen_flat: 'true' }, (LC) => LC.buildCss());
-    for (const sel of IMG) {
-      const d = lastDecl(lumen, sel);
-      assert.ok(d, 'нет фокуса картинки: ' + sel);
-      assert.equal(declProp(d, 'outline'), '.13em solid ' + P.text, 'рамка Lumen — 3 px цветом текста: ' + d);
-      assert.equal(declProp(d, 'outline-offset'), '.13em', 'рамка Lumen — снаружи, зазор 3 px: ' + d);
-      assert.equal(declProp(d, 'box-shadow'), '0 .6em 1.25em rgba(0,0,0,.5)', 'тень Lumen: ' + d);
-      assert.equal(/transition|animation|filter/.test(d), false, 'тень статичная: ' + d);
-      const a = effDecl(apple, sel);
-      assert.equal(declProp(a, 'outline'), '0', 'в Apple TV рамки нет: ' + a);
-      assert.equal(declProp(a, 'box-shadow'), '0 .75em 1.35em rgba(0,0,0,.55)', 'тень Apple TV: ' + a);
+    for (const flat of [false, true]) {
+      const prefs = { lumen_theme: theme, lumen_flat: String(flat) };
+      const P = tokensWith(prefs);
+      const table = withStorage(prefs, (LC) => LC.buildCss());
+      for (const sel of selectors) {
+        const d = effDecl(table, sel);
+        assert.equal(declProp(d, 'display'), 'block', sel);
+        assert.equal(declProp(d, 'border'), '.27em solid ' + (flat ? '#F2F2F3' : P.text), sel);
+        assert.equal(declProp(d, 'outline-offset'), '-.36em', sel);
+        assert.equal(declProp(d, 'border-radius'), 'inherit', sel);
+      }
     }
-    /* Прежнее кольцо внутри кромки (псевдоэлемент) погашено везде. */
-    for (const sel of FOCUS_RULES) {
-      assert.equal(declProp(lastDecl(lumen, sel), 'display'), 'none', 'кольцо-псевдоэлемент осталось: ' + sel);
-    }
-    /* Рамка Lumen снаружи — на фоне экрана/рядов: ≥ 3:1 к самой светлой
-       подкраске фона рядов. */
-    assert.ok(contrast(P.text, lightestTint(theme)) >= 3, theme + ': рамка на фоне рядов');
   }
-  /* Толщина на ТВ: кегль Lampa на окне 960 CSS px — 11.4055 px, DPR 2 —
-     .13em = 1.5 CSS px = 3 физических px FHD, как в макете. */
-  const px = 0.13 * 11.4055;
-  assert.ok(px >= 1.4 && px <= 1.6, 'рамка ' + px.toFixed(2) + ' CSS px на ТВ');
-  /* Скругление картинки — токен --lc-r-img .46em (22 px на 4K). */
-  for (const sel of ['.lumen-main .card__view', '.lumen-main .card__img', '.lumen-hub__tiles .lumen-tile', '.lumen-grid .lumen-gcard .card__view', '.lumen-card .lumen-episode']) {
-    const r = ruleBodies(css).filter((x) => x.selectors.indexOf(sel) !== -1 && /border-radius/.test(x.decl)).pop();
-    assert.equal(declProp(r.decl, 'border-radius'), '.46em', 'скругление ' + sel);
-  }
-  /* Подпись под постером главной — над тенью постера. */
-  assert.equal(declProp(lastDecl(css, '.lumen-main .card.focus .card__title'), 'position'), 'relative');
 });
 
 test('v2, экран 33: масштаб картинки — во всех режимах, в «Лёгких» и «Выкл» без перехода; Lumen 1.10/1.08, Apple TV в сетках 1.08/1.05 (QA U11), серия 1.09', () => {
@@ -8874,18 +8899,18 @@ test('v2, экран 33: масштаб картинки — во всех ре�
   assert.equal(declProp(lastDecl(apple, '.lumen-grid.lumen-motion-full .lumen-gcard'), 'transition'), 'transform .24s ease-out');
 });
 
-test('v2, экран 33: соседи в Lumen приглушены не плотнее .25 (яркость ≥ .75), в Apple TV не приглушены; подпись в фокусе ярче', () => {
+test('v2, экран 33: соседи в Lumen приглушены на .42 в хабе и .55 в сетке, в Apple TV не приглушены', () => {
   const cases = [
-    '.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after',
-    '.lumen-grid__items.lumen-dim .lumen-gcard:not(.focus) .card__view:after',
-    '.lumen-full.lumen-dim .card:not(.focus) .card__view:after'
+    ['.lumen-hub__tiles.lumen-dim .lumen-tile:after', '.lumen-tile', 0.42],
+    ['.lumen-grid__items.lumen-dim .lumen-gcard .card__view:after', '.lumen-gcard', 0.55],
+    ['.lumen-full.lumen-dim .card .card__view:after', '.card', 0.55]
   ];
-  for (const sel of cases) {
+  for (const [sel, node, expected] of cases) {
     const dim = lastDecl(css, sel);
     const a = parseFloat(/background:rgba\([\d,]+,([\d.]+)\)/.exec(dim)[1]);
-    assert.ok(a > 0 && a <= 0.25, 'приглушение соседей ' + a + ': ' + sel);
-    assert.equal(/transition|animation|filter|opacity/.test(dim), false, 'приглушение без анимации и без opacity: ' + dim);
-    assert.equal(declProp(lastDecl(flatCss, sel), 'display'), 'none', 'в Apple TV соседи приглушены: ' + sel);
+    assert.equal(a, expected, 'приглушение соседей: ' + sel);
+    assert.equal(/transition|animation|filter|opacity/.test(dim), false, 'приглушение не анимируется: ' + dim);
+    assert.equal(declProp(lastDecl(flatCss, sel.replace(node + ' ', node + ':not(.focus) ').replace(node + ':after', node + ':not(.focus):after')), 'display'), 'none');
   }
   const P = tokensWith({});
   assert.equal(declProp(findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard .card__title'), 'color'), P.soft);
@@ -9004,8 +9029,8 @@ test('без ожидания, п.1: первый вывод героя ждёт
 test('этап 2б + v2: штатная сетка из плагина — штатное кольцо Lampa погашено только под .lumen-full, фокус — как у картинок плагина', () => {
   const base = findDecl(css, (sel) => sel === '.lumen-full .card .card__view:after');
   assert.ok(base && /(^|;)display:none(;|$)/.test(base), 'штатное кольцо Lampa не погашено: ' + base);
-  assert.equal(declProp(lastDecl(css, '.lumen-full .card.focus .card__view:after'), 'display'), 'none');
-  assert.equal(declProp(lastDecl(css, '.lumen-full .card.focus .card__view'), 'box-shadow'), '0 .6em 1.25em rgba(0,0,0,.5)');
+  assert.equal(declProp(lastDecl(css, '.lumen-full .card.focus .card__view:after'), 'display'), 'block');
+  assert.equal(declProp(effDecl(css, '.lumen-full .card.focus .card__view'), 'box-shadow'), null);
   const leaks = ruleBodies(css).filter((r) => r.selectors.some((sel) => /^\.card(\.focus|\.hover)? \.card__view(:after)?$/.test(sel)));
   assert.deepEqual(leaks.map((r) => r.selectors.join(',')), [], 'правило без .lumen-full задело бы все сетки Lampa');
 });
@@ -9023,12 +9048,11 @@ const TV_EM = 11.4055;
 /* em → CSS px на ТВ с учётом кегля элемента (k — font-size правила в em). */
 const tvPx = (em, k) => em * (k || 1) * TV_EM;
 
-test('v2, экран 33: постер части франшизы и плитка полки «как Apple TV» — тот же фокус картинки, без кольца-псевдоэлемента', () => {
-  assert.equal(declProp(lastDecl(css, '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after'), 'display'), 'none');
-  assert.equal(declProp(lastDecl(css, '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster'), 'outline-offset'), '.13em');
-  assert.equal(declProp(lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before'), 'display'), 'none');
+test('v2, экран 33: постер части франшизы и плитка полки «как Apple TV»', () => {
+  assert.equal(declProp(lastDecl(css, '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after'), 'outline-offset'), '-.36em');
+  assert.equal(declProp(lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before'), 'display'), 'block');
   const tile = lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette .lumen-roulette__tile.focus .lumen-roulette__tile-img');
-  assert.equal(declProp(tile, 'box-shadow'), '0 .75em 1.35em rgba(0,0,0,.55)', 'плитка полки — тень Apple TV: ' + tile);
+  assert.equal(declProp(tile, 'box-shadow'), null, 'у плитки полки тени нет: ' + tile);
   assert.ok(/scale\(1\.09\)/.test(tile), 'плитка полки ×1.09: ' + tile);
   assert.equal(/outline/.test(tile), false, 'у плитки полки рамка: ' + tile);
   /* Масштаб полки — и в «Лёгких», без перехода. */
@@ -9229,7 +9253,7 @@ test('v2, экран 33: кнопки — только заливка; Lumen б�
     const a = effDecl(flatCss, sel);
     assert.equal(declProp(a, 'transform'), 'scale(1.04)', 'Apple TV: ×1.04 ' + sel);
     /* !important — против темы CUB «Neon». */
-    assert.equal(declProp(a, 'box-shadow'), '0 .44em .96em rgba(0,0,0,.5) !important', 'Apple TV: тень кнопки ' + sel);
+    assert.equal(declProp(a, 'box-shadow'), 'none !important', 'Apple TV: тема не возвращает тень кнопки ' + sel);
     assert.equal(declProp(a, 'background-color'), '#FFFFFF !important', 'Apple TV: заливка белая ' + sel);
   }
   /* В «Лёгких» масштаба у кнопок нет — правило «Лёгких» с !important. */
@@ -9330,13 +9354,13 @@ test('v2: токены фокуса наружу — LC.focusTokens', () => {
   const l = withStorage({}, (LC) => LC.focusTokens());
   assert.equal(l.apple, false);
   assert.equal(l.rImg, '.46em');
-  assert.equal(l.ring, '.13em');
+  assert.equal(l.ring, '.27em');
   assert.equal(l.scalePoster, 1.1);
   assert.equal(l.dur, 220);
-  assert.equal(l.dim, 0.25);
+  assert.equal(l.dim, 0.42);
   const a = withStorage({ lumen_flat: 'true' }, (LC) => LC.focusTokens());
   assert.equal(a.apple, true);
-  assert.equal(a.ring, '');
+  assert.equal(a.ring, '.27em');
   assert.equal(a.scalePoster, 1.14);
   assert.equal(a.scaleWide, 1.09);
   assert.equal(a.fill, '#FFFFFF');

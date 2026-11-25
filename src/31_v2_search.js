@@ -132,7 +132,8 @@
       css.push(KB + ' .hg-button:last-child{margin-right:0}');
       css.push(KB + ' .hg-functionBtn{background:' + SVC_BG + ';color:' + SVC_INK + '}');
       css.push(KB + ' .hg-button[data-skbtn="{MIC}"]{color:' + SVC_INK + '}');
-      css.push(KB + ' .hg-button[data-skbtn="{SIM}"]{font-size:' + ctx.round2(KF * 0.85) + 'em;height:' + ctx.round2(2.81 / (KF * 0.85)) + 'em;margin-right:' + ctx.round2(0.26 / (KF * 0.85)) + 'em;border-radius:' + ctx.round2(0.44 / (KF * 0.85)) + 'em}');
+      var simFont = Math.max(1.01, ctx.round2(KF * 0.85));
+      css.push(KB + ' .hg-button[data-skbtn="{SIM}"]{font-size:' + simFont + 'em;height:' + ctx.round2(2.81 / simFont) + 'em;margin-right:' + ctx.round2(0.26 / simFont) + 'em;border-radius:' + ctx.round2(0.44 / simFont) + 'em}');
       /* Служебные клавиши — иконки одного набора маской (цвет — currentColor,
          в фокусе он сам становится цветом текста на заливке). Без масок —
          картинки Lampa, в фокусе затемнённые, чтобы не исчезнуть на светлой
@@ -150,7 +151,7 @@
       css.push(KB + ' .hg-button.focus,' + KB + ' .hg-button.hg-activeButton{background:' + FILL + ';color:' + ON_FILL + '}');
       css.push(KB + ' .hg-button[data-skbtn="{MIC}"].focus{color:' + ON_FILL + ' !important}');
       if (APPLE) {
-        css.push(KB + ' .hg-button.focus{position:relative;z-index:1;font-weight:600;-webkit-transform:scale(1.12);transform:scale(1.12);-webkit-box-shadow:' + V2.buttonShadowA + ';box-shadow:' + V2.buttonShadowA + '}');
+        css.push(KB + ' .hg-button.focus{position:relative;z-index:1;font-weight:600;-webkit-transform:scale(1.12);transform:scale(1.12)}');
         css.push('body.lumen-motion-lite.search--open .search .simple-keyboard .hg-button.focus,body.lumen-motion-off.search--open .search .simple-keyboard .hg-button.focus{-webkit-transform:none;transform:none}');
         css.push('body.lumen-motion-full.search--open .search .simple-keyboard .hg-button{' + tr(V2.durA) + '}');
       }
@@ -180,7 +181,7 @@
       css.push(S + ' .search-source{height:2.1em;padding:0 .84em;border-radius:.44em;font-family:' + FB + ';font-weight:500;font-size:1.1em;background:transparent;color:' + MUTED + ';opacity:1}');
       css.push(S + ' .search-source + .search-source{margin-left:.35em}');
       css.push(S + ' .search-source__tab{padding:0}');
-      css.push(S + ' .search-source__count{margin-left:.45em;padding:.12em .4em;min-width:1.4em;font-size:.8em;font-weight:600;background:rgba(' + P.textRgb + ',.14);color:inherit}');
+      css.push(S + ' .search-source__count{margin-left:.45em;padding:.12em .4em;min-width:1.4em;font-size:.92em;font-weight:600;background:rgba(' + P.textRgb + ',.14);color:inherit}');
       css.push(S + ' .search-source.active{background:' + CHIP + ';color:' + P.text + '}');
       css.push(S + ' .search-source.focus{background:' + FILL + ';color:' + ON_FILL + '}');
       css.push(S + ' .search-source.focus .search-source__count{background:rgba(0,0,0,.14)}');
@@ -216,7 +217,7 @@
       css.push(RES + ' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
       css.push(RES + ' .card__icon{width:1.25em;height:1.25em}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
-         снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
+         внутри кромки; Apple TV — ×1.14 и нейтральное кольцо. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
          переход — только в «Полных». */
       css.push(RES + ' .card.focus .card__view:after,' + RES + ' .card.hover .card__view:after{display:none}');
@@ -225,11 +226,8 @@
          теперь она остаётся своего кегля и на месте (как на главной). */
       var SC = APPLE ? V2.scalePosterA : V2.scalePosterL;
       css.push(RES + ' .card.focus{z-index:2}');
-      if (APPLE) {
-        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
-      } else {
-        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
-      }
+      css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ')}');
+      css.push(RES + ' .card.focus .card__view:after{' + LC.focusRingOverlayCss(P.text, APPLE) + '}');
       /* Ревью: у Lampa на .card__view в фокусе своя анимация
          (body.advanced--animation … .card.focus .card__view{animation:
          animation-card-focus .2s}, по Enter — animation-trigger-enter

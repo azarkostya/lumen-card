@@ -187,10 +187,7 @@
       var MUTED = A ? 'rgba(235,235,245,.64)' : P.muted;
       var LINE = 'rgba(255,255,255,.16)';
       function tf(v) { return '-webkit-transform:' + v + ';transform:' + v; }
-      function shadow(v) { return '-webkit-box-shadow:' + v + ';box-shadow:' + v; }
-      var RING = 'outline:.13em solid ' + P.text + ';outline-offset:.13em';
-      var IMG_FOCUS = A ? (tf('scale(' + V2.scalePosterA + ')') + ';' + shadow(V2.shadowA) + ';outline:0')
-        : (tf('scale(' + V2.scalePosterL + ')') + ';' + shadow(V2.shadowL) + ';' + RING);
+      var IMG_FOCUS = tf('scale(' + (A ? V2.scalePosterA : V2.scalePosterL) + ')');
       /* Переход масштаба — только в «Полных» анимациях, гейтом по классу
          режима на body: смена lumen_motion таблицу стилей не пересобирает
          (LC.applyMotionMode переставляет лишь классы), как в
@@ -245,7 +242,8 @@
          (тест читает последнее правило селектора). */
       css.push(C + ' .card.focus .card__view,' + C + ' .card.hover .card__view,' + C + ' .card.animate-trigger-enter .card__view{-webkit-animation:none !important;animation:none !important}');
       css.push(C + ' .card.focus .card__view{' + IMG_FOCUS + '}');
-      css.push(C + ' .card.focus .card__view:after,' + C + ' .card.hover .card__view:after{display:none}');
+      css.push(C + ' .card.hover .card__view:after{display:none}');
+      css.push(C + ' .card.focus .card__view:after{' + LC.focusRingOverlayCss(P.text, A) + '}');
       css.push(C + ' .card__title{font-size:1.01em;font-weight:500;line-height:1.25;margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;max-height:none;display:block}');
       css.push(C + ' .card__age{font-size:1.01em;font-weight:500;line-height:1.25;margin-top:.1em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + MUTED + '}');
       /* QA U10: «Коллекция», «Рекомендации», «Похожие» — постер главной

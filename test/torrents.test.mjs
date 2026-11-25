@@ -960,3 +960,32 @@ test('фокус на всех экранах: строки пути и пост
     assert.ok(hexContrast(k.text, bg) >= 3, 'кольцо к ' + bg + ': ' + hexContrast(k.text, bg).toFixed(2));
   }
 });
+
+test('пачка A: «Лёгкие» убирают переходы строк, но сохраняют переходы чипов', () => {
+  const table = rules().flatMap(parse).filter(Boolean);
+  const own = (selector, mode) => table.find((entry) => /(?:^|;)transition:/.test(entry.decl) && entry.selectors.some((s) =>
+    s.endsWith(selector) && (mode ? s.includes('.lumen-motion-' + mode) : !s.includes('.lumen-motion-'))));
+  for (const selector of ['.selectbox-item', '.torrent-item', '.watched-history', '.torrent-file', '.torrent-serial']) {
+    assert.match(own(selector, 'lite').decl, /(?:^|;)transition:none(?:;|$)/, selector);
+    assert.doesNotMatch(own(selector).decl, /(?:^|;)transition:none/, selector + ', полные');
+  }
+  assert.ok(table.some(({ selectors, decl }) => selectors.some((s) =>
+    s.includes('.lumen-motion-lite') && s.endsWith('.torrent-filter .simple-button')) &&
+    /(?:^|;)transition:background-color/.test(decl)));
+});
+
+test('пачка A: у предзагрузки свечение текста только в «Полных», логотип без фильтра', () => {
+  const table = rules().flatMap(parse).filter(Boolean);
+  const fill = '.media-loading__mark-fill .media-loading__title';
+  const declarations = (suffix) => table.filter(({ selectors }) => selectors.some((s) => s.endsWith(suffix)));
+  const title = declarations(fill);
+  const glow = /(?:^|;)text-shadow:0 /;
+  assert.doesNotMatch(t.css(), /drop-shadow/);
+  assert.ok(title.some(({ selectors, decl }) => selectors.every((s) => s.includes('.lumen-motion-full')) && glow.test(decl)));
+  assert.ok(title.every(({ selectors, decl }) => !glow.test(decl) || selectors.every((s) => s.includes('.lumen-motion-full'))));
+  for (const mode of ['lite', 'off']) {
+    assert.ok(declarations('.media-loading__status').some(({ selectors, decl }) =>
+      selectors.some((s) => s.includes('.lumen-motion-' + mode)) &&
+      /(?:^|;)box-shadow:0 [\d.]+em 0 /.test(decl)), mode);
+  }
+});

@@ -48,13 +48,23 @@ function rule(css, selectorPart) {
 test('39: экран раздач — фон темы, постер и описание скрыты, шапка компактная', () => {
   assert.match(lumen, /body\.lumen-torrents-on \.activity\.lumen-torrents\{background-color:#0B0908;/);
   assert.match(rule(lumen, '.explorer-card__descr'), /display:none !important/);
-  assert.match(rule(lumen, 'body.lumen-torrents-on .activity.lumen-torrents .explorer-card__title'), /font-size:2\.455em/);
+  const root = 'body.lumen-torrents-on .activity.lumen-torrents ';
+  for (const css of [lumen, apple]) {
+    assert.match(rule(css, root + '.explorer-card'), /flex-wrap:nowrap/);
+    assert.match(rule(css, root + '.explorer-card__title'), /min-width:0.*font-size:1\.67em.*white-space:nowrap.*text-overflow:ellipsis/);
+    assert.match(rule(css, root + '.explorer-card__title.small'), /font-size:1\.67em/);
+    assert.match(rule(css, root + '.explorer-card__genres'), /display:none !important/);
+    assert.match(rule(css, root + '.explorer-card__head-create > .lumen-torrent-country'), /display:none/);
+  }
 });
 
-test('39: «16+» после меты с отступом .5em, а не поверх рейтинга', () => {
-  assert.match(rule(lumen, 'body.lumen-torrents-on .activity.lumen-torrents .explorer-card__head-age'), /margin:0 0 0 \.5em/);
-  assert.match(lumen, /explorer-card__head-age\{-webkit-order:4;order:4\}/);
-  assert.match(apple, /explorer-card__head-age\{-webkit-order:3;order:3;margin:0 \.45em 0 \.55em\}/);
+test('39: год, рейтинг и возраст не сжимаются под длинным названием', () => {
+  const root = 'body.lumen-torrents-on .activity.lumen-torrents ';
+  for (const css of [lumen, apple]) {
+    assert.match(rule(css, root + '.explorer-card__head-age'), /flex-shrink:0.*margin:0 0 0 \.5em/);
+    assert.match(rule(css, root + '.explorer-card__head-create'), /flex-shrink:0.*white-space:nowrap/);
+    assert.match(rule(css, root + '.explorer-card__head-rate'), /flex-shrink:0.*white-space:nowrap/);
+  }
 });
 
 test('39: строки раздач — Lumen на подложке r14, Apple TV разделены линией; фокус — заливка без кольца', () => {

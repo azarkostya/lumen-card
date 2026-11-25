@@ -217,9 +217,8 @@
       r.push(S(['.selectbox .selectbox-item.selected.focus:not(.nomark)::after', '.selectbox .selectbox-item.picked.focus::after']) + '{color:' + k.bg + '}');
       /* Без масок — штатная галочка Lampa из рамок (цвет тот же). */
       r.push(SUPPORTS_NO_MASK + S(check.concat(sortCheck)) + '{background-color:transparent;width:.3em;height:.6em;margin:-.4em 0 0 -.15em;border-right:.15em solid currentColor;border-bottom:.15em solid currentColor;-webkit-transform:rotate(45deg);transform:rotate(45deg)}}');
-      /* Движение: lite — только цвета, off — без переходов (как у карточки). */
-      r.push(SM('lite', ['.selectbox .selectbox-item']) + '{-webkit-transition:background-color .2s,color .2s;transition:background-color .2s,color .2s}');
-      r.push(SM('off', ['.selectbox .selectbox-item']) + '{-webkit-transition:none;transition:none}');
+      /* На длинных списках переход оставляем только в полных анимациях. */
+      r.push(SM('lite', ['.selectbox .selectbox-item']) + ',' + SM('off', ['.selectbox .selectbox-item']) + '{-webkit-transition:none;transition:none}');
       r.push(SM('lite', ['.selectbox .selectbox-item.focus']) + ',' + SM('off', ['.selectbox .selectbox-item.focus']) + '{-webkit-transform:none;transform:none}');
       return r;
     }
@@ -349,12 +348,12 @@
         T(['.torrent-item__viewed > svg']) + '{display:block !important;width:.964em;height:.964em}' +
         A(['.explorer-card__head-rate:before', '.torrent-filter .filter--back:before', '.torrent-filter .filter--search:before']) + ',' + T(['.torrent-item__viewed:before']) + '{display:none !important}}');
 
-      /* Движение: lite — только цвета, off — без переходов; анимации Lampa гасятся. */
+      /* В lite переходы только на чипах; в off нет и их. Анимации Lampa гасятся. */
       r.push(AM('lite', chipsFocus) + ',' + AM('off', chipsFocus) + '{-webkit-transform:none !important;transform:none !important}');
       r.push(AM('lite', chips) + ',' + AM('off', chips) + ',' + TM('lite', ['.torrent-item']) + ',' + TM('off', ['.torrent-item']) + ',' + AM('lite', ['.explorer-card__head-img']) + ',' + AM('off', ['.explorer-card__head-img']) + '{-webkit-animation:none !important;animation:none !important}');
       r.push(AM('lite', chips) + '{-webkit-transition:background-color .2s,color .2s,border-color .2s;transition:background-color .2s,color .2s,border-color .2s}');
-      r.push(TM('lite', ['.torrent-item']) + ',' + AM('lite', ['.watched-history']) + '{-webkit-transition:border-color .2s,background-color .2s;transition:border-color .2s,background-color .2s}');
-      r.push(AM('off', chips) + ',' + TM('off', ['.torrent-item']) + ',' + AM('off', ['.watched-history']) + '{-webkit-transition:none;transition:none}');
+      r.push(TM('lite', ['.torrent-item']) + ',' + AM('lite', ['.watched-history']) + ',' +
+        AM('off', chips) + ',' + TM('off', ['.torrent-item']) + ',' + AM('off', ['.watched-history']) + '{-webkit-transition:none;transition:none}');
       return r;
     }
 
@@ -475,8 +474,7 @@
       r.push(T(['.torrent-serial.focus .torrent-serial__episode']) + '{top:1.059em;left:1.059em}');
       /* Автостарт единственного файла: полоска 3px accent + glow, растёт снизу вверх (высоту двигает JS Lampa). */
       r.push(T(['.torrent-serial__progress']) + '{top:auto;bottom:.526em;right:.526em;width:.132em;max-height:-webkit-calc(100% - 1.052em);max-height:calc(100% - 1.052em);border-radius:.066em;background-color:' + k.accent + ';-webkit-box-shadow:0 0 .526em ' + k.acglow + ';box-shadow:0 0 .526em ' + k.acglow + ';-webkit-transform:none;transform:none}');
-      r.push(TM('lite', rows) + '{-webkit-transition:border-color .2s,background-color .2s;transition:border-color .2s,background-color .2s}');
-      r.push(TM('off', rows) + '{-webkit-transition:none;transition:none}');
+      r.push(TM('lite', rows) + ',' + TM('off', rows) + '{-webkit-transition:none;transition:none}');
       return r;
     }
 
@@ -487,11 +485,13 @@
       r.push('/* 40 Предзагрузка — media-loading: вуаль, название-фолбэк, пилюля статуса */');
       r.push(T(['.media-loading']) + '{background-color:' + k.bg + ';font-family:' + k.fontBody + '}');
       r.push(T(['.media-loading__shade']) + '{background:linear-gradient(0deg,rgba(' + k.bgRgb + ',.98) 0%,rgba(' + k.bgRgb + ',.72) 34%,rgba(' + k.bgRgb + ',.3) 100%)}');
-      /* Тусклая копия 12 %, яркая (ширину двигает JS Lampa по прогрессу) — акцент с glow. */
+      /* Тусклая копия 12 %, яркая (ширину двигает Lampa) — акцент. */
       r.push(T(['.media-loading__mark-background']) + '{opacity:.12}');
       r.push(T(['.media-loading__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.403em;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:' + k.text + ';text-shadow:none}');
-      r.push(T(['.media-loading__mark-fill .media-loading__title']) + '{color:' + k.accent + ';text-shadow:0 0 .94em ' + k.acglow + '}');
-      r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:drop-shadow(0 0 .6em ' + k.acglow + ');filter:drop-shadow(0 0 .6em ' + k.acglow + ')}');
+      var fillTitle = ['.media-loading__mark-fill .media-loading__title'];
+      r.push(T(fillTitle) + '{color:' + k.accent + ';text-shadow:none}');
+      r.push(TM('full', fillTitle) + '{text-shadow:0 0 .94em ' + k.acglow + '}');
+      r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:none;filter:none}');
       /* Пульс 1→1.02 / 2 с вместо штатного mediaLoadingPulse — только в full; lite/off — без пульса. */
       r.push(TM('full', markSel) + '{-webkit-animation:lumen-tp-soft 2s ease-in-out infinite;animation:lumen-tp-soft 2s ease-in-out infinite}');
       r.push(TM('lite', markSel) + ',' + TM('off', markSel) + '{-webkit-animation:none !important;animation:none !important;-webkit-transform:none;transform:none}');
@@ -501,6 +501,8 @@
          Фон — светлая полупрозрачная заливка с рамкой, а не rgba(bg,.62) экспорта: у нижнего
          края вуаль .98 и тёмная пилюля сливалась с фоном (живой регресс Task 33). */
       r.push(T(['.media-loading__status']) + '{bottom:5.644em;padding:.695em 1.216em;border-radius:1.302em;border:.043em solid rgba(' + k.textRgb + ',.24);background-color:rgba(' + k.textRgb + ',.1);-webkit-box-shadow:0 .608em 1.737em rgba(0,0,0,.35);box-shadow:0 .608em 1.737em rgba(0,0,0,.35);color:' + k.muted + ';font-family:' + k.fontBody + ';font-size:1.01em}');
+      var status = ['.media-loading__status'];
+      r.push(TM('lite', status) + ',' + TM('off', status) + '{-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.35);box-shadow:0 .2em 0 rgba(0,0,0,.35)}');
       r.push(T(['.media-loading__peers-value']) + '{color:' + k.muted + '}');
       r.push(T(['.media-loading__peers-icon']) + '{display:none}');
       r.push(T(['.media-loading__peers:before']) + '{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.3em;height:1.3em;margin-right:.5em;background-color:' + k.accent + '}');
@@ -570,7 +572,7 @@
       var root = object.activity.render();
       if (root && root.length && typeof root.addClass === 'function') root.addClass(MARK);
       if (root && root.length && typeof root.find === 'function') {
-        dotMeta(root.find('.explorer-card__head-create')[0]);
+        splitHeaderYear(root.find('.explorer-card__head-create')[0]);
         frame(root, object.movie || object.card);
       }
     }
@@ -598,12 +600,18 @@
       }
     }
 
-    /* v2 «Единый стиль», экран 39: «2012 · США» вместо «2012 - США» — строку
-       год/страна Lampa пишет сама (Explorer.movie, text()), правим текст. */
-    function dotMeta(node) {
-      if (!node || typeof node.textContent !== 'string') return;
-      var t = node.textContent;
-      if (t.indexOf(' - ') >= 0) node.textContent = t.split(' - ').join(' \u00B7 ');
+    /* Explorer пишет год и страну одним текстовым узлом. Оборачиваем
+       страну, чтобы компактная шапка могла скрыть её своим CSS, а при
+       выключении оформления Lampa показывала исходный текст. */
+    function splitHeaderYear(node) {
+      if (!node || typeof node.textContent !== 'string' || node.querySelector('.lumen-torrent-country')) return;
+      var parts = /^(\d{4})( - .+)$/.exec(node.textContent);
+      if (!parts) return;
+      var country = document.createElement('span');
+      country.className = 'lumen-torrent-country';
+      country.textContent = parts[2];
+      node.textContent = parts[1];
+      node.appendChild(country);
     }
 
     /* v2, экран 39: важная часть названия раздачи выделена. Правило макета —

@@ -872,8 +872,8 @@
         '</div>' +
         '<div class="lumen-review-modal__line"></div>' +
         '<div class="lumen-review-modal__title">' + item.title + '</div>' +
-        '<div class="lumen-review-modal__text">' + textHtml(item) + '</div>' +
         (spoilerInParts(item) ? '<div class="lumen-review-modal__reveal selector">' + esc(lang('lumen_reviews_reveal')) + '</div>' : '') +
+        '<div class="lumen-review-modal__text">' + textHtml(item) + '</div>' +
         '</div>';
     }
 
@@ -980,12 +980,9 @@
       }
     }
 
-    /* Task 28: кнопка «Показать спойлеры» внутри модала. Своего .selector'а
-       ей хватает: контроллер 'modal' Lampa собирает коллекцию из содержимого
-       окна (app.min.js, toggle модала: Controller.collectionSet(scroll.
-       render())), а так как это единственный фокусируемый узел окна, фокус
-       достаётся ему сразу. Слушаем в фазе перехвата на корне окна — события
-       Lampa не всплывают, приём тот же, что у ряда отзывов. */
+    /* Lampa фокусирует единственную кнопку при открытии модала, поэтому
+       она перед длинным текстом. После неё оставляем Scroll самого окна:
+       без .selector контроллер modal листает текст стрелками. */
     function bindReveal(html) {
       try {
         var el = html && html[0];
@@ -993,10 +990,10 @@
         el.addEventListener('hover:enter', function (event) {
           try {
             var btn = $(event.target).closest('.lumen-review-modal__reveal');
-            if (!btn || !btn.length) return;
-            var open = !html.hasClass('lumen-review-modal--open');
-            html.toggleClass('lumen-review-modal--open', open);
-            btn.text(lang(open ? 'lumen_reviews_hide' : 'lumen_reviews_reveal'));
+            if (!btn || !btn.length || html.hasClass('lumen-review-modal--open')) return;
+            html.addClass('lumen-review-modal--open');
+            btn.remove();
+            Lampa.Controller.toggle('modal');
           } catch (e) {
             warn('reviews reveal failed', e);
           }

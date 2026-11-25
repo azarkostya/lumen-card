@@ -240,7 +240,7 @@ test('U13: экран раздач — кадр под шапкой, прокр�
     delete globalThis.Lampa;
   }
   const S = 'body.lumen-torrents-on .activity.lumen-torrents ';
-  assert.ok(css.indexOf(S + '.lumen-tframe{position:absolute;top:-4em;left:0;right:0;height:20.66em;') >= 0, 'кадр поднят под шапку');
+  assert.ok(css.indexOf(S + '.lumen-tframe{position:absolute;top:-4em;left:0;right:0;height:17.7em;') >= 0, 'кадр поднят под шапку');
   assert.ok(/body\.lumen-torrents-on \.activity\.lumen-torrents\{[^}]*box-shadow:0 -4em 0 0 #/.test(css), 'полосу без задника закрывает фон темы');
   assert.ok(css.indexOf(S + '.explorer{height:-webkit-calc(100vh - 4em);height:calc(100vh - 4em)}') >= 0);
   assert.ok(css.indexOf(S + '.explorer__files-body > .scroll{position:absolute;top:0;left:0;right:0;bottom:0;height:auto !important}') >= 0);
@@ -360,6 +360,26 @@ test('1.4: «Фокус на следующей серии» не трогали
     fileEvents(env, [100, 100, 0]);
     assert.equal(env.timers.length, 0);
     assert.equal(env.calls.length, 0);
+  } finally {
+    env.restore();
+  }
+});
+
+test('39: шапка отделяет страну от года без потери исходного текста', () => {
+  const env = livePath({});
+  try {
+    for (const [initial, year, country] of [['2022 - Великобритания', '2022', ' - Великобритания'], ['2025', '2025', '']]) {
+      const node = fakeNode('', initial);
+      node.querySelector = (selector) => node.children.find((child) => '.' + child.className === selector) || null;
+      const root = { length: 1, addClass() {}, find: () => [node] };
+      const event = { type: 'start', component: 'torrents', object: { activity: { render: () => root } } };
+      env.handlers.activity(event);
+      env.handlers.activity(event);
+      assert.equal(node.textContent, year);
+      assert.deepEqual(node.children.map((child) => [child.className, child.textContent]),
+        country ? [['lumen-torrent-country', country]] : []);
+      assert.equal(node.textContent + node.children.map((child) => child.textContent).join(''), initial);
+    }
   } finally {
     env.restore();
   }
