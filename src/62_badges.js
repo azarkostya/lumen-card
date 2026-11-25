@@ -95,12 +95,14 @@
         }
       }
       if (!best) return null;
-      var head = 'S' + season + '\u00B7E';
+      var number = words && words.episodeNumber;
+      if (!number || number.indexOf('{s}') < 0 || number.indexOf('{e}') < 0) number = 'S{s}\u00B7E{e}';
+      var episode = number.replace('{s}', season);
       var pct = Number(best.percent) || 0;
       if (pct >= EP_DONE) {
         var next = bestEp + 1;
         if (last && (parseInt(last.season_number, 10) || 0) === season && (parseInt(last.episode_number, 10) || 0) < next) return null;
-        return { kind: 'progress', text: head + next, percent: 0 };
+        return { kind: 'progress', text: episode.replace('{e}', next), percent: 0 };
       }
       var whole = Math.max(1, Math.round(pct));
       var duration = Number(best.duration) || 0;
@@ -108,9 +110,9 @@
       var tpl = words && words.epLeft ? '' + words.epLeft : '';
       if (duration > 0 && time >= 0 && time < duration && tpl) {
         var left = Math.ceil((duration - time) / 60);
-        if (left >= 1) return { kind: 'progress', text: tpl.replace('{e}', head + bestEp).replace('{n}', left), percent: whole, left: true };
+        if (left >= 1) return { kind: 'progress', text: tpl.replace('{e}', episode.replace('{e}', bestEp)).replace('{n}', left), percent: whole, left: true };
       }
-      return { kind: 'progress', text: head + bestEp + EP_PLAY, percent: whole };
+      return { kind: 'progress', text: episode.replace('{e}', bestEp) + EP_PLAY, percent: whole };
     }
 
     /* Метка одной карточки. today — Date (или мс), ctx:
@@ -149,18 +151,17 @@
            она и говорит «продолжить» без слов, а доли процента не
            показывает. Само слово с экрана не пропало — им подписана строка
            прогресса в карточке фильма и кнопка «Смотреть». */
-        /* Сверка 2026-09-26: в ряду «Досмотреть» (card.lumen_continue,
-           src/45_personal.js) — остаток минутами вместо процента: процент
-           говорит, сколько досмотрено, а решают «успею ли». ctx.left(card)
-           — целые минуты или null (длительности в Timeline нет); тогда и
-           без строки — прежний процент. left: true — метке разрешены две
-           строки (правило .lumen-badge--left, src/30_css.js). */
-        var left = (card.lumen_continue && typeof ctx.left === 'function') ? Number(ctx.left(card)) : NaN;
-        if (left >= 1 && words.left) {
-          return { kind: 'progress', text: ('' + words.left).replace('{n}', left), percent: whole, left: true };
+        /* В «Досмотреть» процент нужен только полосе. Текст появляется
+           при наличии остатка времени или номера серии. */
+        if (card.lumen_continue) {
+          var left = typeof ctx.left === 'function' ? Number(ctx.left(card)) : NaN;
+          var text = left >= 1 && words.left ? ('' + words.left).replace('{n}', left) : '';
+          return { kind: 'progress', text: text, percent: whole };
         }
         return { kind: 'progress', text: whole + ' %', percent: whole };
       }
+
+      if (card.lumen_continue) return null;
 
       var ymd = releaseDate(card);
       var days = LC.util.daysUntil(ymd, today);
@@ -302,7 +303,9 @@
         if (window.Lampa && Lampa.Timeline && typeof Lampa.Timeline.view === 'function' &&
             Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
           out = episodeBadge(card, function (h) { return Lampa.Timeline.view(h); },
-            function (k) { return Lampa.Utils.hash(k); }, { epLeft: epLeftWord() });
+            function (k) { return Lampa.Utils.hash(k); }, {
+              epLeft: epLeftWord(), episodeNumber: LC.lang('lumen_badge_episode_number')
+            });
         }
         if (id) ep_cache[id] = out;
         return out;
@@ -344,7 +347,7 @@
     /* Сверка 2026-09-26: остаток просмотра в целых минутах, вверх — из той
        же записи Timeline: time и duration в секундах (плеер пишет
        currentTime и duration видео, view — app.min.js:23899-23944). Нет
-       длительности или позиция за концом — null, метка остаётся процентом. */
+       длительности или позиция за концом — null, остаётся полоса. */
     function leftOf(card) {
       var view = timelineOf(card);
       if (!view) return null;
@@ -374,12 +377,16 @@
       var vote = Number(data.vote_average);
       if (!(vote >= 1)) return;
       var was = '' + age.text();
-      age[0].lumen_rated = true;
-      age[0].lumen_age_was = was;
-      age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
+      replaceAge(age, was, (was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
     }
 
-    /* A2: снять рейтинг, дописанный rate(), вернув подписи прежний текст.
+    function replaceAge(age, original, text) {
+      age[0].lumen_rated = true;
+      age[0].lumen_age_was = original;
+      age.text(text);
+    }
+
+    /* Вернуть исходный текст подписи после рейтинга или остатка просмотра.
        Зовётся только из strip() — то есть при выключении меток и при смене
        их вида на живом экране. Идемпотентна: без флага делать нечего. */
     function unrate(el) {
@@ -421,7 +428,7 @@
 
     /* Возвращает true, если метка встала в подпись: от этого зависит, дописывать
        ли туда же рейтинг (A2, разбор в decorate ниже). */
-    function caption(el, badge) {
+    function caption(el, badge, inContinue) {
       var age = $(el).find('.card__age');
       /* Подписи может не быть вовсе: сетка подборки снимает .card__age у
          карточки без года (src/46_hub.js), и тогда метку в этом виде ставить
@@ -429,8 +436,13 @@
       if (!age || !age.length) return false;
       var was = '' + age.text();
       var text = captionText(badge);
-      var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
-      box.text(was ? text + ' · ' : text);
+      var cls = 'lumen-badge-cap lumen-badge-cap--' + badge.kind;
+      if (inContinue) {
+        replaceAge(age, was, '');
+        cls += ' lumen-badge-cap--continue';
+      }
+      var box = $('<span class="' + cls + '"></span>');
+      box.text(!inContinue && was ? text + ' · ' : text);
       age.prepend(box);
       return true;
     }
@@ -454,11 +466,11 @@
        Повторный вызов на том же узле молчит — флаг lumen_badged. */
     function decorate(node, card, opts, shared) {
       try {
-        if (!enabled()) return;
         var el = node && node.length ? node[0] : node;
         if (!el || el.lumen_badged) return;
         var data = card || el.card_data;
-        if (!data) return;
+        var view_mode = mode();
+        if (!data || (view_mode === 'off' && !data.lumen_continue)) return;
         el.lumen_badged = true;
         /* Раунд C, C1: окошко адвента — постер чистый, а подпись своя: метка
            дня вместо «год · ★» (src/44_rows.js, adventCaption). Ни плашки
@@ -467,8 +479,13 @@
         var ctx = shared || batch();
         var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, episode: episodeOf, words: ctx.words });
         var view = $(el).find('.card__view');
+        if (data.lumen_continue) {
+          if (badge && badge.text) caption(el, badge, true);
+          else if (view_mode !== 'off') rate(el, data);
+          progressBar(view, badge, opts, true);
+          return;
+        }
         var hasBadge = !!(badge && badge.text && view && view.length);
-        var view_mode = mode();
         /* Волна «подложка», п.C1: строки подписи на главной с героем нет —
            метка «в подписи» там встаёт на постер (разбор у captionHidden).
            Сетке подборки (opts.wide) это не нужно: подпись там своя. */
@@ -552,18 +569,19 @@
           box.text(badge.text);
           view.append(box);
         }
-        /* Полоса прогресса остаётся на постере в обоих видах: это не плашка
-           с текстом, а тонкая линия у нижней кромки — ровно то, чем показывает
-           недосмотренное и сам Apple TV. */
-        var wantBar = !opts || opts.bar !== false;
-        if (wantBar && badge.kind === 'progress' && badge.percent > 0) {
-          var bar = $('<div class="lumen-badge-bar"><div></div></div>');
-          bar.find('div').css('width', badge.percent + '%');
-          view.append(bar);
-        }
+        progressBar(view, badge, opts, false);
       } catch (e) {
         warn('badges: decorate failed', e);
       }
+    }
+
+    function progressBar(view, badge, opts, inContinue) {
+      if (!view || !view.length || !badge || badge.kind !== 'progress' || !(badge.percent > 0) ||
+          (opts && opts.bar === false)) return;
+      var cls = inContinue ? 'lumen-badge-bar lumen-badge-bar--continue' : 'lumen-badge-bar';
+      var bar = $('<div class="' + cls + '"><div></div></div>');
+      bar.find('div').css('width', badge.percent + '%');
+      view.append(bar);
     }
 
     /* Все карточки, уже лежащие в корне на момент монтирования (возврат на
@@ -573,7 +591,7 @@
         var nodes = root.find('.card');
         var shared = nodes.length ? batch() : null;
         for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null, shared);
-        stripLines(root[0]);
+        if (enabled()) stripLines(root[0]);
       } catch (e) {
         warn('badges: scan failed', e);
       }
@@ -706,7 +724,7 @@
           if (!elems.length || inHero(records[i].target)) continue;
           if (!shared) shared = batch();
           for (var j = 0; j < elems.length; j++) decorateAdded(elems[j], shared);
-          if (LC.typo) linesOf(records[i].target, elems, lines);
+          if (LC.typo && enabled()) linesOf(records[i].target, elems, lines);
         }
         for (var m = 0; m < lines.length; m++) LC.typo.stripCards(lines[m].querySelectorAll('.card'));
       } catch (e) {
@@ -743,7 +761,6 @@
            обойдёт карточки молча. */
         if (mounted_mode !== null && mounted_mode !== want) strip(root);
         mounted_mode = want;
-        if (want === 'off') return;
         state = { root: root, observer: null };
         scan(root);
         observe(root);
@@ -813,7 +830,7 @@
     /* Ручная пачка отметок серии обновляет только одноимённую карточку
        «Досмотреть», в том числе на ещё скрытом слое главной. */
     function refreshContinue(movie) {
-      if (!movie || !movie.id || mode() === 'off') return;
+      if (!movie || !movie.id) return;
       var nodes = document.querySelectorAll('.card');
       var shared = null;
       for (var i = 0; i < nodes.length; i++) {

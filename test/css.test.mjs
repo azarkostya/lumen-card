@@ -5474,7 +5474,8 @@ test('фаза 3: у совсем низкого окна ряды занима�
      нет (решение координатора), бюджет содержимого похудел на её 3.88em, и
      порог ушёл с 2.31:1 на 2.87:1 — МЯГЧЕ: кадр держится в окне до 669 px
      высоты при ширине 1920. Телевизор 16:9 это не трогает вовсе. */
-  assert.ok(line.indexOf('min-aspect-ratio:287/100') !== -1, 'порог при крупном кадре — 2.87:1: ' + line);
+  /* Шаг 17: кегль меты вырос, кадр скрывается чуть раньше (2.84:1). */
+  assert.ok(line.indexOf('min-aspect-ratio:284/100') !== -1, 'порог при крупном кадре — 2.84:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36 превращал героя за порогом в полосу чипов под шапкой. Волна 3:
      чипов в герое нет, и за порогом он снова уходит целиком — ни слоя кадра
@@ -5520,7 +5521,8 @@ test('фаза 3: у совсем низкого окна ряды занима�
      и из бюджета (MOODS_IN_EM, 3.88em), и расчётный порог отодвинулся с
      1.88:1 до 2.24:1 — теперь его держит снова бюджет, а не пол. Телевизор
      пользователя (1.78:1) по-прежнему с описанием. */
-  assert.ok(descr.indexOf('min-aspect-ratio:224/100') !== -1, 'порог описания: ' + descr);
+  /* Шаг 17: с новой метой порог описания — 2.23:1. */
+  assert.ok(descr.indexOf('min-aspect-ratio:223/100') !== -1, 'порог описания: ' + descr);
   assert.ok(1920 / 1080 < 1.90, 'порог описания обязан оставаться выше 16:9');
   assert.ok(parseInt(/min-aspect-ratio:(\d+)\/100/.exec(descr)[1], 10) >= 190, 'порог описания опустился к 16:9: ' + descr);
 });
@@ -6383,6 +6385,28 @@ test('правка: у корня главной есть фон; переход
     'правило перехода у корня главной вернулось');
 });
 
+test('Досмотреть: прежняя геометрия, подпись и полоса по нижней кромке в обоих стилях', () => {
+  for (const apple of [false, true]) {
+    const prefs = apple ? { lumen_flat: 'true' } : {};
+    const sheet = withStorage({ ...prefs, lumen_badges: 'off' }, (LC) => LC.buildCss(), 960, v2Layers);
+    const decl = (sel) => findDecl(sheet, (rule) => rule === sel);
+    for (const sel of ['.lumen-main .card', '.lumen-main .card__age', '.lumen-main .items-line .mapping--line > * + *']) {
+      assert.equal(decl(sel), findDecl(cssAll[Number(apple)], (rule) => rule === sel));
+    }
+    assert.match(decl('.lumen-main .card__age'), /font-size:1\.01em/);
+    assert.equal(decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue'), 'left:0;right:0;bottom:0;height:.26em;border-radius:0');
+    const caption = decl('.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue');
+    const fill = decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div');
+    assert.match(caption, /^font-weight:600;color:#[\da-f]{6}$/i);
+    if (apple) {
+      assert.equal(caption, 'font-weight:600;color:#F2F2F3');
+      assert.equal(fill, 'border-radius:0;background:#FFFFFF');
+    } else {
+      assert.equal(fill, 'border-radius:0;background:' + caption.split('color:')[1]);
+    }
+  }
+});
+
 test('Task 51: карточка ряда главной — 217×325 (7 колонок tvOS), подписи §0.4', () => {
   /* Пользователь на живом телевизоре 2026-09-18: «картинка очень маленькая».
      Прежние дизайнерские 230×345 выросли до 260×390 (Task 36) — место под них
@@ -7199,12 +7223,11 @@ test('Task 43: рейтинг героя — в строке меты, отде�
   const meta = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__meta');
   assert.ok(meta, 'правило меты не найдено');
   assert.equal(meta.indexOf('letter-spacing'), -1, 'разрядка была нужна моноширинному, её больше нет: ' + meta);
-  /* Правка 2026-09-23 (разбор композиции, п.1.1): мета переехала ПОД
-     название и ужата с 1.15em до .96em своего контекста — это 1.056em
-     базовых, 24.1 физического px на растре 1920×1080. Прежние 1.27em
-     базовых совпадали с кеглем заголовка ряда (14.4 против 14.0 CSS px на
-     стенде 960×540@2), и мета читалась как заголовок секции. */
-  assert.ok(meta.indexOf('font-size:.96em') !== -1, 'мета — .96em своего контекста = 1.056em базовых = 24 физических px: ' + meta);
+  /* Шаг 17: 1.04em внутри блока с масштабом 1.1em дают 1.144em. */
+  for (const sheet of cssAll) {
+    const rule = findDecl(sheet, (sel) => sel === '.lumen-hero .lumen-hero__meta');
+    assert.ok(rule.indexOf('font-size:1.04em') !== -1, 'кегль меты: ' + rule);
+  }
   assert.ok(meta.indexOf('margin-top:.3em') !== -1, 'зазор «название → мета» — .3 кегля самой меты: ' + meta);
   /* Волна «подложка»: мета — P.soft (#DCD3C8), светлее muted: пятно подушки
      у её правого края мягче прежней плиты. */
@@ -8176,9 +8199,21 @@ test('Task 73: плоский вид сохраняет общие правил�
     '.lumen-main .card.focus .card__view:after',
     '.lumen-card .lumen-episodes .lumen-episode.focus:after'
   ];
+  const continueColors = {
+    '.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue': ['color', '#F2F2F3'],
+    '.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div': ['background', '#FFFFFF']
+  };
   for (const rule of ruleBodies(css)) {
     if (flat.includes(key(rule))) continue;
     assert.equal(rule.selectors.length, 1);
+    const override = continueColors[rule.selectors[0]];
+    if (override) {
+      const appleRule = flatRules.find((r) => r.selectors.length === 1 && r.selectors[0] === rule.selectors[0]);
+      assert.ok(appleRule, 'потеряно правило «Досмотреть»: ' + rule.selectors[0]);
+      const [prop, color] = override;
+      assert.equal(appleRule.decl, rule.decl.replace(new RegExp(prop + ':#[a-f0-9]{6}(?=;|$)', 'i'), prop + ':' + color));
+      continue;
+    }
     assert.ok(rings.includes(rule.selectors[0]), 'общие стили изменились: ' + key(rule));
     const appleRing = flatRules.find((r) => r.selectors.length === 1 && r.selectors[0] === rule.selectors[0]);
     assert.ok(appleRing, 'потеряно кольцо: ' + rule.selectors[0]);
@@ -8192,7 +8227,7 @@ test('Task 73: плоский вид сохраняет общие правил�
      правила узнаются по селектору: фокус, переход «Полных», приглушение
      соседей, шапка Lampa, плашка описания. */
   const V2_SEL = (sel) => /\.focus\b/.test(sel) || /lumen-motion-full/.test(sel) || /\.lumen-dim /.test(sel) ||
-    sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text' ||
+    Object.hasOwn(continueColors, sel) || sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text' ||
     /* экран 35: цвет меты, кламп описания, подсказка трейлера, кнопки Apple */
     /^\.lumen-card (\.lumen-meta|\.lumen-descr-short$|\.lumen-trailer-badge$|\.full-start-new__buttons )/.test(sel);
   for (const rule of added) {

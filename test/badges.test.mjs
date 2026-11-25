@@ -729,7 +729,7 @@ test('mount: карточки, уже лежащие в корне, получа
   }
 });
 
-test('mount: выключенная настройка снимает уже стоящий наблюдатель', () => {
+test('Досмотреть: выключенные метки оставляют наблюдателя для ряда', () => {
   let disconnects = 0;
   class FakeObserver { constructor() {} observe() {} disconnect() { disconnects++; } }
   globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
@@ -741,7 +741,7 @@ test('mount: выключенная настройка снимает уже с�
     assert.equal(api.active(), true);
     on = false;
     api.mount(makeRoot([]));
-    assert.equal(api.active(), false);
+    assert.equal(api.active(), true);
     assert.equal(disconnects, 1);
   } finally {
     delete globalThis.window;
@@ -905,55 +905,69 @@ test('сверка: badgeFor — в «Досмотреть» «Осталось 
   assert.equal(b.kind, 'progress');
   assert.equal(b.text, 'Осталось 57 мин');
   assert.equal(b.percent, 43, 'полоса прогресса считает тот же процент');
-  assert.equal(b.left, true);
   /* Не «Досмотреть» — процент, как был. */
   assert.equal(B.badgeFor({ release_date: '2020-01-01' }, TODAY, ctx).text, '43 %');
-  /* Остатка нет (длительность неизвестна) — процент. */
+  /* Остатка нет (длительность неизвестна) — только полоса. */
   const none = { words: words, progress: function () { return 43; }, left: function () { return null; } };
-  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, none).text, '43 %');
-  /* Без строки — процент, без «{n}» на экране. */
-  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, { words: WORDS, progress: ctx.progress, left: ctx.left }).text, '43 %');
+  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, none).text, '');
+  /* Без строки остаётся полоса, без «{n}» на экране. */
+  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, { words: WORDS, progress: ctx.progress, left: ctx.left }).text, '');
 });
 
-test('сверка: decorate — остаток из Timeline (секунды), вверх до минуты; метке «Досмотреть» разрешены две строки', () => {
-  const view = { percent: 43, time: 3000, duration: 6420 };
-  const { api } = runtime({
-    lang: function (key) {
-      if (key === 'lumen_badge_left') return 'Осталось {n} мин';
-      if (key === 'lumen_card_months_short') return MONTHS.join(',');
-      return key;
-    },
-    Lampa: {
-      Activity: { active: function () { return null; } },
-      Utils: { hash: function (k) { return k; } },
-      Timeline: { view: function () { return view; } }
-    }
-  });
-  const card = makeCard({ release_date: '2020-01-01', original_title: 'X', lumen_continue: true });
-  globalThis.window = { Lampa: {} };
-  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
-  const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'))[0];
-  assert.ok(badge, 'метки нет');
-  assert.equal(badge.text(), 'Осталось 57 мин', '(6420 − 3000) / 60 = 57');
-  assert.ok(badge.hasClass('lumen-badge--progress') && badge.hasClass('lumen-badge--left'));
-  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge-bar')).length, 1, 'полоса прогресса на месте');
-});
-
-test('сверка: decorate — в Timeline нет длительности или позиция за концом — процент', () => {
-  for (const view of [{ percent: 43 }, { percent: 43, time: 100, duration: 0 }, { percent: 43, time: 7000, duration: 6420 }]) {
+test('Досмотреть: фильм и серия показывают остаток вместо года при любом виде меток', () => {
+  for (const mode of ['poster', 'caption', 'off']) {
     const { api } = runtime({
-      lang: function (key) { return key === 'lumen_badge_left' ? 'Осталось {n} мин' : (key === 'lumen_card_months_short' ? MONTHS.join(',') : key); },
+      badgesMode: () => mode,
+      lang: (key) => ({
+        lumen_badge_left: 'Осталось {n} мин',
+        lumen_badge_ep_left: '{e} · {n} мин',
+        lumen_badge_episode_number: 'С{s} · Э{e}'
+      })[key] || key,
       Lampa: {
-        Activity: { active: function () { return null; } },
-        Utils: { hash: function (k) { return k; } },
-        Timeline: { view: function () { return view; } }
+        Utils: { hash: (k) => k },
+        Timeline: { view: (key) => ({
+          X: { percent: 43, time: 3000, duration: 6420 },
+          '24Series': { percent: 60, time: 1620, duration: 2700 }
+        })[key] }
       }
     });
-    const card = makeCard({ release_date: '2020-01-01', original_title: 'X', lumen_continue: true });
+    const cards = [
+      makeCard({ original_title: 'X', lumen_continue: true, vote_average: 8 }),
+      makeCard({ original_name: 'Series', number_of_seasons: 2, lumen_continue: true })
+    ];
+    globalThis.window = { Lampa: {} };
+    try {
+      for (const [i, card] of cards.entries()) {
+        api.decorate(card, null, null);
+        const [view, age] = card._children;
+        assert.equal(view.find('.lumen-badge').length, 0, mode);
+        assert.equal(view.find('.lumen-badge-bar--continue').length, 1, mode);
+        assert.equal(age.text(), '', mode);
+        const badge = age.find('.lumen-badge-cap--continue')[0];
+        assert.ok(badge, mode);
+        assert.equal(badge.text(), ['Осталось 57 мин', 'С2 · Э4 · 18 мин'][i], mode);
+      }
+      api.strip(makeRoot(cards));
+      for (const card of cards) {
+        assert.equal(card.find('.lumen-badge-cap').length, 0, mode);
+        assert.equal(card.find('.card__age')[0].text(), '2017', mode);
+      }
+    } finally { delete globalThis.window; }
+  }
+});
+
+test('Досмотреть: фильм без таймкода сохраняет год и показывает только известную полосу', () => {
+  for (const view of [null, { percent: 43 }, { percent: 43, time: 7000, duration: 6420 }]) {
+    const { api } = runtime({
+      Lampa: { Utils: { hash: (k) => k }, Timeline: { view: () => view } }
+    });
+    const card = makeCard({ release_date: '2026-12-17', original_title: 'X', lumen_continue: true });
     globalThis.window = { Lampa: {} };
     try { api.decorate(card, null, null); } finally { delete globalThis.window; }
-    const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'))[0];
-    assert.equal(badge.text(), '43 %', JSON.stringify(view));
+    assert.equal(card.find('.lumen-badge').length, 0);
+    assert.equal(card.find('.lumen-badge-cap').length, 0);
+    assert.equal(card.find('.card__age')[0].text(), '2017');
+    assert.equal(card.find('.lumen-badge-bar--continue').length, view ? 1 : 0);
   }
 });
 
@@ -1205,16 +1219,16 @@ test('episodeBadge: фильм, карточка не из «Досмотрет�
   assert.equal(t.calls.length, 0);
 });
 
-test('badgeFor: ctx.episode у сериала «Досмотреть» важнее процента, без неё — прежний путь', () => {
+test('badgeFor: ctx.episode у сериала «Досмотреть» важнее процента, без неё остаётся полоса', () => {
   const B = fresh().api;
   const ep = { kind: 'progress', text: 'S2·E5', percent: 0 };
   const card = Object.assign({}, SERIAL);
   assert.equal(B.badgeFor(card, TODAY, { progress: () => 40, episode: () => ep, words: WORDS }), ep);
-  assert.equal(B.badgeFor(card, TODAY, { progress: () => 40, episode: () => null, words: WORDS }).text, '40 %');
+  assert.deepEqual(B.badgeFor(card, TODAY, { progress: () => 40, episode: () => null, words: WORDS }), { kind: 'progress', text: '', percent: 40 });
   assert.equal(B.badgeFor(Object.assign({}, card, { lumen_badge: 'Новая серия' }), TODAY, { episode: () => ep, words: WORDS }).kind, 'custom');
 });
 
-test('decorate: метка серии на постере, кэш на показ главной, настройка выключает', () => {
+test('decorate: метка серии в подписи, кэш на показ главной, настройка выключает', () => {
   class FakeObserver { constructor() {} observe() {} disconnect() {} }
   let views = 0;
   let on = true;
@@ -1235,7 +1249,7 @@ test('decorate: метка серии на постере, кэш на пока�
     const a = makeCard(Object.assign({}, SERIAL));
     const b = makeCard(Object.assign({}, SERIAL));
     api.mount(makeRoot([a, b]));
-    const plate = (c) => c._children[0]._children.filter((x) => x.hasClass('lumen-badge'))[0];
+    const plate = (c) => c.find('.lumen-badge-cap--continue')[0];
     assert.equal(plate(a).text(), 'S2·E4 ▶︎');
     assert.equal(plate(b).text(), 'S2·E4 ▶︎');
     const after = views;
@@ -1245,7 +1259,7 @@ test('decorate: метка серии на постере, кэш на пока�
     api.unmount();
     const c = makeCard(Object.assign({}, SERIAL));
     api.mount(makeRoot([c]));
-    assert.ok(!plate(c) || plate(c).text().indexOf('S2') === -1, 'выключенная настройка — прежняя метка');
+    assert.equal(plate(c), undefined, 'прежняя настройка серии выключает номер');
   } finally {
     delete globalThis.window;
     delete globalThis.MutationObserver;
