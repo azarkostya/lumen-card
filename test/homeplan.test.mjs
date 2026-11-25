@@ -538,6 +538,16 @@ test('apply: «Вышло в цифре» выключен в «Каналах»
   assert.equal(off.ours().filter((r) => r.name === 'lumen_digital').length, 0, '«Персональные ряды: выкл» — ряда нет');
 });
 
+test('apply: адвент регистрируется на прежнем месте ещё до загрузки каталога', function () {
+  const s = setupApply({ month: 12 });
+  loadInto(s.LC, '53_themes.js');
+  s.LC.themes._now = () => new Date(2026, 11, 5);
+  s.H.apply({ start: true });
+  assert.equal(buildMain(s)[0], 'lumen_advent');
+  s.H.apply({ manifest: CATALOG });
+  assert.equal(buildMain(s)[0], 'lumen_advent');
+});
+
 test('apply: повторный вызов снимает прошлый набор, unregister — всё', function () {
   const s = setupApply();
   s.H.apply({ start: true, manifest: CATALOG });

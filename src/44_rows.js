@@ -16,7 +16,7 @@
   /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
   /*   served() → строилась ли главная с нашими рядами хоть раз             */
   /*   describe(item, pinned) → описание ряда подборки для ContentRows       */
-  /*   adventRow(manifest) → описание ряда адвента (декабрь, 31 окошко)      */
+  /*   adventRow() → описание ряда адвента (декабрь, 31 окошко)      */
   /*                                                                       */
   /* Волна 4 (ТВ 2026-09-24): сам модуль ряды больше не регистрирует. Что  */
   /* и на каком месте стоит, решает план главной (src/47_homeplan.js): он  */
@@ -1024,56 +1024,13 @@
     /* особая плитка и закрытой («Новогодняя ночь»). Раскладка фильмов по  */
     /* дням и запись открытых окошков — LC.themes.adventDays/adventRecord. */
     /*                                                                     */
-    /* Пул — «Новогоднее» (наше кино, orig_lang ru, одна страница: в нём   */
-    /* ~11 фильмов) и первые две страницы 'xmas-comedy' и 'christmas'.     */
-    /* Каждое третье окошко — наше. Ряд не входит в лимит числа рядов: он  */
-    /* живёт месяц в году и занимает место не подборки, а праздника.       */
-    /*                                                                     */
-    /* Открытые окошки запоминаются: Lampa.Storage 'lumen_advent_open' —   */
-    /* {y: год, d: {день: id фильма}}, малый набор дней текущего года.     */
-    /* Фильм прошедшего дня от этого не меняется, даже если TMDB           */
-    /* переставил подборку, а сегодняшнее окошко один раз «открывается» —  */
-    /* дверца распахивается (CSS, только при полных анимациях).           */
-    /*                                                                     */
-    /* Финальная проверка, L1: запомненный фильм, которого нет в ответах   */
-    /* пула, дозапрашивается по id (movie/{id}); сбой хоть одного запроса  */
-    /* пула — запись не пишется вовсе, а пишется она слиянием со старой.   */
-    /* Прежде таймаут одной страницы TMDB переназначал открытые окошки и   */
-    /* навсегда закреплял замену.                                          */
-    /* ------------------------------------------------------------------ */
-
-    var ADVENT_SPECS = [
-      { id: 'new-year', pages: 1, ours: true },
-      { id: 'xmas-comedy', pages: 2 },
-      { id: 'christmas', pages: 2 }
-    ];
+    /* Посев не зависит от каталога. Открытия сохраняются по дням, а
+       переводы открытых карточек — отдельно, на текущий год и язык. */
     var ADVENT_KEY = 'lumen_advent_open';
-    /* Раунд C, C6 (ревью rv3, RV3-2): карточки окошек, запрошенные по id
-       (movie/{id}: запомненный фильм ушёл из ответов пула, «Ирония» 31-го),
-       помнятся на сеанс — FIFO на ADVENT_CARDS_KEEP. Пулы — discover по
-       популярности, и рождественское кино в декабре каждый день уходит за
-       вторую страницу: без памяти каждое построение главной до конца месяца
-       повторяло бы те же запросы (кэша у movie/{id} нет ни у нас, ни у
-       Lampa — get$c без cache, app.min.js:19693-19700). Ответа по id ряд
-       ждёт не дольше ADVENT_WAIT (у запроса Lampa — только свои 10 с, а
-       первая порция рядов главной ждёт всех): не успевшие окошки — пустые
-       (held), запись от этого не страдает (слияние, adventRecord). */
-    var ADVENT_CARDS_KEEP = 40;
+    var ADVENT_CARDS_KEY = 'lumen_advent_cards';
+    var ADVENT_TRANSLATION_LIMIT = 8;
     var ADVENT_WAIT = 4000;
-    var adventCards = {};
-    var adventCardKeys = [];
 
-    function adventCardGet(id) {
-      return Object.prototype.hasOwnProperty.call(adventCards, id) ? adventCards[id] : null;
-    }
-
-    function adventCardPut(id, card) {
-      if (!Object.prototype.hasOwnProperty.call(adventCards, id)) {
-        adventCardKeys.push(id);
-        while (adventCardKeys.length > ADVENT_CARDS_KEEP) delete adventCards[adventCardKeys.shift()];
-      }
-      adventCards[id] = card;
-    }
     /* Прозрачный пиксель вместо постера закрытого окошка: без картинки
        Lampa ставит свою «битую» (Card.getPosterPath, img_broken.svg). */
     var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -1097,40 +1054,6 @@
       return null;
     }
 
-    /* Пары «подборка + страница» для пула; ours — наше новогоднее кино.
-       Неизвестные id (каталог с хостинга мог их не содержать) просто
-       пропускаются. */
-    function adventSpecs(manifest) {
-      var out = [];
-      if (!manifest || !Array.isArray(manifest.collections)) return out;
-      var byId = {};
-      var i;
-      for (i = 0; i < manifest.collections.length; i++) byId[manifest.collections[i].id] = manifest.collections[i];
-      for (var j = 0; j < ADVENT_SPECS.length; j++) {
-        var item = byId[ADVENT_SPECS[j].id];
-        if (!item) continue;
-        for (var page = 1; page <= ADVENT_SPECS[j].pages; page++) out.push({ item: item, page: page, ours: !!ADVENT_SPECS[j].ours });
-      }
-      return out;
-    }
-
-    /* Ответы подборок -> пул без дублей. Порядок фиксирован порядком
-       ЗАПРОСОВ, а не порядком ответов. */
-    function adventPool(slots) {
-      var pool = [];
-      var seen = {};
-      for (var i = 0; i < slots.length; i++) {
-        var list = slots[i] || [];
-        for (var j = 0; j < list.length; j++) {
-          var card = list[j];
-          if (!card || card.id == null || seen[card.id]) continue;
-          seen[card.id] = 1;
-          pool.push(card);
-        }
-      }
-      return pool;
-    }
-
     /* Сколько дней до Нового года — «27 дней» по-русски и на двух других
        языках плагина (LC.daysWord, src/80_settings.js). */
     function adventDays(n) {
@@ -1152,10 +1075,10 @@
       return ('' + adventWord('lumen_advent_date', '{d} Dec')).replace('{d}', day);
     }
 
-    /* Запись открытых окошков: Lampa.Storage отдаёт объект или его JSON. */
-    function adventOpened() {
+    /* Lampa.Storage может вернуть объект или его JSON. */
+    function adventRead(key) {
       try {
-        var raw = Lampa.Storage.get(ADVENT_KEY, '');
+        var raw = Lampa.Storage.get(key, '');
         if (typeof raw === 'string') return raw ? JSON.parse(raw) : null;
         return raw && typeof raw === 'object' ? raw : null;
       } catch (e) {
@@ -1240,7 +1163,7 @@
     function quiet() {}
 
     /* Параметры Lampa для каждой карточки окошка: onCreate — оформление;
-       у закрытого и пустого — onlyEnter (вместо открытия карточки фильма)
+       у закрытого — onlyEnter (вместо открытия карточки фильма)
        и onlyLong (вместо меню карточки: у дверцы нет фильма, и «Закладки»
        по ней завели бы запись без id). «only» у Emit Lampa заменяет все
        обработчики события (app.min.js:11120-11136). */
@@ -1248,7 +1171,7 @@
       for (var i = 0; i < cards.length; i++) {
         var c = cards[i];
         var emit = { onCreate: adventCreate };
-        if (c.lumen_advent && (c.lumen_advent.state === 'locked' || c.lumen_advent.state === 'empty')) {
+        if (c.lumen_advent && c.lumen_advent.state === 'locked') {
           emit.onlyEnter = lockedEnter(c.day);
           emit.onlyLong = quiet;
           c.img = ADVENT_BLANK;
@@ -1277,211 +1200,147 @@
       } catch (e) { }
     }
 
-    /* Карточка из деталей фильма (movie/{id}) — в виде карточки списка:
-       жанры числами, как у discover. */
-    function listCard(json) {
-      var out = {};
-      for (var k in json) {
-        if (Object.prototype.hasOwnProperty.call(json, k)) out[k] = json[k];
-      }
-      if (!out.genre_ids && Array.isArray(json.genres)) {
-        out.genre_ids = [];
-        for (var i = 0; i < json.genres.length; i++) if (json.genres[i] && json.genres[i].id != null) out.genre_ids.push(json.genres[i].id);
-      }
-      return out;
+    function adventLang() {
+      return typeof LC.langCode === 'function' ? LC.langCode() : 'ru';
     }
 
-    /* call-функция ряда: запросы пула, при необходимости — карточка 31-го,
-       раскладка по дням. Контракт «ровно один call при любом исходе»
-       держит makeResolver, как и у обычных рядов. */
-    function makeAdventCall(manifest) {
-      return function (params, screen) {
+    function adventTranslations(year, lang) {
+      var rec = adventRead(ADVENT_CARDS_KEY);
+      return rec && rec.y === year && rec.lang === lang && rec.cards && typeof rec.cards === 'object'
+        ? rec.cards : {};
+    }
+
+    function saveAdventTranslations(year, lang, added) {
+      try {
+        var now = adventToday();
+        if (lang !== adventLang() || !now || now.getFullYear() !== year || now.getMonth() !== 11) return;
+        var cards = adventTranslations(year, lang);
+        var merged = {};
+        for (var id in cards) if (Object.prototype.hasOwnProperty.call(cards, id)) merged[id] = cards[id];
+        for (var key in added) if (Object.prototype.hasOwnProperty.call(added, key)) merged[key] = added[key];
+        Lampa.Storage.set(ADVENT_CARDS_KEY, { y: year, lang: lang, cards: merged });
+      } catch (e) { }
+    }
+
+    /* Перевод берём через тот же прокси Lampa, явно по языку интерфейса:
+       настройка языка TMDB у Lampa может отличаться. Кэшируем поля посева,
+       не весь ответ деталей. */
+    function askCard(id, lang, done) {
+      var fired = false;
+      function once(card) {
+        if (fired) return;
+        fired = true;
+        done(card);
+      }
+      try {
+        Lampa.Api.sources.tmdb.get('movie/' + id, { langs: lang }, function (json) {
+          if (!json || Number(json.id) !== id || !(/\S/.test(json.title || '') || /\S/.test(json.original_title || ''))) {
+            once();
+            return;
+          }
+          var card = { id: id };
+          var seed = LC.themes.ADVENT_SEED[id];
+          for (var key in seed) {
+            if (Object.prototype.hasOwnProperty.call(seed, key) && Object.prototype.hasOwnProperty.call(json, key)) card[key] = json[key];
+          }
+          once(card);
+        }, function () { once(); });
+      } catch (e) { once(); }
+    }
+
+    /* Русский ряд строится синхронно. Переводы отсутствующих карточек
+       ждём лишь до ADVENT_WAIT, затем недостающие берём из посева. */
+    function makeAdventCall() {
+      return function () {
         _served = true;
         return function (call) {
           var gen = _homeGen;
-          function alive() { return _homeGen === gen; }
           var resolve = makeResolver(call);
-          var specs = adventSpecs(manifest);
           var today = adventToday();
-          if (!specs.length || !today) { resolve({ results: [] }); return { cancel: function () {} }; }
+          var gate;
+          var completed = false;
+          var handle = { cancel: function () {
+            if (gate) gate.cancel();
+            complete();
+            resolve({ results: [] });
+          } };
+          if (!today || today.getMonth() !== 11) {
+            resolve({ results: [] });
+            return handle;
+          }
 
-          var slots = [];
-          var left = specs.length;
-          var handles = [];
-          /* L1: хоть один запрос пула не дал списка (ошибка, ответ без
-             results, дедлайн сборщика LC.sources — partial) — пул сегодня
-             неполный, и запись открытых окошков не трогаем. */
-          var failed = false;
-          /* C6: сколько запросов пула дали список (хоть частичный). */
-          var answered = 0;
           var words = {
             day: adventWord('lumen_advent_day', 'Day'),
             today: adventWord('lumen_advent_today', 'Today'),
-            date: adventWord('lumen_advent_date', '{d} Dec'),
-            final: adventWord('lumen_advent_final', "New Year's Eve")
+            date: adventWord('lumen_advent_date', '{d} Dec')
           };
+          var lang = adventLang();
+          var year = today.getFullYear();
+          var pending = {};
+          var dirty = false;
 
-          /* extra — карточки, запрошенные по id: запомненные окошки вне
-             пулов и «Ирония судьбы» 31-го. */
-          function build(extra, opened) {
-            var ours = [];
-            var world = [];
-            for (var i = 0; i < specs.length; i++) {
-              if (specs[i].ours) ours.push(slots[i]);
-              else world.push(slots[i]);
-            }
-            var cards = [];
-            try {
-              cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), kept: extra }, today, words, opened);
-            } catch (e) {
-              cards = [];
-            }
-            /* Ни одного фильма (сеть легла) — ряда нет: одни дверцы
-               без единого открытого окошка — это не календарь. */
-            var films = 0;
-            for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
-            if (!films) { resolve({ results: [] }); return; }
-            if (!failed) adventSave(cards, today, opened);
-            /* Task 57: ряд адвента из-под порога длины выведен флагом.
-               Следующий раунд, п.1: и состав его окно не режет
-               (lumen_personal, разбор у dedupeAcross) — окошко — день
-               календаря, и выброшенный фильм оставлял бы в нём дыру. */
-            var payload = {
+          function complete() {
+            completed = true;
+            if (dirty) saveAdventTranslations(year, lang, pending);
+            dirty = false;
+            pending = {};
+          }
+
+          function build() {
+            complete();
+            if (_homeGen !== gen) return;
+            var opened = adventRead(ADVENT_KEY);
+            var translations = lang !== 'ru' && lang === adventLang() ? adventTranslations(year, lang) : null;
+            var cards = LC.themes.adventDays({ cards: translations }, today, words, opened);
+            adventSave(cards, today, opened);
+            resolve({
               results: decorateAdvent(cards),
               title: adventTitle(today),
               lumen_personal: true,
               lumen_keep: true,
               params: { items: { view: cards.length }, emit: { onCreate: focusToday } }
-            };
-            /* Постеры: первым аргументом null — у ряда адвента нет ОДНОЙ
-               подборки. Режим «без надписей» спрашивает картинки по id
-               карточки (у закрытых окошек id нет — их он пропускает),
-               «Английские» переспрашивает СПИСОК — их тут три, и ряд
-               остаётся с постерами Lampa. */
-            LC.sources.posters(null, cards, function () { resolve(payload); }, alive);
-          }
-
-          /* Нужна ли карточка 31-го отдельным запросом: сегодня 31-е, а в
-             ответах подборок «Иронии» нет. */
-          function finalMissing() {
-            if (today.getDate() < 31) return false;
-            var id = LC.themes.ADVENT_FINAL_ID;
-            for (var i = 0; i < slots.length; i++) {
-              var list = slots[i] || [];
-              for (var j = 0; j < list.length; j++) if (list[j] && Number(list[j].id) === id) return false;
-            }
-            return true;
-          }
-
-          /* Какие карточки нужны по id: запомненные окошки, которых нет
-             в ответах пула (LC.themes.adventMissing), и «Ирония» 31-го. */
-          function wanted(opened) {
-            var need = [];
-            try {
-              need = LC.themes.adventMissing(adventPool(slots), today, opened) || [];
-            } catch (e) {
-              need = [];
-            }
-            var id = LC.themes.ADVENT_FINAL_ID;
-            if (finalMissing() && need.indexOf(id) === -1) need.push(id);
-            return need;
-          }
-
-          /* Карточка фильма по id. done — ровно один раз при любом исходе.
-             C6: пришедшая карточка ложится в память сеанса и после
-             дедлайна ADVENT_WAIT — пригодится следующему построению. */
-          function askCard(id, extra, done) {
-            var fired = false;
-            function once() { if (!fired) { fired = true; done(); } }
-            try {
-              Lampa.Api.sources.tmdb.get(
-                'movie/' + id,
-                {},
-                function (json) {
-                  if (json && Number(json.id) === id) {
-                    var card = listCard(json);
-                    adventCardPut(id, card);
-                    extra.push(card);
-                  }
-                  once();
-                },
-                once
-              );
-            } catch (e) {
-              once();
-            }
-          }
-
-          function finish() {
-            left--;
-            if (left > 0) return;
-            if (!alive()) return;
-            var opened = adventOpened();
-            var need = wanted(opened);
-            var extra = [];
-            var ask = [];
-            for (var m = 0; m < need.length; m++) {
-              var known = adventCardGet(need[m]);
-              if (known) extra.push(known);
-              else ask.push(need[m]);
-            }
-            /* C6: не ответил ни один запрос пула (TMDB недоступен) — по id
-               тоже не спрашиваем: было бы до 31 запроса туда же, где сеть
-               уже отказала. Окошки — из памяти сеанса или пустые. */
-            if (!answered) ask = [];
-            if (!ask.length) { build(extra, opened); return; }
-            var gate = LC.util.gate(ask.length, ADVENT_WAIT, function () {
-              if (alive()) build(extra, opened);
             });
-            for (var n = 0; n < ask.length; n++) askCard(ask[n], extra, gate.tick);
           }
 
-          /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
-             и без неё все колбэки писали бы в последний слот. */
-          function ask(index) {
-            var spec = specs[index];
-            return LC.sources['fetch'](
-              spec.item,
-              spec.page,
-              function (json) {
-                var list = json && json.results;
-                if (!Array.isArray(list) || json.partial) failed = true;
-                if (Array.isArray(list)) answered++;
-                slots[index] = Array.isArray(list) ? list : [];
-                finish();
-              },
-              function () { failed = true; slots[index] = []; finish(); },
-              alive
-            );
+          if (lang === 'ru' || !/^[a-z]{2}$/.test(lang)) { build(); return handle; }
+          var cached = adventTranslations(year, lang);
+          var days = LC.themes.adventDays(null, today, words, adventRead(ADVENT_KEY));
+          var ids = [];
+          /* Сначала сегодняшний фильм: на нём встанет фокус. */
+          for (var i = today.getDate() - 1; i >= 0 && ids.length < ADVENT_TRANSLATION_LIMIT; i--) {
+            var id = days[i].id;
+            if (!cached[id] && ids.indexOf(id) === -1) ids.push(id);
           }
+          if (!ids.length) { build(); return handle; }
 
-          for (var i = 0; i < specs.length; i++) handles.push(ask(i));
-
-          return {
-            cancel: function () {
-              for (var k = 0; k < handles.length; k++) {
-                try { if (handles[k] && handles[k].clear) handles[k].clear(); } catch (e) {}
-              }
+          gate = LC.util.gate(ids.length, ADVENT_WAIT, build);
+          function translated(card) {
+            if (card) {
+              pending[card.id] = card;
+              dirty = true;
+              /* Поздний ответ пригодится следующему построению, но не
+                 обновляет уже показанный ряд. */
+              if (completed) complete();
             }
-          };
+            gate.tick();
+          }
+          for (var j = 0; j < ids.length; j++) askCard(ids[j], lang, translated);
+          return handle;
         };
       };
     }
 
-    /* Описание ряда адвента, если сейчас декабрь и есть из чего его
-       собрать; иначе null. Место ему назначает план главной: первым среди
-       подборок в режиме «Сначала «Досмотреть»», на месте 0 при ротации. */
-    function adventRow(manifest) {
+    /* Место ряда по-прежнему назначает план главной. */
+    function adventRow() {
       try {
         if (!LC.themes || typeof LC.themes.adventDays !== 'function') return null;
         var today = adventToday();
-        if (!today || today.getMonth() !== 11) return null;
-        if (!adventSpecs(manifest).length) return null;
+        if (!today || today.getMonth() !== 11 || (LC.kids && LC.kids.enabled())) return null;
         return {
           name: rowName('advent'),
           title: adventTitle(today),
           screen: 'main',
-          call: makeAdventCall(manifest)
+          call: makeAdventCall()
         };
       } catch (e) {
         return null;
@@ -1630,9 +1489,6 @@
       /* Гонка первого экрана: по этому признаку 90_runtime.js решает,
          строилась ли видимая сейчас главная с нашими рядами. */
       served: served,
-      /* Task 21: чистые части адвента наружу ради тестов. */
-      adventSpecs: adventSpecs,
-      adventPool: adventPool,
       /* Волна 4: описания рядов — их регистрирует план главной. */
       describe: describe,
       adventRow: adventRow,

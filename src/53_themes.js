@@ -8,7 +8,6 @@
   /*   seasonalIds(collections, month) → id подборок сезона                 */
   /*   adventDays(src, today, words, opened) → 31 окошко адвента (holB)     */
   /*   adventRecord(cards, today, old) → запись lumen_advent_open           */
-  /*   adventMissing(src, today, opened) → id запомненных окошек вне пулов  */
   /*   monthOf(date) / month() → месяц 1..12 (month() — через хук _now)      */
   /*   current() → правила тем из манифеста                                 */
   /*   mode() → значение настройки lumen_fx: 'all' | 'seasonal' | 'off'     */
@@ -46,16 +45,48 @@
        католического сочельника (24 плитки); у нас праздник — Новый год, и
        31-го смотрят «Иронию судьбы» (пользователь). */
     var ADVENT_DAYS = 31;
-    /* «Ирония судьбы, или С лёгким паром!» (1976) — TMDB id 43430, найден
-       живым запросом search/movie через Lampa на стенде 2026-09-26. Фильм
-       есть в подборке «Новогоднее» (src/42_manifest.js, orig_lang ru), но
-       окошку 31-го он положен при любом составе пулов: rows дозапросит его
-       сам, если в подборке его не окажется. */
     var ADVENT_FINAL_ID = 43430;
-    /* Каждое ADVENT_OURS-е окошко — наше новогоднее кино (подборка
-       «Новогоднее»), остальные — мировое рождественское: в «Новогоднем» ~10
-       фильмов, и на 30 дней их ровно хватает раз в три дня. */
-    var ADVENT_OURS = 3;
+    /* Утверждённый календарь с 1 по 31 декабря. Русские карточки сверены
+       с TMDB 25.11.2026; посев хранит только поля списка. */
+    var ADVENT_LIST = [
+      508965, 5255, 1551025, 527435, 615665, 360920, 562, 833097, 1570488, 17979,
+      1234811, 845781, 333348, 10719, 12193, 549053, 9279, 1581, 10147, 77762,
+      508, 5825, 828613, 771, 772, 384682, 41977, 57809, 85317, 63258,
+      ADVENT_FINAL_ID
+    ];
+    var ADVENT_SEED = {
+      508965: { id: 508965, title: "Клаус", original_title: "Klaus", original_language: "en", release_date: "2019-11-08", poster_path: "/iQ4WqwaeYzL9Hiljji98AkwR8Ix.jpg", backdrop_path: "/cYQvXNPZLow73lhspVQ7CYlT3Mi.jpg", vote_average: 8.2 },
+      5255: { id: 5255, title: "Полярный Экспресс", original_title: "The Polar Express", original_language: "en", release_date: "2004-11-10", poster_path: "/g4f3rVaFgVjFTSSng6FgkqBNwmM.jpg", backdrop_path: "/jtOvTVlkF8TlaOq94oNXRc9u2yp.jpg", vote_average: 6.7 },
+      1551025: { id: 1551025, title: "Телохранительница", original_title: "Guarding Stars", original_language: "en", release_date: "2026-11-18", poster_path: "/1RQFu2dzuwIm03XSN3BDf3GOfWg.jpg", backdrop_path: "/qHvap0vpfTBIbv7cnR0OyBRqQHG.jpg", vote_average: 6.9 },
+      527435: { id: 527435, title: "Рождественские Хроники", original_title: "The Christmas Chronicles", original_language: "en", release_date: "2018-11-22", poster_path: "/vsuaNfpWHM3dCJy3wLqJp2Xkyce.jpg", backdrop_path: "/zQVsXIPXU040BnFtBmzoOfYGcDu.jpg", vote_average: 7.2 },
+      615665: { id: 615665, title: "Пара на праздники", original_title: "Holidate", original_language: "en", release_date: "2020-10-27", poster_path: "/aCdJsARgdVj2URgoXlpvjibSuv7.jpg", backdrop_path: "/8veOfB9RbSzFki0Rq3IQIGsFfhC.jpg", vote_average: 7 },
+      360920: { id: 360920, title: "Гринч", original_title: "The Grinch", original_language: "en", release_date: "2018-11-08", poster_path: "/t1f5cF0QHTxT4I9PZmjCUF8EPSs.jpg", backdrop_path: "/5lWIYxYEqWi8j3ZloxXntw3ImBo.jpg", vote_average: 6.9 },
+      562: { id: 562, title: "Крепкий орешек", original_title: "Die Hard", original_language: "en", release_date: "1988-07-15", poster_path: "/bIDUVu4QTAvNLEZqTml5vka8ElV.jpg", backdrop_path: "/bvk2AAH64lP2YZs02Q3jskfHT8j.jpg", vote_average: 7.8 },
+      833097: { id: 833097, title: "Незабываемое Рождество", original_title: "Falling for Christmas", original_language: "en", release_date: "2022-11-10", poster_path: "/z7NyO0G82hVq0UoW2ODGM5s3MOW.jpg", backdrop_path: "/iVtpnbPE91vmi3LmcOXycEblwPA.jpg", vote_average: 6.2 },
+      1570488: { id: 1570488, title: "Идеальное Рождество для собаки", original_title: "A Dog's Perfect Christmas", original_language: "en", release_date: "2026-11-04", poster_path: "/a80Mg04hjQh4l0MRvv7RB0qc17S.jpg", backdrop_path: "/hhQT0TySg3LXCE8BEPpfPJ5zJA2.jpg", vote_average: 7.1 },
+      17979: { id: 17979, title: "Рождественская История", original_title: "A Christmas Carol", original_language: "en", release_date: "2009-11-04", poster_path: "/rgPEBq7GXtBJ3CB1ExbFgipiX4k.jpg", backdrop_path: "/uocpNfrP0Vvnf2UxykXuIR1HNUd.jpg", vote_average: 6.9 },
+      1234811: { id: 1234811, title: "Наш маленький секрет", original_title: "Our Little Secret", original_language: "en", release_date: "2024-11-27", poster_path: "/AfVnkrNMfOcx0tDKAagT0icSHnj.jpg", backdrop_path: "/aJkOBOdbzUc788VDGJp3nEAlC3I.jpg", vote_average: 6.2 },
+      845781: { id: 845781, title: "Миссия: Красный", original_title: "Red One", original_language: "en", release_date: "2024-10-31", poster_path: "/6T36kuDbXCGRistIewSwKyTmijt.jpg", backdrop_path: "/rOmUuQEZfPXglwFs5ELLLUDKodL.jpg", vote_average: 6.9 },
+      333348: { id: 333348, title: "Любите Куперов", original_title: "Love the Coopers", original_language: "en", release_date: "2015-11-12", poster_path: "/vsjN3e0rZtgNQJ3G3uHWl5slRzt.jpg", backdrop_path: "/5DxFiNyWHCH58nffyCtzMfPjDLJ.jpg", vote_average: 6 },
+      10719: { id: 10719, title: "Эльф", original_title: "Elf", original_language: "en", release_date: "2003-11-07", poster_path: "/13xe656nxTO8P6Vu9Q8NvZr0oLW.jpg", backdrop_path: "/5nhp41gx49vXjwXuDXJwQrRFsng.jpg", vote_average: 6.7 },
+      12193: { id: 12193, title: "Четыре рождества", original_title: "Four Christmases", original_language: "en", release_date: "2008-11-26", poster_path: "/cJFKttK4Ho6ZT3qaAEQ8CQWk6j4.jpg", backdrop_path: "/6ZuYKN5wJKcuCw7o1WsbjYo68vz.jpg", vote_average: 5.8 },
+      549053: { id: 549053, title: "Рождество на двоих", original_title: "Last Christmas", original_language: "en", release_date: "2019-11-07", poster_path: "/roKNRGo1yBh9JIGRorA950VZWOB.jpg", backdrop_path: "/qIjyBgsMDbpeEO3CJx7vxVn4KO8.jpg", vote_average: 7.2 },
+      9279: { id: 9279, title: "Подарок на Рождество", original_title: "Jingle All the Way", original_language: "en", release_date: "1996-11-21", poster_path: "/pvtBqCJTfrAgGk6GY1InurtsUiX.jpg", backdrop_path: "/rnn6sGMGPpM8VfVmCMFxsjKvz7q.jpg", vote_average: 6.1 },
+      1581: { id: 1581, title: "Отпуск по обмену", original_title: "The Holiday", original_language: "en", release_date: "2006-12-05", poster_path: "/s8nco4vYuVwWFvxXR3vyGmS5K7F.jpg", backdrop_path: "/9Ebn8atCcGk5OZrx4xmoTobAxoh.jpg", vote_average: 7.1 },
+      10147: { id: 10147, title: "Плохой Санта", original_title: "Bad Santa", original_language: "en", release_date: "2003-11-26", poster_path: "/R5NT42mCvRKPhr90VAMb6U5hpI.jpg", backdrop_path: "/tbmNzJIc7R1MuEweCOThpTzglyx.jpg", vote_average: 6.6 },
+      77762: { id: 77762, title: "Зима в Простоквашино", original_title: "Зима в Простоквашино", original_language: "ru", release_date: "1984-06-06", poster_path: "/pgi6rkXMfy1VHt719rLu45j7QgF.jpg", backdrop_path: "/tSFzbtykmAGOK0qjBF3sxaZfiMh.jpg", vote_average: 7.7 },
+      508: { id: 508, title: "Реальная любовь", original_title: "Love Actually", original_language: "en", release_date: "2003-09-07", poster_path: "/bvgazyuurl8il9nYsXMU7aulWGL.jpg", backdrop_path: "/xUWf5xX0AnZgAnYXAMk03zTbsef.jpg", vote_average: 7.1 },
+      5825: { id: 5825, title: "Рождественские каникулы", original_title: "National Lampoon's Christmas Vacation", original_language: "en", release_date: "1989-11-30", poster_path: "/pbCj0ASDSB7rhWmK4n4HLYCPZA2.jpg", backdrop_path: "/klH8ti8LUaEhktnjdHb1RW8Yq6w.jpg", vote_average: 7.2 },
+      828613: { id: 828613, title: "Ирония судьбы в Голливуде", original_title: "About Fate", original_language: "en", release_date: "2022-09-08", poster_path: "/v1RPt1W0pt1sIM4Ifxlrm9QB3Yv.jpg", backdrop_path: "/30COvn7g7PP58wBkrnnh7Ws9bJS.jpg", vote_average: 7.5 },
+      771: { id: 771, title: "Один дома", original_title: "Home Alone", original_language: "en", release_date: "1990-11-16", poster_path: "/e6TQfEJbaFqueq1CIvqfpse4yNF.jpg", backdrop_path: "/ih2xVgeMS8R5WUetYE8Mr9hVTlB.jpg", vote_average: 7.5 },
+      772: { id: 772, title: "Один дома 2: Затерянный в Нью-Йорке", original_title: "Home Alone 2: Lost in New York", original_language: "en", release_date: "1992-11-15", poster_path: "/tOpSeLYsZLL4h1N9tHcqRm1Y5t2.jpg", backdrop_path: "/8fnYJPoXxwAN4valDLgz2whMGTH.jpg", vote_average: 6.8 },
+      384682: { id: 384682, title: "Новогодний корпоратив", original_title: "Office Christmas Party", original_language: "en", release_date: "2016-11-25", poster_path: "/Be3cJSkUbD6WOaZfLuThH5MguC.jpg", backdrop_path: "/1uDvPjKthACQKeQBvkiJ3aSvtdh.jpg", vote_average: 5.7 },
+      41977: { id: 41977, title: "Чародеи", original_title: "Чародеи", original_language: "ru", release_date: "1982-12-31", poster_path: "/1wC5WNWYKxosp9jcKPZvk9Q8HiW.jpg", backdrop_path: "/a7sOwNj0uXTPE8PY2seDlsT41LN.jpg", vote_average: 7 },
+      57809: { id: 57809, title: "Ёлки", original_title: "Ёлки", original_language: "ru", release_date: "2010-12-12", poster_path: "/3e3lGXn5nvJ42IN5CxXDdCh8AJa.jpg", backdrop_path: "/iTV9vaIehH1XHsxit1AmBWFWOTk.jpg", vote_average: 6.4 },
+      85317: { id: 85317, title: "Ёлки 2", original_title: "Ёлки 2", original_language: "ru", release_date: "2011-12-15", poster_path: "/GaTjRzfITdgkK2ARIQkE4mtoKo.jpg", backdrop_path: "/kJ2fIU3SPwZYSKMOkV6HjsVh9JD.jpg", vote_average: 6.6 },
+      63258: { id: 63258, title: "Карнавальная ночь", original_title: "Карнавальная ночь", original_language: "ru", release_date: "1956-12-29", poster_path: "/yQ0Vk0FifhPr21K7oGqBSSkiXF9.jpg", backdrop_path: "/tbt8vxgw6Zkrzc1YvCKw4Rul8ef.jpg", vote_average: 7 },
+      43430: { id: 43430, title: "Ирония судьбы, или С легким паром!", original_title: "Ирония судьбы, или С легким паром!", original_language: "ru", release_date: "1976-01-01", poster_path: "/oqAwCig5JzaX896QImeVZCXXcpG.jpg", backdrop_path: "/1kShjfoNZe0wTF16jvPaX8OOel1.jpg", vote_average: 7.3 }
+    };
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции                                                      */
@@ -294,108 +325,33 @@
     /* покажет, дедупликация главной не тронет, OK не откроет              */
     /* (src/44_rows.js). 31-е — «Ирония судьбы», особая плитка и закрытой. */
     /*                                                                     */
-    /* Раскладка — «наибольший вес» (rendezvous hashing): каждому дню —    */
-    /* свободный фильм с наибольшим score(день, id). Прежняя              */
-    /* (день · шаг) mod длина пула перетасовывала ВСЕ дни, стоило TMDB     */
-    /* добавить в подборку один фильм; теперь новый фильм меняет только   */
-    /* те дни, где он побеждает. А открытые окошки ещё и запоминаются      */
-    /* (opened — запись lumen_advent_open, adventRecord): фильм прошедшего */
-    /* дня остаётся тем же — и сегодня, и 31-го.                           */
-    /*                                                                     */
-    /* Финальная проверка, L1: запомненный фильм, которого нет в пулах     */
-    /* (упал один из пяти запросов, TMDB убрал фильм из подборки), день    */
-    /* не теряет: rows дозапрашивает его карточку по id (adventMissing →   */
-    /* src.kept), а не получилось — окошко пустое, но НЕ переназначается.  */
-    /* Прежде такой день получал другой фильм, и запись закрепляла замену  */
-    /* навсегда.                                                           */
-    /* ------------------------------------------------------------------ */
-
-    /* Вес пары «день · фильм» — генератор Лемера (48271 mod 2^31−1):
-       произведения меньше 2^53, в double точны, Math.imul (ES2015) не
-       нужен. */
-    function adventScore(day, id) {
-      var s = (Math.abs(Math.floor(Number(id) || 0)) % 2147483646) + 1;
-      s = (s * 48271) % 2147483647;
-      s = (s + day * 16807) % 2147483647;
-      s = (s * 48271) % 2147483647;
-      return (s * 48271) % 2147483647;
-    }
-
-    /* Свободный фильм списка с наибольшим весом дня, либо null. */
-    function adventPick(list, day, used) {
-      var best = null;
-      var top = -1;
-      for (var i = 0; i < list.length; i++) {
-        var c = list[i];
-        if (used[c.id]) continue;
-        var w = adventScore(day, c.id);
-        if (w > top) { top = w; best = c; }
-      }
-      return best;
-    }
-
-    /* Карточки списка без дублей и без пустых id; skip — id, которых здесь
-       быть не должно (финальная плитка, уже взятые другим пулом). */
-    function adventList(list, skip) {
-      var out = [];
-      if (!Array.isArray(list)) return out;
-      for (var i = 0; i < list.length; i++) {
-        var c = list[i];
-        if (!c || c.id == null || c.id === '' || skip[c.id]) continue;
-        skip[c.id] = 1;
-        out.push(c);
-      }
-      return out;
-    }
-
-    /* Запись lumen_advent_open этого года: {день: id} или пустая. */
+    /* Запись версии 2: игнорируем прежний автоподбор и прошлые годы. */
     function adventMap(opened, year) {
-      if (!opened || typeof opened !== 'object' || Number(opened.y) !== year) return {};
+      if (!opened || opened.v !== 2 || Number(opened.y) !== year) return {};
       var d = opened.d;
       return d && typeof d === 'object' ? d : {};
     }
 
-    /* id фильма из записи — целое TMDB-число, иначе null. Запись живёт в
-       localStorage, и по ней rows строит путь запроса movie/{id}: мусор
-       не должен ни держать окошко, ни уходить в адрес. */
-    function adventId(id) {
-      var s = String(id);
-      return /^[1-9]\d{0,9}$/.test(s) ? Number(s) : null;
+    function adventId(day, value) {
+      if (!/^[1-9]\d{0,9}$/.test(String(value))) return null;
+      var id = Number(value);
+      if ((day === ADVENT_DAYS) !== (id === ADVENT_FINAL_ID)) return null;
+      return ADVENT_LIST.indexOf(id) !== -1 ? id : null;
     }
 
-    /* id запомненных окошек (прошедшие дни и сегодня), которых нет в
-       пулах: rows запросит их карточки по id и отдаст в adventDays полем
-       src.kept. Без повторов, по порядку дней. */
-    function adventMissing(src, today, opened) {
-      var out = [];
-      if (!today || typeof today.getMonth !== 'function' || today.getMonth() !== 11) return out;
-      if (Array.isArray(src)) src = { world: src };
-      src = src || {};
-      var have = {};
-      var all = (src.ours || []).concat(src.world || []);
-      for (var i = 0; i < all.length; i++) if (all[i] && all[i].id != null) have[all[i].id] = 1;
-      var map = adventMap(opened, today.getFullYear());
-      var open = Math.min(today.getDate(), ADVENT_DAYS);
-      for (var day = 1; day <= open; day++) {
-        /* Раунд C, ревью rv4: окошко 31 — только «Ирония судьбы»; её rows
-           запрашивает сам (finalMissing), чужой id из старой записи не
-           нужен. */
-        if (day === ADVENT_DAYS) continue;
-        var id = adventId(map[day]);
-        if (id === null || have[id]) continue;
-        have[id] = 1;
-        out.push(id);
-      }
-      return out;
-    }
-
-    /* Копия карточки фильма с полями окошка. Исходный объект не трогаем: он
-       лежит в кэше LC.sources и переиспользуется другими рядами. */
-    function adventCard(card, day, state, words, extra) {
+    /* Копия карточки фильма с полями окошка. У неполного перевода
+       недостающие поля (например постер) остаются из посева. */
+    function adventCard(seed, translated, day, state, words, fresh) {
       var copy = {};
-      for (var k in card) {
-        if (Object.prototype.hasOwnProperty.call(card, k)) copy[k] = card[k];
+      for (var k in seed) {
+        if (!Object.prototype.hasOwnProperty.call(seed, k)) continue;
+        var value = translated && translated[k];
+        copy[k] = value == null || value === '' ? seed[k] : value;
       }
+      copy.id = seed.id;
+      copy.source = 'tmdb';
+      if (translated && !/\S/.test(translated.title || '')) copy.title = copy.original_title;
+      if (!/\S/.test(copy.title || '')) copy.title = copy.original_title;
       var dayWord = (words && words.day) || 'День';
       var todayWord = (words && words.today) || 'Сегодня';
       copy.day = day;
@@ -408,122 +364,57 @@
          постере — «Сегодня» на «Иронии судьбы», «День 29» на «Один дома»,
          «День 13» на «Маленьких женщинах» (e2e 2026-09-26). */
       copy.lumen_advent = { day: day, state: state, label: state === 'today' ? todayWord : dayWord + ' ' + day };
-      if (extra && extra.fresh) copy.lumen_advent.fresh = true;
+      if (fresh) copy.lumen_advent.fresh = true;
       if (day === ADVENT_DAYS) copy.lumen_advent.final = true;
       return copy;
     }
 
-    /* Окошко без фильма: закрытое (будущий день) или пустое (прошедший, на
-       который в пулах не хватило фильма). Подпись — дата. */
-    function adventDoor(day, state, words) {
+    /* Будущее окошко: дата и замок, без данных фильма. */
+    function adventDoor(day, words) {
       var date = (words && words.date) || '{d}';
-      var door = { day: day, title: date.replace('{d}', day), lumen_advent: { day: day, state: state } };
+      var door = { day: day, title: date.replace('{d}', day), lumen_advent: { day: day, state: 'locked' } };
       if (day === ADVENT_DAYS) door.lumen_advent.final = true;
       return door;
     }
 
-    /* Карточки адвент-календаря: 31 окошко в декабре, иначе пустой список.
-       src — {ours, world, final}: наше новогоднее кино, мировое
-       рождественское и отдельно запрошенная «Ирония судьбы»; голый массив
-       — всё «мировое» (прежняя форма пула). src.kept — карточки
-       запомненных окошек, запрошенные по id (adventMissing): только для
-       своих дней, в раскладку прочих не идут. opened — прошлая запись
-       lumen_advent_open. Сегодняшнее окошко, которого в записи ещё нет,
-       помечено fresh — rows один раз играет его открытие. */
+    /* 31 окошко в декабре, иначе пустой список. src.cards — переводы по id.
+       Открытый фильм остаётся на своём дне при перестановке списка. */
     function adventDays(src, today, words, opened) {
       var out = [];
-      if (!today || typeof today.getMonth !== 'function') return out;
-      if (today.getMonth() !== 11) return out;
-      if (Array.isArray(src)) src = { world: src };
-      src = src || {};
+      if (!today || typeof today.getMonth !== 'function' || today.getMonth() !== 11) return out;
       var now = today.getDate();
-      var skip = {};
-      skip[ADVENT_FINAL_ID] = 1;
-      var ours = adventList(src.ours, skip);
-      var world = adventList(src.world, skip);
-      var kept = adventList(src.kept, skip);
-      /* «Ирония судьбы»: отдельная карточка или та, что пришла в пулах
-         (или среди запрошенных по id). */
-      var final = src.final && Number(src.final.id) === ADVENT_FINAL_ID ? src.final : null;
-      var all = (src.ours || []).concat(src.world || [], src.kept || []);
-      for (var f = 0; !final && f < all.length; f++) {
-        if (all[f] && Number(all[f].id) === ADVENT_FINAL_ID) final = all[f];
-      }
-      var byId = {};
-      var i;
-      for (i = 0; i < ours.length; i++) byId[ours[i].id] = ours[i];
-      for (i = 0; i < world.length; i++) byId[world[i].id] = world[i];
-      for (i = 0; i < kept.length; i++) byId[kept[i].id] = kept[i];
       var map = adventMap(opened, today.getFullYear());
-      var used = {};
-      var pick = {};
-      var held = {};
-      var day;
-      var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
-      /* Сначала — запомненные окошки: их фильм не меняется. Фильма нет ни
-         в пулах, ни среди запрошенных по id — окошко держится пустым
-         (held): другой фильм на его место не встаёт. */
-      for (day = 1; day <= open; day++) {
-        if (day === ADVENT_DAYS) break;
-        var id = adventId(map[day]);
-        if (id === null) continue;
-        if (!byId[id]) held[day] = 1;
-        else if (!used[id]) {
-          pick[day] = byId[id];
-          used[id] = 1;
-        }
-      }
-      /* Раунд C, ревью rv4 (C6): окошко 31 — только «Ирония судьбы». Её нет
-         ни в пулах, ни среди запрошенных по id (не успела к дедлайну
-         дозапроса) — окошко пустое (дверца 31-го), а не другой фильм: иначе
-         запись закрепила бы его за 31-м. */
-      for (day = 1; day <= open; day++) {
-        if (pick[day] || held[day] || day === ADVENT_DAYS) continue;
-        var mine = ours.length && day % ADVENT_OURS === 0;
-        var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
-        if (!c) continue;
-        pick[day] = c;
-        used[c.id] = 1;
-      }
-      for (day = 1; day <= ADVENT_DAYS; day++) {
+      var translations = src && src.cards;
+      for (var day = 1; day <= ADVENT_DAYS; day++) {
         if (day > now) {
-          out.push(adventDoor(day, 'locked', words));
+          out.push(adventDoor(day, words));
           continue;
         }
-        var film = day === ADVENT_DAYS && final ? final : pick[day];
-        if (!film) {
-          out.push(adventDoor(day, 'empty', words));
-          continue;
-        }
+        var saved = adventId(day, map[day]);
+        var id = saved || ADVENT_LIST[day - 1];
         var state = day === now ? 'today' : 'open';
-        out.push(adventCard(film, day, state, words, { fresh: state === 'today' && map[day] == null }));
+        out.push(adventCard(ADVENT_SEED[id], translations && translations[id], day, state, words, state === 'today' && saved === null));
       }
       return out;
     }
 
-    /* Запись lumen_advent_open после показа: {y: год, d: {день: id}} —
-       открытые окошки с фильмом. Малый набор дней текущего года: запись
-       прошлого года adventMap не читает.
-       old — прежняя запись: её дни этого года сохраняются, новые
-       дописываются поверх (L1). Окошко, показанное сегодня пустым, свой
-       фильм из записи не теряет, и часы ТВ, ушедшие назад, не стирают
-       дни «из будущего». */
+    /* Сливаем запись текущего года: шаг часов назад не закрывает дни,
+       которые уже успели открыть. */
     function adventRecord(cards, today, old) {
-      var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, d: {} };
+      var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, v: 2, d: {} };
       var prev = adventMap(old, rec.y);
-      for (var k in prev) {
-        if (!Object.prototype.hasOwnProperty.call(prev, k)) continue;
-        var day = Number(k);
-        var id = adventId(prev[k]);
-        if (day === ADVENT_DAYS && id !== ADVENT_FINAL_ID) continue;
-        if (id !== null && day >= 1 && day <= ADVENT_DAYS && Math.floor(day) === day) rec.d[day] = id;
+      for (var day = 1; day <= ADVENT_DAYS; day++) {
+        var id = adventId(day, prev[day]);
+        if (id !== null) rec.d[day] = id;
       }
       for (var i = 0; i < (cards || []).length; i++) {
         var c = cards[i];
         var info = c && c.lumen_advent;
-        if (!info || c.id == null) continue;
-        if (info.day === ADVENT_DAYS && Number(c.id) !== ADVENT_FINAL_ID) continue;
-        if (info.state === 'open' || info.state === 'today') rec.d[info.day] = c.id;
+        if (!info || (info.state !== 'open' && info.state !== 'today')) continue;
+        var n = Number(info.day);
+        if (n < 1 || n > ADVENT_DAYS || Math.floor(n) !== n) continue;
+        var cardId = adventId(n, c.id);
+        if (cardId !== null) rec.d[n] = cardId;
       }
       return rec;
     }
@@ -662,7 +553,8 @@
       seasonalIds: seasonalIds,
       adventDays: adventDays,
       adventRecord: adventRecord,
-      adventMissing: adventMissing,
+      ADVENT_LIST: ADVENT_LIST,
+      ADVENT_SEED: ADVENT_SEED,
       ADVENT_DAYS: ADVENT_DAYS,
       ADVENT_FINAL_ID: ADVENT_FINAL_ID,
       monthOf: monthOf,
