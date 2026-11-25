@@ -422,3 +422,17 @@ test('episodeState: начатая серия с percent < 0.5 показыва�
   assert.deepEqual(progress.episodeState({ percent: 0.3, time: 10, duration: 3300 }, '2026-01-01', NOW),
     { state: 'watching', percent: 1, leftMin: 54 });
 });
+
+test('markPlan: только недосмотренные серии указанного сезона с существующими хэшами', () => {
+  const input = [
+    {hash: '12:1Show', percent: 92}, {hash: '12:2Show', percent: 95},
+    null, {hash: '12:4Show', percent: 0}, {hash: '12:5Show', percent: 0}
+  ];
+  const calls = [];
+  assert.deepEqual(progress.markPlan(12, 4, (season, n) => {
+    calls.push([season, n]);
+    return input[n - 1];
+  }), ['12:1Show', '12:4Show']);
+  assert.deepEqual(calls, [[12, 1], [12, 2], [12, 3], [12, 4]]);
+  assert.deepEqual(progress.markPlan(0, 20, neverCalled('view')), []);
+});

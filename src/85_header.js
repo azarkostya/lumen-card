@@ -1495,6 +1495,7 @@
       var data = { movie: movie, episodes: { season_number: n, episodes: list } };
       renderEpisodes(root, data);
       renderSeasons(root, data);
+      renderPins(root, movie);
     };
     if (cache[n]) return apply(cache[n]);
     if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.seasons !== 'function') return;
@@ -1794,6 +1795,85 @@
     if (typeof Lampa.Controller.collectionFocus === 'function') Lampa.Controller.collectionFocus(focus && focus.parentNode ? focus : false, root);
     if (!nav.canmove('down')) return false;
     nav.move('down');
+    return true;
+  }
+
+  var markingEpisodes = false;
+
+  function markEpisodes(hashes, movie, percent) {
+    if (!hashes.length || markingEpisodes) return;
+    markingEpisodes = true;
+    var index = 0;
+
+    function writeNext() {
+      try {
+        var end = Math.min(index + 4, hashes.length);
+        for (; index < end; index++) {
+          var hash = hashes[index];
+          /* Пока предыдущая пачка писалась, отметка могла прийти из CUB. */
+          if (percent && LC.progress.episodeState(timelineView(hash)).state === 'watched') continue;
+          Lampa.Timeline.update({ hash: hash, percent: percent, time: 0, duration: 0 });
+        }
+        if (index < hashes.length) {
+          setTimeout(writeNext, 40);
+          return;
+        }
+        if (LC.badges && LC.badges.refreshContinue) LC.badges.refreshContinue(movie);
+      } catch (e) {
+        warn('episode mark failed', e);
+      }
+      markingEpisodes = false;
+    }
+    writeNext();
+  }
+
+  function episodeMenu(node) {
+    if (markingEpisodes || !node || !Lampa.Select || typeof Lampa.Select.show !== 'function' ||
+        !Lampa.Timeline || typeof Lampa.Timeline.update !== 'function') return false;
+    var row = $(node).closest('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    var item = info && info.eps[node.lumenPos];
+    if (!item || !item.hash || !info.season) return false;
+
+    var number = Number(item.ep.episode_number);
+    var episode = 'E' + number;
+    var range = 'S' + info.season + ' · ' + (number > 1 ? 'E1–' : '') + episode;
+    var title = LC.lang('lumen_episode_mark_through') + ' (' + range + ')';
+    var items = [{ title: title, mark: true }];
+    if (Number((timelineView(item.hash) || {}).percent) > 0) {
+      items.push({ title: LC.lang('lumen_episode_unmark'), mark: false });
+    }
+
+    var back = Lampa.Controller.enabled().name;
+    function restore() {
+      Lampa.Controller.toggle(back);
+      if (node.offsetParent !== null) Lampa.Controller.collectionFocus(node);
+    }
+
+    Lampa.Select.show({
+      title: LC.lang('lumen_episode_mark_title'),
+      lumen_own: true,
+      items: items,
+      onBack: restore,
+      onSelect: function (choice) {
+        restore();
+        if (!choice.mark) {
+          markEpisodes([item.hash], info.movie, 0);
+          return;
+        }
+        var byNumber = {};
+        for (var i = 0; i < info.eps.length; i++) {
+          var entry = info.eps[i];
+          byNumber[entry.ep.episode_number] = entry.hash;
+        }
+        var hashes = LC.progress.markPlan(info.season, number, function (season, n) {
+          var hash = byNumber[n];
+          if (hash) return { hash: hash, percent: (timelineView(hash) || {}).percent };
+          return null;
+        });
+        markEpisodes(hashes, info.movie, 100);
+      }
+    });
     return true;
   }
 
@@ -2315,6 +2395,40 @@
     }
   }
 
+  function renderPins(root, movie, on) {
+    if (!LC.pins) return;
+    var container = root.find('.buttons--container');
+    if (!container.length) return;
+    var row = root.find('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    var season = info ? info.season : 0;
+    var normal = container.find('.view--torrent').not('.hide').eq(0);
+    var pin = on === false || !normal.length ? null : LC.pins.get(movie, season);
+    var button = container.find('.view--lumen-pin');
+    if (!pin) {
+      button.remove();
+      root.find('.button--priority.view--lumen-pin').remove();
+      return;
+    }
+    if (!button.length) {
+      button = $('<div class="full-start__button view--lumen-pin"><svg><use xlink:href="#sprite-torrent"></use></svg><span></span></div>');
+      button.find('span').text(LC.lang('lumen_pins_open'));
+      container.prepend(button);
+    }
+    button.data('subtitle', LC.pins.subtitle(pin));
+    button.off('hover:enter.lumenPins').on('hover:enter.lumenPins', function () {
+      LC.pins.open(movie, season, function () { normal.trigger('hover:enter'); });
+    });
+  }
+
+  function refreshPins(on) {
+    $('.lumen-card').each(function () {
+      var root = $(this);
+      var movie = root.data('lumenMetaMovie');
+      if (movie) renderPins(root, movie, on);
+    });
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -2334,6 +2448,7 @@
     try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
     try { renderSeasons(root, data); } catch (e) { warn('seasons failed', e); }
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
+    try { renderPins(root, movie); } catch (e) { warn('pin button failed'); }
   }
 
   /* -------------------------------------------------------------------- */
@@ -2470,12 +2585,14 @@
   LC.header = {
     decorate: decorate,
     refreshMeta: refreshMeta,
+    refreshPins: refreshPins,
     applyLogoPref: applyLogoPref,
     mergePeople: mergePeople,
     installPeople: installPeople,
     uninstallPeople: uninstallPeople,
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
+    episodeMenu: episodeMenu,
     bindStart: bindStart,
     bindDescr: bindDescr,
     refreshProgress: refreshProgress,

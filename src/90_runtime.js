@@ -2083,6 +2083,7 @@
        снимаются раньше неё, иначе она не узнает своё свойство. */
     try { if (LC.netmem && LC.netmem.uninstall) LC.netmem.uninstall(); } catch (eNetmemOff) {}
     try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); } catch (ePeopleOff) {}
+    try { if (LC.header && LC.header.refreshPins) LC.header.refreshPins(false); } catch (ePinsOff) {}
     /* Одна попытка достройки главной на активацию: следующее включение
        плагина получит свою (см. repairHomeRows). */
     home_repaired = false;

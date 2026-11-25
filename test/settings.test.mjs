@@ -125,7 +125,7 @@ function setup(opts) {
   LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo'), applyMedia: mark('heromedia'), applyInterval: mark('herointerval') };
   /* Правка 2026-09-23: логотип названия в карточке — перерисовка узла
      названия уже открытых карточек (LC.header.applyLogoPref). */
-  LC.header = { applyLogoPref: mark('cardlogo') };
+  LC.header = { applyLogoPref: mark('cardlogo'), refreshPins: mark('pins') };
   /* Task 62b (ревью): применение набора значений одним проходом — вместо
      ветки на каждую запись (src/90_runtime.js). */
   LC.applyPresetChanges = (keys) => log.push('preset:' + keys.join(','));
@@ -306,6 +306,7 @@ test('каждая настройка применяется ровно один
     lumen_franchise: ['franchise'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
+    lumen_pins_enabled: ['pins'],
     /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка каталога. */
     lumen_manifest_url: ['rows'],
     /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной — один путь. */
@@ -328,6 +329,7 @@ test('каждая настройка применяется ровно один
     lumen_moods: ['moods'],
     /* Task 16 (фаза 2): персональные ряды. */
     lumen_personal_rows: ['personal'],
+    lumen_cw_days: ['personal'],
     /* Волна 4: начало главной — тот же путь, что у личных рядов: план
        главной перерегистрирует ряды, главная пересобирается. */
     lumen_home_start: ['personal'],

@@ -142,6 +142,7 @@
       /* 1.4: карточка ряда «Досмотреть» (копия с меткой lumen_continue,
          src/45_personal.js markContinue) — убрать её из ряда своей меткой. */
       if (card.lumen_continue && ctx.cwHide && w.cwHide) out.push({ title: w.cwHide, lumen: 'cw_hide' });
+      if (ctx.pin && w.pinDrop) out.push({ title: w.pinDrop, lumen: 'pin_drop' });
       if (ctx.thrown) out.push({ title: w.unhide, lumen: 'unhide' });
       else out.push({ title: w.hide, lumen: 'hide' });
       return out;
@@ -204,7 +205,8 @@
         unwatched: LC.lang('lumen_menu_unwatched'),
         hide: LC.lang('lumen_menu_hide'),
         unhide: LC.lang('lumen_menu_unhide'),
-        cwHide: LC.lang('lumen_menu_cw_hide')
+        cwHide: LC.lang('lumen_menu_cw_hide'),
+        pinDrop: LC.lang('lumen_pins_drop')
       };
     }
 
@@ -273,7 +275,8 @@
         thrown: isThrown(card),
         roulette: !!(LC.roulette && typeof LC.roulette.openSimilar === 'function'),
         cwHide: !!(LC.personal && typeof LC.personal.hideContinue === 'function'),
-        resume: resumeItem(card)
+        resume: resumeItem(card),
+        pin: LC.pins ? LC.pins.get(card) : null
       };
     }
 
@@ -520,6 +523,11 @@
       if (kind === 'hide') { setThrown(card, true); return; }
       if (kind === 'unhide') { setThrown(card, false); return; }
       if (kind === 'cw_hide') { hideContinue(card, menuHit && menuHit.card === card ? menuHit.el : null); return; }
+      if (kind === 'pin_drop' && LC.pins) {
+        var pin = LC.pins.get(card);
+        if (pin && LC.pins.drop(pin.key) && LC.header && LC.header.refreshPins) LC.header.refreshPins();
+        return;
+      }
     }
 
     /* 1.4: «Убрать из «Досмотреть»» — своя метка показа (LC.personal.
@@ -860,6 +868,11 @@
     function onLong(e) {
       try {
         var el = e && e.target;
+        if (el && el.classList && el.classList.contains('lumen-episode')) {
+          pending = null;
+          if (LC.header && LC.header.episodeMenu) LC.header.episodeMenu(el);
+          return;
+        }
         if (!el || !el.card_data) { pending = null; return; }
         pending = { el: el, card: el.card_data, at: Date.now() };
         if (el.classList && el.classList.contains(OWN_CARD_CLASS)) open(el, el.card_data);

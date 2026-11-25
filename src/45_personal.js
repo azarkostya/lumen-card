@@ -272,6 +272,11 @@
        (LC.personal.onTimeline) снимает метку, и карточка возвращается. */
     var HIDDEN_KEY = 'lumen_cw_hidden';
     var HIDDEN_MAX = 100;
+    var SEEN_KEY = 'lumen_cw_seen';
+    var playHash = '';
+    var playKey = '';
+    var SEEN_MAX = 200;
+    var DAY_MS = 86400000;
 
     function hiddenKey(card) {
       if (!card || !card.id) return '';
@@ -280,6 +285,15 @@
       var key = type + '_' + card.id;
       if (source !== 'tmdb' && source !== 'cub') key = source + '_' + key;
       return key.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 64);
+    }
+
+    function dropStale(items, seen, now, days) {
+      if (days !== '14' && days !== '30' && days !== '90') return items;
+      var cutoff = now - Number(days) * DAY_MS;
+      return items.filter(function (card) {
+        var stamp = Number(seen[hiddenKey(card)]) || 0;
+        return !stamp || stamp > cutoff;
+      });
     }
 
     /* Убирает скрытые карточки. updatedOf(card) → момент последней записи
@@ -512,6 +526,70 @@
       } catch (e) { }
     }
 
+    function readSeen() {
+      try {
+        var seen = Lampa.Storage.get(SEEN_KEY, {});
+        return seen && typeof seen === 'object' && !Array.isArray(seen) ? seen : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writeSeen(seen) {
+      try {
+        var keys = Object.keys(seen);
+        if (keys.length > SEEN_MAX) {
+          keys.sort(function (a, b) { return seen[b] - seen[a]; });
+          var recent = {};
+          for (var i = 0; i < SEEN_MAX; i++) recent[keys[i]] = seen[keys[i]];
+          seen = recent;
+        }
+        Lampa.Storage.set(SEEN_KEY, seen, true);
+      } catch (e) {}
+    }
+
+    function seenAt(key, at, minStep) {
+      if (!/^[a-z0-9_]{1,64}$/.test(key)) return;
+      var now = Date.now();
+      at = Math.min(Number(at) || now, now);
+      var seen = readSeen();
+      if (at <= (Number(seen[key]) || 0) + (minStep || 0)) return;
+      var next = {};
+      var keys = Object.keys(seen);
+      for (var i = 0; i < keys.length; i++) next[keys[i]] = seen[keys[i]];
+      next[key] = at;
+      writeSeen(next);
+    }
+
+    function noteSeen(card) {
+      seenAt(hiddenKey(card), Date.now());
+    }
+
+    function observePlayback(card, hash) {
+      playKey = hiddenKey(card);
+      playHash = playKey && hash ? '' + hash : '';
+    }
+
+    function filterStale(items) {
+      if (!items.length) return items;
+      var now = Date.now();
+      var seen = readSeen();
+      var next = {};
+      var keys = Object.keys(seen);
+      for (var i = 0; i < keys.length; i++) next[keys[i]] = seen[keys[i]];
+      var changed = false;
+      for (var j = 0; j < items.length; j++) {
+        var key = hiddenKey(items[j]);
+        if (key && !(Number(next[key]) > 0)) {
+          next[key] = now;
+          changed = true;
+        }
+      }
+      if (changed) writeSeen(next);
+      var days = LC.pref ? LC.pref('lumen_cw_days', '30') : '30';
+      return dropStale(items, next, now, days);
+    }
+
     /* Убрать карточку из «Досмотреть». at — момент (мс, по умолчанию
        сейчас). Самые старые метки вытесняются после HIDDEN_MAX. */
     function hideContinue(card, at) {
@@ -533,17 +611,21 @@
 
     /* Из LC.followTimeline (src/90_runtime.js): новая запись просмотра
        карточки, убранной из ряда, — смотреть начали снова, метка снимается.
-       Lampa шлёт {hash, road}; road.card есть у записей с привязкой к
-       карточке (Timeline.link). Нулевой процент («Снять отметку») — не
-       просмотр. */
+       Штатный Timeline шлёт {hash, road} без карточки. Если ключа
+       в записи нет, связываем только хэш, наблюдавшийся в самом плеере.
+       Нулевой процент («Снять отметку») — не просмотр. */
     function onTimeline(data) {
       try {
         var road = data && data.road;
-        if (!road || !road.card || !(Number(road.percent) > 0)) return;
-        var map = readHidden();
-        var key = '' + road.card;
-        if (!Object.prototype.hasOwnProperty.call(map, key)) return;
+        if (!road || !(Number(road.percent) > 0)) return;
+        var key = road.card ? '' + road.card : (playHash && playHash === String(data.hash) ? playKey : '');
+        if (!key) return;
         var upd = Number(road.updated) || Date.now();
+        /* Плеер пишет Timeline часто. Для срока в днях достаточно одной
+           записи в минуту, открытия раздачи отмечаются сразу. */
+        seenAt(key, upd, 60000);
+        var map = readHidden();
+        if (!Object.prototype.hasOwnProperty.call(map, key)) return;
         if (!(upd > (Number(map[key]) || 0))) return;
         delete map[key];
         writeHidden(map);
@@ -552,7 +634,7 @@
 
     /* Момент последней записи просмотра ФИЛЬМА — тот же ключ, что у
        watchedPercent. У сериала 0: серий много, перебирать их на каждом
-       построении ряда не будем — его возвращает onTimeline по road.card. */
+       построении ряда не будем — его возвращает onTimeline. */
     function movieUpdated(card) {
       try {
         if (!card || isSeries(card) || card.original_name) return 0;
@@ -709,7 +791,7 @@
           }
         }
       } catch (e) {}
-      return dropHidden(dropFinished(out, watchedPercent), readHidden(), movieUpdated);
+      return filterStale(dropHidden(dropFinished(out, watchedPercent), readHidden(), movieUpdated));
     }
 
     /* Возвращает историю просмотров из Lampa.Favorite. */
@@ -1181,6 +1263,8 @@
       hiddenKey: hiddenKey,
       dropHidden: dropHidden,
       hideContinue: hideContinue,
+      noteSeen: noteSeen,
+      observePlayback: observePlayback,
       onTimeline: onTimeline,
       /* 1.4: досмотренный фильм уходит из нарисованного ряда. */
       pickFinished: pickFinished,

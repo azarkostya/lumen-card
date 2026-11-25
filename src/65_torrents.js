@@ -884,6 +884,9 @@
 
     function onTorrent(e) {
       try {
+        if (LC.pins) LC.pins.onTorrent(e);
+      } catch (pinError) { warn('pin menu failed'); }
+      try {
         if (e && e.type === 'render' && e.item && document.body.classList.contains(BODY_ON)) {
           emphasize(e.item);
           numbers(e.item);

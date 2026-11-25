@@ -150,6 +150,7 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_franchise: ['applyFranchisePref'],
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
+    lumen_pins_enabled: [],
     /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка
        каталога (applyRowsPref, вне POINTS). */
     lumen_manifest_url: [],
@@ -173,6 +174,7 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_moods: [],
     /* Task 16 (фаза 2): персональные ряды — applyPersonalPref без точек POINTS. */
     lumen_personal_rows: [],
+    lumen_cw_days: [],
     /* Волна 4: начало главной — applyPersonalPref, вне POINTS. */
     lumen_home_start: [],
     /* Фаза 3: тема, плотность подложек и масштаб — только пересборка CSS. */
