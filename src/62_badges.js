@@ -78,11 +78,12 @@
 
     function episodeBadge(card, view, hash, words) {
       if (!card || !card.lumen_continue || typeof view !== 'function' || typeof hash !== 'function') return null;
-      if (card.original_title || !(card.original_name || card.name)) return null;
-      var key = card.original_name || card.name;
+      /* Вендорный Card добавляет original_title и сериалам. */
       var last = card.last_episode_to_air || null;
+      if (!card.original_name && !card.first_air_date && !card.number_of_seasons && !last) return null;
+      var key = card.original_name || card.name;
       var season = parseInt(card.number_of_seasons, 10) || (last ? parseInt(last.season_number, 10) || 0 : 0);
-      if (!(season > 0)) return null;
+      if (!key || !(season > 0)) return null;
       var best = null, bestEp = 0, gap = 0;
       for (var ep = 1; ep <= EP_SCAN; ep++) {
         var v = view(hash([season, season > 10 ? ':' : '', ep, key].join('')));

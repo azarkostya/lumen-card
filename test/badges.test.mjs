@@ -1170,6 +1170,24 @@ test('episodeBadge: начатая серия с длительностью — 
   assert.deepEqual(b, { kind: 'progress', text: 'S2·E4 · 12 мин', percent: 40, left: true });
 });
 
+test('episodeBadge QA-03: вендорный original_title у сериала сохраняет остаток серии', () => {
+  const B = fresh().api;
+  const card = {
+    id: 1396, name: 'Во все тяжкие', original_title: 'Breaking Bad',
+    original_name: 'Breaking Bad', first_air_date: '2008-01-20', number_of_seasons: 2, lumen_continue: true
+  };
+  const t = timeline({ '24Breaking Bad': { percent: 70, time: 2520, duration: 3600 } });
+  const words = { epLeft: '{e} · {n} мин', episodeNumber: 'С{s} · Э{e}' };
+  const expected = { kind: 'progress', text: 'С2 · Э4 · 18 мин', percent: 70, left: true };
+
+  assert.deepEqual(B.episodeBadge(card, t.view, t.hash, words), expected);
+  assert.deepEqual(B.episodeBadge({ ...card, original_title: 'Во все тяжкие' }, t.view, t.hash, words), expected);
+  const film = { id: 771, title: 'Один дома', original_title: 'Home Alone', lumen_continue: true };
+  const previousCalls = t.calls.length;
+  assert.equal(B.episodeBadge(film, t.view, t.hash, words), null);
+  assert.equal(t.calls.length, previousCalls);
+});
+
 test('episodeBadge: начатая серия без длительности — «S2·E4 ▶»', () => {
   const B = fresh().api;
   const t = timeline({ '24House': { percent: 40 } });
