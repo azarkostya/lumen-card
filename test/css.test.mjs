@@ -228,7 +228,6 @@ test('правка 2026-09-23: двухуровневое название — �
 /* v2 «Единый стиль», экран 33: единственные тени с размытием — статичные
    тени фокуса картинки (Lumen, Apple TV) и кнопки Apple TV (токены V2,
    src/30_css.js). Только на правилах фокуса и никогда в переходе. */
-const V2_SHADOWS = ['0 .6em 1.25em', '0 .75em 1.35em', '0 .44em .96em'];
 
 const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-whatsnew', '.lumen-hub', '.lumen-grid', '.lumen-full', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
@@ -2024,7 +2023,7 @@ test('Task 38: ни одного box-shadow с размытием больше .
      проверке радиуса не подлежит, но форму ниже проходить обязана. */
   const offenders = [];
   for (const m of css.matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
-    if (parseFloat(m[2]) > 0.8 && V2_SHADOWS.indexOf(m[0].replace(/^box-shadow:/, '')) === -1) offenders.push(m[0]);
+    if (parseFloat(m[2]) > 0.8) offenders.push(m[0]);
   }
   assert.deepEqual(offenders, [], 'радиус тени WebView считает по площади вокруг элемента, а таких элементов на экране десятки');
   /* Заодно: другой формы записи тени в таблице быть не должно — иначе
@@ -3004,10 +3003,7 @@ test('Task 50c: ни одной тени с размытием ни на одн�
      франшизы, «Крутить» и карточки полки «как Apple TV» тени больше нет —
      фокус у них кольцом (тесты «фокус на всех экранах» ниже). */
   assert.ok(shadows.length >= 14, 'теней на правилах фокуса нашлось подозрительно мало — проверка почти пустая: ' + shadows.length);
-  /* v2 «Единый стиль», экран 33: исключение — статичные тени токенов V2
-     (фокус картинки и кнопки Apple TV) и их снятие (none). */
-  const v2 = (s) => V2_SHADOWS.some((t) => s.indexOf('-> ' + t + ' rgba(0,0,0,') !== -1) || /-> none$/.test(s);
-  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s) && !v2(s)), [],
+  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s) && !/-> none(?: !important)?$/.test(s)), [],
     'тень с ненулевым размытием на шаге фокуса');
 });
 
@@ -8998,7 +8994,7 @@ test('этап 2б + v2: штатная сетка из плагина — шт�
   const base = findDecl(css, (sel) => sel === '.lumen-full .card .card__view:after');
   assert.ok(base && /(^|;)display:none(;|$)/.test(base), 'штатное кольцо Lampa не погашено: ' + base);
   assert.equal(declProp(lastDecl(css, '.lumen-full .card.focus .card__view:after'), 'display'), 'block');
-  assert.equal(declProp(lastDecl(css, '.lumen-full .card.focus .card__view'), 'box-shadow'), '0 .6em 1.25em rgba(0,0,0,.5)');
+  assert.equal(declProp(effDecl(css, '.lumen-full .card.focus .card__view'), 'box-shadow'), null);
   const leaks = ruleBodies(css).filter((r) => r.selectors.some((sel) => /^\.card(\.focus|\.hover)? \.card__view(:after)?$/.test(sel)));
   assert.deepEqual(leaks.map((r) => r.selectors.join(',')), [], 'правило без .lumen-full задело бы все сетки Lampa');
 });
@@ -9018,9 +9014,9 @@ const tvPx = (em, k) => em * (k || 1) * TV_EM;
 
 test('v2, экран 33: постер части франшизы и плитка полки «как Apple TV»', () => {
   assert.equal(declProp(lastDecl(css, '.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster:after'), 'outline-offset'), '-.36em');
-  assert.equal(declProp(lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before'), 'display'), 'none');
+  assert.equal(declProp(lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img:before'), 'display'), 'block');
   const tile = lastDecl(css, '.lumen-roulette-screen.is-atv .lumen-roulette .lumen-roulette__tile.focus .lumen-roulette__tile-img');
-  assert.equal(declProp(tile, 'box-shadow'), '0 .75em 1.35em rgba(0,0,0,.55)', 'плитка полки — тень Apple TV: ' + tile);
+  assert.equal(declProp(tile, 'box-shadow'), null, 'у плитки полки тени нет: ' + tile);
   assert.ok(/scale\(1\.09\)/.test(tile), 'плитка полки ×1.09: ' + tile);
   assert.equal(/outline/.test(tile), false, 'у плитки полки рамка: ' + tile);
   /* Масштаб полки — и в «Лёгких», без перехода. */
@@ -9221,7 +9217,7 @@ test('v2, экран 33: кнопки — только заливка; Lumen б�
     const a = effDecl(flatCss, sel);
     assert.equal(declProp(a, 'transform'), 'scale(1.04)', 'Apple TV: ×1.04 ' + sel);
     /* !important — против темы CUB «Neon». */
-    assert.equal(declProp(a, 'box-shadow'), '0 .44em .96em rgba(0,0,0,.5) !important', 'Apple TV: тень кнопки ' + sel);
+    assert.equal(declProp(a, 'box-shadow'), 'none !important', 'Apple TV: тема не возвращает тень кнопки ' + sel);
     assert.equal(declProp(a, 'background-color'), '#FFFFFF !important', 'Apple TV: заливка белая ' + sel);
   }
   /* В «Лёгких» масштаба у кнопок нет — правило «Лёгких» с !important. */

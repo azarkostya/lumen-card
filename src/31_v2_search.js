@@ -150,7 +150,7 @@
       css.push(KB + ' .hg-button.focus,' + KB + ' .hg-button.hg-activeButton{background:' + FILL + ';color:' + ON_FILL + '}');
       css.push(KB + ' .hg-button[data-skbtn="{MIC}"].focus{color:' + ON_FILL + ' !important}');
       if (APPLE) {
-        css.push(KB + ' .hg-button.focus{position:relative;z-index:1;font-weight:600;-webkit-transform:scale(1.12);transform:scale(1.12);-webkit-box-shadow:' + V2.buttonShadowA + ';box-shadow:' + V2.buttonShadowA + '}');
+        css.push(KB + ' .hg-button.focus{position:relative;z-index:1;font-weight:600;-webkit-transform:scale(1.12);transform:scale(1.12)}');
         css.push('body.lumen-motion-lite.search--open .search .simple-keyboard .hg-button.focus,body.lumen-motion-off.search--open .search .simple-keyboard .hg-button.focus{-webkit-transform:none;transform:none}');
         css.push('body.lumen-motion-full.search--open .search .simple-keyboard .hg-button{' + tr(V2.durA) + '}');
       }
@@ -225,8 +225,7 @@
          теперь она остаётся своего кегля и на месте (как на главной). */
       var SC = APPLE ? V2.scalePosterA : V2.scalePosterL;
       css.push(RES + ' .card.focus{z-index:2}');
-      var shade = APPLE ? V2.shadowA : V2.shadowL;
-      css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');-webkit-box-shadow:' + shade + ';box-shadow:' + shade + '}');
+      css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ')}');
       css.push(RES + ' .card.focus .card__view:after{' + LC.focusRingOverlayCss(P.text, APPLE) + '}');
       /* Ревью: у Lampa на .card__view в фокусе своя анимация
          (body.advanced--animation … .card.focus .card__view{animation:

@@ -187,8 +187,7 @@
       var MUTED = A ? 'rgba(235,235,245,.64)' : P.muted;
       var LINE = 'rgba(255,255,255,.16)';
       function tf(v) { return '-webkit-transform:' + v + ';transform:' + v; }
-      function shadow(v) { return '-webkit-box-shadow:' + v + ';box-shadow:' + v; }
-      var IMG_FOCUS = tf('scale(' + (A ? V2.scalePosterA : V2.scalePosterL) + ')') + ';' + shadow(A ? V2.shadowA : V2.shadowL);
+      var IMG_FOCUS = tf('scale(' + (A ? V2.scalePosterA : V2.scalePosterL) + ')');
       /* Переход масштаба — только в «Полных» анимациях, гейтом по классу
          режима на body: смена lumen_motion таблицу стилей не пересобирает
          (LC.applyMotionMode переставляет лишь классы), как в

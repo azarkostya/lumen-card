@@ -75,7 +75,9 @@ test('v2 экран 38: клавиатура — оформление без с�
   assert.equal(rules(L, '.hg-button.focus{position:relative').length, 0);
   /* Apple TV: белая плитка ×1.12 с тенью, в lite/off без масштаба. */
   assert.match(rules(A, '.simple-keyboard .hg-button.focus,')[0], /background:#FFFFFF/);
-  assert.match(rules(A, '.hg-button.focus{position:relative')[0], /scale\(1\.12\).*box-shadow:0 \.44em \.96em/);
+  const key = rules(A, '.hg-button.focus{position:relative')[0];
+  assert.match(key, /scale\(1\.12\)/);
+  assert.doesNotMatch(key, /box-shadow/);
   assert.ok(rules(A, 'body.lumen-motion-lite.search--open .search .simple-keyboard .hg-button.focus').length === 1);
   /* Служебные клавиши — маской; разметку и data-skbtn модуль не трогает. */
   for (const k of ['{BKSP}', '{LANG}', '{SPACE}']) assert.ok(L.indexOf('[data-skbtn="' + k + '"]:after{') !== -1, k);

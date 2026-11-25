@@ -63,11 +63,11 @@ const LUMEN_SAMPLES = {
 /* Снимок Lumen после слияния окон и поиска v2 и обрезки ленты поиска (21.10.2026; правки Apple TV его не меняют);
    1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках;
    1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js). Если Lumen меняют
-   Пачка A: кольца фокуса и приглушение соседей.
+   Пачка A: кольца фокуса, приглушение соседей и снятие размытых теней.
    Пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'cb1c18504b1b14a298223e9a20641ebc4d532f30b23cb0c0b2af9fc9bff28ebc',
-  black_solid: '8569578960106ad7373ebe38808c871941bad6395a73888b20c0eefcf4494940'
+  warm: 'dcf823b1fb1d16a26057a8c4f4dd8729027709efb736a67a7dde79c9f4c5e172',
+  black_solid: '14afa099b4ee94f863391e0ae1828e140c8554bfeb5e33e6ecaee7c499a2002c'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
@@ -150,7 +150,7 @@ test('Apple TV: фокус кнопок карточки, чипов и стро
   const b = decl(apple, btn);
   assert.match(b, /background-color:#FFFFFF !important/);
   assert.match(b, /;color:#000000 !important/);
-  assert.match(b, /;box-shadow:0 \.44em \.96em rgba\(0,0,0,\.5\) !important/);
+  assert.match(b, /;box-shadow:none !important/);
   assert.match(b, /;transform:scale\(1\.04\)(;|$)/, 'масштаб без !important — его гасят «Лёгкие»');
   const S = 'body.lumen-torrents-on .activity.lumen-torrents ';
   const F = 'body.lumen-torrents-on .modal .torrent-files.torrent-files ';

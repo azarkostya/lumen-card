@@ -629,10 +629,7 @@
        карточки — со своими ×1.14 / ×1.09. */
     scaleGridA: 1.08,
     scaleGridWideA: 1.05,
-    shadowL: '0 .6em 1.25em rgba(0,0,0,.5)',
-    shadowA: '0 .75em 1.35em rgba(0,0,0,.55)',
     buttonScaleA: 1.04,
-    buttonShadowA: '0 .44em .96em rgba(0,0,0,.5)',
     fillA: '#FFFFFF',
     sub: 'rgba(0,0,0,.7)',
     blockA: 'rgba(255,255,255,.12)',
@@ -655,7 +652,6 @@
       ring: emCss(FOCUS_RING),
       scalePoster: apple ? V2.scalePosterA : V2.scalePosterL,
       scaleWide: apple ? V2.scaleWideA : V2.scaleWideL,
-      shadow: apple ? V2.shadowA : V2.shadowL,
       fill: apple ? V2.fillA : null,
       sub: V2.sub,
       block: apple ? V2.blockA : null,
@@ -6927,8 +6923,6 @@
       if (fillSel.length) css.push(fillSel.join(',') + '{background-color:' + FILL + '}');
     }
 
-    var V2_IMG = '-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL;
-    var V2_IMG_A = '-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA;
     var V2_R = emCss(V2.rImg);
     var V2_TF = function (s) { return '-webkit-transform:scale(' + s + ');transform:scale(' + s + ')'; };
     var V2_S = function (ms) { return ('' + ms / 1000).replace(/^0\./, '.') + 's'; };
@@ -6938,39 +6932,34 @@
     /* Постер главной держит прежний масштаб ROW_FOCUS и кольцо внутри
        кромки. Подпись отрисовывается над отдельным слоем постера. */
     css.push('.lumen-main .card__view,.lumen-main .card__img{border-radius:' + V2_R + '}');
-    css.push('body .lumen-main .card.focus .card__view{' + V2_IMG + '}');
     css.push('.lumen-main .card.focus .card__title,.lumen-main .card.focus .card__age{position:relative}');
 
     /* Плитки хаба (16:9): масштаб v2, кольцо и приглушение из правил выше. */
     css.push('.lumen-hub__tiles .lumen-tile{border-radius:' + V2_R + '}');
-    css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleWideL) + ';' + V2_IMG + '}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleWideL) + '}');
     css.push('.lumen-hub.lumen-motion-full .lumen-tile{' + V2_TR(V2.durL) + '}');
 
     /* Сетка подборки и штатная сетка, открытая плагином (.lumen-full). */
     css.push('.lumen-grid .lumen-gcard .card__view,.lumen-grid .lumen-gcard .card__img{border-radius:' + V2_R + '}');
     css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scalePosterL) + '}');
-    css.push('.lumen-grid__items .lumen-gcard.focus .card__view{' + V2_IMG + '}');
     css.push('.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durL) + '}');
     css.push('.lumen-full .card__view,.lumen-full .card__img{border-radius:' + V2_R + '}');
-    css.push('.lumen-full .card.focus .card__view{' + V2_IMG + '}');
 
     /* «Смотреть по порядку» на карточке. */
-    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{' + V2_IMG + '}');
 
     /* Плитки «Ещё фильмы» в рулетке Apple TV (вид .is-atv есть только при
-       плоском виде): подъём и тень без рамки, масштаб — и в «Лёгких», без
+       плоском виде): подъём и кольцо, масштаб — и в «Лёгких», без
        перехода. Правила лежат под .is-atv и в стиле Lumen не срабатывают. */
-    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img:before{display:none}');
-    css.push(ATV + ' .lumen-roulette .lumen-roulette__tile.focus .lumen-roulette__tile-img{' + V2_TF(V2.scaleWideA) + ';-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
+    css.push(ATV + ' .lumen-roulette .lumen-roulette__tile.focus .lumen-roulette__tile-img{' + V2_TF(V2.scaleWideA) + '}');
     css.push(ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__tile.focus .lumen-roulette__tile-img{' + V2_TF(V2.scaleWideA) + '}');
     css.push('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img{' + V2_TR(V2.durA) + '}');
 
-    /* Плитка серии — картинка: масштаб (и в «Лёгких», без перехода), рамка,
-       тень; заливки нет — плитка остаётся в своих цветах, название, подпись
+    /* Плитка серии — картинка: масштаб (и в «Лёгких», без перехода) и кольцо;
+       плитка остаётся в своих цветах, название, подпись
        и длительность не перекрашиваются. Значок «▶» в фокусе — как был. */
     css.push('.lumen-card .lumen-episode{border-radius:' + V2_R + '}');
     css.push('.lumen-card .lumen-episodes .lumen-episode.focus:after{' + LC.focusRingOverlayCss(P.text, APPLE) + '}');
-    css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideL) + ';' + V2_IMG + ';color:' + P.text + ';border:.04em solid ' + P.line + ';background:' + P.gradSlate + '}');
+    css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideL) + ';color:' + P.text + ';border:.04em solid ' + P.line + ';background:' + P.gradSlate + '}');
     css.push('.lumen-card .lumen-episodes .lumen-episode--watching.focus{background:' + P.gradWatching + ';border-color:#303552}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__bottom{background:-webkit-linear-gradient(bottom,rgba(' + P.bgRgb + ',.92) 0%,rgba(' + P.bgRgb + ',.62) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,rgba(' + P.bgRgb + ',.92) 0%,rgba(' + P.bgRgb + ',.62) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
     css.push('.lumen-card .lumen-episode--cut.focus .lumen-episode__bottom{background:none}');
@@ -7028,24 +7017,23 @@
 
     /* Отличия Apple TV: картинка — нейтральное кольцо и подъём (×1.14 постер,
        ×1.09 кадр и серия; постер ряда главной — прежний, разбор у V2),
-       соседей не приглушаем, переходы 240 мс; кнопки — ×1.04 и тень только
+       соседей не приглушаем, переходы 240 мс; кнопки — ×1.04 только
        в «Полных» (правила «Лёгких» и «Выкл» выше гасят transform
        специфичнее или через !important); описание — без подложки в покое
        и светлым блоком .12 в фокусе, текст остаётся белым. */
     if (APPLE) {
-      css.push('body .lumen-main .card.focus .card__view,.lumen-hub__tiles .lumen-tile.focus,.lumen-grid__items .lumen-gcard.focus .card__view,.lumen-full .card.focus .card__view,.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{' + V2_IMG_A + '}');
       css.push('.lumen-hub__tiles .lumen-tile.focus{' + V2_TF(V2.scaleGridWideA) + '}');
       css.push('.lumen-grid__items .lumen-gcard.focus{' + V2_TF(V2.scaleGridA) + '}');
       css.push('.lumen-hub__tiles.lumen-dim .lumen-tile:not(.focus):after,.lumen-grid__items.lumen-dim .lumen-gcard:not(.focus) .card__view:after,.lumen-full.lumen-dim .card:not(.focus) .card__view:after{display:none}');
       css.push('.lumen-hub.lumen-motion-full .lumen-tile,.lumen-grid.lumen-motion-full .lumen-gcard{' + V2_TR(V2.durA) + '}');
-      css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideA) + ';' + V2_IMG_A + ';border-color:transparent;background:none;background-color:' + P.panel + '}');
+      css.push('.lumen-card .lumen-episodes .lumen-episode.focus{' + V2_TF(V2.scaleWideA) + ';border-color:transparent;background:none;background-color:' + P.panel + '}');
       css.push('.lumen-card.lumen-motion-full .lumen-episode{' + V2_EP_TR(V2.durA) + '}');
       /* Тема CUB «Neon» красит фокус кнопок своими правилами — заливка,
-         подпись и тень с !important (как у пунктов Select в
+         подпись и снятие тени с !important (как у пунктов Select в
          src/31_v2_dialogs.js); масштаб — без него: «Лёгкие» и «Выкл»
          гасят его своими !important. Нажатие (.lumen-press) тяжелее на
          класс и остаётся своим. */
-      css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{' + V2_TF(V2.buttonScaleA) + ';background-color:' + FILL + ' !important;color:' + P.bg + ' !important;-webkit-box-shadow:' + V2.buttonShadowA + ' !important;box-shadow:' + V2.buttonShadowA + ' !important}');
+      css.push('.lumen-card .full-start-new__buttons .full-start__button.focus,.lumen-card .lumen-stop.focus,.lumen-card .lumen-franchise.focus,.lumen-hub__search.focus,.lumen-hub__roulette.focus{' + V2_TF(V2.buttonScaleA) + ';background-color:' + FILL + ' !important;color:' + P.bg + ' !important;-webkit-box-shadow:none !important;box-shadow:none !important}');
       css.push(ATV + ' .lumen-roulette__spin.focus{' + V2_TF(V2.buttonScaleA) + '}');
       css.push('.lumen-descr-row .full-descr__text{background:none}');
       css.push('.lumen-descr-row .full-descr__text.focus{background:' + V2.blockA + ';color:' + P.text + '}');
