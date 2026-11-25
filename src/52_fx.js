@@ -421,10 +421,6 @@
       return flatLook() ? LIGHTS_COLD : LIGHTS;
     }
 
-    /* Гирлянда зимней сцены: точка дуги при t (0 — первая лампочка, 1 —
-       последняя; за пределами — продолжение дуги к краям слоя). Лампочки и
-       провод берут её обе, поэтому провод проходит ровно через лампочки, и
-       при низком слое (потолок 0.28 высоты) тоже. */
     var SNOW_LIGHT_Y = 120;
 
     function winterRandom() {
@@ -441,6 +437,75 @@
         [[0, rgba(rgb, 1)], [0.3, rgba(rgb, 1)], [0.42, rgba(rgb, 0.5)], [0.68, rgba(rgb, 0.14)], [1, rgba(rgb, 0)]]);
     }
 
+    /* Четыре ячейки атласа вырезаются один раз на весь движок.
+       Пустой массив значит, что загрузка уже идёт либо недоступна. */
+    var snowSprites = null;
+    var SNOW_CELL = 64;
+    var SNOW_PLATE = 2;
+
+    function requestSnowSprites() {
+      snowSprites = [];
+      try {
+        if (typeof window.Image !== 'function') return;
+        var source = new window.Image();
+        var path = 'assets/newyear/v1/snowflakes.webp';
+        source.onload = function () {
+          source.onload = source.onerror = null;
+          if (source.naturalWidth !== SNOW_CELL * 4 || source.naturalHeight !== SNOW_CELL) return;
+          var cells = [];
+          try {
+            for (var i = 0; i < 4; i++) {
+              var sheet = surface(SNOW_CELL, SNOW_CELL);
+              if (!sheet || typeof sheet.ctx.drawImage !== 'function') return;
+              sheet.ctx.drawImage(source, i * SNOW_CELL, 0, SNOW_CELL, SNOW_CELL, 0, 0, SNOW_CELL, SNOW_CELL);
+              cells.push(sheet.canvas);
+            }
+          } catch (e) {
+            return;
+          }
+          snowSprites = cells;
+          for (var j = 0; j < cells.length; j++) bitmapize(cells, j);
+          /* Статичная сцена уже нарисовала хлопья, пока грузился лист. */
+          var repaint = false;
+          for (var k = 0; k < instances.length; k++) {
+            var inst = instances[k];
+            if (inst.name === 'winter' && inst.pictureBulbs && inst.still) {
+              inst.stillDone = false;
+              repaint = true;
+            }
+          }
+          if (repaint) wake();
+        };
+        source.onerror = function () { source.onload = source.onerror = null; };
+        source.src = typeof LC.assetUrl === 'function' ? LC.assetUrl(path) : 'https://azarkostya.github.io/lumen-card/' + path;
+      } catch (e) { }
+    }
+
+    function snowLimit(still, cold) {
+      return cold ? (still ? 3 : 2) : (still ? 6 : 3);
+    }
+
+    function snowWind(elapsed, cold) {
+      /* Общая волна (12 с), с коротким плавным подъёмом раз в 24 с. */
+      var gust = Math.max(0, (elapsed - 20000) / 2000);
+      if (gust > 1) gust = 2 - gust;
+      return Math.sin(elapsed * TWO_PI / 12000) * (0.014 + 0.02 * gust * gust) * (cold ? 0.5 : 1);
+    }
+
+    function drawCrystal(ctx, p, S, sprite) {
+      var cos = Math.cos(p.rot) * S;
+      var sin = Math.sin(p.rot) * S;
+      var radius = p.size * 3.2;
+      alpha(ctx, p.life);
+      ctx.setTransform(cos, sin, -sin, cos, S * p.x, S * p.y);
+      ctx.drawImage(sprite, -radius, -radius, radius * 2, radius * 2);
+      tDirty = true;
+    }
+
+    /* Гирлянда зимней сцены: точка дуги при t (0 — первая лампочка, 1 —
+       последняя; за пределами — продолжение дуги к краям слоя). Лампочки и
+       провод берут её обе, поэтому провод проходит ровно через лампочки, и
+       при низком слое (потолок 0.28 высоты) тоже. */
     function garlandAt(t, w, h) {
       var sag = 4 * t * (1 - t);
       return [w * (0.04 + 0.92 * t), Math.min(h * 0.28, 60 + 32 * sag)];
@@ -997,7 +1062,7 @@
         /* Раунд holB: праздничная сцена Нового года — см. halloween. */
         festive: true,
         keep: true,
-        spawn: function (i, w, h, rnd, cold) {
+        spawn: function (i, w, h, rnd, cold, still) {
           var p;
           if (i < 6) {
             p = particle(
@@ -1038,7 +1103,13 @@
           var x = Math.max(rand(rnd, 0, w), rand(rnd, 0, w));
           var y = Math.min(rand(rnd, 0, h), rand(rnd, 0, h));
           var size = plane === 0 ? rand(rnd, 1, 1.4) : (plane === 1 ? rand(rnd, 2.4, 3.8) : rand(rnd, 9, 15));
-          if (plane === 1 && x < w * 0.5) y = Math.min(y, Math.max(0, h * 0.4 - size * 2.3));
+          var crystal = plane === 1 && i < 44 ? i - 37 : 0;
+          if (crystal && still) {
+            x = w * 0.53 + x * 0.42;
+            y = Math.min(y, h * 0.48);
+          } else if (plane === 1 && x < w * 0.5) {
+            y = Math.min(y, Math.max(0, h * 0.4 - size * 2.3));
+          }
           if (plane === 2) {
             /* Ближний план отступает от лампочек и правого верхнего декора. */
             y = Math.max(y, Math.min(h * 0.72, 172));
@@ -1055,24 +1126,33 @@
             0,
             plane
           );
-          p.phase = rand(rnd, 0, TWO_PI);
-          p.freq = rand(rnd, 0.0007, 0.0016);
-          p.amp = plane === 2 ? rand(rnd, 0.01, 0.024) : rand(rnd, 0.004, 0.014);
+          /* Три значения зерна, как до общего ветра: глубина и точки
+             анимированной композиции сохраняются при смене модели ветра. */
+          var angle = rand(rnd, 0, TWO_PI);
+          var period = rand(rnd, 20000, 40000);
+          var drift = rand(rnd, 0, 0.06);
+          p.wind = (plane === 0 ? 0.3 : (plane === 1 ? 0.7 : 0.95)) + drift;
+          if (crystal) {
+            p.crystal = crystal;
+            p.rot = angle;
+            p.turn = TWO_PI / period;
+          }
           return p;
         },
-        step: function (p, dt) {
-          p.phase += dt * p.freq;
-          if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
-          if (p.kind === 4) return;
-          if (p.kind === 3) {
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            return;
+        step: function (p, dt, w, h, wind, crystalLimit) {
+          if (p.kind >= 3) {
+            p.phase += dt * p.freq;
+            if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
+            if (p.kind === 4) return;
           }
-          p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
+          p.x += (p.vx + (wind || 0) * (p.wind || 0)) * dt;
           p.y += p.vy * dt;
+          if (crystalLimit && p.crystal && p.crystal <= crystalLimit) {
+            p.rot += p.turn * dt;
+            if (p.rot >= TWO_PI) p.rot -= TWO_PI;
+          }
         },
-        draw: function (ctx, p, w, h, color, s, still) {
+        draw: function (ctx, p, w, h, color, s, still, inst) {
           if (p.kind === 3) {
             if (s) glow(ctx, s.bokeh[p.rot], s.S, p.x, p.y, p.size, p.size, p.life * (0.6 + 0.4 * Math.sin(p.phase)));
             return;
@@ -1094,6 +1174,15 @@
           if (!s) {
             dot(ctx, p, color, p.kind === 2 ? p.life * 0.5 : p.life);
             return;
+          }
+          if (p.crystal && inst && inst.pictureBulbs && p.crystal <= snowLimit(still, inst.snowCold) &&
+              typeof ctx.drawImage === 'function') {
+            if (snowSprites === null) requestSnowSprites();
+            if (snowSprites.length) {
+              var cell = inst.snowCold ? SNOW_PLATE : (p.crystal - 1) % snowSprites.length;
+              drawCrystal(ctx, p, s.S, snowSprites[cell]);
+              return;
+            }
           }
           if (p.kind === 2) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litBlur : s.blur, s.S, p.x, p.y, p.size * 1.15, p.size * 1.15, p.life);
           else if (p.kind === 1) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litFlake : s.flake, s.S, p.x, p.y, p.size * 2.3, p.size * 2.3, p.life);
@@ -1212,7 +1301,7 @@
 
     /* n частиц пресета в границах слоя. Больше MAX не отдаём никогда — это
        и есть бюджет слабого ТВ (план фазы 3, «Риски»). */
-    function spawn(name, w, h, n, rnd) {
+    function spawn(name, w, h, n, rnd, still) {
       var preset = typeof name === 'string' ? presets[name] : name;
       if (!preset || !(w > 0) || !(h > 0)) return [];
       var count = typeof n === 'number' ? n : preset.count;
@@ -1224,7 +1313,7 @@
       if (cold) count = Math.min(count, 54);
       var out = [];
       for (var i = 0; i < count; i++) {
-        var p = preset.spawn(i, w, h, random, cold);
+        var p = preset.spawn(i, w, h, random, cold, still);
         p.preset = id;
         out.push(p);
       }
@@ -1235,13 +1324,17 @@
        поэтому один общий цикл обслуживает сколько угодно слоёв с разными
        атмосферами. Нулевой и отрицательный dt не двигают ничего: это не
        кадр, а сбитые часы. */
-    function step(list, dt, w, h) {
+    function step(list, dt, w, h, elapsed) {
       if (!list || !list.length || !(dt > 0)) return list;
+      var wind;
       for (var i = 0; i < list.length; i++) {
         var p = list[i];
         var preset = presets[p.preset];
         if (!preset) continue;
-        preset.step(p, dt, w, h);
+        if (p.preset === 'winter' && typeof wind !== 'number') {
+          wind = snowWind((typeof elapsed === 'number' ? elapsed : dt) % 24000, flatLook());
+        }
+        preset.step(p, dt, w, h, wind);
         wrap(p, w, h);
       }
       return list;
@@ -1570,14 +1663,21 @@
       /* Статичный кадр — седьмым аргументом draw: зимней сцене он велит
          зажечь лампочки ровно (шаг 3 нового года), прочим не нужен. */
       var still = !!inst.still;
+      var wind = 0;
+      var crystalLimit = 0;
+      if (moving && inst.name === 'winter') {
+        inst.snowTime = (inst.snowTime + dt) % 24000;
+        wind = snowWind(inst.snowTime, inst.snowCold);
+        if (inst.pictureBulbs && snowSprites && snowSprites.length) crystalLimit = snowLimit(false, inst.snowCold);
+      }
       for (var i = 0; i < list.length; i++) {
         var p = list[i];
         if (moving) {
-          preset.step(p, dt, w, h);
+          preset.step(p, dt, w, h, wind, crystalLimit);
           wrap(p, w, h);
         }
         fadeK = zone ? shade(zone, p.x, p.y) : 1;
-        preset.draw(ctx, p, w, h, color, sprites, still);
+        preset.draw(ctx, p, w, h, color, sprites, still, inst);
       }
       fadeK = 1;
       /* Кадр кончается в базовом преобразовании: clearRect следующего
@@ -1767,7 +1867,7 @@
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
       /* Раунд holB: частицы сцены keep — следующему монтажу (CARRY_MS). */
-      if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles, still: inst.still, snowCold: inst.snowCold };
+      if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles, still: inst.still, snowCold: inst.snowCold, snowTime: inst.snowTime };
       /* Набор спрайтов, уже вытесненный из кэша, этот слой рисовал
          последним — снимки закрываются (closeSprites). */
       if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
@@ -1899,6 +1999,7 @@
         if (preset.keep && carry && carry.name === name && Math.abs(carry.w - lw) < 1 && Math.abs(carry.h - lh) < 1 &&
             (name !== 'winter' || (carry.still === still && carry.snowCold === snowCold)) &&
             nowMs() - carry.at < CARRY_MS) kept = carry.particles;
+        var snowTime = kept ? carry.snowTime : 0;
         if (preset.keep) carry = null;
 
         var inst = {
@@ -1916,12 +2017,13 @@
           leaving: 0,
           still: still,
           snowCold: snowCold,
+          snowTime: snowTime,
           stillDone: false,
           color: color,
           safe: safeZone(opts.safe, lw, lh),
           sprites: spritesFor(name, color, ratio * unit),
           paused: typeof opts.paused === 'function' ? opts.paused : null,
-          particles: kept || spawn(name, lw, lh, opts.count, name === 'winter' && still ? winterRandom() : Math.random)
+          particles: kept || spawn(name, lw, lh, opts.count, name === 'winter' && still ? winterRandom() : Math.random, still)
         };
         /* Доступ к частицам из живой проверки и тестов — функцией, чтобы
            снаружи нельзя было подменить сам массив под циклом. */
@@ -1946,7 +2048,8 @@
       var snowChanged = snowCold !== inst.snowCold;
       if (inst.name === 'winter' && (still !== inst.still || snowChanged)) {
         inst.snowCold = snowCold;
-        inst.particles = spawn(inst.name, inst.w, inst.h, opts.count, still ? winterRandom() : Math.random);
+        inst.snowTime = 0;
+        inst.particles = spawn(inst.name, inst.w, inst.h, opts.count, still ? winterRandom() : Math.random, still);
       }
       if (still !== inst.still) { inst.still = still; inst.stillDone = false; }
       inst.paused = typeof opts.paused === 'function' ? opts.paused : null;

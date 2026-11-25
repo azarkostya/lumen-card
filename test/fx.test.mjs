@@ -913,6 +913,102 @@ test('зима: тёплый и холодный отсвет берутся т�
   }
 });
 
+test('зима: площадь листа и бюджет кристаллов с картинкой гирлянды', () => {
+  richEnv(({ all, doc }) => {
+    const requests = [];
+    window.Image = class {
+      set src(url) { requests.push({ url, image: this }); }
+    };
+    const paths = [];
+    const fx = freshFx({ assetUrl(path) { paths.push(path); return 'beta/' + path; } });
+    const winter = fx.presets.winter;
+    const warm = fx.spawn('winter', 960, 540, undefined, seeded(39));
+    const cold = { pictureBulbs: true, snowCold: true };
+    const picture = { pictureBulbs: true, snowCold: false };
+    const sprites = winter.sprites('#FFFFFF', 1);
+    const ctx = doc.createElement('canvas').getContext('2d');
+    function draw(still, scene) {
+      ctx.calls.length = 0;
+      ctx.log.length = 0;
+      ctx.banned.length = 0;
+      for (const p of warm) {
+        if (scene?.pictureBulbs && p.kind === 4) continue; // render пропускает лампы при картинке
+        winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, still, scene);
+      }
+      assert.deepEqual(ctx.banned, []);
+      assert.equal(ctx.calls.includes('createRadialGradient'), false);
+      const images = ctx.log.filter(([op]) => op === 'drawImage');
+      if (!still) {
+        const operations = ctx.calls.filter((op) => op === 'arc').length * 3 +
+          ctx.calls.filter((op) => op === 'fillRect').length * 8 + images.length * 27;
+        assert.ok(operations <= 340, 'расчётный потолок 340 мкс по ценам из стенда');
+      }
+      return images;
+    }
+    assert.equal(draw(false, null).length, 0);
+    assert.equal(requests.length, 0, 'полный fallback не загружает лист');
+    assert.equal(draw(false, picture).length, 0, 'до загрузки остаются обычные хлопья');
+    assert.deepEqual(paths, ['assets/newyear/v1/snowflakes.webp']);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, 'beta/assets/newyear/v1/snowflakes.webp');
+    const image = requests[0].image;
+    Object.assign(image, { naturalWidth: 256, naturalHeight: 64 });
+    image.onload();
+    const crops = all.filter((c) => c !== ctx).flatMap((c) => c.log.filter(([op, src]) => op === 'drawImage' && src === image));
+    assert.deepEqual(crops.map(([, , x, y, w, h]) => [x, y, w, h]), [[0, 0, 64, 64], [64, 0, 64, 64], [128, 0, 64, 64], [192, 0, 64, 64]]);
+    const full = draw(false, picture);
+    assert.equal(full.length, 3);
+    const staticCrystals = draw(true, picture);
+    assert.equal(staticCrystals.length, 6);
+    assert.equal(new Set(staticCrystals.map(([, image]) => image)).size, 4);
+    const apple = draw(false, cold);
+    assert.equal(apple.length, 2);
+    assert.ok(apple.every(([, image]) => image === full[2][1]), 'в Apple TV только пластинка с третьей ячейки');
+    assert.equal(draw(true, cold).length, 3);
+    assert.equal(draw(true, null).length, 0, 'кешированный лист не меняет fallback');
+    assert.equal(requests.length, 1);
+  });
+});
+
+test('зима: ошибка WebP оставляет градиенты и один запрос на лист', () => {
+  richEnv(({ doc }) => {
+    const requests = [];
+    window.Image = class { set src(url) { requests.push({ url, image: this }); } };
+    const fx = freshFx();
+    const winter = fx.presets.winter;
+    const sprites = winter.sprites('#FFFFFF', 1);
+    const p = fx.spawn('winter', 960, 540, undefined, seeded(6)).find((f) => f.kind === 1);
+    const ctx = doc.createElement('canvas').getContext('2d');
+    const scene = { pictureBulbs: true, snowCold: false };
+    winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, false, scene);
+    assert.equal(requests.length, 1);
+    requests[0].image.onerror();
+    winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, false, scene);
+    assert.equal(requests.length, 1);
+    assert.equal(ctx.calls.filter((op) => op === 'fillRect').length, 2);
+    assert.equal(ctx.calls.includes('drawImage'), false);
+  });
+});
+
+test('зима: общий ветер меняет x во всех планах, угол растёт только у выбранных кристаллов', () => {
+  const winter = FX.presets.winter;
+  const list = FX.spawn('winter', 960, 540, undefined, seeded(8));
+  const planes = [0, 1, 2].map((kind) => list.find((p) => p.kind === kind));
+  const initial = planes.map((p) => ({ ...p }));
+  for (const p of planes) winter.step(p, 80, 960, 540, 0.02, 4);
+  const drift = planes.map((p, i) => {
+    assert.equal(p.y, initial[i].y + p.vy * 80);
+    return p.x - initial[i].x - p.vx * 80;
+  });
+  assert.ok(drift[0] > 0 && drift[0] < drift[1] && drift[0] < drift[2]);
+  assert.equal(planes[0].rot, initial[0].rot);
+  assert.equal(planes[2].rot, initial[2].rot);
+  assert.ok(planes[1].rot > initial[1].rot);
+  const fallback = { ...initial[1] };
+  winter.step(fallback, 80, 960, 540, 0.02, 0);
+  assert.equal(fallback.rot, initial[1].rot);
+});
+
 function docGradientStops(doc) {
   const create = doc.createElement;
   doc.createElement = (tag) => {
