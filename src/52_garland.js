@@ -11,10 +11,14 @@
       return LC.assetUrl(ROOT);
     }
 
+    function staticOn() {
+      return LC.pref('lumen_fx_garland_static', false);
+    }
+
     function allowed() {
       if (!LC.enabled() || LC.pref('lumen_fx', 'seasonal') === 'off') return false;
       var theme = LC.themes.forHome();
-      return !!theme && theme.id === 'newyear' && LC.motionMode() !== 'off';
+      return !!theme && theme.id === 'newyear' && (LC.motionMode() !== 'off' || staticOn());
     }
 
     function nodeOf(host) {
@@ -111,11 +115,12 @@
       if (!host || !preload()) return;
       if (view && view.host === host) {
         if (view.node) setBulbs(host, true);
-        return;
+        return true;
       }
       unmount();
       view = { host: host, node: null };
       paint();
+      return true;
     }
 
     function unmount(layer) {
@@ -132,5 +137,5 @@
       discard();
     }
 
-    return { base: base, allowed: allowed, preload: preload, ready: ready, mount: mount, unmount: unmount, release: release };
+    return { base: base, allowed: allowed, staticOn: staticOn, preload: preload, ready: ready, mount: mount, unmount: unmount, release: release };
   }());

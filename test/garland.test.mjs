@@ -104,3 +104,20 @@ test('Сетевая ошибка или таймаут оставляют ка�
     assert.equal(f.flags.some(([, on]) => on), false);
   }
 });
+
+test('При выключенных анимациях нужна явная настройка статичной гирлянды', () => {
+  const f = fixture();
+  f.settings.mode = 'off';
+  assert.equal(f.garland.allowed(), false);
+  f.garland.mount(f.host);
+  assert.equal(f.requests.length, 0);
+  f.settings.lumen_fx_garland_static = true;
+  assert.equal(f.garland.allowed(), true);
+  f.garland.mount(f.host);
+  f.finish(0);
+  f.finish(1);
+  assert.ok(f.host.firstChild);
+  f.settings.lumen_fx = 'off';
+  f.garland.preload();
+  assert.equal(f.host.firstChild, null);
+});

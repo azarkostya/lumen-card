@@ -1968,7 +1968,7 @@
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
     function applyFx(force, box) {
-      if (!state) return;
+      if (!state || state.parked) return;
       if (!LC.fx) { clearFx(); return; }
       var theme = null;
       if (benchPreset) {
@@ -1983,7 +1983,8 @@
       var key = theme && theme.holiday ? fxKeyOf(theme) : null;
       if (!force && key && state.fxKey === key) {
         var live = fxHost();
-        if (live && fxLive(live, theme.preset)) {
+        if (live && (fxLive(live, theme.preset) ||
+          (theme.id === 'newyear' && LC.garland && LC.motionMode() === 'off'))) {
           if (theme.id === 'newyear' && LC.garland) LC.garland.mount(live);
           return;
         }
@@ -2045,11 +2046,9 @@
               Date.now() - state.focusAt < FX_CALM_MS));
           }
         });
-        /* Отметка — только когда сцена праздника действительно встала:
-           LC.fx.mount отдаёт null в «Выкл» анимаций, и тогда следующий вызов
-           попробует снова (как и прежде, без канваса и цикла). */
-        if (theme.id === 'newyear' && LC.garland) LC.garland.mount(host);
-        if (made && key) state.fxKey = key;
+        /* В режиме «Выкл» картинка может работать самостоятельно. */
+        var picture = theme.id === 'newyear' && LC.garland && LC.garland.mount(host);
+        if ((made || picture) && key) state.fxKey = key;
       } catch (e3) {
         warn('hero: fx mount failed', e3);
       }

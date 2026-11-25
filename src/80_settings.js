@@ -175,6 +175,14 @@
        прежние «Все» и «Только сезонные» различались лишь сценой
        праздничного фильма вне праздника. Даты — окна праздников
        (forMovie, src/53_themes.js). */
+    lumen_fx_garland_static_name: { ru: 'Гирлянда без анимаций', en: 'Garland without animations', uk: 'Гірлянда без анімацій' },
+    lumen_fx_garland_static_descr: {
+      ru: 'Показывать неподвижную гирлянду, когда анимации выключены.',
+      en: 'Show a still garland when animations are off.',
+      uk: 'Показувати нерухому гірлянду, коли анімації вимкнено.'
+    },
+    lumen_idle_garland_fx_off: { ru: 'праздничные эффекты выключены', en: 'holiday effects are off', uk: 'святкові ефекти вимкнено' },
+    lumen_idle_garland_motion: { ru: 'анимации включены', en: 'animations are on', uk: 'анімації увімкнено' },
     lumen_fx_name: { ru: 'Праздничные эффекты', en: 'Holiday effects', uk: 'Святкові ефекти' },
     lumen_fx_descr: {
       ru: 'Новый год (1 декабря — 7 января): снег и гирлянда; неделя до Хэллоуина: угли и мыши.',
@@ -1727,7 +1735,7 @@
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным
        того, что открыто сейчас. */
-    if (name === 'lumen_fx') {
+    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static') {
       try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
       return true;
     }
