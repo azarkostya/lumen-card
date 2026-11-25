@@ -71,48 +71,31 @@
          где был; без задника полосу закрывает тень фона темы над
          активностью (box-shadow в раскладку не входит). */
       r.push('body.lumen-torrents-on .activity.lumen-torrents{background-color:' + P.bg + ';-webkit-box-shadow:0 -4em 0 0 ' + P.bg + ';box-shadow:0 -4em 0 0 ' + P.bg + '}');
-      r.push(s(['.lumen-tframe']) + '{position:absolute;top:-4em;left:0;right:0;height:20.66em;overflow:hidden;pointer-events:none;z-index:0}');
+      r.push(s(['.lumen-tframe']) + '{position:absolute;top:-4em;left:0;right:0;height:17.7em;overflow:hidden;pointer-events:none;z-index:0}');
       r.push(s(['.lumen-tframe__img']) + '{position:absolute;top:0;left:0;right:0;bottom:0;background-position:50% 30%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.55}');
       r.push(s(['.lumen-tframe::after']) + '{content:"";position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 45%,rgba(' + P.bgRgb + ',.3) 100%),linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',0) 55%)}');
       r.push(s(['.explorer']) + '{position:relative;z-index:1;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}');
 
-      /* Компактная шапка фильма: постер и описание скрыты, левая колонка
-         становится строкой над фильтрами — название, мета, «16+». Узлы
-         Lampa разложены по двум контейнерам (head-body и body), поэтому
-         оба — display:contents, а порядок задаёт order. */
+      /* Одна строка над фильтрами: название сжимается, мета сохраняет
+         ширину. Контейнеры Lampa прозрачно включают узлы в общий flex. */
       r.push(s(['.explorer__left']) + '{width:auto;-webkit-flex-shrink:0;flex-shrink:0}');
       r.push(s(['.explorer__left .scroll', '.explorer__left .scroll__content', '.explorer__left .scroll__body']) + '{height:auto !important;overflow:visible;-webkit-transform:none !important;transform:none !important}');
       r.push(s(['.explorer__card']) + '{padding:.7em 3.507em 0 3.507em}');
-      r.push(s(['.explorer-card']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;line-height:1.3}');
+      r.push(s(['.explorer-card']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:nowrap;flex-wrap:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;line-height:1.3}');
       r.push(s(['.explorer-card__head', '.explorer-card__head-body', '.explorer-card__body']) + '{display:contents}');
-      r.push(s(['.explorer-card__head-left', '.explorer-card__descr']) + '{display:none !important}');
-      r.push(s(['.explorer-card__title']) + '{-webkit-box-ordinal-group:1;-webkit-order:0;order:0;width:100%;margin:0 0 .25em;font-family:' + (k.fontBody || 'inherit') + ';font-size:2.455em;font-weight:700;line-height:1.1;color:' + P.text + (A ? ';letter-spacing:-.02em' : '') + '}');
-      r.push(s(['.explorer-card__title.small']) + '{font-size:1.9em}');
-      var meta = ['.explorer-card__head-create', '.explorer-card__genres', '.explorer-card__head-rate'];
-      r.push(s(meta) + '{margin:0;padding:0;font-family:' + (k.fontBody || 'inherit') + ';font-size:1.14em;font-weight:500;line-height:1.3;color:' + SOFT + ';letter-spacing:0}');
-      r.push(s(['.explorer-card__genres:empty']) + '{display:none}');
+      r.push(s(['.explorer-card__head-left', '.explorer-card__descr', '.explorer-card__genres']) + '{display:none !important}');
+      r.push(s(['.explorer-card__title']) + '{-webkit-box-ordinal-group:1;-webkit-order:0;order:0;-webkit-flex:0 1 auto;flex:0 1 auto;width:auto;min-width:0;margin:0 .55em 0 0;font-family:' + (k.fontBody || 'inherit') + ';font-size:1.67em;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + (A ? ';letter-spacing:-.02em' : '') + '}');
+      r.push(s(['.explorer-card__title.small']) + '{font-size:1.67em}');
+      var meta = ['.explorer-card__head-create', '.explorer-card__head-rate'];
+      r.push(s(meta) + '{-webkit-flex-shrink:0;flex-shrink:0;margin:0;padding:0;font-family:' + (k.fontBody || 'inherit') + ';font-size:1.14em;font-weight:500;line-height:1.3;white-space:nowrap;color:' + SOFT + ';letter-spacing:0}');
+      r.push(s(['.explorer-card__head-create > .lumen-torrent-country']) + '{display:none}');
+      r.push(s(['.explorer-card__head-create']) + '{-webkit-order:1;order:1}');
+      r.push(s(['.explorer-card__head-rate']) + '{-webkit-order:2;order:2}');
       r.push(s(['.explorer-card__head-rate > span']) + '{font-size:1em;font-weight:500;color:inherit}');
       r.push(s(['.explorer-card__head-rate > svg']) + '{display:none !important}');
-      /* Звезда рейтинга — символ, а не маска: одним цветом с метой. */
       r.push(s(['.explorer-card__head-rate:before']) + '{content:"\\2605";display:inline;width:auto;height:auto;margin:0 .3em 0 0;background:none !important;-webkit-mask-image:none !important;mask-image:none !important}');
-      /* Плашка «16+» — после меты, с отступом .5em, а не поверх рейтинга. */
-      r.push(s(['.explorer-card__head-age']) + '{margin:0 0 0 .5em;padding:0 .4em;border:.066em solid ' + MUTED + ';border-radius:.3em;font-size:1.008em;font-weight:600;line-height:1.4;color:' + SOFT + '}');
-      if (A) {
-        /* Apple TV (39-A): «Драма · Триллер · 2022 · 1 сезон  16+  ★ 7.9». */
-        r.push(s(['.explorer-card__genres']) + '{-webkit-order:1;order:1}');
-        r.push(s(['.explorer-card__head-create']) + '{-webkit-order:2;order:2}');
-        r.push(s(['.explorer-card__head-create:before']) + '{content:"\\00B7";margin:0 .45em}');
-        r.push(s(['.explorer-card__head-age']) + '{-webkit-order:3;order:3;margin:0 .45em 0 .55em}');
-        r.push(s(['.explorer-card__head-rate']) + '{-webkit-order:4;order:4;margin-left:.2em}');
-      } else {
-        /* Lumen (39-L): «2022 · Великобритания · Драма, Триллер · ★ 7.9  16+». */
-        r.push(s(['.explorer-card__head-create']) + '{-webkit-order:1;order:1}');
-        r.push(s(['.explorer-card__genres']) + '{-webkit-order:2;order:2}');
-        r.push(s(['.explorer-card__genres:before']) + '{content:"\\00B7";margin:0 .45em}');
-        r.push(s(['.explorer-card__head-rate']) + '{-webkit-order:3;order:3}');
-        r.push(s(['.explorer-card__head-rate:before']) + '{content:"\\00B7\\00a0\\00a0\\2605";margin-left:.45em}');
-        r.push(s(['.explorer-card__head-age']) + '{-webkit-order:4;order:4}');
-      }
+      r.push(s(['.explorer-card__head-create:not(.hide) + .explorer-card__head-rate:before']) + '{content:"\\00B7\\00a0\\00a0\\2605";margin-left:.45em}');
+      r.push(s(['.explorer-card__head-age']) + '{-webkit-order:3;order:3;-webkit-flex-shrink:0;flex-shrink:0;margin:0 0 0 .5em;padding:0 .4em;border:.066em solid ' + MUTED + ';border-radius:.3em;font-size:1.008em;font-weight:600;line-height:1.4;color:' + SOFT + '}');
 
       /* Фильтры — чипы: 52 px, капсула, подложка, подпись тише значения. */
       r.push(s(['.explorer__files']) + '{width:auto;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 0%;flex:1 1 0%}');

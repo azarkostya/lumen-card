@@ -568,7 +568,7 @@
       var root = object.activity.render();
       if (root && root.length && typeof root.addClass === 'function') root.addClass(MARK);
       if (root && root.length && typeof root.find === 'function') {
-        dotMeta(root.find('.explorer-card__head-create')[0]);
+        splitHeaderYear(root.find('.explorer-card__head-create')[0]);
         frame(root, object.movie || object.card);
       }
     }
@@ -596,12 +596,18 @@
       }
     }
 
-    /* v2 «Единый стиль», экран 39: «2012 · США» вместо «2012 - США» — строку
-       год/страна Lampa пишет сама (Explorer.movie, text()), правим текст. */
-    function dotMeta(node) {
-      if (!node || typeof node.textContent !== 'string') return;
-      var t = node.textContent;
-      if (t.indexOf(' - ') >= 0) node.textContent = t.split(' - ').join(' \u00B7 ');
+    /* Explorer пишет год и страну одним текстовым узлом. Оборачиваем
+       страну, чтобы компактная шапка могла скрыть её своим CSS, а при
+       выключении оформления Lampa показывала исходный текст. */
+    function splitHeaderYear(node) {
+      if (!node || typeof node.textContent !== 'string' || node.querySelector('.lumen-torrent-country')) return;
+      var parts = /^(\d{4})( - .+)$/.exec(node.textContent);
+      if (!parts) return;
+      var country = document.createElement('span');
+      country.className = 'lumen-torrent-country';
+      country.textContent = parts[2];
+      node.textContent = parts[1];
+      node.appendChild(country);
     }
 
     /* v2, экран 39: важная часть названия раздачи выделена. Правило макета —
