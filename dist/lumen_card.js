@@ -3720,13 +3720,13 @@ r.push(s([row+' + .torrent-item'])+'{margin-top:.526em}');
 }
 r.push(s([row+'.focus'])+'{background-color:'+FILL+IMP+';color:'+ON+IMP+';border-color:transparent;padding:.75em '+(A?'1.052em':'1.227em')+';-webkit-box-shadow:none'+IMP+';box-shadow:none'+IMP+'}');
 r.push(s([row+'.focus::after'])+'{display:none}');
-r.push(s([row+' .torrent-item__title'])+'{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.008em;font-weight:500;line-height:1.35;color:'+P.text+';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+r.push(s([row+' .torrent-item__title'])+'{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.12em;font-weight:500;line-height:1.35;color:'+P.text+';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
 r.push(s([row+' .lumen-tt-a'])+'{color:'+SOFT+'}');
 r.push(s([row+' .lumen-tt-b'])+'{font-weight:700;color:'+P.text+'}');
 r.push(s([row+'.focus .torrent-item__title',row+'.focus .lumen-tt-b'])+'{color:'+ON+'}');
 r.push(s([row+'.focus .lumen-tt-a'])+'{color:'+ON_SUB+'}');
 r.push(s([row+' .torrent-item__ffprobe'])+'{grid-column:1;grid-row:2;-ms-grid-column:1;-ms-grid-row:2;padding:.3em 1.052em 0 0;min-width:0}');
-r.push(s([row+' .torrent-item__ffprobe > div'])+'{margin:.2em .3em 0 0;font-size:.877em;color:'+SOFT+';border-color:'+LINE+'}');
+r.push(s([row+' .torrent-item__ffprobe > div'])+'{margin:.2em .3em 0 0;font-size:1em;letter-spacing:0;color:'+SOFT+';border-color:'+LINE+'}');
 r.push(s([row+'.focus .torrent-item__ffprobe > div'])+'{color:'+ON_SUB+';border-color:'+ON_SUB+'}');
 r.push(s([row+'.focus .torrent-item__ffprobe > div::before'])+'{-webkit-filter:invert(1);filter:invert(1)}');
 r.push(s([row+' .torrent-item__ffprobe'])+'{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -7519,11 +7519,13 @@ for(var i=0;i<items.length;i++){
 var card=items[i];
 if(!card)continue;
 if(isSeries(card)){out.push(card);continue;}
-var percent=Number(percentOf(card));
-if(percent>=CONTINUE_DONE)continue;
+if(isDone(percentOf(card)))continue;
 out.push(card);
 }
 return out;
+}
+function isDone(percent){
+return Number(percent)>=CONTINUE_DONE;
 }
 var HIDDEN_KEY='lumen_cw_hidden';
 var HIDDEN_MAX=100;
@@ -7732,6 +7734,63 @@ var key=card.original_title||card.title||'';
 if(!key)return 0;
 var view=Lampa.Timeline.view(Lampa.Utils.hash(key));
 return view?Number(view.updated)||0:0;
+}catch(e){
+return 0;
+}
+}
+var FINISHED_DEBOUNCE=300;
+var _finishedTimer=null;
+function pickFinished(nodes,percentOf){
+var out=[];
+if(!nodes||typeof percentOf!=='function')return out;
+for(var i=0;i<nodes.length;i++){
+var el=nodes[i];
+var card=el&&el.card_data;
+if(!card||!card.lumen_continue)continue;
+if(el.style&&el.style.display==='none')continue;
+if(!dropFinished([card],percentOf).length)out.push(el);
+}
+return out;
+}
+function sweepFinished(root){
+if(_finishedTimer){clearTimeout(_finishedTimer);_finishedTimer=null;}
+var n=0;
+try{
+var remove=LC.cardmenu&&LC.cardmenu.removeFromRow;
+if(typeof remove!=='function')return 0;
+if(!root)root=typeof document!=='undefined'?document:null;
+if(!root||typeof root.querySelectorAll!=='function')return 0;
+var els=pickFinished(root.querySelectorAll('.card'),watchedPercent);
+for(var i=0;i<els.length;i++)if(remove(els[i],{background:true}))n++;
+}catch(e){}
+return n;
+}
+function activeSlide(){
+try{
+var A=window.Lampa&&Lampa.Activity;
+var act=A&&typeof A.active==='function'?A.active():null;
+var slide=act&&act.activity&&typeof act.activity.render==='function'?act.activity.render(true):null;
+return slide&&typeof slide.querySelectorAll==='function'?slide:null;
+}catch(e){
+return null;
+}
+}
+function onFinished(data){
+try{
+var road=data&&data.road;
+if(!road||!isDone(road.percent))return;
+if(_finishedTimer)return;
+_finishedTimer=setTimeout(function(){
+var slide=activeSlide();
+if(slide)sweepFinished(slide);
+else{_finishedTimer=null;}
+},FINISHED_DEBOUNCE);
+}catch(e){}
+}
+function onMainStart(object){
+try{
+var slide=object&&object.activity&&typeof object.activity.render==='function'?object.activity.render(true):null;
+return sweepFinished(slide&&typeof slide.querySelectorAll==='function'?slide:null);
 }catch(e){
 return 0;
 }
@@ -8098,6 +8157,10 @@ hiddenKey:hiddenKey,
 dropHidden:dropHidden,
 hideContinue:hideContinue,
 onTimeline:onTimeline,
+pickFinished:pickFinished,
+onFinished:onFinished,
+onMainStart:onMainStart,
+sweepFinished:sweepFinished,
 bumpGen:bumpGen,
 describe:describe
 };
@@ -23534,8 +23597,27 @@ noty(removeFromRow(el)?'lumen_menu_cw_hidden':'lumen_menu_cw_hidden_later');
 warn('cardmenu: continue hide failed',e);
 }
 }
-function removeFromRow(el){
+function onActiveScreen(el){
 try{
+var A=window.Lampa&&Lampa.Activity;
+var act=A&&typeof A.active==='function'?A.active():null;
+var slide=act&&act.activity&&typeof act.activity.render==='function'?act.activity.render(true):null;
+return!!(slide&&typeof slide.contains==='function'&&slide.contains(el));
+}catch(e){
+return false;
+}
+}
+function navFocused(){
+try{
+var nav=window.Navigator;
+return nav&&typeof nav.getFocusedElement==='function'?nav.getFocusedElement():null;
+}catch(e){
+return null;
+}
+}
+function removeFromRow(el,opts){
+try{
+var background=!!(opts&&opts.background);
 var row=el&&el.parentNode;
 if(!row||!row.children)return false;
 if(typeof document!=='undefined'&&document.body&&typeof document.body.contains==='function'&&!document.body.contains(el))return false;
@@ -23552,6 +23634,7 @@ if(seen){if(!next)next=c;}else prev=c;
 var target=next||prev;
 if(!target)return false;
 var focused=el.classList.contains('focus');
+var navEl=background?navFocused():null;
 el.classList.remove('selector');
 el.classList.remove('focus');
 el.style.display='none';
@@ -23559,9 +23642,11 @@ try{row.appendChild(el);}catch(e2){}
 var C=window.Lampa&&Lampa.Controller;
 var en=null;
 try{en=C&&typeof C.enabled==='function'?C.enabled():null;}catch(e3){}
-if(C&&en&&en.name==='items_line'&&typeof C.collectionSet==='function'&&window.$){
+if(C&&en&&en.name==='items_line'&&onActiveScreen(el)&&typeof C.collectionSet==='function'&&window.$){
 var $box=$(el).closest('.scroll');
-if($box&&$box.length){
+var boxEl=$box&&$box.length?$box[0]:null;
+var inRow=!background||focused||!!(boxEl&&navEl&&typeof boxEl.contains==='function'&&boxEl.contains(navEl));
+if(boxEl&&inRow){
 C.collectionSet($box);
 if(focused&&typeof C.collectionFocus==='function')C.collectionFocus(target,$box);
 }
@@ -31318,8 +31403,8 @@ ru:[
 'Слабые ТВ: праздники в «Лёгких» — картинкой, в герое по умолчанию только кадры, кадры до 1280, в слайдшоу карточки два кадра, трейлер в «Авто» выключен.',
 'Карточка открывается и закрывается быстрее: цвет фильма перекрашивает только свою часть оформления, а метки и ряды главной не работают впустую.',
 'На карточке: IMDb и КП под названием, у сериала «просмотрено 5 из 12», «Коллекция» и «Рекомендации» — постерами главной, без дубля штатной «Коллекции».',
-'Удержание OK в «Досмотреть» — «Убрать из «Досмотреть»». История не трогается; начнёте смотреть снова — карточка вернётся сама.',
-'Раздачи: метки 4K, 1080p, HDR, DV, «Дубляж» и «Нет русской дорожки» прямо в строке раздачи.',
+'Досмотренный фильм уходит из «Досмотреть» сразу, как Lampa получит таймкод. Удержание OK — «Убрать из «Досмотреть»», история не трогается.',
+'Раздачи: метки 4K, 1080p, HDR, DV, «Дубляж» и «Нет русской дорожки» прямо в строке раздачи; названия и метки крупнее.',
 'Настройки короче: 13 пунктов на главном экране, разделы «Цвет и вид», «Слабый телевизор» и «TorrServer»; что сейчас не действует — помечено.',
 'Без ключа КП карточка о нём не напоминает, пустой поиск подсказывает раскладку, не загрузилась половина подборок — плагин скажет. Поправлены наезды.',
 'По желанию: фокус на следующей серии — Lumen Card → TorrServer…; скрыть Shots, лишние значки шапки и повтор «Что нового» — Дополнительно… → Пульт и окна.'
@@ -31328,8 +31413,8 @@ en:[
 'Weak TVs: holiday effects in "Light" are a still picture, the hero shows frames by default, frames up to 1280, two card slideshow frames, "Auto" trailer off.',
 'Cards open and close faster: the film colour repaints only its own part of the styles, and home badges and rows do no idle work.',
 'On the card: IMDb and KP under the title, "watched 5 of 12" for series, "Collection" and "Recommendations" look like home posters, no duplicate Collection.',
-'Hold OK in "Continue watching" — "Remove from Continue watching". History is kept; start watching again and the card comes back.',
-'Torrents: 4K, 1080p, HDR, DV, "Dub" and "No Russian track" tags right in the torrent row.',
+'A finished film leaves "Continue watching" as soon as Lampa gets its timecode. Hold OK — "Remove from Continue watching"; history is kept.',
+'Torrents: 4K, 1080p, HDR, DV, "Dub" and "No Russian track" tags right in the torrent row; larger titles and tags.',
 'Shorter settings: 13 items on the main screen, "Colour and look", "Weak TV" and "TorrServer" sections; options with no effect are marked.',
 'No KP key — no reminders on every card; empty search suggests the keyboard layout; if half the home rows fail, the plugin tells you. Overlaps fixed.',
 'Optional: focus on the next episode — Lumen Card → TorrServer…; hide Shots, extra header icons and "What is new" again — More… → Remote and dialogs.'
@@ -31338,8 +31423,8 @@ uk:[
 'Слабкі ТВ: свята в «Легких» — картинкою, у герої типово лише кадри, кадри до 1280, у слайдшоу картки два кадри, трейлер в «Авто» вимкнено.',
 'Картка відкривається й закривається швидше: колір фільму перефарбовує лише свою частину оформлення, а мітки й ряди головної не працюють даремно.',
 'На картці: IMDb і КП під назвою, у серіалу «переглянуто 5 з 12», «Колекція» і «Рекомендації» — постерами головної, без дубля штатної «Колекції».',
-'Утримання OK у «Додивитися» — «Прибрати з «Додивитися»». Історія не змінюється; почнете дивитися знову — картка повернеться сама.',
-'Роздачі: мітки 4K, 1080p, HDR, DV, «Дубляж» і «Немає російської доріжки» просто в рядку роздачі.',
+'Додивлений фільм зникає з «Додивитися» одразу, щойно Lampa отримає таймкод. Утримання OK — «Прибрати з «Додивитися»», історія не змінюється.',
+'Роздачі: мітки 4K, 1080p, HDR, DV, «Дубляж» і «Немає російської доріжки» просто в рядку роздачі; назви й мітки більші.',
 'Налаштування коротші: 13 пунктів на головному екрані, розділи «Колір і вигляд», «Слабкий телевізор» і «TorrServer»; що не діє — позначено.',
 'Без ключа КП картка про нього не нагадує, порожній пошук підказує розкладку, не завантажилась половина добірок — плагін скаже. Виправлено накладання.',
 'За бажанням: фокус на наступній серії — Lumen Card → TorrServer…; сховати Shots, зайві значки шапки й повтор «Що нового» — Додатково… → Пульт і вікна.'
@@ -33411,6 +33496,7 @@ if(!activated)return;
 if(e&&e.data)LC.header.refreshEpisode(e.data.hash);
 try{if(LC.resume&&e&&e.data)LC.resume.onTimeline(e.data);}catch(eResume){warn('resume timeline failed',eResume);}
 try{if(LC.personal&&typeof LC.personal.onTimeline==='function'&&e&&e.data)LC.personal.onTimeline(e.data);}catch(eCw){warn('continue unhide failed',eCw);}
+try{if(LC.personal&&typeof LC.personal.onFinished==='function'&&e&&e.data)LC.personal.onFinished(e.data);}catch(eDone){warn('continue finished failed',eDone);}
 LC.header.scheduleProgressRefresh();
 }catch(err){
 warn('timeline listener failed',err);
@@ -33498,6 +33584,9 @@ try{if(LC.hub&&LC.hub.fullStage)LC.hub.fullStage.destroy(e.object);}catch(eFullK
 }
 if(e.type==='start'){
 try{if(LC.refreshPending)LC.refreshPending(e.component);}catch(eRefresh){}
+if(e.component==='main'){
+try{if(LC.personal&&typeof LC.personal.onMainStart==='function')LC.personal.onMainStart(e.object);}catch(eDone){warn('continue sweep failed',eDone);}
+}
 markCardBody(e.component==='full');
 markScreenBody(stageScreen(e.component,e.object));
 markHeadBody(headOwnScreen(e.component,e.object));
