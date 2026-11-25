@@ -608,7 +608,7 @@
       } catch (ePersonal) {}
       var advent = null;
       try {
-        if (_manifest && LC.rows && typeof LC.rows.adventRow === 'function') advent = LC.rows.adventRow(_manifest);
+        if (LC.rows && typeof LC.rows.adventRow === 'function') advent = LC.rows.adventRow();
       } catch (eAdvent) {}
       if (advent && !rowOn(advent.name)) { offRows.push(advent); advent = null; }
       var leads = read(LEADS_KEY, '[]');
