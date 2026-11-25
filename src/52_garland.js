@@ -65,6 +65,41 @@
       if (LC.fx && LC.fx.bulbs) LC.fx.bulbs(host, on);
     }
 
+    function startGlow(current) {
+      if (LC.motionMode() !== 'full') return;
+      var weak = LC.perf && LC.perf.weakInfo && LC.perf.weakInfo();
+      if (weak && LC.pref('lumen_motion', 'auto') !== 'full') return;
+      var small = window.innerWidth <= 960 && window.innerHeight <= 540;
+      var prefix = (weak || small ? 'half/' : '') + 'garland-' + pack.style;
+      var node = current.node;
+      function reveal() {
+        if (view !== current) return;
+        if (a.status === 'failed' || b.status === 'failed') {
+          a.cancel();
+          b.cancel();
+          current.glow = null;
+          return;
+        }
+        if (a.status !== 'ready' || b.status !== 'ready') return;
+        a.img.className = 'lumen-garland__a';
+        b.img.className = 'lumen-garland__b';
+        node.appendChild(a.img);
+        node.appendChild(b.img);
+        var className = node.className + ' has-glow';
+        var phase = false;
+        node.className = className;
+        current.timer = setInterval(function () {
+          if (document.hidden || (LC.covered && LC.covered()) || (current.paused && current.paused())) return;
+          phase = !phase;
+          node.className = className + (phase ? ' is-b' : '');
+        }, 2400);
+      }
+      var a = load(prefix + '-a.webp', reveal);
+      var b = load(prefix + '-b.webp', reveal);
+      current.glow = [a, b];
+      reveal();
+    }
+
     function paint() {
       if (!view || view.node || !ready(view.card)) return;
       var node = document.createElement('div');
@@ -79,6 +114,7 @@
       view.host.insertBefore(node, view.host.firstChild);
       view.node = node;
       setBulbs(view.host, true);
+      startGlow(view);
     }
 
     function ready(card) {
@@ -113,19 +149,26 @@
     function mount(layer, opts) {
       var host = nodeOf(layer);
       var card = !!(opts && opts.card);
+      var paused = opts && opts.paused;
       if (!host || !preload()) return;
       if (view && view.host === host && view.card === card) {
+        view.paused = paused;
         if (view.node) setBulbs(host, true);
         return true;
       }
       unmount();
-      view = { host: host, card: card, node: null };
+      view = { host: host, card: card, node: null, paused: paused, glow: null, timer: null };
       paint();
       return true;
     }
 
     function unmount(layer) {
       if (!view || (layer && nodeOf(layer) !== view.host)) return;
+      if (view.timer !== null) clearInterval(view.timer);
+      if (view.glow) {
+        view.glow[0].cancel();
+        view.glow[1].cancel();
+      }
       if (view.node) {
         if (view.node.parentNode) view.node.parentNode.removeChild(view.node);
         setBulbs(view.host, false);

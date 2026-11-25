@@ -2421,6 +2421,8 @@
     css.push('.lumen-garland{position:absolute;top:0;left:0;width:100%}');
     css.push('.lumen-garland__strip{position:relative;display:block;width:100%;height:auto}');
     css.push('.lumen-garland__orn{position:absolute;right:0;top:5vw;width:25%;height:auto}');
+    css.push('.lumen-garland__a,.lumen-garland__b{position:absolute;top:0;left:0;width:100%;height:auto;opacity:0;transition:opacity .8s ease-in-out}');
+    css.push('.lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-garland.is-b .lumen-garland__b{opacity:1}');
     var garlandScale = LC.pref('lumen_hero_size', 'large');
     if (garlandScale === 'medium' || garlandScale === 'compact') {
       css.push('.lumen-hero .lumen-garland{top:1.2vw;transform:scale(.75);transform-origin:top center}');

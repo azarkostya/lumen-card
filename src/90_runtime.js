@@ -2614,6 +2614,9 @@
     /* Акцент темы — запасной для акцента от постера (приоритет плана:
        постер -> тема -> настройка разрешает src/57_color.js сам). */
     try { if (LC.accent) LC.accent.setTheme(theme.accent); } catch (eAcc2) {}
+    function paused() {
+      try { return LC.trailer.isLive(layer); } catch (ePause) { return false; }
+    }
     try {
       var made = LC.fx.mount(node, theme.preset, {
         color: LC.themes.particleColor(theme),
@@ -2625,11 +2628,9 @@
         safe: CARD_FX_SAFE,
         /* Под играющим роликом частицы встают на паузу: поверх видео они и
            не видны, и стоят дороже всего (композитор и так занят кадрами). */
-        paused: function () {
-          try { return LC.trailer.isLive(layer); } catch (ePause) { return false; }
-        }
+        paused: paused
       });
-      if (LC.garland && theme.id === 'christmas') LC.garland.mount(node, { card: true });
+      if (LC.garland && theme.id === 'christmas') LC.garland.mount(node, { card: true, paused: paused });
       return made;
     } catch (eMount) {
       warn('fx mount failed', eMount);

@@ -1967,6 +1967,11 @@
        анимаций сменили, и статичный кадр, цвет и пауза должны пересчитаться
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
+    function fxPaused() {
+      return !!(state && (state.trailer || state.compact || state.parked ||
+        Date.now() - state.focusAt < FX_CALM_MS));
+    }
+
     function applyFx(force, box) {
       if (!state || state.parked) return;
       if (!LC.fx) { clearFx(); return; }
@@ -1985,7 +1990,7 @@
         var live = fxHost();
         if (live && (fxLive(live, theme.preset) ||
           (theme.id === 'newyear' && LC.garland && LC.motionMode() === 'off'))) {
-          if (theme.id === 'newyear' && LC.garland) LC.garland.mount(live);
+          if (theme.id === 'newyear' && LC.garland) LC.garland.mount(live, { paused: fxPaused });
           return;
         }
       }
@@ -2041,13 +2046,10 @@
              (смена текста, кадра, подсветки карточки), и перерисовка
              полноэкранного канваса поверх него отнимала кадры ровно там,
              где их видно. Каждое следующее нажатие отсчёт продлевает. */
-          paused: function () {
-            return !!(state && (state.trailer || state.compact || state.parked ||
-              Date.now() - state.focusAt < FX_CALM_MS));
-          }
+          paused: fxPaused
         });
         /* В режиме «Выкл» картинка может работать самостоятельно. */
-        var picture = theme.id === 'newyear' && LC.garland && LC.garland.mount(host);
+        var picture = theme.id === 'newyear' && LC.garland && LC.garland.mount(host, { paused: fxPaused });
         if ((made || picture) && key) state.fxKey = key;
       } catch (e3) {
         warn('hero: fx mount failed', e3);

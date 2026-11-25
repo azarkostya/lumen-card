@@ -136,3 +136,51 @@ test('На карточке готовой полосы достаточно, а
   assert.equal(f.host.firstChild.children.length, 2);
   assert.equal(f.requests.length, 2);
 });
+
+test('Полный режим меняет фазы только на видимом экране и отменяет таймер при снятии', () => {
+  const f = fixture();
+  let paused = false;
+  f.settings.mode = 'full';
+  f.garland.mount(f.host, { paused: () => paused });
+  f.finish(0);
+  f.finish(1);
+  assert.match(f.requests[2].url, /garland-warm-a\.webp$/);
+  assert.match(f.requests[3].url, /garland-warm-b\.webp$/);
+  f.finish(2);
+  f.finish(3);
+  const picture = f.host.firstChild;
+  assert.equal(picture.children.length, 4);
+  f.tick(2400);
+  assert.match(picture.className, /is-b/);
+  for (const key of ['paused', 'hidden', 'covered']) {
+    if (key === 'paused') paused = true;
+    if (key === 'hidden') f.document.hidden = true;
+    if (key === 'covered') f.settings.covered = true;
+    f.tick(2400);
+    assert.match(picture.className, /is-b/);
+    paused = f.document.hidden = f.settings.covered = false;
+  }
+  f.tick(2400);
+  assert.doesNotMatch(picture.className, /is-b/);
+  f.garland.unmount(f.host);
+  assert.equal(f.timers.size, 0);
+});
+
+test('Слабая приставка в Авто остаётся на статике, ручные Полные и 960×540 берут half', () => {
+  for (const small of [false, true]) {
+    const f = fixture();
+    f.settings.mode = 'full';
+    if (small) { f.window.innerWidth = 960; f.window.innerHeight = 540; }
+    else f.settings.weak = true;
+    f.garland.mount(f.host);
+    f.finish(0);
+    f.finish(1);
+    if (!small) {
+      assert.equal(f.requests.length, 2);
+      f.settings.lumen_motion = 'full';
+      f.garland.unmount(f.host);
+      f.garland.mount(f.host);
+    }
+    assert.match(f.requests[2].url, /half\/garland-warm-a\.webp$/);
+  }
+});
