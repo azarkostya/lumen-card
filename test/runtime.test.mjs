@@ -957,6 +957,7 @@ test('Task 42: LC.applyBadgesPref пересобирает CSS вместе с �
   const before = off.extra.css;
   off.LC.applyBadgesPref();
   assert.equal(seen.uninstall, 1, 'метки сняты');
+  assert.equal(seen.install, 1, 'наблюдатель установлен для ряда «Досмотреть»');
   assert.equal(off.extra.css, before + 1, 'таблица стилей пересобрана');
 
   const on = initLC({ storage: { lumen_badges: 'poster' } });

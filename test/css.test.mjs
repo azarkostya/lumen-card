@@ -6368,6 +6368,28 @@ test('правка: у корня главной есть фон; переход
     'правило перехода у корня главной вернулось');
 });
 
+test('Досмотреть: прежняя геометрия, подпись и полоса по нижней кромке в обоих стилях', () => {
+  for (const apple of [false, true]) {
+    const prefs = apple ? { lumen_flat: 'true' } : {};
+    const sheet = withStorage({ ...prefs, lumen_badges: 'off' }, (LC) => LC.buildCss(), 960, v2Layers);
+    const decl = (sel) => findDecl(sheet, (rule) => rule === sel);
+    for (const sel of ['.lumen-main .card', '.lumen-main .card__age', '.lumen-main .items-line .mapping--line > * + *']) {
+      assert.equal(decl(sel), findDecl(cssAll[Number(apple)], (rule) => rule === sel));
+    }
+    assert.match(decl('.lumen-main .card__age'), /font-size:1\.01em/);
+    assert.equal(decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue'), 'left:0;right:0;bottom:0;height:.26em;border-radius:0');
+    const caption = decl('.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue');
+    const fill = decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div');
+    assert.match(caption, /^font-weight:600;color:#[\da-f]{6}$/i);
+    if (apple) {
+      assert.equal(caption, 'font-weight:600;color:#F2F2F3');
+      assert.equal(fill, 'border-radius:0;background:#FFFFFF');
+    } else {
+      assert.equal(fill, 'border-radius:0;background:' + caption.split('color:')[1]);
+    }
+  }
+});
+
 test('Task 51: карточка ряда главной — 217×325 (7 колонок tvOS), подписи §0.4', () => {
   /* Пользователь на живом телевизоре 2026-09-18: «картинка очень маленькая».
      Прежние дизайнерские 230×345 выросли до 260×390 (Task 36) — место под них
@@ -8161,9 +8183,21 @@ test('Task 73: плоский вид сохраняет общие правил�
     '.lumen-main .card.focus .card__view:after',
     '.lumen-card .lumen-episodes .lumen-episode.focus:after'
   ];
+  const continueColors = {
+    '.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue': ['color', '#F2F2F3'],
+    '.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div': ['background', '#FFFFFF']
+  };
   for (const rule of ruleBodies(css)) {
     if (flat.includes(key(rule))) continue;
     assert.equal(rule.selectors.length, 1);
+    const override = continueColors[rule.selectors[0]];
+    if (override) {
+      const appleRule = flatRules.find((r) => r.selectors.length === 1 && r.selectors[0] === rule.selectors[0]);
+      assert.ok(appleRule, 'потеряно правило «Досмотреть»: ' + rule.selectors[0]);
+      const [prop, color] = override;
+      assert.equal(appleRule.decl, rule.decl.replace(new RegExp(prop + ':#[a-f0-9]{6}(?=;|$)', 'i'), prop + ':' + color));
+      continue;
+    }
     assert.ok(rings.includes(rule.selectors[0]), 'общие стили изменились: ' + key(rule));
     const appleRing = flatRules.find((r) => r.selectors.length === 1 && r.selectors[0] === rule.selectors[0]);
     assert.ok(appleRing, 'потеряно кольцо: ' + rule.selectors[0]);
@@ -8177,7 +8211,7 @@ test('Task 73: плоский вид сохраняет общие правил�
      правила узнаются по селектору: фокус, переход «Полных», приглушение
      соседей, шапка Lampa, плашка описания. */
   const V2_SEL = (sel) => /\.focus\b/.test(sel) || /lumen-motion-full/.test(sel) || /\.lumen-dim /.test(sel) ||
-    sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text' ||
+    Object.hasOwn(continueColors, sel) || sel.indexOf('body .head ') === 0 || sel === '.lumen-descr-row .full-descr__text' ||
     /* экран 35: цвет меты, кламп описания, подсказка трейлера, кнопки Apple */
     /^\.lumen-card (\.lumen-meta|\.lumen-descr-short$|\.lumen-trailer-badge$|\.full-start-new__buttons )/.test(sel);
   for (const rule of added) {

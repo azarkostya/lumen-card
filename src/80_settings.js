@@ -922,6 +922,7 @@
     lumen_badge_left: { ru: 'Осталось {n} мин', en: '{n} min left', uk: 'Залишилось {n} хв' },
     /* «Досмотреть», сериал: начатая серия и остаток — «S2·E4 · 12 мин»
        (src/62_badges.js, episodeBadge); {e} — «S2·E4», {n} — минуты. */
+    lumen_badge_episode_number: { ru: 'С{s} · Э{e}', en: 'S{s}·E{e}', uk: 'С{s} · Е{e}' },
     lumen_badge_ep_left: { ru: '{e} · {n} мин', en: '{e} · {n} min', uk: '{e} · {n} хв' },
     lumen_badge_new: { ru: 'Новинка', en: 'New', uk: 'Новинка' },
     /* Task 25: обратный отсчёт в мета-строке карточки. «Премьера через 31

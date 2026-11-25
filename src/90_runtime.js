@@ -2502,7 +2502,7 @@
   function remountBadges() {
     if (!LC.badges) return;
     LC.badges.uninstall();
-    if (LC.badgesMode() !== 'off') LC.badges.install();
+    LC.badges.install();
     redrawGridBadges();
   }
 

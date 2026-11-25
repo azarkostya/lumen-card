@@ -6087,7 +6087,7 @@
     css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     /* Task 62a: та же метка, но в строке подписи под постером — вид «В
        подписи». Правило пишется только в этом виде: в остальных оно было бы
-       мёртвым (узла .lumen-badge-cap там нет вовсе, src/62_badges.js).
+       мёртвым за пределами ряда «Досмотреть» (src/62_badges.js).
        Своего кегля метке не задаётся — он общий с подписью, то есть уже по
        минимуму tvOS; отличают её вес и цвет акцента. Обрезку многоточием
        делает сама подпись (правила .card__age выше), поэтому здесь её нет. */
@@ -6101,6 +6101,12 @@
       css.push('.lumen-main .card__age .lumen-badge-cap{font-weight:600;color:' + liftTo(A, P.soft, P.text) + '}');
       css.push('.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
     }
+
+    /* «Досмотреть»: статус заменяет год, геометрия ряда остаётся общей. */
+    var continueAccent = liftTo(A, P.soft, P.text);
+    css.push('.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue{font-weight:600;color:' + (APPLE ? '#F2F2F3' : continueAccent) + '}');
+    css.push('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue{left:0;right:0;bottom:0;height:.26em;border-radius:0}');
+    css.push('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div{border-radius:0;background:' + (APPLE ? '#FFFFFF' : continueAccent) + '}');
 
     /* --- Task 25: скелетоны ---
        Одно правило на все плашки плагина: описание героя до прихода деталей
