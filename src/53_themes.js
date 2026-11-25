@@ -369,11 +369,12 @@
       return copy;
     }
 
-    /* Будущее окошко: дата и замок, без данных фильма. */
-    function adventDoor(day, words) {
+    /* Будущее окошко хранит только дату, без данных фильма. */
+    function adventDoor(day, words, now) {
       var date = (words && words.date) || '{d}';
       var door = { day: day, title: date.replace('{d}', day), lumen_advent: { day: day, state: 'locked' } };
       if (day === ADVENT_DAYS) door.lumen_advent.final = true;
+      else if (day - now > 7) door.lumen_advent.far = true;
       return door;
     }
 
@@ -387,7 +388,7 @@
       var translations = src && src.cards;
       for (var day = 1; day <= ADVENT_DAYS; day++) {
         if (day > now) {
-          out.push(adventDoor(day, words));
+          out.push(adventDoor(day, words, now));
           continue;
         }
         var saved = adventId(day, map[day]);

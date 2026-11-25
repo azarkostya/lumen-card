@@ -179,3 +179,11 @@ test('Apple TV: 31-е без золота; CSS-гирлянды «рождест
   assert.ok(apple.css.indexOf('html body .lumen-main .lumen-advent-card--final .card__age{color:#FFFFFF}') !== -1);
   assert.ok(apple.css.indexOf('236,244,255') === -1 && lumen.css.indexOf('255,182,72') === -1, 'огни CSS-гирлянды остались');
 });
+
+test('Apple TV: все подарки адвента графитовые с белой лентой', () => {
+  const doors = apple.css.split('\n').filter((line) => line.startsWith('html body .lumen-main') && line.includes('lumen-advent__door--wrap-'));
+  assert.equal(doors.length, 4);
+  assert.ok(doors.every((line) => /background:linear-gradient/.test(line) && [...line.matchAll(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/gi)].every((color) =>
+    Math.max(...color.slice(1).map((hex) => parseInt(hex, 16))) - Math.min(...color.slice(1).map((hex) => parseInt(hex, 16))) <= 2)));
+  assert.match(apple.css, /html body[^\n]+lumen-advent__bow[^\n]+color:#FFFFFF/);
+});

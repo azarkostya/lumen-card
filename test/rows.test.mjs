@@ -546,6 +546,140 @@ test('адвент: в декабре — описание ряда, в заго
     'Адвент-календарь · новогодняя ночь');
 });
 
+test('адвент 31 декабря: 17:59, 18:00 и 23:59', function () {
+  var params = { manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31, 17, 59) };
+  var s = setupRows(params);
+  assert.equal(s.R.adventRow(XMAS_MANIFEST).title, 'Адвент-календарь · новогодняя ночь');
+  params.now = new Date(2026, 11, 31, 18);
+  assert.equal(s.R.adventRow(XMAS_MANIFEST).title, 'Адвент-календарь · до Нового года 6 ч 0 мин');
+  params.now = new Date(2026, 11, 31, 23, 59, 59);
+  assert.equal(adventPayload(s)[0].title, 'Адвент-календарь · до Нового года 0 ч 1 мин');
+});
+
+function adventClockHarness(t, instant, storage) {
+  var params = { manifest: XMAS_MANIFEST, now: instant, storage: storage };
+  var s = setupRows(params);
+  var active = { component: 'main' };
+  var playing = false;
+  var classes = new Set();
+  var title = { textContent: '', classList: { add: (name) => classes.add(name) } };
+  function listener() {
+    var handlers = new Map();
+    return {
+      follow: (name, cb) => handlers.set(name, cb),
+      remove: (name, cb) => { if (handlers.get(name) === cb) handlers.delete(name); },
+      send: (name, data) => handlers.get(name)?.(data)
+    };
+  }
+  var lifecycle = listener();
+  var originalDoc = globalThis.document;
+  globalThis.document = {
+    hidden: false,
+    querySelector: (sel) => sel === '.activity--active .lumen-advent-title' && active.component === 'main' && classes.has('lumen-advent-title') ? title : null,
+    addEventListener: lifecycle.follow,
+    removeEventListener: lifecycle.remove
+  };
+  s.Lampa.Listener = listener();
+  s.Lampa.Activity = { active: () => active };
+  s.Lampa.Player = { opened: () => playing, listener: listener() };
+  var pending = new Map();
+  var nextId = 0;
+  t.mock.method(globalThis, 'setTimeout', (cb, delay) => {
+    pending.set(++nextId, { cb: cb, when: +params.now + delay });
+    return nextId;
+  });
+  t.mock.method(globalThis, 'clearTimeout', (id) => { pending.delete(id); });
+  t.after(() => {
+    s.R.uninstallDedupe();
+    if (originalDoc === undefined) delete globalThis.document;
+    else globalThis.document = originalDoc;
+  });
+  if (instant.getMonth() === 11 && (!storage || !storage.language || storage.language === 'ru')) {
+    adventPayload(s)[0].params.emit.onCreate.call({ html: { querySelector: (sel) => sel === '.items-line__title' ? title : null } });
+  }
+  s.R.installDedupe();
+  return {
+    title: title, noty: s.Lampa.Noty.shown, pending: pending, rows: s.R,
+    go: (component) => {
+      s.Lampa.Listener.send('activity', { type: 'init', component: component });
+      active = { component: component };
+      s.Lampa.Listener.send('activity', { type: 'start', component: component });
+    },
+    player: (opened) => { playing = opened; s.Lampa.Player.listener.send(opened ? 'start' : 'destroy'); },
+    hidden: (hidden) => { document.hidden = hidden; lifecycle.send('visibilitychange'); },
+    advance: (next) => {
+      for (;;) {
+        const due = [...pending].filter(([, tick]) => tick.when <= +next).sort((a, b) => a[1].when - b[1].when)[0];
+        if (!due) break;
+        params.now = new Date(due[1].when);
+        pending.delete(due[0]);
+        due[1].cb();
+      }
+      params.now = next;
+    }
+  };
+}
+
+test('адвент: отсчёт обновляется в видимой главной и останавливается при уходе', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 31, 17, 59, 30));
+  assert.match(c.title.textContent, /новогодняя ночь$/);
+  c.advance(new Date(2026, 11, 31, 18));
+  assert.match(c.title.textContent, /6 ч 0 мин$/);
+  c.advance(new Date(2026, 11, 31, 18, 1));
+  assert.match(c.title.textContent, /5 ч 59 мин$/);
+  c.go('full');
+  assert.deepEqual([...c.pending.values()].map((tick) => tick.when), [+new Date(2027, 0, 1)]);
+  c.advance(new Date(2026, 11, 31, 18, 4));
+  assert.match(c.title.textContent, /5 ч 59 мин$/);
+  c.go('main');
+  assert.match(c.title.textContent, /5 ч 56 мин$/);
+  c.hidden(true);
+  assert.deepEqual([...c.pending.values()].map((tick) => tick.when), [+new Date(2027, 0, 1)]);
+  c.advance(new Date(2026, 11, 31, 18, 6));
+  c.hidden(false);
+  assert.match(c.title.textContent, /5 ч 54 мин$/);
+  c.rows.uninstallDedupe();
+  assert.equal(c.pending.size, 0);
+  c.go('main');
+  assert.equal(c.pending.size, 0);
+});
+
+test('адвент: поздравление показывается в полночь только раз за год', function (t) {
+  var storage = {};
+  var c = adventClockHarness(t, new Date(2026, 11, 31, 23, 59, 30), storage);
+  c.advance(new Date(2027, 0, 1));
+  assert.deepEqual(c.noty, ['С Новым годом!']);
+  assert.equal(c.title.textContent, 'Адвент-календарь');
+  assert.equal(c.pending.size, 0);
+  c.go('full');
+  c.go('main');
+  c.rows.uninstallDedupe();
+  c.rows.installDedupe();
+  assert.deepEqual(c.noty, ['С Новым годом!']);
+  assert.equal(storage.lumen_advent_greeting_year, 2027);
+  c.advance(new Date(2028, 0, 1));
+  c.go('main');
+  assert.deepEqual(c.noty, ['С Новым годом!', 'С Новым годом!']);
+});
+
+test('адвент: поздравление откладывается до выхода из плеера', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 31, 23, 59, 30), { language: 'uk' });
+  c.player(true);
+  c.advance(new Date(2027, 0, 1, 0, 29, 59));
+  assert.deepEqual(c.noty, []);
+  assert.equal(c.pending.size, 0);
+  c.player(false);
+  assert.deepEqual(c.noty, ['З Новим роком!']);
+});
+
+test('адвент: после 00:30 отложенное поздравление пропускается', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 31, 23, 59, 30));
+  c.player(true);
+  c.advance(new Date(2027, 0, 1, 0, 30));
+  c.player(false);
+  assert.deepEqual(c.noty, []);
+});
+
 test('адвент: не в декабре ряда нет вовсе — ни запроса, ни описания', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 10, 30) });
   assert.equal(s.R.adventRow(s.manifest), null);
@@ -621,11 +755,21 @@ test('адвент: ряд ставит фокус на сегодняшнее �
   assert.ok(locked.classes.indexOf('lumen-advent-card') !== -1 && locked.classes.indexOf('lumen-advent-card--locked') !== -1);
   assert.equal(locked.html.length, 1, 'дверца в .card__view');
   assert.ok(/lumen-advent__num[^>]*>21</.test(locked.html[0]), 'на дверце — число');
-  assert.ok(/lumen-advent__lock/.test(locked.html[0]), 'и замок');
+  assert.match(locked.html[0], /lumen-advent__door--wrap-1/);
+  assert.match(locked.html[0], /lumen-advent__door--far/);
+  assert.match(locked.html[0], /lumen-advent__bow/);
+  assert.doesNotMatch(locked.html[0], /декабря|lumen-advent__lock/);
+  for (var day = 16; day <= 19; day++) {
+    var near = fakeCard(cards[day - 1]);
+    near.data.params.emit.onCreate.call({ data: near.data, html: near.node });
+    assert.match(near.html[0], new RegExp('lumen-advent__door--wrap-' + (day % 4)));
+    assert.doesNotMatch(near.html[0], /lumen-advent__door--far/);
+  }
   var last = fakeCard(cards[30]);
   cards[30].params.emit.onCreate.call({ data: last.data, html: last.node });
   assert.ok(last.classes.indexOf('lumen-advent-card--final') !== -1);
-  assert.ok(/Новогодняя ночь/.test(last.html[0]), 'на плитке 31-го — «Новогодняя ночь»');
+  assert.match(last.html[0], /lumen-advent__star.*Новогодняя ночь/);
+  assert.doesNotMatch(last.html[0], /lumen-advent__door--far/);
   var today = fakeCard(cards[11]);
   cards[11].params.emit.onCreate.call({ data: today.data, html: today.node });
   assert.ok(today.classes.indexOf('lumen-advent-card--today') !== -1);

@@ -739,6 +739,7 @@
        «Назад» из карточки главную заново не строит, и порядок не меняется. */
     function installDedupe() {
       _dedupeActive = true;
+      installAdventClock();
       if (_mainWrapped) return;
       try {
         if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
@@ -1000,6 +1001,7 @@
        внутри, то есть завели бы два окна. */
     function uninstallDedupe() {
       _dedupeActive = false;
+      uninstallAdventClock();
       if (!_mainWrapped) return;
       try {
         if (window.Lampa && Lampa.Api && Lampa.Api.main === _mainWrapped) {
@@ -1017,8 +1019,8 @@
     /* под СНГ: у нас 31 день, где 31 числа обычно смотрят „Иронию         */
     /* судьбы“». В декабре над подборками встаёт ряд «Адвент-календарь ·   */
     /* до Нового года N дней»: 31 окошко, все видны. Прошедшие и           */
-    /* сегодняшнее открыты — фильм дня; будущие закрыты — дверца с датой и */
-    /* замком, фильма в карточке нет вовсе (кадр героя, дедупликация и     */
+    /* сегодняшнее открыты — фильм дня; будущие закрыты до своей даты,    */
+    /* фильма в карточке нет вовсе (кадр героя, дедупликация и             */
     /* меню карточки его не увидят), OK на ней только говорит, когда она   */
     /* откроется. 31-е — «Ирония судьбы» (LC.themes.ADVENT_FINAL_ID),      */
     /* особая плитка и закрытой («Новогодняя ночь»). Раскладка фильмов по  */
@@ -1028,14 +1030,22 @@
        переводы открытых карточек — отдельно, на текущий год и язык. */
     var ADVENT_KEY = 'lumen_advent_open';
     var ADVENT_CARDS_KEY = 'lumen_advent_cards';
+    var ADVENT_GREETING_KEY = 'lumen_advent_greeting_year';
+    var ADVENT_MINUTE = 60000;
+    var ADVENT_CLOCK_WORDS = {
+      ru: { hour: 'ч', minute: 'мин', greeting: 'С Новым годом!' },
+      en: { hour: 'h', minute: 'min', greeting: 'Happy New Year!' },
+      uk: { hour: 'год', minute: 'хв', greeting: 'З Новим роком!' }
+    };
+    var adventTimer = null;
+    var adventClockInstalled = false;
     var ADVENT_TRANSLATION_LIMIT = 8;
     var ADVENT_WAIT = 4000;
 
     /* Прозрачный пиксель вместо постера закрытого окошка: без картинки
        Lampa ставит свою «битую» (Card.getPosterPath, img_broken.svg). */
     var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    /* Иконки дверцы — в стиле набора кнопок (24×24, штрих 1.8). */
-    var ADVENT_LOCK = '<svg class="lumen-advent__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg>';
+    var ADVENT_BOW = '<svg class="lumen-advent__bow" viewBox="0 0 48 26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 13C17 1 5 2 5 8c0 6 11 6 19 5Zm0 0C31 1 43 2 43 8c0 6-11 6-19 5ZM24 13l-9 10m9-10 9 10"/><circle cx="24" cy="13" r="2" fill="currentColor" stroke="none"/></svg>';
     var ADVENT_STAR = '<svg class="lumen-advent__star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2l2.5 5.3 5.8.8-4.2 4.1 1 5.8L12 16.5l-5.1 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.2z"/></svg>';
 
     function adventWord(key, def) {
@@ -1064,11 +1074,110 @@
       return n + ' ' + (word || (n === 1 ? 'день' : 'дней'));
     }
 
+    function adventClockWords() {
+      return ADVENT_CLOCK_WORDS[adventLang()] || ADVENT_CLOCK_WORDS.en;
+    }
+
+    function adventMidnight(now) {
+      return new Date(now.getFullYear() + 1, 0, 1);
+    }
+
     function adventTitle(today) {
       var day = today.getDate();
       var head = adventWord('lumen_advent_title', 'Advent calendar');
-      if (day >= 31) return head + ' · ' + adventWord('lumen_advent_eve', "New Year's Eve");
-      return head + ' · ' + adventWord('lumen_advent_left', 'to New Year') + ' ' + adventDays(32 - day);
+      var left = adventWord('lumen_advent_left', 'to New Year');
+      if (today.getMonth() !== 11) return head;
+      if (day < 31) return head + ' · ' + left + ' ' + adventDays(32 - day);
+      if (today.getHours() < 18) return head + ' · ' + adventWord('lumen_advent_eve', "New Year's Eve");
+      var minutes = Math.ceil((adventMidnight(today) - today) / ADVENT_MINUTE);
+      var words = adventClockWords();
+      return head + ' · ' + left + ' ' + Math.floor(minutes / 60) + ' ' + words.hour + ' ' + (minutes % 60) + ' ' + words.minute;
+    }
+
+    function clearAdventClock() {
+      if (adventTimer !== null) clearTimeout(adventTimer);
+      adventTimer = null;
+    }
+
+    /* На других экранах остаётся лишь однократный будильник полуночи.
+       После полуночи возврат из плеера или скрытой вкладки приходит событием. */
+    function refreshAdventClock(skipMain) {
+      clearAdventClock();
+      if (!adventClockInstalled) return;
+      try {
+        var now = adventToday();
+        if (!now || (LC.kids && LC.kids.enabled())) return;
+        var month = now.getMonth();
+        var day = now.getDate();
+        var newYear = month === 0 && day === 1 && now.getHours() === 0 && now.getMinutes() < 30;
+        if (month !== 11 && (month !== 0 || day !== 1)) return;
+        var foreground = !document.hidden && !LC.util.playerOpen();
+        var active = foreground && !skipMain && Lampa.Activity && Lampa.Activity.active();
+        if (active && active.component === 'main') {
+          var title = document.querySelector(LC.util.ON_SCREEN_SEL + ' .lumen-advent-title');
+          if (title) {
+            var label = adventTitle(now);
+            if (title.textContent !== label) title.textContent = label;
+          }
+        }
+        if (month !== 11) {
+          if (!newYear || !foreground || !Lampa.Noty || typeof Lampa.Noty.show !== 'function') return;
+          var year = now.getFullYear();
+          if (Number(Lampa.Storage.get(ADVENT_GREETING_KEY, 0)) !== year) {
+            Lampa.Storage.set(ADVENT_GREETING_KEY, year);
+            Lampa.Noty.show(adventClockWords().greeting);
+          }
+          return;
+        }
+        if (day === 30 && active && active.component === 'main') {
+          adventTimer = setTimeout(refreshAdventClock, new Date(now.getFullYear(), 11, 31) - now);
+        } else if (day === 31) {
+          var delay = adventMidnight(now) - now;
+          if (active && active.component === 'main') {
+            var next = now.getHours() < 18
+              ? new Date(now.getFullYear(), 11, 31, 18) - now
+              : delay % ADVENT_MINUTE || ADVENT_MINUTE;
+            delay = Math.min(delay, next);
+          }
+          adventTimer = setTimeout(refreshAdventClock, delay);
+        }
+      } catch (e) {
+        warn('rows: advent clock failed', e);
+      }
+    }
+
+    function adventActivity(e) {
+      if (e && (e.type === 'init' || e.type === 'start')) refreshAdventClock(e.type === 'init');
+    }
+
+    function adventVisibility() {
+      refreshAdventClock();
+    }
+
+    function installAdventClock() {
+      if (adventClockInstalled || typeof document === 'undefined' || !window.Lampa) return;
+      adventClockInstalled = true;
+      var player = Lampa.Player && Lampa.Player.listener;
+      if (player && player.follow) {
+        player.follow('start', adventVisibility);
+        player.follow('destroy', adventVisibility);
+      }
+      if (Lampa.Listener && Lampa.Listener.follow) Lampa.Listener.follow('activity', adventActivity);
+      if (document.addEventListener) document.addEventListener('visibilitychange', adventVisibility);
+      refreshAdventClock();
+    }
+
+    function uninstallAdventClock() {
+      if (!adventClockInstalled) return;
+      adventClockInstalled = false;
+      clearAdventClock();
+      var player = Lampa.Player && Lampa.Player.listener;
+      if (player && player.remove) {
+        player.remove('start', adventVisibility);
+        player.remove('destroy', adventVisibility);
+      }
+      if (Lampa.Listener && Lampa.Listener.remove) Lampa.Listener.remove('activity', adventActivity);
+      if (document.removeEventListener) document.removeEventListener('visibilitychange', adventVisibility);
     }
 
     function adventDate(day) {
@@ -1092,19 +1201,14 @@
       } catch (e) { }
     }
 
-    /* Дверца окошка — на месте постера (в .card__view). У закрытого — дата
-       и замок, у 31-го — звезда и «Новогодняя ночь»; у сегодняшнего при
-       первом показе — та же дверца без замка, которая распахивается
-       (lumen-advent__door--opening, src/30_css.js). */
+    /* Подарок закрывает постер, пока не наступит его день. */
     function doorHtml(info) {
-      var cls = 'lumen-advent__door' + (info.fresh ? ' lumen-advent__door--opening' : '');
+      var cls = 'lumen-advent__door lumen-advent__door--wrap-' + (info.day % 4);
+      if (info.far) cls += ' lumen-advent__door--far';
+      if (info.fresh) cls += ' lumen-advent__door--opening';
       var note = info.final ? '<div class="lumen-advent__note">' + adventWord('lumen_advent_final', "New Year's Eve") + '</div>' : '';
-      var star = info.final ? ADVENT_STAR : '';
-      var lock = info.state === 'locked' ? ADVENT_LOCK : '';
-      var month = ('' + adventWord('lumen_advent_date', '{d}')).replace('{d}', '').replace(/^\s+|\s+$/g, '');
-      return '<div class="' + cls + '"><div class="lumen-advent__frame"></div>' + star +
-        '<div class="lumen-advent__num">' + info.day + '</div>' +
-        '<div class="lumen-advent__mon">' + month + '</div>' + note + lock + '</div>';
+      return '<div class="lumen-advent__cover"><div class="' + cls + '"><div class="lumen-advent__ribbon" aria-hidden="true"></div>' + ADVENT_BOW +
+        (info.final ? ADVENT_STAR : '') + '<div class="lumen-advent__num">' + info.day + '</div>' + note + '</div></div>';
     }
 
     /* Раунд C, C1: метка окошка («День 12», «Сегодня» — info.label,
@@ -1198,6 +1302,16 @@
           }
         }
       } catch (e) { }
+    }
+
+    function adventLineCreate() {
+      focusToday.call(this);
+      var node = this.html;
+      var title = node && node.querySelector('.items-line__title');
+      if (!title) return;
+      title.classList.add('lumen-advent-title');
+      var now = adventToday();
+      if (now) title.textContent = adventTitle(now);
     }
 
     function adventLang() {
@@ -1298,7 +1412,7 @@
               title: adventTitle(today),
               lumen_personal: true,
               lumen_keep: true,
-              params: { items: { view: cards.length }, emit: { onCreate: focusToday } }
+              params: { items: { view: cards.length }, emit: { onCreate: adventLineCreate } }
             });
           }
 
