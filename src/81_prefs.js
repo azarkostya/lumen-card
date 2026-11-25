@@ -345,18 +345,21 @@
          (src/49_moods.js). */
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
-      /* 1.3: «Вернуться к просмотру» после перезапуска Lampa
-         (src/71_resume.js) — рядом с личными рядами («Досмотреть»), и срок,
-         дольше которого прерванный просмотр не предлагается. Оба читаются
-         при запуске и перед показом. */
-      { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
-      { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' },
+      { name: 'lumen_cw_days', type: 'select', values: ['off', '14', '30', '90'], vprefix: 'lumen_cw_days_', 'default': '30', label: 'lumen_cw_days_name', descr: 'lumen_cw_days_descr' },
       /* Волна 4: первые ряды крутятся по эпохам (src/47_homeplan.js);
          'history' — прежний порядок, личные ряды сверху. */
       { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
       /* Task 57: фильм из ряда выше в нижних не повторяется. */
       { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+
+      { name: 'lumen_group_resume', type: 'title', label: 'lumen_group_resume' },
+      /* 1.3: «Вернуться к просмотру» после перезапуска Lampa
+         (src/71_resume.js) — рядом с личными рядами («Досмотреть»), и срок,
+         дольше которого прерванный просмотр не предлагается. Оба читаются
+         при запуске и перед показом. */
+      { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
+      { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' },
 
       { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
       /* Раунд holB: частицы — только праздничные (автотемы по словам

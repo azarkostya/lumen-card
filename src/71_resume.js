@@ -530,10 +530,27 @@
       try { if (LC.tsclean) fn(LC.tsclean); } catch (err) { warn('tsclean hook failed', err); }
     }
 
+    function noteContinue(card) {
+      try { if (LC.personal && LC.personal.noteSeen) LC.personal.noteSeen(card); }
+      catch (err) { warn('continue activity failed', err); }
+    }
+
+    function observePlayback(data, card) {
+      try {
+        if (!LC.personal || !LC.personal.observePlayback) return;
+        var track = data && !data.youtube && !data.iptv && !data.tv && data.timeline;
+        LC.personal.observePlayback(card, track && track.hash);
+      } catch (err) { warn('continue playback failed', err); }
+    }
+
     function onCreate(e) {
       if (!_on) return;
-      tsclean(function (ts) { ts.onPlay(e && e.data); });
-      try { record(e && e.data, 'pending'); } catch (err) { warn('resume create failed', err); }
+      var data = e && e.data;
+      var card = data && (data.card || data.movie) || activeCard();
+      noteContinue(card);
+      observePlayback(data, card);
+      tsclean(function (ts) { ts.onPlay(data); });
+      try { record(data, 'pending'); } catch (err) { warn('resume create failed', err); }
     }
 
     function onExternal(data) {
@@ -586,6 +603,7 @@
         var card = activeCard();
         var t = torrentOf(e.element);
         if (!t || !card) return;
+        noteContinue(card);
         _torrent = { magnet: t.magnet, title: t.title, poster: t.poster, card_id: card.id, at: now() };
         if (!appMode()) return;
         markExt();

@@ -57,7 +57,11 @@ function setupRuntime(opts) {
       update: function () { timelineWrites.push(arguments[0]); }
     },
     Utils: { hash: function (s) { return 'h:' + s; } },
-    Storage: { field: function (k) { return opts.storage && opts.storage[k]; } }
+    Storage: {
+      field: function (k) { return opts.storage && opts.storage[k]; },
+      get: function (k, d) { return opts.storage && k in opts.storage ? opts.storage[k] : d; },
+      set: function (k, v) { if (opts.storage) opts.storage[k] = v; }
+    }
   };
   globalThis.window = { Lampa: Lampa };
   globalThis.Lampa = Lampa;
@@ -972,4 +976,67 @@ test('kids: в детском режиме нет ряда «Потому что
   assert.deepEqual(s.api.describe().map(function (d) { return d.id; }), ['continue', 'new_episodes', 'soon', 'digital']);
   s.LC.kids = { enabled: function () { return false; } };
   assert.deepEqual(s.api.describe().map(function (d) { return d.id; }), ['continue', 'because', 'new_episodes', 'soon', 'digital']);
+});
+
+test('«Досмотреть»: срок отсчитывается от первого показа, а повторное открытие возвращает карточку', (t) => {
+  const day = 86400000;
+  const started = 1000 * day;
+  let now = started;
+  t.mock.method(Date, 'now', () => now);
+  const movie = { id: 42, original_title: 'Old film' };
+  const storage = {};
+  const prefs = {};
+  const s = setupRuntime({ storage, prefs, continues: type => type === 'movie' ? [movie] : [] });
+  const hasRow = () => s.api.describe().some(row => row.id === 'continue');
+
+  assert.equal(hasRow(), true);
+  assert.equal(storage.lumen_cw_seen.movie_42, started);
+  now += 30 * day - 1;
+  assert.equal(hasRow(), true);
+  now++;
+  assert.equal(hasRow(), false, 'истёк срок по умолчанию');
+  prefs.lumen_cw_days = '90';
+  assert.equal(hasRow(), true);
+  prefs.lumen_cw_days = '14';
+  assert.equal(hasRow(), false);
+  prefs.lumen_cw_days = 'off';
+  assert.equal(hasRow(), true);
+  prefs.lumen_cw_days = '30';
+  s.api.noteSeen(movie);
+  assert.equal(hasRow(), true);
+  assert.deepEqual(s.timelineWrites, []);
+  assert.deepEqual(s.favoriteWrites, []);
+});
+
+test('«Досмотреть»: синхронизация прогресса обновляет срок без отката даты', (t) => {
+  const day = 86400000;
+  const now = 1000 * day;
+  t.mock.method(Date, 'now', () => now);
+  const movie = { id: 42, original_title: 'Old film' };
+  const storage = { lumen_cw_seen: { movie_42: now - 31 * day } };
+  const s = setupRuntime({ storage, continues: type => type === 'movie' ? [movie] : [] });
+  const hasRow = () => s.api.describe().some(row => row.id === 'continue');
+
+  assert.equal(hasRow(), false);
+  s.api.onTimeline({ road: {card: 'movie_42', percent: 50, updated: now - day} });
+  s.api.onTimeline({ road: {card: 'movie_42', percent: 25, updated: now - 20 * day} });
+  assert.equal(storage.lumen_cw_seen.movie_42, now - day);
+  assert.equal(hasRow(), true);
+});
+
+test('«Досмотреть»: штатный таймлайн без карточки обновляет срок по хэшу плеера', (t) => {
+  const day = 86400000;
+  const now = 1000 * day;
+  t.mock.method(Date, 'now', () => now);
+  const show = { id: 42, original_name: 'Series' };
+  const storage = { lumen_cw_seen: { tv_42: now - 31 * day } };
+  const s = setupRuntime({ storage });
+
+  s.api.observePlayback(show, 's2e3');
+  s.api.onTimeline({ hash: 'other', road: { percent: 48, updated: now } });
+  assert.equal(storage.lumen_cw_seen.tv_42, now - 31 * day);
+  s.api.onTimeline({ hash: 's2e3', road: { percent: 0, updated: now } });
+  assert.equal(storage.lumen_cw_seen.tv_42, now - 31 * day);
+  s.api.onTimeline({ hash: 's2e3', road: { percent: 50, updated: now } });
+  assert.equal(storage.lumen_cw_seen.tv_42, now);
 });

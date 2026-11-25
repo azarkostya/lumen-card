@@ -44,6 +44,7 @@
     lumen_group_style: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
     lumen_group_film: { ru: 'Карточка', en: 'Card', uk: 'Картка' },
     lumen_group_rows: { ru: 'Ряды главной', en: 'Home rows', uk: 'Ряди головної' },
+    lumen_group_resume: { ru: 'Возврат к просмотру', en: 'Playback resume', uk: 'Повернення до перегляду' },
     lumen_group_ambient: { ru: 'Праздники и заставка', en: 'Holidays and screensaver', uk: 'Свята й заставка' },
     lumen_group_remote: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
     lumen_group_dev: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
@@ -1124,6 +1125,16 @@
     },
     /* Волна 4 (ТВ 2026-09-24): начало главной — ротация рядов по эпохам
        (src/47_homeplan.js) или прежняя история сверху. */
+    lumen_cw_days_name: { ru: 'Убирать из «Досмотреть»', en: 'Remove from Continue Watching', uk: 'Прибирати з «Додивитися»' },
+    lumen_cw_days_descr: {
+      ru: 'Скрывает давно не открывавшиеся фильмы и сериалы. История и прогресс сохраняются.',
+      en: 'Hides films and shows you have not played recently. Keeps your history and progress.',
+      uk: 'Приховує давно не відкривані фільми та серіали. Історія та прогрес зберігаються.'
+    },
+    lumen_cw_days_off: { ru: 'Выкл', en: 'Off', uk: 'Вимк.' },
+    lumen_cw_days_14: { ru: 'Через 14 дней', en: 'After 14 days', uk: 'Через 14 днів' },
+    lumen_cw_days_30: { ru: 'Через 30 дней', en: 'After 30 days', uk: 'Через 30 днів' },
+    lumen_cw_days_90: { ru: 'Через 90 дней', en: 'After 90 days', uk: 'Через 90 днів' },
     lumen_home_start_name: { ru: 'Начало главной', en: 'Top of the home screen', uk: 'Початок головної' },
     lumen_home_start_rotate: { ru: 'Подборки по очереди', en: 'Rotating collections', uk: 'Підбірки по черзі' },
     lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Додивитися»' },
@@ -1612,7 +1623,7 @@
        «Начало главной». Обе меняют только раскладку главной: план
        перерегистрирует ряды без перезагрузки каталога, главная
        пересобирается (LC.applyPersonalPref, src/90_runtime.js). */
-    if (name === 'lumen_personal_rows' || name === 'lumen_home_start') {
+    if (name === 'lumen_personal_rows' || name === 'lumen_home_start' || name === 'lumen_cw_days') {
       try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
       return true;
     }
