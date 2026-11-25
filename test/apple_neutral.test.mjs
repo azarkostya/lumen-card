@@ -67,8 +67,8 @@ const LUMEN_SAMPLES = {
    пачка A: кольца фокуса, кегль и тени v2, лёгкий режим списков, прокрутка отзывов, компактная шапка, облегчённая
    предзагрузка. Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'RECOMPUTE',
-  black_solid: 'RECOMPUTE'
+  warm: '474b10a8d6c10859555438d68744023a4b2939ed86e7f5a8b615d6c9ca406fed',
+  black_solid: 'dd6f81d6cf961bf59077777107ac793ca02a88994f0904ef04575a20a7ceaac1'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
