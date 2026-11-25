@@ -575,6 +575,53 @@
       }
     }
 
+    /* Main.onWheel рассчитывает на хотя бы один ряд. После прихода
+       следующей порции возвращаем штатный обработчик Lampa. */
+    function guardEmptyMainWheel(main) {
+      var scroll = main.scroll;
+      var wheel = scroll && scroll.onWheel;
+      if (typeof wheel !== 'function') return;
+      scroll.onWheel = function (step) {
+        if (!main.items.length) return;
+        scroll.onWheel = wheel;
+        return wheel.call(scroll, step);
+      };
+    }
+
+    /* У пустого ряда «Досмотреть» убираем и DOM, и экземпляр Line:
+       вертикальная навигация Lampa идёт по main.items, а не по DOM. */
+    function removeEmptyContinueLine(el) {
+      if (!el.card_data || !el.card_data.lumen_continue || typeof el.closest !== 'function' || !onActiveScreen(el)) return false;
+      var line = el.closest('.items-line');
+      var act = Lampa.Activity.active();
+      var main = act && act.component === 'main' && act.activity && act.activity.component;
+      if (!line || !main || !Array.isArray(main.items)) return false;
+
+      var C = Lampa.Controller;
+      var en = C && typeof C.enabled === 'function' ? C.enabled() : null;
+      var navEl = navFocused();
+      var focused = en && en.name === 'items_line' && (navEl ? line.contains(navEl) : el.classList.contains('focus'));
+      for (var i = 0; i < main.items.length; i++) {
+        var item = main.items[i];
+        if (!item || typeof item.render !== 'function' || item.render(true) !== line || typeof item.destroy !== 'function') continue;
+        /* Видимый хвост может оказаться не последней карточкой:
+           Lampa достраивает остальное содержимое ряда при прокрутке. */
+        if (item.data && item.data.results && item.items && item.data.results.length > item.items.length) return false;
+        main.items.splice(i, 1);
+        item.destroy();
+        if (!main.items.length) guardEmptyMainWheel(main);
+        if (focused || main.active === i) main.active = Math.max(0, Math.min(i, main.items.length - 1));
+        else if (main.active > i) main.active--;
+        if (focused) {
+          var target = main.items[main.active];
+          if (target) target.toggle();
+          else C.toggle('head');
+        }
+        return true;
+      }
+      return false;
+    }
+
     /* opts.background — убирает не человек из меню, а LC.personal
        (досмотренный фильм, src/45_personal.js): фокус пульта в этот момент
        может стоять в ЛЮБОМ ряду или на другом экране. */
@@ -598,7 +645,7 @@
           if (seen) { if (!next) next = c; } else prev = c;
         }
         var target = next || prev;
-        if (!target) return false;
+        if (!target) return background && removeEmptyContinueLine(el);
         var focused = el.classList.contains('focus');
         /* До снятия классов: под фокусом пульта может быть сама карточка. */
         var navEl = background ? navFocused() : null;

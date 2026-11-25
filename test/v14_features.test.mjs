@@ -313,3 +313,83 @@ test('Досмотреть: без LC.cardmenu ничего не трогает 
     assert.equal(s.api.onMainStart(null), 0, 'без объекта активности');
   } finally { finishedCleanup(s); }
 });
+
+function singletonContinueSetup(focus, options = {}) {
+  const only = cardNode('finished', cont(movie(771, 'Home Alone')));
+  only.classList = { contains: (name) => name === 'selector' || name === 'card' };
+  only.parentNode = { children: [only] };
+  const cleanup = finishedSetup({ activeNodes: [only], timeline: { 'h:Home Alone': 95 } });
+  const active = Lampa.Activity.active();
+  active.component = 'main';
+  active.activity.render(true).contains = (el) => el === only;
+  const toggled = [];
+  let nav = focus;
+  function line(name) {
+    const element = { contains: (el) => el === only || el === 'finished' };
+    return {
+      name,
+      render: () => element,
+      toggle() { toggled.push(name); nav = name; },
+      destroy() { only.parentNode = null; }
+    };
+  }
+  const finished = line('finished');
+  only.closest = (sel) => (sel === '.items-line' ? finished.render(true) : null);
+  const others = options.noNeighbors ? [] : [line('prev')];
+  const items = [...others, finished, ...(options.noNeighbors || options.atEnd ? [] : [line('next')])];
+  const main = { items, active: items.findIndex((item) => item.name === focus) };
+  active.activity.component = main;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'items_line' }),
+    toggle(name) { toggled.push(name); nav = name; }
+  };
+  window.Navigator = { getFocusedElement: () => nav };
+  const api = loadCtx('45_personal.js', { cardmenu: load('63_cardmenu.js') }).api;
+  return { only, active, toggled, main, line, finished, api, focus: () => nav, cleanup };
+}
+
+test('Досмотреть: исчезает весь опустевший ряд, а пульт остаётся в соседнем или прежнем ряду', () => {
+  for (const [focus, atEnd, result] of [['finished', false, 'next'], ['finished', true, 'prev'], ['prev', false, 'prev'], ['next', false, 'next']]) {
+    const s = singletonContinueSetup(focus, { atEnd });
+    try {
+      assert.equal(s.api.onMainStart(s.active), 1, 'последняя карточка снимает весь ряд');
+      assert.equal(s.only.parentNode, null, 'исчезли карточка и её ряд');
+      assert.deepEqual(s.main.items.map((row) => row.name), atEnd ? ['prev'] : ['prev', 'next']);
+      assert.equal(s.main.items[s.main.active].name, result);
+      assert.equal(s.focus(), result);
+      assert.deepEqual(s.toggled, focus === 'finished' ? [result] : [], 'соседний ряд включён, только если фокус был в удалённом');
+    } finally { finishedCleanup(s.cleanup); }
+  }
+});
+
+test('Досмотреть: последняя отрисованная карточка не снимает ряд с ещё не загруженными карточками', () => {
+  const s = singletonContinueSetup('finished');
+  try {
+    s.finished.data = { results: [s.only.card_data, movie(2, 'Дюна')] };
+    s.finished.items = [{ render: () => s.only }];
+    assert.equal(s.api.onMainStart(s.active), 0);
+    assert.deepEqual(s.main.items.map((row) => row.name), ['prev', 'finished', 'next']);
+    assert.equal(s.focus(), 'finished');
+    assert.ok(s.only.parentNode);
+  } finally { finishedCleanup(s.cleanup); }
+});
+
+test('Досмотреть: после снятия единственного ряда колесо ждёт следующего ряда', () => {
+  const s = singletonContinueSetup('finished', { noNeighbors: true });
+  try {
+    const wheel = (step) => {
+      s.main.active = Math.min(s.main.active + step, s.main.items.length - 1);
+      s.main.items[s.main.active].toggle();
+    };
+    s.main.scroll = { onWheel: wheel };
+    assert.equal(s.api.onMainStart(s.active), 1);
+    assert.equal(s.focus(), 'head');
+    assert.doesNotThrow(() => s.main.scroll.onWheel(1));
+    assert.equal(s.main.active, 0);
+
+    s.main.items.push(s.line('queued'));
+    s.main.scroll.onWheel(1);
+    assert.equal(s.focus(), 'queued');
+    assert.equal(s.main.scroll.onWheel, wheel, 'вернулся штатный обработчик колеса');
+  } finally { finishedCleanup(s.cleanup); }
+});
