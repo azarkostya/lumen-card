@@ -15748,7 +15748,7 @@ var theme=LC.themes.forHome();
 return!!theme&&theme.id==='newyear'&&(LC.motionMode()!=='off'||staticOn());
 }
 function nodeOf(host){
-return host&&(host.nodeType||host.insertBefore?host:host[0]);
+return host&&(host.nodeType?host:host[0]);
 }
 function load(path,changed){
 var asset={status:'pending',img:null,cancel:function(){}};
@@ -23287,11 +23287,11 @@ var EP_DONE=95;
 var EP_PLAY=' \u25B6\uFE0E';
 function episodeBadge(card,view,hash,words){
 if(!card||!card.lumen_continue||typeof view!=='function'||typeof hash!=='function')return null;
-if(card.original_title||!(card.original_name||card.name))return null;
-var key=card.original_name||card.name;
 var last=card.last_episode_to_air||null;
+if(!card.original_name&&!card.first_air_date&&!card.number_of_seasons&&!last)return null;
+var key=card.original_name||card.name;
 var season=parseInt(card.number_of_seasons,10)||(last?parseInt(last.season_number,10)||0:0);
-if(!(season>0))return null;
+if(!key||!(season>0))return null;
 var best=null,bestEp=0,gap=0;
 for(var ep=1;ep<=EP_SCAN;ep++){
 var v=view(hash([season,season>10?':':'',ep,key].join('')));
@@ -24131,6 +24131,44 @@ return nav&&typeof nav.getFocusedElement==='function'?nav.getFocusedElement():nu
 return null;
 }
 }
+function guardEmptyMainWheel(main){
+var scroll=main.scroll;
+var wheel=scroll&&scroll.onWheel;
+if(typeof wheel!=='function')return;
+scroll.onWheel=function(step){
+if(!main.items.length)return;
+scroll.onWheel=wheel;
+return wheel.call(scroll,step);
+};
+}
+function removeEmptyContinueLine(el){
+if(!el.card_data||!el.card_data.lumen_continue||typeof el.closest!=='function'||!onActiveScreen(el))return false;
+var line=el.closest('.items-line');
+var act=Lampa.Activity.active();
+var main=act&&act.component==='main'&&act.activity&&act.activity.component;
+if(!line||!main||!Array.isArray(main.items))return false;
+var C=Lampa.Controller;
+var en=C&&typeof C.enabled==='function'?C.enabled():null;
+var navEl=navFocused();
+var focused=en&&en.name==='items_line'&&(navEl?line.contains(navEl):el.classList.contains('focus'));
+for(var i=0;i<main.items.length;i++){
+var item=main.items[i];
+if(!item||typeof item.render!=='function'||item.render(true)!==line||typeof item.destroy!=='function')continue;
+if(item.data&&item.data.results&&item.items&&item.data.results.length>item.items.length)return false;
+main.items.splice(i,1);
+item.destroy();
+if(!main.items.length)guardEmptyMainWheel(main);
+if(focused||main.active===i)main.active=Math.max(0,Math.min(i,main.items.length-1));
+else if(main.active>i)main.active--;
+if(focused){
+var target=main.items[main.active];
+if(target)target.toggle();
+else C.toggle('head');
+}
+return true;
+}
+return false;
+}
 function removeFromRow(el,opts){
 try{
 var background=!!(opts&&opts.background);
@@ -24148,7 +24186,7 @@ if(!c.card_data||!c.classList||!c.classList.contains('selector')||c.style.displa
 if(seen){if(!next)next=c;}else prev=c;
 }
 var target=next||prev;
-if(!target)return false;
+if(!target)return background&&removeEmptyContinueLine(el);
 var focused=el.classList.contains('focus');
 var navEl=background?navFocused():null;
 el.classList.remove('selector');
