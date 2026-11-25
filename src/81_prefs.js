@@ -360,6 +360,7 @@
          дольше которого прерванный просмотр не предлагается. Оба читаются
          при запуске и перед показом. */
       { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
+      { name: 'lumen_watch_ask', type: 'trigger', 'default': true, label: 'lumen_watch_ask_name', descr: 'lumen_watch_ask_descr' },
       { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' },
 
       { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },

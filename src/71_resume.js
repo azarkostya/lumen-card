@@ -48,6 +48,7 @@
     var TTL_DEFAULT = 6;
     /* Досмотр — тот же порог, что у прогресса сериала (src/70_progress.js). */
     var WATCHED = 95;
+    var ASK_DONE = 90;
     /* Окно плейлиста вокруг текущей серии: запись ≤ ~6 КБ даже у сезона
        из 24 серий с длинными путями. */
     var WINDOW = 8;
@@ -152,9 +153,8 @@
       if (data.youtube || data.iptv || data.tv) return null;
       var tl = tlOf(data.timeline);
       var torrent = !!data.torrent_hash;
-      if (!tl && !torrent) return null;
       var c = cardOf(data.card || data.movie || card);
-      if (!c) return null;
+      if (!c || (!tl && !torrent && !(mode === 'external' && extra && extra.allowWatch && watchMovie(c)))) return null;
       var online = !torrent;
       var rec = {
         v: 1, at: now, kind: online ? 'online' : 'torrent', mode: mode || 'pending',
@@ -219,6 +219,16 @@
     /* TMDB нумерует фильмы и сериалы независимо: один id бывает у обоих. */
     function isTv(c) {
       return !!(c && (c.name || c.original_name || c.first_air_date));
+    }
+
+    function watchMovie(card) {
+      return !!(card && !isTv(card) && !card.number_of_seasons && card.original_title && num(card.runtime) > 0);
+    }
+
+    function awayVerdict(extAt, backAt, runtimeMin) {
+      var start = num(extAt);
+      var runtime = num(runtimeMin);
+      return start > 0 && runtime > 0 && num(backAt) - start >= runtime * 42000;
     }
 
     function sameCard(a, b) {
@@ -387,6 +397,12 @@
     var _tries = 0;
     var _ready = null;
     var _torrent = null;
+    var _bootAt = 0;
+    var _watchOnly = null;
+    var _watchExt = 0;
+    var _watch = null;
+    var _watchTimer = null;
+    var _watchRun = 0;
 
     function now() {
       var hook = api._now;
@@ -444,6 +460,37 @@
 
     function enabled() {
       try { return !!LC.pref('lumen_resume', true); } catch (e) { return true; }
+    }
+
+    function watchEnabled() {
+      return !!LC.pref('lumen_watch_ask', true);
+    }
+
+    function watchInfo(rec, backAt) {
+      if (!rec || !watchEnabled() || rec.mode !== 'external' || !watchMovie(rec.card) || !kidsOk(rec.card)) return null;
+      if (!awayVerdict(rec.hidden_at || rec.ext_at || rec.at, backAt, rec.card.runtime)) return null;
+      var T = Lampa.Timeline;
+      if (!T || typeof T.view !== 'function' || typeof T.update !== 'function' ||
+          !Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
+      var hash = Lampa.Utils.hash(rec.card.original_title);
+      /* Фильм с обычным ключом может быть убран из «Досмотреть» штатным
+         слушателем. Хэш отдельного файла туда не подходит. */
+      if (!hash || (rec.tl_hash && String(hash) !== rec.tl_hash)) return null;
+      var road = T.view(hash);
+      if (num(rec.percent) >= ASK_DONE || (road && num(road.percent) >= ASK_DONE)) return null;
+      var duration = Math.max(0, road ? num(road.duration) : 0) || Math.max(0, num(rec.duration));
+      return { hash: hash, duration: duration || Math.round(num(rec.card.runtime) * 60) };
+    }
+
+    function markWatched(rec, backAt) {
+      if (!_on) return false;
+      var mark = watchInfo(rec, backAt);
+      if (!mark) return false;
+      Lampa.Timeline.update({ hash: mark.hash, percent: 100, time: mark.duration, duration: mark.duration });
+      /* Timeline.update доводит ту же запись до существующего onFinished. */
+      var saved = load();
+      if (saved && saved.ext_at === rec.ext_at && sameCard(saved.card, rec.card)) save(null);
+      return true;
     }
 
     function ttl() {
@@ -516,7 +563,10 @@
       var card = data && (data.card || data.movie) ? (data.card || data.movie) : activeCard();
       var prev = load();
       var c = cardOf(card);
-      var rec = capture(data, mode, now(), card, { torrent: c ? torrentFor(data, c, prev) : null });
+      var rec = capture(data, mode, now(), card, {
+        torrent: c ? torrentFor(data, c, prev) : null,
+        allowWatch: mode === 'external' && watchEnabled()
+      });
       if (rec) save(rec);
       return rec;
     }
@@ -543,8 +593,23 @@
       } catch (err) { warn('continue playback failed', err); }
     }
 
+    function clearWatch() {
+      clearT(_watchTimer);
+      _watchTimer = null;
+      _watch = _watchOnly = null;
+      _watchExt = 0;
+      _watchRun++;
+    }
+
+    function followExternalWatch(rec, transient) {
+      if (!rec || !watchMovie(rec.card)) return;
+      _watchExt = rec.ext_at;
+      if (transient) _watchOnly = rec;
+    }
+
     function onCreate(e) {
       if (!_on) return;
+      clearWatch();
       var data = e && e.data;
       var card = data && (data.card || data.movie) || activeCard();
       noteContinue(card);
@@ -556,8 +621,13 @@
     function onExternal(data) {
       if (!_on) return;
       try {
+        clearWatch();
         markExt();
-        record(data, 'external');
+        var rec = record(data, 'external');
+        if (rec) followExternalWatch(rec, false);
+        else if (!enabled() && watchEnabled()) {
+          followExternalWatch(capture(data, 'external', now(), activeCard(), { allowWatch: true }), true);
+        }
       } catch (err) {
         warn('resume external failed', err);
       }
@@ -606,10 +676,13 @@
         noteContinue(card);
         _torrent = { magnet: t.magnet, title: t.title, poster: t.poster, card_id: card.id, at: now() };
         if (!appMode()) return;
+        clearWatch();
         markExt();
-        if (!enabled()) return;
         var rec = fromTorrent(e.element, card, now());
-        if (rec) save(rec);
+        if (rec && enabled()) {
+          save(rec);
+          followExternalWatch(rec, false);
+        } else if (watchEnabled()) followExternalWatch(rec, true);
       } catch (err) {
         warn('resume torrent failed', err);
       }
@@ -627,10 +700,14 @@
        возврат не отмечался, и следующий холодный старт в пределах срока
        показывал ложное окно (ревью 1.3). Запись без ext_at (черновые
        сборки до этой правки) — по at, как было. */
+    function hiddenNow() {
+      return typeof document !== 'undefined' && (document.visibilityState === 'hidden' || document.hidden === true);
+    }
+
     function onVisibility() {
       if (!_on) return;
       try {
-        var hidden = document.visibilityState === 'hidden' || document.hidden === true;
+        var hidden = hiddenNow();
         var t = now();
         var s = stats();
         if (hidden) s.last_hidden = t;
@@ -639,14 +716,21 @@
           if (s.ext_open && num(s.last_hidden) >= num(s.ext_at)) s.ext_open = 0;
         }
         write(STATS_KEY, s);
-        var rec = load();
-        if (!rec || (rec.mode !== 'external' && rec.kind !== 'torrent-app')) return;
+        var only = _watchOnly;
+        var rec = only || load();
+        if (!rec || rec.returned || (rec.mode !== 'external' && rec.kind !== 'torrent-app')) return;
         if (hidden) {
           rec.hidden_at = t;
-          save(rec);
-        } else if (num(rec.hidden_at) >= num(rec.ext_at || rec.at) && !rec.returned) {
+          if (!only) save(rec);
+        } else if (num(rec.hidden_at) >= num(rec.ext_at || rec.at)) {
           rec.returned = true;
-          save(rec);
+          if (!only) save(rec);
+          _watchOnly = null;
+          /* При холодном старте решение остаётся в окне возврата. */
+          if (_watchExt && rec.ext_at === _watchExt && !rec.settled && !rec.shown && watchInfo(rec, t)) {
+            _watch = { rec: rec, at: t, tries: 0 };
+            _watchTimer = setT(watchTick, FIRST_DELAY);
+          }
         }
       } catch (err) {
         warn('resume visibility failed', err);
@@ -722,6 +806,7 @@
 
     function uninstall() {
       _on = false;
+      clearWatch();
       cancel();
       if (!_followed) return;
       if (_followed.player) {
@@ -744,8 +829,9 @@
        старта давно нет (ревью 1.3). Запись остаётся — для меню и ряда. */
     function boot() {
       _pending = false;
+      _bootAt = now();
       try {
-        write(STATS_KEY, bootStats(read(STATS_KEY), now()));
+        write(STATS_KEY, bootStats(read(STATS_KEY), _bootAt));
         var rec = read(KEY);
         if (!rec) return false;
         var d = decide(rec, now(), opts());
@@ -773,8 +859,8 @@
        и окно нужно и там. */
     function schedule(ready) {
       stopTimer();
-      if (!_pending) return;
       _ready = typeof ready === 'function' ? ready : null;
+      if (!_pending) return;
       _tries = 0;
       _timer = setT(tick, FIRST_DELAY);
     }
@@ -839,7 +925,7 @@
 
     /* Пункты окна по виду записи. Названия из TMDB и имена файлов —
        через esc: Select вставляет title/subtitle в разметку сырыми. */
-    function items(rec) {
+    function items(rec, backAt) {
       var esc = LC.util.esc;
       var head = nameOf(rec.card);
       var ep = episodeText(rec, lang('lumen_resume_of'));
@@ -853,6 +939,7 @@
         out.push({ title: lang('lumen_resume_reopen'), subtitle: esc([head, lang('lumen_resume_app_hint')].filter(Boolean).join(' · ')), lumen: 'reopen' });
       }
       out.push({ title: lang('lumen_resume_open_card'), subtitle: rec.kind === 'online' ? esc([head, ep].filter(Boolean).join(' · ')) : '', lumen: 'card' });
+      if (watchInfo(rec, backAt)) out.push({ title: lang('lumen_watch_ask_mark'), lumen: 'watched' });
       out.push({ title: lang('lumen_resume_later'), lumen: 'later' });
       return out;
     }
@@ -899,11 +986,13 @@
       var nowAt = now();
       _torrent = { magnet: element.Link, title: element.title, poster: element.poster, card_id: card.id, at: nowAt };
       if (appMode()) {
+        clearWatch();
         markExt();
-        if (enabled()) {
-          var rec = fromTorrent(element, card, nowAt);
-          if (rec) save(rec);
-        }
+        var rec = fromTorrent(element, card, nowAt);
+        if (rec && enabled()) {
+          save(rec);
+          followExternalWatch(rec, false);
+        } else if (watchEnabled()) followExternalWatch(rec, true);
       }
       return true;
     }
@@ -912,6 +1001,7 @@
       if (!startTorrent(torrentElement(rec.torrent, rec.card), rec.torrent_hash, rec.card)) return false;
       if (rec.kind === 'torrent-app') {
         /* Новый сеанс в TorrServe: убьёт Lampa снова — окно снова нужно. */
+        clearWatch();
         var fresh = load();
         if (fresh) {
           fresh.at = now();
@@ -920,6 +1010,7 @@
           fresh.returned = false;
           fresh.hidden_at = 0;
           save(fresh);
+          followExternalWatch(fresh, false);
         }
         markExt();
       }
@@ -959,14 +1050,18 @@
         rec.shown = true;
         save(rec);
         var back = controllerName();
-        var list = items(rec);
+        var backAt = _bootAt || now();
+        var list = items(rec, backAt);
         var done = false;
         var finish = function (kind) {
           if (done) return;
           done = true;
           _open = false;
           toggle(back);
-          if (kind && kind !== 'later') run(kind, rec);
+          try {
+            if (kind === 'watched') markWatched(rec, backAt);
+            else if (kind && kind !== 'later') run(kind, rec);
+          } catch (err) { warn('watch ask action failed', err); }
         };
         for (var i = 0; i < list.length; i++) {
           (function (it) {
@@ -1009,7 +1104,62 @@
 
     function busy() {
       if (_open && selectGone()) _open = false;
-      return _pending || _open;
+      return _pending || _open || !!_watch;
+    }
+
+    function watchTick() {
+      _watchTimer = null;
+      var pending = _watch;
+      if (!pending) return;
+      try {
+        if (!_on || !watchInfo(pending.rec, pending.at)) {
+          _watch = null;
+          return;
+        }
+        if (_open && selectGone()) _open = false;
+        if (!_pending && !_open && !hiddenNow() && _ready && _ready()) {
+          _watch = null;
+          showWatch(pending);
+        } else if (++pending.tries < TRIES) {
+          _watchTimer = setT(watchTick, RETRY_DELAY);
+        } else {
+          _watch = null;
+        }
+      } catch (err) {
+        _watch = null;
+        warn('watch ask failed', err);
+      }
+    }
+
+    function showWatch(pending) {
+      if (!Lampa.Select || typeof Lampa.Select.show !== 'function') return;
+      var back = controllerName();
+      var runAt = _watchRun;
+      var done = false;
+      function finish(confirm) {
+        if (done) return;
+        done = true;
+        _open = false;
+        toggle(back);
+        try {
+          if (confirm && _on && runAt === _watchRun) markWatched(pending.rec, pending.at);
+        } catch (err) { warn('watch ask action failed', err); }
+      }
+      _open = true;
+      try {
+        Lampa.Select.show({
+          lumen_own: true,
+          title: LC.util.esc(lang('lumen_watch_ask_title').replace('{title}', function () { return nameOf(pending.rec.card); })),
+          items: [
+            { title: lang('lumen_watch_ask_yes'), onSelect: function () { finish(true); } },
+            { title: lang('lumen_watch_ask_no'), onSelect: function () { finish(false); } }
+          ],
+          onBack: function () { finish(false); }
+        });
+      } catch (err) {
+        _open = false;
+        throw err;
+      }
     }
 
     /* Запись, к которой можно вернуться из меню карточки и ряда
@@ -1077,6 +1227,7 @@
       RETRY_DELAY: RETRY_DELAY,
       TRIES: TRIES,
       capture: capture,
+      awayVerdict: awayVerdict,
       fromTorrent: fromTorrent,
       advance: advance,
       decide: decide,

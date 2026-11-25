@@ -263,7 +263,11 @@ function setup(opts) {
     Listener: follow('app:'),
     Select: { show: (p) => log.select.push(p) },
     Controller: { enabled: () => ({ name: ctrl }), toggle: (n) => log.toggles.push(n) },
-    Timeline: { view: (h) => Object.assign({ hash: h, percent: 0, time: 0, duration: 0, handler: () => { } }, timeline[h] || {}) },
+    Utils: { hash: (name) => 'movie:' + name },
+    Timeline: {
+      view: (h) => Object.assign({ hash: h, percent: 0, time: 0, duration: 0, handler: () => { } }, timeline[h] || {}),
+      update: (d) => { timeline[d.hash] = d; (log.updates ||= []).push(d); }
+    },
     Torrent: { start: (el, card) => log.torrentStart.push({ el, card }), open: (h, card) => log.torrentOpen.push({ h, card }) },
     Activity: { active: () => active, push: (o) => log.push.push(o) },
     Platform: { is: (n) => n === 'android' && !!opts.android }
@@ -821,4 +825,140 @@ test('resume: подписки передают запуски раздач ав
     env.player('create', { data: playData(4, 6), abort: () => { } });
     assert.deepEqual(calls, [], 'после uninstall (плагин выключен) — ничего');
   }
+});
+
+const ASK_FILM = { id: 771, title: 'Один дома', original_title: 'Home Alone', runtime: 100 };
+
+function leaveForFilm(env, card = ASK_FILM, extras = {}) {
+  env.player('external', { card, title: card.title, torrent_hash: HASH, url: stream(1), ...extras });
+  env.vis('hidden');
+}
+
+test('watch ask: 69/70%, длительность и сериалы с original_title', () => {
+  assert.equal(pure().awayVerdict(T0, T0 + 69 * 60000, 100), false);
+  assert.equal(pure().awayVerdict(T0, T0 + 70 * 60000, 100), true);
+  assert.equal(pure().awayVerdict(T0, T0 + 70 * 60000, 0), false);
+  for (const card of [{ ...ASK_FILM, runtime: null }, { ...ASK_FILM, number_of_seasons: 2, original_name: 'Home Alone' }]) {
+    const env = setup();
+    env.api.install();
+    env.api.schedule(() => true);
+    leaveForFilm(env, card);
+    env.tick(80 * 60000);
+    env.vis('visible');
+    while (env.timers.length) env.step();
+    assert.equal(env.log.select.length, 0);
+  }
+});
+
+test('watch ask: один живой вопрос по возвращении из внешнего плеера, ответ пишет ключ Lampa', () => {
+  for (const resume of [true, false]) {
+    const env = setup({ prefs: { lumen_resume: resume } });
+    env.api.install();
+    env.api.schedule(() => true);
+    leaveForFilm(env);
+    env.tick(70 * 60000);
+    env.vis('visible');
+    env.step();
+    assert.equal(env.log.select.length, 1);
+    const opened = env.log.select[0];
+    assert.equal(opened.title, 'Досмотрели «Один дома»?');
+    assert.deepEqual(opened.items.map((a) => a.title), ['Да, отметить', 'Нет']);
+    opened.items[0].onSelect();
+    assert.deepEqual(env.log.updates, [{ hash: 'movie:Home Alone', percent: 100, time: 6000, duration: 6000 }]);
+    env.vis('hidden'); env.vis('visible'); env.step();
+    assert.equal(env.log.select.length, 1, 'повторной подсказки для того же запуска нет');
+  }
+});
+
+test('watch ask: отказ, запрет настройки, свежий таймкод и конфликт чужого окна', () => {
+  for (const mode of ['decline', 'off', '90beforeVisible', '90WhileBusy', '90BeforeYes']) {
+    const env = setup({ prefs: { lumen_watch_ask: mode !== 'off' } });
+    let ready = false;
+    env.api.install();
+    env.api.schedule(() => ready);
+    leaveForFilm(env);
+    env.tick(80 * 60000);
+    const mark = () => { env.timeline['movie:Home Alone'] = { percent: 90, time: 5400, duration: 6000 }; };
+    if (mode === '90beforeVisible') mark();
+    env.vis('visible');
+    env.step();
+    assert.equal(env.log.select.length, 0, 'чужое окно поверх экрана');
+    if (mode === '90WhileBusy') mark();
+    ready = true;
+    env.step();
+    if (mode === 'decline' || mode === '90BeforeYes') {
+      assert.equal(env.log.select.length, 1, mode);
+      if (mode === '90BeforeYes') mark();
+      env.log.select[0].items[mode === 'decline' ? 1 : 0].onSelect();
+      env.vis('hidden'); env.vis('visible'); env.step();
+      assert.equal(env.log.select.length, 1);
+    } else {
+      assert.equal(env.log.select.length, 0, mode);
+    }
+    assert.equal(env.log.updates, undefined, mode);
+  }
+});
+
+test('watch ask: холодный запуск добавляет отметку только при достаточном времени и без 90%', () => {
+  for (const [minutes, percent, wanted] of [[69, 0, false], [69, 90, false], [70, 89, true], [70, 90, false]]) {
+    const first = setup();
+    first.api.install();
+    leaveForFilm(first);
+    const env = setup({ now: T0 + minutes * 60000, storage: { lumen_resume: first.rec() },
+      timeline: { 'movie:Home Alone': { percent, duration: 6100 } } });
+    assert.equal(env.api.boot(), true);
+    env.api.install();
+    env.api.schedule(() => true);
+    env.tick(60000); // Порог считается на старте, а не после показа.
+    env.step();
+    assert.equal(env.log.select.length, 1);
+    const choice = env.log.select[0].items.find((a) => a.lumen === 'watched');
+    assert.equal(!!choice, wanted);
+    if (choice) {
+      assert.equal(choice.title, 'Досмотрел — отметить');
+      choice.onSelect();
+      assert.deepEqual(env.log.updates, [{ hash: 'movie:Home Alone', percent: 100, time: 6100, duration: 6100 }]);
+    }
+  }
+});
+
+
+test('watch ask: после холодного окна фоновый режим сам по себе повторного вопроса не запускает', () => {
+  const first = setup();
+  first.api.install();
+  leaveForFilm(first);
+  const env = setup({ now: T0 + 80 * 60000, storage: { lumen_resume: first.rec() } });
+  assert.equal(env.api.boot(), true);
+  env.api.install();
+  env.api.schedule(() => true);
+  env.step();
+  env.log.select[0].onBack();
+  env.vis('hidden');
+  env.tick(80 * 60000);
+  env.vis('visible');
+  while (env.timers.length) env.step();
+  assert.equal(env.log.select.length, 1);
+  assert.equal(env.log.updates, undefined);
+});
+
+test('watch ask: неизвестный таймкод и некорректная длительность записи', () => {
+  const env = setup({ timeline: { 'movie:Home Alone': { duration: -1 } } });
+  env.api.install();
+  env.api.schedule(() => true);
+  env.player('external', { card: ASK_FILM, title: ASK_FILM.title, url: 'https://example.test/film.m3u8' });
+  env.vis('hidden');
+  env.tick(80 * 60000);
+  env.vis('visible');
+  env.step();
+  assert.equal(env.log.select.length, 1);
+  env.log.select[0].items[0].onSelect();
+  assert.deepEqual(env.log.updates, [{ hash: 'movie:Home Alone', percent: 100, time: 6000, duration: 6000 }]);
+});
+
+
+test('watch ask: выключатель не создаёт запись возврата без таймкода и раздачи', () => {
+  const env = setup({ prefs: { lumen_watch_ask: false } });
+  env.api.install();
+  env.player('external', { card: ASK_FILM, title: ASK_FILM.title, url: 'https://example.test/film.m3u8' });
+  assert.equal(env.rec(), null);
 });

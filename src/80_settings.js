@@ -1330,6 +1330,16 @@
       en: 'If Lampa restarts mid-film or episode, it offers to continue. Kept only on this device.',
       uk: 'Lampa перезапустилася посеред фільму — запропонує продовжити.'
     },
+    lumen_watch_ask_name: { ru: 'Досмотрели фильм?', en: 'Did you finish the movie?', uk: 'Додивилися фільм?' },
+    lumen_watch_ask_descr: {
+      ru: 'Предложить отметить фильм после долгого просмотра во внешнем плеере.',
+      en: 'Offer to mark a movie watched after a long session in an external player.',
+      uk: 'Запропонувати позначити фільм після тривалого перегляду в зовнішньому плеєрі.'
+    },
+    lumen_watch_ask_title: { ru: 'Досмотрели «{title}»?', en: 'Did you finish “{title}”?', uk: 'Додивилися «{title}»?' },
+    lumen_watch_ask_yes: { ru: 'Да, отметить', en: 'Yes, mark watched', uk: 'Так, позначити' },
+    lumen_watch_ask_no: { ru: 'Нет', en: 'No', uk: 'Ні' },
+    lumen_watch_ask_mark: { ru: 'Досмотрел — отметить', en: 'Mark as watched', uk: 'Додивився — позначити' },
     lumen_resume_ttl_name: { ru: 'Сколько помнить место', en: 'Remember the spot for', uk: 'Скільки пам’ятати місце' },
     lumen_resume_ttl_descr: {
       ru: 'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
@@ -1748,7 +1758,7 @@
       try { if (LC.tsauto) LC.tsauto.apply(); } catch (eTsAuto) {}
       return true;
     }
-    if (name === 'lumen_resume' || name === 'lumen_resume_ttl') {
+    if (name === 'lumen_resume' || name === 'lumen_resume_ttl' || name === 'lumen_watch_ask') {
       try { if (name === 'lumen_resume' && LC.resume && !LC.pref('lumen_resume', true)) LC.resume.cancel(); } catch (eResume) {}
       return true;
     }
