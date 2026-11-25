@@ -161,7 +161,7 @@ test('LIST: полный набор ключей 1.5 — старые имена
     'lumen_ts_auto', 'lumen_parser_fallback',
     /* «Дополнительно…» */
     'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
-    'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
+    'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl', 'lumen_home_start',
     'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source',
     'lumen_ambient_delay', 'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew',
     'lumen_whatsnew_show', 'lumen_hide_shots', 'lumen_hide_head_icons', 'lumen_fx_garland_apple', 'lumen_dev_date', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url'
@@ -252,7 +252,7 @@ const SECTION_GROUPS = {
     ['lumen_group_film', ['lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
       'lumen_card_progress', 'lumen_hide_meta']],
     ['lumen_group_rows', ['lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_home_start', 'lumen_rows_dedupe', 'lumen_hide_watched']],
-    ['lumen_group_resume', ['lumen_resume', 'lumen_resume_ttl']],
+    ['lumen_group_resume', ['lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl']],
     ['lumen_group_ambient', ['lumen_fx', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
     ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew', 'lumen_whatsnew_show',
       'lumen_hide_shots', 'lumen_hide_head_icons']],
