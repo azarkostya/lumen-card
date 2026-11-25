@@ -2455,37 +2455,24 @@
       'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
       'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
       'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
-    /* Раунд holB: адвент под СНГ — 31 окошко (src/44_rows.js, doorHtml и
-       adventCreate). Закрытое окошко — дверца на месте постера: ночное
-       небо со снежинками, пунктирная «перфорация» картонного окна, число
-       и месяц, замок. Особая плитка 31-го — винная с золотом, звезда и
-       «Новогодняя ночь». Сегодняшнее окошко обведено акцентом, а при
-       первом показе дня его дверца распахивается и тает (только при
-       полных анимациях; в «Лёгких» и «Выкл» дверцы нет — сразу постер).
-       Кольцо сегодняшнего — outline: в поток не входит, а тень со
-       «spread» таблица не пускает (Task 38). Всё — внутри .card__view: position:absolute во весь постер,
-       размеров карточки не трогает ни одно правило (инвариант Task 51).
-       Фон — градиенты: растрируются один раз, на кадре не стоят ничего. */
-    var ADV_DOT = function (x, y, a) {
-      return 'radial-gradient(circle at ' + x + '% ' + y + '%,rgba(255,255,255,' + a + ') 0,rgba(255,255,255,' + a + ') .05em,rgba(255,255,255,0) .1em)';
-    };
-    var ADV_SNOW = [ADV_DOT(16, 12, 0.6), ADV_DOT(78, 9, 0.45), ADV_DOT(58, 22, 0.35), ADV_DOT(24, 44, 0.3),
-      ADV_DOT(86, 38, 0.5), ADV_DOT(12, 76, 0.4), ADV_DOT(70, 84, 0.35), ADV_DOT(44, 92, 0.3)].join(',');
-    css.push('.lumen-main .card .lumen-advent__door{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;text-align:center;pointer-events:none;' +
-      'background:' + ADV_SNOW + ',linear-gradient(162deg,#24335e 0%,#161b33 52%,#2c1735 100%)}');
-    css.push('.lumen-main .card .lumen-advent__frame{position:absolute;top:.42em;left:.42em;right:.42em;bottom:.42em;border:.07em dashed rgba(255,255,255,.32);border-radius:.2em}');
-    css.push('.lumen-main .card .lumen-advent__num{position:absolute;left:0;right:0;top:24%;font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1;letter-spacing:-.02em;color:rgba(255,255,255,.95)}');
-    css.push('.lumen-main .card .lumen-advent__mon{position:absolute;left:0;right:0;top:56%;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.66)}');
-    css.push('.lumen-main .card .lumen-advent__lock{position:absolute;left:50%;bottom:7%;width:1.4em;height:1.4em;margin-left:-.7em;color:rgba(255,255,255,.55)}');
+    /* Адвент: обёртка, крышка и лента рисуются внутри .card__view.
+       Бирка и бант лежат поверх ленты, пустая карточка и дальние даты приглушены. */
+    css.push('.lumen-main .card .lumen-advent__cover{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;pointer-events:none}');
+    css.push('.lumen-main .card .lumen-advent__door{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;text-align:center;pointer-events:none;background:#2A333B;color:rgba(255,248,226,.74)}');
+    css.push('.lumen-main .card .lumen-advent__door--wrap-0{background:linear-gradient(150deg,#364F60,#182934);color:#C7D8E5}');
+    css.push('.lumen-main .card .lumen-advent__door--wrap-1{background:linear-gradient(150deg,#643847,#331B2A);color:#F3CED9}');
+    css.push('.lumen-main .card .lumen-advent__door--wrap-2{background:linear-gradient(150deg,#3E5B49,#193429);color:#CCE3CE}');
+    css.push('.lumen-main .card .lumen-advent__door--wrap-3{background:linear-gradient(150deg,#674A31,#362617);color:#F6D6A8}');
+    css.push('.lumen-main .card .lumen-advent__door::before{content:"";position:absolute;left:0;right:0;top:27%;height:16%;background:rgba(255,255,255,.13);border-bottom:.12em solid rgba(0,0,0,.25)}');
+    css.push('.lumen-main .card .lumen-advent__ribbon{position:absolute;top:0;bottom:0;left:44%;right:44%;background:currentColor;opacity:.34}');
+    css.push('.lumen-main .card .lumen-advent__ribbon::after{content:"";position:absolute;left:-367%;right:-367%;height:.66em;top:34%;background:currentColor}');
+    css.push('.lumen-main .card .lumen-advent__bow{position:absolute;top:21%;left:28%;width:44%;height:auto}');
+    css.push('.lumen-main .card .lumen-advent__num{position:absolute;top:46%;left:50%;width:1.55em;margin-left:-.775em;padding:.11em 0 .12em;border-radius:.12em;background:#17191C;color:#FFF;font-family:' + FB + ';font-weight:700;font-size:2.25em;line-height:1}');
     css.push('.lumen-main .card .lumen-advent__star{position:absolute;left:50%;top:7%;width:1.5em;height:1.5em;margin-left:-.75em;color:#F1CF84}');
-    css.push('.lumen-main .card .lumen-advent__note{position:absolute;left:.55em;right:.55em;bottom:19%;font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:#F1CF84}');
-    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__door{background:' + ADV_SNOW + ',linear-gradient(162deg,#5e1d33 0%,#2b0f22 55%,#3f2712 100%)}');
-    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__frame{border:.08em solid rgba(232,193,112,.8)}');
-    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__num{top:20%;color:#F1CF84}');
-    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__mon{top:48%;color:rgba(241,207,132,.8)}');
-    /* Прошедший день, на который в подборках не хватило фильма, — та же
-       дверца, приглушённая, без замка. */
-    css.push('.lumen-main .card.lumen-advent-card--empty .lumen-advent__door{opacity:.55}');
+    css.push('.lumen-main .card .lumen-advent__note{position:absolute;left:.5em;right:.5em;bottom:9%;padding:.14em .2em;border-radius:.2em;background:#241A19;font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:#F1CF84}');
+    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__door{background:linear-gradient(150deg,#76354B,#412031 55%,#59361D);color:#F1CF84}');
+    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__num{color:#F1CF84}');
+    css.push('.lumen-main .card .lumen-advent__door--far,.lumen-main .card.lumen-advent-card--empty .lumen-advent__door{opacity:.63}');
     css.push('.lumen-main .lumen-advent-card--today .card__view{outline:.13em solid ' + A + ';outline-offset:.08em}');
     /* 31-е открыто — «Ирония судьбы» в золотом контуре плитки 31-го. */
     css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#E8C170}');
@@ -2506,12 +2493,11 @@
     css.push('.lumen-main .lumen-advent-card--today .card__age{font-weight:600;color:' + liftTo(A, P.soft, P.text) + '}');
     css.push('.lumen-main .lumen-advent-card--final .card__age{font-weight:600;color:#E8C170}');
     css.push('.lumen-main .lumen-advent-card .card__vote{display:none}');
-    css.push('.lumen-main .card .lumen-advent__door--opening{-webkit-transform-origin:0 50%;transform-origin:0 50%}');
-    css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.5s ease-in-out .9s both;animation:lumen-advent-open 1.5s ease-in-out .9s both}');
+    css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.2s ease-in-out both;animation:lumen-advent-open 1.2s ease-in-out both}');
     css.push('body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening{display:none}');
     css.push('body.lumen-motion-off .lumen-main .card .lumen-advent__door--opening{display:none}');
-    css.push('@-webkit-keyframes lumen-advent-open{0%{-webkit-transform:perspective(30em) rotateY(0);opacity:1}75%{-webkit-transform:perspective(30em) rotateY(-96deg);opacity:1}100%{-webkit-transform:perspective(30em) rotateY(-110deg);opacity:0}}');
-    css.push('@keyframes lumen-advent-open{0%{transform:perspective(30em) rotateY(0);opacity:1}75%{transform:perspective(30em) rotateY(-96deg);opacity:1}100%{transform:perspective(30em) rotateY(-110deg);opacity:0}}');
+    css.push('@-webkit-keyframes lumen-advent-open{0%{-webkit-transform:translateY(0);opacity:1}100%{-webkit-transform:translateY(-100%);opacity:0}}');
+    css.push('@keyframes lumen-advent-open{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-100%);opacity:0}}');
     /* Раунд holB: дымка и тыквенное зарево праздничного Хэллоуина — по
        классу сцены на слое (lumen-fx--halloween, ставит LC.fx.mount на весь
        монтаж и удержание), а не только по классу темы героя: тот снимается

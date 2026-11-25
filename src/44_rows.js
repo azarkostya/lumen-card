@@ -1034,8 +1034,7 @@
     /* Прозрачный пиксель вместо постера закрытого окошка: без картинки
        Lampa ставит свою «битую» (Card.getPosterPath, img_broken.svg). */
     var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    /* Иконки дверцы — в стиле набора кнопок (24×24, штрих 1.8). */
-    var ADVENT_LOCK = '<svg class="lumen-advent__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg>';
+    var ADVENT_BOW = '<svg class="lumen-advent__bow" viewBox="0 0 48 26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 13C17 1 5 2 5 8c0 6 11 6 19 5Zm0 0C31 1 43 2 43 8c0 6-11 6-19 5ZM24 13l-9 10m9-10 9 10"/><circle cx="24" cy="13" r="2" fill="currentColor" stroke="none"/></svg>';
     var ADVENT_STAR = '<svg class="lumen-advent__star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2l2.5 5.3 5.8.8-4.2 4.1 1 5.8L12 16.5l-5.1 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.2z"/></svg>';
 
     function adventWord(key, def) {
@@ -1092,19 +1091,14 @@
       } catch (e) { }
     }
 
-    /* Дверца окошка — на месте постера (в .card__view). У закрытого — дата
-       и замок, у 31-го — звезда и «Новогодняя ночь»; у сегодняшнего при
-       первом показе — та же дверца без замка, которая распахивается
-       (lumen-advent__door--opening, src/30_css.js). */
+    /* Подарок закрывает постер, пока не наступит его день. */
     function doorHtml(info) {
-      var cls = 'lumen-advent__door' + (info.fresh ? ' lumen-advent__door--opening' : '');
+      var cls = 'lumen-advent__door lumen-advent__door--wrap-' + (info.day % 4);
+      if (info.far) cls += ' lumen-advent__door--far';
+      if (info.fresh) cls += ' lumen-advent__door--opening';
       var note = info.final ? '<div class="lumen-advent__note">' + adventWord('lumen_advent_final', "New Year's Eve") + '</div>' : '';
-      var star = info.final ? ADVENT_STAR : '';
-      var lock = info.state === 'locked' ? ADVENT_LOCK : '';
-      var month = ('' + adventWord('lumen_advent_date', '{d}')).replace('{d}', '').replace(/^\s+|\s+$/g, '');
-      return '<div class="' + cls + '"><div class="lumen-advent__frame"></div>' + star +
-        '<div class="lumen-advent__num">' + info.day + '</div>' +
-        '<div class="lumen-advent__mon">' + month + '</div>' + note + lock + '</div>';
+      return '<div class="lumen-advent__cover"><div class="' + cls + '"><div class="lumen-advent__ribbon" aria-hidden="true"></div>' + ADVENT_BOW +
+        (info.final ? ADVENT_STAR : '') + '<div class="lumen-advent__num">' + info.day + '</div>' + note + '</div></div>';
     }
 
     /* Раунд C, C1: метка окошка («День 12», «Сегодня» — info.label,

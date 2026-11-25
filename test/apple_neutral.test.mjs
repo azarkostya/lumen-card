@@ -64,11 +64,12 @@ const LUMEN_SAMPLES = {
    1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках;
    1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js);
    Новый год, шаг 3 (25.11.2026): сняты правила мёртвой CSS-гирлянды lumen-theme--christmas (src/30_css.js);
+   Новый год, шаг 9: подарочная обёртка, ленты и открытие окошек адвента (src/30_css.js);
    пачка A: кольца фокуса, кегль и тени v2, лёгкий режим списков, прокрутка отзывов, компактная шапка, облегчённая
    предзагрузка. Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '474b10a8d6c10859555438d68744023a4b2939ed86e7f5a8b615d6c9ca406fed',
-  black_solid: 'dd6f81d6cf961bf59077777107ac793ca02a88994f0904ef04575a20a7ceaac1'
+  warm: 'b0e52c20c3c67dd57eac9cb2961e7d8986ba8c485dea3f22d7bcca9be57b8f4e',
+  black_solid: '57ef659078c59166b77629ae5a0836069d523b391257fd6fe80f503473adda4a'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

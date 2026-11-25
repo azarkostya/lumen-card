@@ -8733,6 +8733,8 @@ test('сверка: метка в подписи на главной — ≥ 4.5
 test('holB: адвент — дверца поверх постера не меняет размеров карточки; открытие только в «Полных»', () => {
   const door = findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__door');
   assert.ok(door, 'правило дверцы');
+  const cover = findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__cover');
+  assert.match(cover, /overflow:hidden/);
   assert.ok(/(?:^|;)position:absolute(?:;|$)/.test(door) && /top:0/.test(door) && /bottom:0/.test(door), door);
   const lines = css.split('\n').filter((l) => l.indexOf('lumen-advent') !== -1);
   for (const l of lines) {
@@ -8742,12 +8744,16 @@ test('holB: адвент — дверца поверх постера не ме�
     }
   }
   const anim = lines.filter((l) => /animation:lumen-advent-open/.test(l));
-  assert.ok(anim.length >= 1, 'открытие окошка анимировано');
+  assert.ok(anim.length >= 1 && anim.every((line) => /lumen-advent-open 1\.2s/.test(line)), 'подарок открывается за 1,2 с');
   assert.ok(anim.every((l) => l.indexOf('body.lumen-motion-full ') === 0), 'и только при полных анимациях: ' + anim.join(' | '));
   const lite = findDecl(css, (sel) => sel === 'body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening');
   assert.ok(lite && /display:none/.test(lite), '«Лёгкие» — без дверцы, сразу постер');
   const key = css.split('\n').filter((l) => l.indexOf('@keyframes lumen-advent-open') === 0)[0];
-  assert.ok(key && /transform/.test(key) && /opacity/.test(key) && !/box-shadow|filter|width|height/.test(key), key);
+  assert.ok(key && /translateY\(-100%\)/.test(key) && /opacity/.test(key) && !/box-shadow|filter|width|height/.test(key), key);
+  assert.ok(findDecl(css, (sel) => sel === 'body.lumen-motion-off .lumen-main .card .lumen-advent__door--opening').includes('display:none'));
+  const wraps = [0, 1, 2, 3].map((i) => findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__door--wrap-' + i));
+  assert.ok(wraps.every(Boolean));
+  assert.equal(new Set(wraps).size, 4);
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card.lumen-advent-card--final .lumen-advent__door'), 'особая плитка 31-го');
   const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today .card__view');
   assert.ok(ring && /outline:[^;]+solid/.test(ring), 'сегодняшнее окошко выделено контуром, не тенью: ' + ring);

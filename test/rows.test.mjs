@@ -621,11 +621,21 @@ test('адвент: ряд ставит фокус на сегодняшнее �
   assert.ok(locked.classes.indexOf('lumen-advent-card') !== -1 && locked.classes.indexOf('lumen-advent-card--locked') !== -1);
   assert.equal(locked.html.length, 1, 'дверца в .card__view');
   assert.ok(/lumen-advent__num[^>]*>21</.test(locked.html[0]), 'на дверце — число');
-  assert.ok(/lumen-advent__lock/.test(locked.html[0]), 'и замок');
+  assert.match(locked.html[0], /lumen-advent__door--wrap-1/);
+  assert.match(locked.html[0], /lumen-advent__door--far/);
+  assert.match(locked.html[0], /lumen-advent__bow/);
+  assert.doesNotMatch(locked.html[0], /декабря|lumen-advent__lock/);
+  for (var day = 16; day <= 19; day++) {
+    var near = fakeCard(cards[day - 1]);
+    near.data.params.emit.onCreate.call({ data: near.data, html: near.node });
+    assert.match(near.html[0], new RegExp('lumen-advent__door--wrap-' + (day % 4)));
+    assert.doesNotMatch(near.html[0], /lumen-advent__door--far/);
+  }
   var last = fakeCard(cards[30]);
   cards[30].params.emit.onCreate.call({ data: last.data, html: last.node });
   assert.ok(last.classes.indexOf('lumen-advent-card--final') !== -1);
-  assert.ok(/Новогодняя ночь/.test(last.html[0]), 'на плитке 31-го — «Новогодняя ночь»');
+  assert.match(last.html[0], /lumen-advent__star.*Новогодняя ночь/);
+  assert.doesNotMatch(last.html[0], /lumen-advent__door--far/);
   var today = fakeCard(cards[11]);
   cards[11].params.emit.onCreate.call({ data: today.data, html: today.node });
   assert.ok(today.classes.indexOf('lumen-advent-card--today') !== -1);
