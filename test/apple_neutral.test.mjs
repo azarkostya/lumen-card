@@ -67,10 +67,11 @@ const LUMEN_SAMPLES = {
    Новый год, шаг 9: подарочная обёртка, ленты и открытие окошек адвента (src/30_css.js);
    пачка A: кольца фокуса, кегль и тени v2, лёгкий режим списков, прокрутка отзывов, компактная шапка, облегчённая
    предзагрузка. Новый год, шаги 5, 8 и 12: неподвижная гирлянда, два слоя мерцания и поправка для сжатого героя.
+   «Досмотреть»: остаток под постером, толще полоса; мета героя 1.14em.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'RECOMPUTE',
-  black_solid: 'RECOMPUTE'
+  warm: 'b5a70d2b8b8f4160b56cd264d429996798577517af4b7ba48f9207583949de6a',
+  black_solid: '1c84d44364b3e6d04bf7abde2cb6c42b98407ca19d3f411df1030ff29f3319ac'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
