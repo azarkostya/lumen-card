@@ -56,37 +56,37 @@
        Путь к выключателю дописывать не нужно — окно добавляет его само
        из строк раздела настроек (hintText). */
     var NOTES = {
-      /* 1.4.0 — все правки выпуска (правило владельца: окно перечисляет все). */
+      /* 1.4.0 — изменения для зрителя. Подробности в журнале выпуска. */
       '1.4.0': {
         ru: [
-          'Слабые ТВ: праздники в «Лёгких» — картинкой, в герое по умолчанию только кадры, кадры до 1280, в слайдшоу карточки два кадра, трейлер в «Авто» выключен.',
-          'Карточка открывается и закрывается быстрее: цвет фильма перекрашивает только свою часть оформления, а метки и ряды главной не работают впустую.',
-          'На карточке: IMDb и КП под названием, у сериала «просмотрено 5 из 12», «Коллекция» и «Рекомендации» — постерами главной, без дубля штатной «Коллекции».',
-          'Досмотренный фильм уходит из «Досмотреть» сразу, как Lampa получит таймкод. Удержание OK — «Убрать из «Досмотреть»», история не трогается.',
-          'Раздачи: метки 4K, 1080p, HDR, DV, «Дубляж» и «Нет русской дорожки» прямо в строке раздачи; названия и метки крупнее.',
-          'Настройки короче: 13 пунктов на главном экране, разделы «Цвет и вид», «Слабый телевизор» и «TorrServer»; что сейчас не действует — помечено.',
-          'Без ключа КП карточка о нём не напоминает, пустой поиск подсказывает раскладку, не загрузилась половина подборок — плагин скажет. Поправлены наезды.',
-          'По желанию: фокус на следующей серии — Lumen Card → TorrServer…; скрыть Shots, лишние значки шапки и повтор «Что нового» — Дополнительно… → Пульт и окна.'
+          'Праздники. На главной и в новогодних карточках появились снег и гирлянда с двумя вариантами для Apple TV.',
+          'Адвент. Каждый день открывается подарок с фильмом, 31-го — «Ирония судьбы», с 18:00 — отсчёт до полуночи и поздравления.',
+          'Досмотреть. Минуты и номер серии теперь под постером, давние недосмотры скрываются, досмотренные фильмы исчезают сразу.',
+          'Моя раздача. Закрепите раздачу удержанием OK и открывайте из карточки, а крупные названия и метки помогут выбрать её.',
+          'Карточка. IMDb, КП и статус просмотра на виду, а удержание OK на серии отмечает просмотр до неё.',
+          'Оформление. Кольцо фокуса видно на постерах, текст крупнее, отзыв листается пультом, шапка раздач занимает одну строку.',
+          'Слабый ТВ. Праздники в «Лёгких» статичны, длинные списки открываются без переходов, экран предзагрузки проще.',
+          'Настройки. Новые разделы, окно знакомства и повтор «Что нового», а Shots и лишние значки шапки можно скрыть.'
         ],
         en: [
-          'Weak TVs: holiday effects in "Light" are a still picture, the hero shows frames by default, frames up to 1280, two card slideshow frames, "Auto" trailer off.',
-          'Cards open and close faster: the film colour repaints only its own part of the styles, and home badges and rows do no idle work.',
-          'On the card: IMDb and KP under the title, "watched 5 of 12" for series, "Collection" and "Recommendations" look like home posters, no duplicate Collection.',
-          'A finished film leaves "Continue watching" as soon as Lampa gets its timecode. Hold OK — "Remove from Continue watching"; history is kept.',
-          'Torrents: 4K, 1080p, HDR, DV, "Dub" and "No Russian track" tags right in the torrent row; larger titles and tags.',
-          'Shorter settings: 13 items on the main screen, "Colour and look", "Weak TV" and "TorrServer" sections; options with no effect are marked.',
-          'No KP key — no reminders on every card; empty search suggests the keyboard layout; if half the home rows fail, the plugin tells you. Overlaps fixed.',
-          'Optional: focus on the next episode — Lumen Card → TorrServer…; hide Shots, extra header icons and "What is new" again — More… → Remote and dialogs.'
+          'Holidays. Snow and garlands on Home and holiday film pages, with two garland designs for Apple TV.',
+          'Advent. Daily gifts reveal films, with The Irony of Fate on Dec 31, a countdown from 6 pm and a greeting at midnight.',
+          'Continue Watching. See time left and the episode under the poster, hide older entries and clear finished films right away.',
+          'My pinned torrent. Larger titles and tags make torrents easier to choose, and you can hold OK to pin one to the title page.',
+          'Title pages. See IMDb, Kinopoisk and watch progress, and hold OK on an episode to mark it and earlier episodes watched.',
+          'Look and feel. Poster focus is clearer, text is larger, reviews scroll with the remote and the torrent header fits on one line.',
+          'Low-powered TVs. Light animations keep holiday scenes still, skip transitions in long lists and simplify the loading screen.',
+          'Settings. Find grouped options, a welcome screen and a way to reopen What’s New or hide Shots and extra header icons.'
         ],
         uk: [
-          'Слабкі ТВ: свята в «Легких» — картинкою, у герої типово лише кадри, кадри до 1280, у слайдшоу картки два кадри, трейлер в «Авто» вимкнено.',
-          'Картка відкривається й закривається швидше: колір фільму перефарбовує лише свою частину оформлення, а мітки й ряди головної не працюють даремно.',
-          'На картці: IMDb і КП під назвою, у серіалу «переглянуто 5 з 12», «Колекція» і «Рекомендації» — постерами головної, без дубля штатної «Колекції».',
-          'Додивлений фільм зникає з «Додивитися» одразу, щойно Lampa отримає таймкод. Утримання OK — «Прибрати з «Додивитися»», історія не змінюється.',
-          'Роздачі: мітки 4K, 1080p, HDR, DV, «Дубляж» і «Немає російської доріжки» просто в рядку роздачі; назви й мітки більші.',
-          'Налаштування коротші: 13 пунктів на головному екрані, розділи «Колір і вигляд», «Слабкий телевізор» і «TorrServer»; що не діє — позначено.',
-          'Без ключа КП картка про нього не нагадує, порожній пошук підказує розкладку, не завантажилась половина добірок — плагін скаже. Виправлено накладання.',
-          'За бажанням: фокус на наступній серії — Lumen Card → TorrServer…; сховати Shots, зайві значки шапки й повтор «Що нового» — Додатково… → Пульт і вікна.'
+          'Свята. На головній і в картках новорічних фільмів з’явилися сніг і гірлянда з двома варіантами для Apple TV.',
+          'Адвент. Щодня відкривається подарунок із фільмом, 31-го — «Іронія долі», з 18:00 — відлік до опівночі й привітання.',
+          'Додивитися. Залишок часу й номер серії під постером, давні недоглянуті приховуються, переглянуті фільми зникають одразу.',
+          'Моя роздача. Більші назви й мітки допоможуть вибрати роздачу, а утримання OK закріпить її на картці.',
+          'Картка. IMDb, КП і стан перегляду на видноті, а утримання OK на серії позначає перегляд до неї.',
+          'Оформлення. Фокус на постерах помітніший, текст більший, відгук гортається пультом, шапка роздач в один рядок.',
+          'Слабкий телевізор. Свята в «Легких» статичні, довгі списки відкриваються без переходів, екран завантаження простіший.',
+          'Налаштування. Нові розділи, вікно знайомства й повтор «Що нового», а Shots і зайві значки шапки можна сховати.'
         ]
       },
       /* ЧЕРНОВИК 1.3 (новее LC.VERSION — окно его не покажет, пока номер
