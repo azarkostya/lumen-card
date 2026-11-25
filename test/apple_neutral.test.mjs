@@ -65,11 +65,12 @@ const LUMEN_SAMPLES = {
    1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js);
    Новый год, шаг 3 (25.11.2026): сняты правила мёртвой CSS-гирлянды lumen-theme--christmas (src/30_css.js);
    Шаг 16: акцент подписи и полоса у нижней кромки постера ряда «Досмотреть»;
+   Шаг 17: кегль и вертикальный бюджет меты главного кадра;
    пачка A: кольца фокуса, кегль и тени v2, лёгкий режим списков, прокрутка отзывов, компактная шапка, облегчённая
    предзагрузка. Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'eb21ace2d511123dcef3ac8113a715661d97052245fe6667a30d110cb237b301',
-  black_solid: 'ccb4a271990e57f707f3635ab62e68a70df498ddf42014853b404739a59449eb'
+  warm: '08b2016f08e7a41115bef2d1584f77d49f458cc94f7bb93918771e931be4332e',
+  black_solid: '993bae77b6594fcb73bd0fff7c91ed1fa9815820c84cee161aa0560c34af9740'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
