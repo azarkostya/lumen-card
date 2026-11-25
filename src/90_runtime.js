@@ -1744,6 +1744,7 @@
       return;
     }
     LC.injectFonts();
+    try { if (LC.garland) LC.garland.preload(); } catch (eGarlandOn) { warn('garland preload failed', eGarlandOn); }
     /* Task 31 (фаза 4): HUD отладки — читает свою настройку сам, как и все
        LC.apply*Pref; здесь только точка старта при активации плагина. */
     try { if (LC.hud) LC.hud.sync(); } catch (eHudOn) {}
@@ -2039,6 +2040,7 @@
        кадрового цикла. unmountAll снимает все слои частиц разом — и с
        карточки, и с кадра главной, — после чего следующий кадр не
        заказывается вовсе. */
+    try { if (LC.garland) LC.garland.release(); } catch (eGarlandOff) {}
     try { if (LC.fx) LC.fx.unmountAll(); } catch (eFxOff) {}
     try { if (LC.transition) LC.transition.stop(); } catch (eTransOff) {}
     /* Порядок обратный activate(): сперва шаблон (следующее открытие карточки
@@ -2546,6 +2548,7 @@
       if (changed.lumen_font) LC.injectFonts();
       LC.injectCss();
       if (changed.lumen_hero_size) remountHero();
+      if (changed.lumen_flat && LC.applyFxPref) LC.applyFxPref();
       /* П.G: смена размера кадра в виде «в подписи» — тоже (разбор у
          captionBadges); один раз, даже если сменились оба значения. */
       if (changed.lumen_badges || (changed.lumen_hero_size && captionBadges())) remountBadges();
@@ -2636,6 +2639,7 @@
   LC.applyFxPref = function () {
     if (!activated) return;
     try {
+      if (LC.garland) LC.garland.preload();
       if (!LC.active) {
         /* Карточки нет — но частицы могли остаться в кадре главной
            (src/48_hero.js). Их пересобирает сам герой. */

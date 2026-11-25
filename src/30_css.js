@@ -2418,6 +2418,13 @@
        Канвас держится на .82 прозрачности: атмосфера не должна спорить с
        текстом карточки, который лежит выше по DOM. */
     css.push('.lumen-backdrop .lumen-fx,.lumen-hero .lumen-fx{position:absolute;top:0;bottom:0;left:0;right:0;overflow:hidden;pointer-events:none}');
+    css.push('.lumen-garland{position:absolute;top:0;left:0;width:100%}');
+    css.push('.lumen-garland__strip{position:relative;display:block;width:100%;height:auto}');
+    css.push('.lumen-garland__orn{position:absolute;right:0;top:5vw;width:25%;height:auto}');
+    var garlandScale = LC.pref('lumen_hero_size', 'large');
+    if (garlandScale === 'medium' || garlandScale === 'compact') {
+      css.push('.lumen-hero .lumen-garland{top:1.2vw;transform:scale(.75);transform-origin:top center}');
+    }
     css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
     /* Оверлеи тем — чистый CSS поверх частиц, без SVG-фильтров: на ТВ
        фильтр стоит отдельного прохода композитора, а градиент растеризуется
@@ -4814,6 +4821,8 @@
        канвас не перерисовывается — кадровый цикл останавливает предикат
        paused в src/48_hero.js (src/52_fx.js, schedule/IDLE_MS). */
     css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
+    css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx{opacity:1}');
+    css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx canvas{opacity:0}');
     css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
     /* Затемнение кадра (разбор чисел — у констант SCRIM_* и FLOOR_*): все

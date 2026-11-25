@@ -1943,6 +1943,7 @@
       if (state) state.fxKey = null;
       var host = fxHost();
       if (host) {
+        try { if (LC.garland) LC.garland.unmount(host); } catch (eGarland) { warn('hero: garland unmount failed', eGarland); }
         try { if (LC.fx) LC.fx.unmount(host); } catch (e) { warn('hero: fx unmount failed', e); }
       }
       /* LC.themes может не быть только в тестах, где 48_hero.js грузится в
@@ -1982,7 +1983,10 @@
       var key = theme && theme.holiday ? fxKeyOf(theme) : null;
       if (!force && key && state.fxKey === key) {
         var live = fxHost();
-        if (live && fxLive(live, theme.preset)) return;
+        if (live && fxLive(live, theme.preset)) {
+          if (theme.id === 'newyear' && LC.garland) LC.garland.mount(live);
+          return;
+        }
       }
       /* Идёт сборка героя: сцену праздника поставит её тик (fxTick), а не
          первый показ фильма или детали из памяти предзагрузки, пришедшие
@@ -2044,6 +2048,7 @@
         /* Отметка — только когда сцена праздника действительно встала:
            LC.fx.mount отдаёт null в «Выкл» анимаций, и тогда следующий вызов
            попробует снова (как и прежде, без канваса и цикла). */
+        if (theme.id === 'newyear' && LC.garland) LC.garland.mount(host);
         if (made && key) state.fxKey = key;
       } catch (e3) {
         warn('hero: fx mount failed', e3);
@@ -4789,6 +4794,7 @@
          так, но лишний кадр после ухода с главной нам не нужен. */
       try {
         var fxGone = s.node.find('.lumen-fx');
+        if (LC.garland && fxGone && fxGone.length) LC.garland.unmount(fxGone);
         if (LC.fx && fxGone && fxGone.length) LC.fx.unmount(fxGone);
       } catch (eFx) { warn('hero: fx unmount failed', eFx); }
       try { s.node.remove(); } catch (eR) {}
@@ -4884,6 +4890,8 @@
         state.stale = true;
       }
       state.parked = true;
+      var garlandHost = fxHost();
+      if (garlandHost && LC.garland) LC.garland.unmount(garlandHost);
       cancelTrailer();
       stopTimer('timer');
       /* Новый год, шаг 1: канвас сцены праздника снимает уборка

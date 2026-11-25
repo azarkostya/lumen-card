@@ -1542,8 +1542,10 @@
       /* Статичный кадр — седьмым аргументом draw: зимней сцене он велит
          зажечь лампочки ровно (шаг 3 нового года), прочим не нужен. */
       var still = !!inst.still;
+      var pictureBulbs = inst.name === 'winter' && inst.pictureBulbs;
       for (var i = 0; i < list.length; i++) {
         var p = list[i];
+        if (pictureBulbs && p.kind === 4) continue;
         if (moving) {
           preset.step(p, dt, w, h);
           wrap(p, w, h);
@@ -1938,6 +1940,14 @@
       drop(inst);
     }
 
+    function bulbs(layer, on) {
+      var inst = find(nodeOf(layer));
+      if (!inst || inst.name !== 'winter' || !!inst.pictureBulbs === !!on) return;
+      inst.pictureBulbs = !!on;
+      inst.stillDone = false;
+      wake();
+    }
+
     function unmountAll() {
       while (instances.length) drop(instances[instances.length - 1]);
     }
@@ -1963,6 +1973,7 @@
       mount: mount,
       unmount: unmount,
       unmountAll: unmountAll,
+      bulbs: bulbs,
       sweep: sweep,
       active: function () { return instances.length; },
       /* Новый год, шаг 1: имя сцены, которая сейчас живёт на узле (не

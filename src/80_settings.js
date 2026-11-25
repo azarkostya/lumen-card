@@ -1517,7 +1517,11 @@
     /* Правка 2026-09-26: размер плиток рядов и сеток — ширина карточки ряда
        и число колонок сетки, тоже целиком таблица стилей. */
     if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
-        name === 'lumen_accent_scope' || name === 'lumen_flat' || name === 'lumen_tile_size') { LC.injectCss(); return true; }
+        name === 'lumen_accent_scope' || name === 'lumen_flat' || name === 'lumen_tile_size') {
+      LC.injectCss();
+      if (name === 'lumen_flat' && LC.applyFxPref) LC.applyFxPref();
+      return true;
+    }
     /* A6: «Скрывать блоки анализа Lampa» читается в момент ПОСТРОЕНИЯ
        карточки: ряды Lampa не создаются вовсе (src/90_runtime.js,
        dropMetaData). Ни прятать их правилом, ни снимать узел со сцены
