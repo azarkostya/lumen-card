@@ -543,8 +543,36 @@
       }
     }
 
-    function removeFromRow(el) {
+    /* Узел — внутри слайда активной активности (render(true) — сам слайд,
+       app.min.js:45548). */
+    function onActiveScreen(el) {
       try {
+        var A = window.Lampa && Lampa.Activity;
+        var act = A && typeof A.active === 'function' ? A.active() : null;
+        var slide = act && act.activity && typeof act.activity.render === 'function' ? act.activity.render(true) : null;
+        return !!(slide && typeof slide.contains === 'function' && slide.contains(el));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Узел под фокусом пульта (window.Navigator — глобальный навигатор
+       Lampa, тем же путём его читает src/85_header.js) или null. */
+    function navFocused() {
+      try {
+        var nav = window.Navigator;
+        return nav && typeof nav.getFocusedElement === 'function' ? nav.getFocusedElement() : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /* opts.background — убирает не человек из меню, а LC.personal
+       (досмотренный фильм, src/45_personal.js): фокус пульта в этот момент
+       может стоять в ЛЮБОМ ряду или на другом экране. */
+    function removeFromRow(el, opts) {
+      try {
+        var background = !!(opts && opts.background);
         var row = el && el.parentNode;
         if (!row || !row.children) return false;
         /* За 60 мс таймера ряд могли перестроить или уйти с экрана. */
@@ -564,6 +592,8 @@
         var target = next || prev;
         if (!target) return false;
         var focused = el.classList.contains('focus');
+        /* До снятия классов: под фокусом пульта может быть сама карточка. */
+        var navEl = background ? navFocused() : null;
         el.classList.remove('selector');
         el.classList.remove('focus');
         el.style.display = 'none';
@@ -572,13 +602,30 @@
         try { row.appendChild(el); } catch (e2) { }
         /* Коллекцию Navigator пересобираем всегда (иначе в ней остаётся
            скрытый узел — класс .focus есть не на всех платформах), но только
-           пока активен ряд главной; фокус — на соседа, если он был тут. */
+           пока активен ряд главной; фокус — на соседа, если он был тут.
+           «Активен ряд главной» — это контроллер 'items_line' И ряд на
+           экране активной активности: под тем же именем Lampa регистрирует
+           ряды страницы фильма («Похожие», «Рекомендации»,
+           app.min.js:38933-38941), а досмотренный фильм (LC.personal)
+           убирается и из главной, лежащей в истории. Без второй проверки
+           пульт страницы фильма уходил бы в скрытый ряд главной; на
+           возврате Lampa сама пересобирает коллекцию ряда (toggle).
+           В фоне (opts.background) — ещё и только если фокус пульта в ЭТОМ
+           ряду: на 'start' главной Lampa уже включила её 'items_line' и
+           поставила фокус (activity.start идёт до события, start$4), часто
+           в другом ряду, и collectionSet на «Досмотреть» подменил бы ей
+           коллекцию — фокус пропадал (стенд, 25.11.2026). Ряд без фокуса
+           Lampa пересоберёт сама, когда пульт в него войдёт (Line.toggle →
+           collectionSet), а скрытая карточка без .selector в снимок не
+           попадёт. */
         var C = window.Lampa && Lampa.Controller;
         var en = null;
         try { en = C && typeof C.enabled === 'function' ? C.enabled() : null; } catch (e3) { }
-        if (C && en && en.name === 'items_line' && typeof C.collectionSet === 'function' && window.$) {
+        if (C && en && en.name === 'items_line' && onActiveScreen(el) && typeof C.collectionSet === 'function' && window.$) {
           var $box = $(el).closest('.scroll');
-          if ($box && $box.length) {
+          var boxEl = $box && $box.length ? $box[0] : null;
+          var inRow = !background || focused || !!(boxEl && navEl && typeof boxEl.contains === 'function' && boxEl.contains(navEl));
+          if (boxEl && inRow) {
             C.collectionSet($box);
             if (focused && typeof C.collectionFocus === 'function') C.collectionFocus(target, $box);
           }

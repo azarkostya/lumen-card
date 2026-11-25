@@ -164,13 +164,21 @@
       }
       r.push(s([row + '.focus']) + '{background-color:' + FILL + IMP + ';color:' + ON + IMP + ';border-color:transparent;padding:.75em ' + (A ? '1.052em' : '1.227em') + ';-webkit-box-shadow:none' + IMP + ';box-shadow:none' + IMP + '}');
       r.push(s([row + '.focus::after']) + '{display:none}');
-      r.push(s([row + ' .torrent-item__title']) + '{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.008em;font-weight:500;line-height:1.35;color:' + P.text + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+      /* Читаемость списка (стенд Edge, ноябрь 2026): крупнее название и
+         медиаметки — заметнее, чем смена гарнитуры. Название 1.008 → 1.12em
+         при прежнем весе 500: тихая часть .lumen-tt-a остаётся тише жирной
+         .lumen-tt-b (700). Строку не удлиняем — min-height лишь минимум,
+         две строки названия растягивают её сами. */
+      r.push(s([row + ' .torrent-item__title']) + '{grid-column:1;grid-row:1;-ms-grid-column:1;-ms-grid-row:1;padding:0 1.052em 0 0;font-size:1.12em;font-weight:500;line-height:1.35;color:' + P.text + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
       r.push(s([row + ' .lumen-tt-a']) + '{color:' + SOFT + '}');
       r.push(s([row + ' .lumen-tt-b']) + '{font-weight:700;color:' + P.text + '}');
       r.push(s([row + '.focus .torrent-item__title', row + '.focus .lumen-tt-b']) + '{color:' + ON + '}');
       r.push(s([row + '.focus .lumen-tt-a']) + '{color:' + ON_SUB + '}');
       r.push(s([row + ' .torrent-item__ffprobe']) + '{grid-column:1;grid-row:2;-ms-grid-column:1;-ms-grid-row:2;padding:.3em 1.052em 0 0;min-width:0}');
-      r.push(s([row + ' .torrent-item__ffprobe > div']) + '{margin:.2em .3em 0 0;font-size:.877em;color:' + SOFT + ';border-color:' + LINE + '}');
+      /* Медиаметки .877 → 1em; разрядка .052em из src/65_torrents.js снята —
+         так выглядел вариант стенда, который сравнивали. Проверка на
+         Philips: перенос меток и высота строки. */
+      r.push(s([row + ' .torrent-item__ffprobe > div']) + '{margin:.2em .3em 0 0;font-size:1em;letter-spacing:0;color:' + SOFT + ';border-color:' + LINE + '}');
       r.push(s([row + '.focus .torrent-item__ffprobe > div']) + '{color:' + ON_SUB + ';border-color:' + ON_SUB + '}');
       /* Значки медиачипов Lampa — белые картинки: на светлой заливке фокуса
          их не видно, инвертируем. */

@@ -243,15 +243,21 @@
         var card = items[i];
         if (!card) continue;
         if (isSeries(card)) { out.push(card); continue; }
-        var percent = Number(percentOf(card));
-        /* Сравнение, а не отрицание: NaN (null, undefined, строка вместо
-           числа) его не проходит, и карточка остаётся в ряду. В рантайме
-           таких значений не бывает — это контракт чистой функции на случай
-           другого поставщика процента. */
-        if (percent >= CONTINUE_DONE) continue;
+        if (isDone(percentOf(card))) continue;
         out.push(card);
       }
       return out;
+    }
+
+    /* Досмотрен ли фильм по проценту — единственное сравнение с порогом
+       ряда: им пользуются и фильтр сборки (dropFinished), и уборка уже
+       нарисованного ряда (onFinished).
+       Сравнение, а не отрицание: NaN (null, undefined, строка вместо
+       числа) его не проходит, и карточка остаётся в ряду. В рантайме
+       таких значений не бывает — это контракт чистой функции на случай
+       другого поставщика процента. */
+    function isDone(percent) {
+      return Number(percent) >= CONTINUE_DONE;
     }
 
     /* 1.4: «Убрать из «Досмотреть»» (меню по удержанию OK, src/63_cardmenu.js).
@@ -556,6 +562,122 @@
         if (!key) return 0;
         var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
         return view ? Number(view.updated) || 0 : 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* 1.4: досмотренный фильм уходит из уже нарисованного ряда.           */
+    /*                                                                     */
+    /* dropFinished работает только при сборке ряда (makeContinueCall,     */
+    /* describe), а заново главную Lampa собирает, лишь когда выбросила её */
+    /* из истории (bumpGen на 'destroy' main, src/90_runtime.js). Возврат  */
+    /* «Назад» достаёт главную из стека готовой, и досмотренный фильм      */
+    /* стоял в ряду до следующей пересборки: запись Timeline уже 90+ %, а  */
+    /* ряд о ней не знал.                                                  */
+    /*                                                                     */
+    /* Пока идёт фильм, главной в документе обычно НЕТ: на третьей         */
+    /* активности (главная → карточка → «Торренты») Lampa останавливает   */
+    /* ту, что двумя уровнями ниже, и stop() снимает её слайд              */
+    /* (Activity.limit → stop → slide.remove, app.min.js:45771-45775,      */
+    /* 45531-45538). Поэтому запоминать, ЧТО досмотрено, незачем и нельзя  */
+    /* полагаться на запись Timeline: она приходит, когда ряда не найти.   */
+    /* Вместо этого нарисованный ряд перепроверяется целиком — тем же      */
+    /* dropFinished по текущему Timeline — в двух случаях:                 */
+    /*   - onMainStart: главная снова на экране (событие 'start' — Lampa   */
+    /*     вставляет её слайд обратно ДО него, start$4,                    */
+    /*     app.min.js:46017-46019), синхронно, до первого кадра;           */
+    /*   - onFinished: пришла запись от порога, а главная — АКТИВНЫЙ экран */
+    /*     (синхронизация CUB, пока человек на главной) — с задержкой      */
+    /*     FINISHED_DEBOUNCE: CUB шлёт update пачками (разбор у            */
+    /*     scheduleProgressRefresh, src/85_header.js). Главная в истории — */
+    /*     только через onMainStart (разбор у onFinished).                 */
+    /* Убирает карточку LC.cardmenu.removeFromRow (src/63_cardmenu.js),    */
+    /* тот же приём, что «Убрать из «Досмотреть»»: единственную карточку   */
+    /* ряда не трогает — она уйдёт при пересборке, фильтр её не пропустит. */
+    /*                                                                     */
+    /* Чего это не лечит: фильмы, чей таймкод Lampa не знает. Приложение   */
+    /* TorrServe (на Android по умолчанию) его не возвращает вовсе         */
+    /* (app.min.js:40369-40372), а .m2ts/.vob и карточку без               */
+    /* original_title Lampa ведёт по пути файла (Torserver.parse,          */
+    /* app.min.js:7807-7816) — watchedPercent их не видит, как и фильтр.   */
+    /* ------------------------------------------------------------------ */
+    var FINISHED_DEBOUNCE = 300;
+    var _finishedTimer = null;
+
+    /* Чистая часть: из узлов карточек — те, что стоят в ряду «Досмотреть»
+       (копии с lumen_continue, markContinue; Lampa кладёт объект в
+       node.card_data), ещё видны и досмотрены по percentOf. «Досмотрен» —
+       ровно тот же вопрос, что при сборке ряда: dropFinished по одной
+       карточке, поэтому сериалы проходят мимо и здесь. */
+    function pickFinished(nodes, percentOf) {
+      var out = [];
+      if (!nodes || typeof percentOf !== 'function') return out;
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var card = el && el.card_data;
+        if (!card || !card.lumen_continue) continue;
+        if (el.style && el.style.display === 'none') continue;
+        if (!dropFinished([card], percentOf).length) out.push(el);
+      }
+      return out;
+    }
+
+    /* Перепроверяет нарисованные ряды «Досмотреть» внутри root (по
+       умолчанию — весь документ) и убирает досмотренные. Число убранных. */
+    function sweepFinished(root) {
+      if (_finishedTimer) { clearTimeout(_finishedTimer); _finishedTimer = null; }
+      var n = 0;
+      try {
+        var remove = LC.cardmenu && LC.cardmenu.removeFromRow;
+        if (typeof remove !== 'function') return 0;
+        if (!root) root = typeof document !== 'undefined' ? document : null;
+        if (!root || typeof root.querySelectorAll !== 'function') return 0;
+        var els = pickFinished(root.querySelectorAll('.card'), watchedPercent);
+        for (var i = 0; i < els.length; i++) if (remove(els[i], { background: true })) n++;
+      } catch (e) { }
+      return n;
+    }
+
+    /* Слайд активной активности (render(true) — сам слайд) или null. */
+    function activeSlide() {
+      try {
+        var A = window.Lampa && Lampa.Activity;
+        var act = A && typeof A.active === 'function' ? A.active() : null;
+        var slide = act && act.activity && typeof act.activity.render === 'function' ? act.activity.render(true) : null;
+        return slide && typeof slide.querySelectorAll === 'function' ? slide : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /* Из LC.followTimeline (src/90_runtime.js): новая запись просмотра.
+       Обход — только по АКТИВНОМУ экрану. Главную, лежащую в истории под
+       страницей фильма, не трогаем: на «Назад» Lampa вернёт фокус ряда на
+       Line.last, а скрытый last collectionFocus отбрасывает и ставит
+       фокус на первую карточку ряда (app.min.js:46478) — ряд отматывался
+       бы в начало. Такую главную перепроверит onMainStart, когда фокус уже
+       снова на этой карточке, и removeFromRow переведёт его на соседа. */
+    function onFinished(data) {
+      try {
+        var road = data && data.road;
+        if (!road || !isDone(road.percent)) return;
+        if (_finishedTimer) return;
+        _finishedTimer = setTimeout(function () {
+          var slide = activeSlide();
+          if (slide) sweepFinished(slide);
+          else { _finishedTimer = null; }
+        }, FINISHED_DEBOUNCE);
+      } catch (e) { }
+    }
+
+    /* Из LC.onActivityEvent (src/90_runtime.js): 'start' главной. Только
+       её собственный слайд — ряды других экранов не перебираются. */
+    function onMainStart(object) {
+      try {
+        var slide = object && object.activity && typeof object.activity.render === 'function' ? object.activity.render(true) : null;
+        return sweepFinished(slide && typeof slide.querySelectorAll === 'function' ? slide : null);
       } catch (e) {
         return 0;
       }
@@ -1060,6 +1182,11 @@
       dropHidden: dropHidden,
       hideContinue: hideContinue,
       onTimeline: onTimeline,
+      /* 1.4: досмотренный фильм уходит из нарисованного ряда. */
+      pickFinished: pickFinished,
+      onFinished: onFinished,
+      onMainStart: onMainStart,
+      sweepFinished: sweepFinished,
       bumpGen: bumpGen,
       describe: describe
     };

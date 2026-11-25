@@ -579,6 +579,10 @@
           /* 1.4: новая запись просмотра возвращает карточку, убранную из
              «Досмотреть» (LC.personal.onTimeline, src/45_personal.js). */
           try { if (LC.personal && typeof LC.personal.onTimeline === 'function' && e && e.data) LC.personal.onTimeline(e.data); } catch (eCw) { warn('continue unhide failed', eCw); }
+          /* 1.4: досмотренный фильм (запись от порога ряда) уходит из уже
+             нарисованного ряда «Досмотреть» — без пересборки главной
+             (LC.personal.onFinished, src/45_personal.js). */
+          try { if (LC.personal && typeof LC.personal.onFinished === 'function' && e && e.data) LC.personal.onFinished(e.data); } catch (eDone) { warn('continue finished failed', eDone); }
           /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
              кнопки «Смотреть» — второй слушатель Timeline не заводится
              (поправки координатора). Хэш записи здесь не нужен: карточка
@@ -848,6 +852,13 @@
            настройку (состав рядов главной, подсказка про ключ). Замена
            откладывается на таймер — см. LC.refreshComponent. */
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
+        /* 1.4: главная вернулась из истории готовой (Lampa вставила её слайд
+           обратно без пересборки рядов) — досмотренные за это время фильмы
+           уходят из нарисованного «Досмотреть» до первого кадра
+           (LC.personal.onMainStart, src/45_personal.js). */
+        if (e.component === 'main') {
+          try { if (LC.personal && typeof LC.personal.onMainStart === 'function') LC.personal.onMainStart(e.object); } catch (eDone) { warn('continue sweep failed', eDone); }
+        }
         markCardBody(e.component === 'full');
         markScreenBody(stageScreen(e.component, e.object));
         markHeadBody(headOwnScreen(e.component, e.object));

@@ -160,3 +160,156 @@ test('Досмотреть: убраны все — ряда нет; меток 
     assert.equal(s.store.lumen_cw_hidden.movie_1000, undefined, 'самая старая вытеснена');
   } finally { delete globalThis.window; delete globalThis.Lampa; }
 });
+
+/* ------------- досмотренный фильм уходит из нарисованного ряда ------------- */
+
+/* Узел карточки, как у Lampa: объект карточки в node.card_data. */
+function cardNode(id, card, hidden) {
+  return { id: id, card_data: card, style: { display: hidden ? 'none' : '' } };
+}
+const cont = (card) => Object.assign({ lumen_continue: true }, card);
+
+test('pickFinished: только видимые карточки «Досмотреть», досмотренные тем же правилом, что при сборке', () => {
+  const pct = { 'Аватар': 95, 'Дюна': 40, 'The Mandalorian': 100 };
+  const percentOf = (c) => pct[c.original_title || c.original_name] || 0;
+  const nodes = [
+    cardNode('row-avatar', cont(movie(1, 'Аватар'))),
+    cardNode('other-row-avatar', movie(1, 'Аватар')),
+    cardNode('row-dune', cont(movie(2, 'Дюна'))),
+    cardNode('row-avatar-gone', cont(movie(1, 'Аватар')), true),
+    cardNode('row-show', cont(Object.assign({ number_of_seasons: 2 }, TV))),
+    { id: 'more' }
+  ];
+  assert.deepEqual(P.pickFinished(nodes, percentOf).map((n) => n.id), ['row-avatar'], 'сериал — мимо, как в dropFinished');
+  assert.deepEqual(P.pickFinished(null, percentOf), []);
+  assert.deepEqual(P.pickFinished(nodes, null), []);
+});
+
+/* Слайд активности, как object.activity.render(true) у Lampa; calls —
+   сколько раз в нём искали карточки. */
+function slideOf(nodes, calls) {
+  return { querySelectorAll: (sel) => { if (calls) calls.n++; return sel === '.card' ? nodes : []; } };
+}
+function mainObject(nodes, calls) {
+  const slide = slideOf(nodes, calls);
+  return { activity: { render: (js) => (js ? slide : null) } };
+}
+
+/* opts.activeNodes — карточки АКТИВНОГО экрана (Lampa.Activity.active()),
+   opts.docNodes — весь документ (там же может лежать главная из истории). */
+function finishedSetup(opts) {
+  opts = opts || {};
+  const removed = [];
+  const removeOpts = [];
+  const timeline = opts.timeline || {};
+  const activeCalls = { n: 0 };
+  const docCalls = { n: 0 };
+  const active = mainObject(opts.activeNodes || [], activeCalls);
+  const Lampa = {
+    Utils: { hash: (s) => 'h:' + s },
+    Timeline: { view: (h) => ({ hash: h, percent: timeline[h] || 0, time: 0, duration: 0, updated: 0 }) },
+    Activity: { active: () => active }
+  };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  globalThis.document = { querySelectorAll: (sel) => { docCalls.n++; return sel === '.card' ? (opts.docNodes || []) : []; } };
+  const init = { lang: (k) => k, pref: (k, d) => d, daysWord: (n) => n + ' d' };
+  if (opts.menu !== false) {
+    init.cardmenu = {
+      removeFromRow: (el, o) => { removed.push(el.id); removeOpts.push(o); el.style.display = 'none'; return true; }
+    };
+  }
+  const ctx = loadCtx('45_personal.js', init);
+  return { api: ctx.api, removed, removeOpts, timeline, activeCalls, docCalls };
+}
+
+function finishedCleanup(s) {
+  if (s) s.api.sweepFinished(slideOf([]));
+  delete globalThis.window; delete globalThis.Lampa; delete globalThis.document;
+}
+
+/* Фоновая уборка обязана звать removeFromRow с { background: true }:
+   без флага collectionSet на 'start' главной убивал её фокус (стенд). */
+function assertBackground(s) {
+  assert.ok(s.removeOpts.length > 0);
+  for (const o of s.removeOpts) assert.equal(o && o.background, true, 'removeFromRow — в фоновом режиме');
+}
+
+test('Досмотреть: главной не было в документе во время записи — фильм уходит на возврате', async () => {
+  /* Путь Philips: главная → карточка → «Торренты» → плеер. На третьей
+     активности Lampa снимает слайд главной (Activity.limit → stop), и
+     запись таймкода приходит, когда ряда в документе нет. */
+  const s = finishedSetup({ activeNodes: [], docNodes: [] });
+  try {
+    const rowNodes = [cardNode('avatar', cont(movie(1, 'Аватар'))), cardNode('dune', cont(movie(2, 'Дюна')))];
+    s.timeline['h:Аватар'] = 96;
+    s.api.onFinished({ hash: 'h:Аватар', road: { percent: 96 } });
+    await new Promise((r) => setTimeout(r, 350));
+    assert.deepEqual(s.removed, [], 'ряда на экране нет — убирать нечего');
+    /* «Назад» до главной: Lampa вставила слайд и шлёт 'start'. */
+    assert.equal(s.api.onMainStart(mainObject(rowNodes)), 1);
+    assert.deepEqual(s.removed, ['avatar']);
+    assertBackground(s);
+    assert.equal(s.api.onMainStart(mainObject(rowNodes)), 0, 'повторный старт — уже убрана');
+  } finally { finishedCleanup(s); }
+});
+
+test('Досмотреть: главная в истории под страницей фильма — таймер её не трогает, уходит на возврате', async () => {
+  /* Стек [главная, фильм]: слайд главной в документе, но не активен.
+     Убери таймер карточку сейчас — на «Назад» Line.last окажется скрытым,
+     и фокус уедет на первую карточку ряда. */
+  const mainNodes = [cardNode('avatar', cont(movie(1, 'Аватар'))), cardNode('dune', cont(movie(2, 'Дюна')))];
+  const s = finishedSetup({ activeNodes: [], docNodes: mainNodes, timeline: { 'h:Аватар': 97 } });
+  try {
+    s.api.onFinished({ hash: 'h:Аватар', road: { percent: 97 } });
+    await new Promise((r) => setTimeout(r, 350));
+    assert.equal(s.activeCalls.n, 1, 'обошли активный экран');
+    assert.equal(s.docCalls.n, 0, 'по всему документу не искали');
+    assert.deepEqual(s.removed, [], 'главная в истории не тронута');
+    assert.equal(s.api.onMainStart(mainObject(mainNodes)), 1);
+    assert.deepEqual(s.removed, ['avatar']);
+    assertBackground(s);
+  } finally { finishedCleanup(s); }
+});
+
+test('Досмотреть: запись от порога, главная на экране — уходит по таймеру, пачка CUB — один обход', async () => {
+  const nodes = [cardNode('avatar', cont(movie(1, 'Аватар'))), cardNode('dune', cont(movie(2, 'Дюна')))];
+  const s = finishedSetup({ activeNodes: nodes });
+  try {
+    s.timeline['h:Аватар'] = 100;
+    s.timeline['h:Дюна'] = 97;
+    s.api.onFinished({ hash: 'h:Аватар', road: { percent: 100 } });
+    s.api.onFinished({ hash: 'h:Дюна', road: { percent: 97 } });
+    s.api.onFinished({ hash: 'h:Дюна', road: { percent: 98 } });
+    assert.equal(s.activeCalls.n, 0, 'не сразу');
+    await new Promise((r) => setTimeout(r, 350));
+    assert.equal(s.activeCalls.n, 1, 'один обход на пачку');
+    assert.deepEqual(s.removed.sort(), ['avatar', 'dune']);
+    assertBackground(s);
+  } finally { finishedCleanup(s); }
+});
+
+test('Досмотреть: ниже порога, пустое событие и сериал — ряд не трогается', async () => {
+  const show = cont(Object.assign({ number_of_seasons: 2 }, TV));
+  const nodes = [cardNode('dune', cont(movie(2, 'Дюна'))), cardNode('show', show)];
+  const s = finishedSetup({ activeNodes: nodes, timeline: { 'h:Дюна': 89, 'h:The Mandalorian': 100 } });
+  try {
+    s.api.onFinished({ hash: 'h:Дюна', road: { percent: 89 } });
+    s.api.onFinished(null);
+    s.api.onFinished({ hash: 'x' });
+    await new Promise((r) => setTimeout(r, 350));
+    assert.equal(s.activeCalls.n, 0, 'таймер не заведён');
+    assert.equal(s.api.onMainStart(mainObject(nodes)), 0, '89 % и сериал остаются');
+    assert.deepEqual(s.removed, []);
+  } finally { finishedCleanup(s); }
+});
+
+test('Досмотреть: без LC.cardmenu ничего не трогает и не падает', () => {
+  const nodes = [cardNode('avatar', cont(movie(1, 'Аватар')))];
+  const s = finishedSetup({ activeNodes: nodes, timeline: { 'h:Аватар': 95 }, menu: false });
+  try {
+    assert.equal(s.api.onMainStart(mainObject(nodes)), 0);
+    assert.equal(s.api.sweepFinished(slideOf(nodes)), 0);
+    assert.equal(s.api.onMainStart(null), 0, 'без объекта активности');
+  } finally { finishedCleanup(s); }
+});

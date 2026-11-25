@@ -62,8 +62,8 @@
           'Слабые ТВ: праздники в «Лёгких» — картинкой, в герое по умолчанию только кадры, кадры до 1280, в слайдшоу карточки два кадра, трейлер в «Авто» выключен.',
           'Карточка открывается и закрывается быстрее: цвет фильма перекрашивает только свою часть оформления, а метки и ряды главной не работают впустую.',
           'На карточке: IMDb и КП под названием, у сериала «просмотрено 5 из 12», «Коллекция» и «Рекомендации» — постерами главной, без дубля штатной «Коллекции».',
-          'Удержание OK в «Досмотреть» — «Убрать из «Досмотреть»». История не трогается; начнёте смотреть снова — карточка вернётся сама.',
-          'Раздачи: метки 4K, 1080p, HDR, DV, «Дубляж» и «Нет русской дорожки» прямо в строке раздачи.',
+          'Досмотренный фильм уходит из «Досмотреть» сразу, как Lampa получит таймкод. Удержание OK — «Убрать из «Досмотреть»», история не трогается.',
+          'Раздачи: метки 4K, 1080p, HDR, DV, «Дубляж» и «Нет русской дорожки» прямо в строке раздачи; названия и метки крупнее.',
           'Настройки короче: 13 пунктов на главном экране, разделы «Цвет и вид», «Слабый телевизор» и «TorrServer»; что сейчас не действует — помечено.',
           'Без ключа КП карточка о нём не напоминает, пустой поиск подсказывает раскладку, не загрузилась половина подборок — плагин скажет. Поправлены наезды.',
           'По желанию: фокус на следующей серии — Lumen Card → TorrServer…; скрыть Shots, лишние значки шапки и повтор «Что нового» — Дополнительно… → Пульт и окна.'
@@ -72,8 +72,8 @@
           'Weak TVs: holiday effects in "Light" are a still picture, the hero shows frames by default, frames up to 1280, two card slideshow frames, "Auto" trailer off.',
           'Cards open and close faster: the film colour repaints only its own part of the styles, and home badges and rows do no idle work.',
           'On the card: IMDb and KP under the title, "watched 5 of 12" for series, "Collection" and "Recommendations" look like home posters, no duplicate Collection.',
-          'Hold OK in "Continue watching" — "Remove from Continue watching". History is kept; start watching again and the card comes back.',
-          'Torrents: 4K, 1080p, HDR, DV, "Dub" and "No Russian track" tags right in the torrent row.',
+          'A finished film leaves "Continue watching" as soon as Lampa gets its timecode. Hold OK — "Remove from Continue watching"; history is kept.',
+          'Torrents: 4K, 1080p, HDR, DV, "Dub" and "No Russian track" tags right in the torrent row; larger titles and tags.',
           'Shorter settings: 13 items on the main screen, "Colour and look", "Weak TV" and "TorrServer" sections; options with no effect are marked.',
           'No KP key — no reminders on every card; empty search suggests the keyboard layout; if half the home rows fail, the plugin tells you. Overlaps fixed.',
           'Optional: focus on the next episode — Lumen Card → TorrServer…; hide Shots, extra header icons and "What is new" again — More… → Remote and dialogs.'
@@ -82,8 +82,8 @@
           'Слабкі ТВ: свята в «Легких» — картинкою, у герої типово лише кадри, кадри до 1280, у слайдшоу картки два кадри, трейлер в «Авто» вимкнено.',
           'Картка відкривається й закривається швидше: колір фільму перефарбовує лише свою частину оформлення, а мітки й ряди головної не працюють даремно.',
           'На картці: IMDb і КП під назвою, у серіалу «переглянуто 5 з 12», «Колекція» і «Рекомендації» — постерами головної, без дубля штатної «Колекції».',
-          'Утримання OK у «Додивитися» — «Прибрати з «Додивитися»». Історія не змінюється; почнете дивитися знову — картка повернеться сама.',
-          'Роздачі: мітки 4K, 1080p, HDR, DV, «Дубляж» і «Немає російської доріжки» просто в рядку роздачі.',
+          'Додивлений фільм зникає з «Додивитися» одразу, щойно Lampa отримає таймкод. Утримання OK — «Прибрати з «Додивитися»», історія не змінюється.',
+          'Роздачі: мітки 4K, 1080p, HDR, DV, «Дубляж» і «Немає російської доріжки» просто в рядку роздачі; назви й мітки більші.',
           'Налаштування коротші: 13 пунктів на головному екрані, розділи «Колір і вигляд», «Слабкий телевізор» і «TorrServer»; що не діє — позначено.',
           'Без ключа КП картка про нього не нагадує, порожній пошук підказує розкладку, не завантажилась половина добірок — плагін скаже. Виправлено накладання.',
           'За бажанням: фокус на наступній серії — Lumen Card → TorrServer…; сховати Shots, зайві значки шапки й повтор «Що нового» — Додатково… → Пульт і вікна.'

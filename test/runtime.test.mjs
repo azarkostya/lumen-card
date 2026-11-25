@@ -2292,6 +2292,24 @@ test('C1: destroy главной (вытеснение по лимиту ист�
   assert.deepEqual(bumps, ['rows', 'personal'], 'главную выбросили — запросы её рядов больше не нужны');
 });
 
+/* 1.4: главная вернулась из истории готовой — нарисованный «Досмотреть»
+   перепроверяется на 'start' главной, с её объектом; чужие экраны — нет. */
+test('1.4: start главной зовёт LC.personal.onMainStart с её объектом, start карточки — нет', () => {
+  const { LC } = genLC();
+  const seen = [];
+  LC.personal.onMainStart = (obj) => { seen.push(obj); return 0; };
+  const main = makeActivityObj('main', false);
+  const card = makeActivityObj('card', false);
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.deepEqual(seen, [], 'карточка фильма — не главная');
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0], main);
+  LC.onActivityEvent({ type: 'archive', component: 'main', object: main });
+  assert.equal(seen.length, 1, 'archive — не второй обход');
+  assert.deepEqual(warnLog, []);
+});
+
 /* C2: настройки и селектбокс — это СЛОЙ поверх активности; активностью всё
    это время остаётся главная. Пересборка под открытым слоем уводит фокус:
    ActivitySlide.start() делает Controller.toggle('content'), и пульт

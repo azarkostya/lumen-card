@@ -668,9 +668,18 @@ test('cardmenu: removeFromRow — сосед получает фокус, убр
     return r;
   }
   const focused = [];
-  const box = { length: 1 };
+  /* Ряд (.scroll) карточки: по умолчанию в нём всё. */
+  let inBox = () => true;
+  const box = { length: 1, 0: { contains: (n) => inBox(n) } };
+  /* Слайд активной активности: по умолчанию в нём всё (главная на экране). */
+  let onScreen = () => true;
+  /* Узел под фокусом пульта (window.Navigator Lampa). */
+  let navEl = null;
   globalThis.$ = () => ({ closest: () => box });
-  globalThis.window = { $: globalThis.$, Lampa: { Controller: { enabled: () => ({ name: 'items_line' }), collectionFocus: (t) => focused.push(t.name), collectionSet: () => {} } } };
+  globalThis.window = { $: globalThis.$, Navigator: { getFocusedElement: () => navEl }, Lampa: {
+    Controller: { enabled: () => ({ name: 'items_line' }), collectionFocus: (t) => focused.push(t.name), collectionSet: () => {} },
+    Activity: { active: () => ({ activity: { render: (js) => (js ? { contains: (n) => onScreen(n) } : null) } }) }
+  } };
   globalThis.Lampa = globalThis.window.Lampa;
   try {
     const a = el('a', ['card', 'selector', 'focus']);
@@ -691,6 +700,67 @@ test('cardmenu: removeFromRow — сосед получает фокус, убр
     delete more.card_data;
     row(c, more);
     assert.equal(api.removeFromRow(c), false, 'рядом только «Ещё» — не трогаем');
+
+    /* Ряд НЕ на активном экране (главная в истории, а 'items_line' —
+       «Похожие» страницы фильма): карточка убирается, коллекцию пульта
+       чужого экрана не трогаем. */
+    onScreen = () => false;
+    focused.length = 0;
+    let sets = 0;
+    globalThis.Lampa.Controller.collectionSet = () => { sets++; };
+    const d = el('d', ['card', 'selector', 'focus']);
+    const e = el('e', ['card', 'selector']);
+    row(d, e);
+    assert.equal(api.removeFromRow(d), true);
+    assert.equal(d.style.display, 'none');
+    assert.equal(d.classList.contains('focus'), false);
+    assert.equal(sets, 0, 'collectionSet не вызван');
+    assert.deepEqual(focused, [], 'collectionFocus не вызван');
+
+    /* Фоновый режим (LC.personal, досмотренный фильм), главная на экране. */
+    onScreen = () => true;
+    /* Фокус пульта в ДРУГОМ ряду: коллекцию «Досмотреть» не подставляем —
+       иначе фокус главной пропадает (стенд 25.11.2026). */
+    const elsewhere = el('elsewhere', ['card', 'selector', 'focus']);
+    navEl = elsewhere;
+    inBox = (n) => n !== elsewhere;
+    sets = 0; focused.length = 0;
+    const g = el('g', ['card', 'selector']);
+    const h = el('h', ['card', 'selector']);
+    row(g, h);
+    assert.equal(api.removeFromRow(g, { background: true }), true);
+    assert.equal(g.style.display, 'none');
+    assert.equal(sets, 0, 'фокус в другом ряду — коллекция не трогается');
+    assert.deepEqual(focused, []);
+    /* Тот же вызов без background (меню) пересобирает, как раньше. */
+    const g2 = el('g2', ['card', 'selector']);
+    const h2 = el('h2', ['card', 'selector']);
+    row(g2, h2);
+    assert.equal(api.removeFromRow(g2), true);
+    assert.equal(sets, 1, 'меню: коллекция ряда пересобрана');
+
+    /* Фокус пульта на самой убираемой карточке: фон переводит его на соседа. */
+    const k = el('k', ['card', 'selector', 'focus']);
+    const m = el('m', ['card', 'selector']);
+    row(k, m);
+    navEl = k;
+    inBox = () => true;
+    sets = 0; focused.length = 0;
+    assert.equal(api.removeFromRow(k, { background: true }), true);
+    assert.equal(sets, 1);
+    assert.deepEqual(focused, ['m'], 'фокус — на соседа');
+
+    /* Фокус в ЭТОМ ряду, но на другой карточке (или на «Ещё»): коллекцию
+       ряда пересобираем без скрытой, фокус не двигаем. */
+    const p = el('p', ['card', 'selector']);
+    const q = el('q', ['card', 'selector', 'focus']);
+    row(p, q);
+    navEl = q;
+    inBox = () => true;
+    sets = 0; focused.length = 0;
+    assert.equal(api.removeFromRow(p, { background: true }), true);
+    assert.equal(sets, 1, 'фокус в ряду — коллекция пересобрана');
+    assert.deepEqual(focused, [], 'фокус остался, где был');
   } finally {
     delete globalThis.window;
     delete globalThis.Lampa;
