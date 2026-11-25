@@ -97,6 +97,8 @@
       r.push(s(['.explorer-card__head-create:not(.hide) + .explorer-card__head-rate:before']) + '{content:"\\00B7\\00a0\\00a0\\2605";margin-left:.45em}');
       r.push(s(['.explorer-card__head-age']) + '{-webkit-order:3;order:3;-webkit-flex-shrink:0;flex-shrink:0;margin:0 0 0 .5em;padding:0 .4em;border:.066em solid ' + MUTED + ';border-radius:.3em;font-size:1.008em;font-weight:600;line-height:1.4;color:' + SOFT + '}');
 
+      r.push(s(['.lumen-ep-seek']) + '{display:inline-block!important;-webkit-order:4;order:4;-webkit-flex-shrink:0;flex-shrink:0;margin-left:.6em;font-size:1.05em;font-weight:600;white-space:nowrap;color:' + SOFT + '}');
+
       /* Фильтры — чипы: 52 px, капсула, подложка, подпись тише значения. */
       r.push(s(['.explorer__files']) + '{width:auto;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 0%;flex:1 1 0%}');
       r.push(s(['.explorer__files-head']) + '{padding:.9em 3.507em .2em 3.507em}');
@@ -171,6 +173,9 @@
          перенос строк (первая сборка ставила трекер отдельной колонкой —
          он наезжал на название и чипы, а размер уходил за край экрана). */
       r.push(s([row + ' .torrent-item__ffprobe']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+      r.push(s([row + ' .lumen-ep-range', row + ' .lumen-ep-verdict']) + '{display:block!important}');
+      r.push(s([row + ' .lumen-ep-range + .m-general']) + '{display:none!important}');
+      r.push(s([row + ' .torrent-item__ffprobe > .lumen-ep-verdict']) + '{font-size:1.01em;font-weight:600}');
       r.push(s([row + ' .torrent-item__ffprobe.hide']) + '{display:none}');
       r.push(s([row + ' .torrent-item__details']) + '{display:contents}');
       var cell = '{margin:0;padding:0 0 0 1.052em;font-size:1.008em;font-weight:500;line-height:1.3;color:' + MUTED + ';text-align:right;white-space:nowrap;grid-row:1 / 3;-ms-grid-row:1;-ms-grid-row-span:2;-webkit-align-self:center;align-self:center}';

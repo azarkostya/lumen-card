@@ -635,6 +635,8 @@
     /* 1.4: метки раздачи в списке торрентов (src/65_torrents.js, addTags). */
     lumen_tt_dub: { ru: 'Дубляж', en: 'Dub', uk: 'Дубляж' },
     lumen_tt_noru: { ru: 'Нет русской дорожки', en: 'No Russian audio', uk: 'Без російської доріжки' },
+    lumen_et_search: { ru: 'Ищем', en: 'Looking for', uk: 'Шукаємо' },
+    lumen_et_upto: { ru: 'до', en: 'up to', uk: 'до' },
     /* Task 7 (экран 02): фоновый трейлер карточки. «Авто» — включён в
        браузере и на Android, выключен на Tizen/webOS (там iframe YouTube
        поверх карточки стоит дороже выигрыша), с v1.4 — и на слабой

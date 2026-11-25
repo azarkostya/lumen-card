@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { load } from './_load.mjs';
 import { FakeEl, EMPTY } from './_fakedom.mjs';
 
 /* Task 32: CSS экранов пути TorrServer (src/65_torrents.js).
@@ -569,6 +570,63 @@ test('install: маркер lumen-torrents на корне активности 
     assert.equal(root.hasClass('lumen-torrents'), true);
     assert.equal(other.hasClass('lumen-torrents'), false);
   } finally {
+    delete globalThis.Lampa;
+  }
+});
+
+test('цель серии в шапке и строках раздач учитывает выбор плитки, таймкод и дату выхода', () => {
+  const { LC, t: torrents } = freshLC();
+  LC.epparse = load('64_epparse.js');
+  LC.badges = load('62_badges.js');
+  const movie = { id: 12, source: 'tmdb', original_name: 'Sample', original_title: 'Sample', number_of_seasons: 2,
+    last_episode_to_air: { season_number: 2, episode_number: 8 } };
+  let viewed = { '24Sample': { percent: 100 } };
+  const listeners = {};
+  let current;
+  function native(className) {
+    const attrs = {};
+    return {
+      className, children: [], textContent: '',
+      appendChild(child) { this.children.push(child); },
+      insertBefore(child, before) { this.children.splice(this.children.indexOf(before), 0, child); },
+      querySelector(sel) { return this.children.find(c => c.className.split(/\s+/).includes(sel.slice(1))); },
+      getAttribute(name) { return attrs[name]; }, setAttribute(name, val) { attrs[name] = val; },
+      classList: { remove() {} }
+    };
+  }
+  globalThis.document = { createElement: () => native(''), body: { classList: { contains: () => true } } };
+  globalThis.Lampa = { Activity: { active: () => current }, Listener: { follow: (key, fn) => { listeners[key] = fn; } },
+    Timeline: { view: key => viewed[key] }, Utils: { hash: key => key } };
+  function screen(card) {
+    const head = native('explorer-card__head-body');
+    const root = Object.assign(new FakeEl(['activity']), { find: sel => sel === '.explorer-card__head-body' ? [head] : [] });
+    current = { component: 'torrents', movie: card, activity: { render: () => root } };
+    listeners.activity({ type: 'start', component: 'torrents', object: current });
+    return head;
+  }
+  function row(title, cls) {
+    const box = native('torrent-item__ffprobe');
+    box.appendChild(native('m-general'));
+    const e = { type: 'render', item: { find: sel => sel === '.torrent-item__ffprobe' ? [box] : [] }, element: { Title: title } };
+    listeners.torrent(e);
+    listeners.torrent(e);
+    return box.children.filter(c => c.className.split(/\s+/).includes(cls)).map(c => c.textContent);
+  }
+  try {
+    torrents.install();
+    torrents.selectEpisode(movie, 2, 7);
+    assert.equal(screen(movie).children[0].textContent, 'Ищем: S2·E7');
+    assert.deepEqual(row('Сериал (2 сезон: 1-7 серии из 8)', 'lumen-ep-verdict'), ['E7 ✓']);
+    assert.deepEqual(row('Сериал (2 сезон: 1-7 серии из 8)', 'lumen-ep-range'), ['S2 · 1–7']);
+    assert.deepEqual(row('Сериал [S02]', 'lumen-ep-verdict'), []);
+    assert.equal(screen(movie).children[0].textContent, 'Ищем: S2·E5', 'ручная цель живёт только на старом экране');
+    viewed = {};
+    assert.equal(screen(movie).children[0].textContent, 'Ищем: S2·E8');
+    assert.deepEqual(row('Сериал (2 сезон: 1-7 серии из 8)', 'lumen-ep-verdict'), ['до E7']);
+    assert.equal(screen({ id: 33, original_title: 'Movie' }).children.length, 0);
+    assert.deepEqual(row('Movie S02E08', 'lumen-ep-verdict'), []);
+  } finally {
+    delete globalThis.document;
     delete globalThis.Lampa;
   }
 });

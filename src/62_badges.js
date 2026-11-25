@@ -76,8 +76,8 @@
     var EP_DONE = 95;
     var EP_PLAY = ' \u25B6\uFE0E';
 
-    function episodeBadge(card, view, hash, words) {
-      if (!card || !card.lumen_continue || typeof view !== 'function' || typeof hash !== 'function') return null;
+    function episodeProgress(card, view, hash) {
+      if (!card || typeof view !== 'function' || typeof hash !== 'function') return null;
       /* Вендорный Card добавляет original_title и сериалам. */
       var last = card.last_episode_to_air || null;
       if (!card.original_name && !card.first_air_date && !card.number_of_seasons && !last) return null;
@@ -95,15 +95,34 @@
           break;
         }
       }
-      if (!best) return null;
+      return best ? { season: season, episode: bestEp, view: best, last: last } : null;
+    }
+
+    function afterEpisode(progress) {
+      if (!progress || (Number(progress.view.percent) || 0) < EP_DONE) return null;
+      var next = progress.episode + 1;
+      var last = progress.last;
+      if (last && (parseInt(last.season_number, 10) || 0) === progress.season &&
+          (parseInt(last.episode_number, 10) || 0) < next) return null;
+      return { season: progress.season, episode: next };
+    }
+
+    function nextEpisode(card, view, hash) {
+      return afterEpisode(episodeProgress(card, view, hash));
+    }
+
+    function episodeBadge(card, view, hash, words) {
+      if (!card || !card.lumen_continue) return null;
+      var progress = episodeProgress(card, view, hash);
+      if (!progress) return null;
+      var best = progress.view;
       var number = words && words.episodeNumber;
       if (!number || number.indexOf('{s}') < 0 || number.indexOf('{e}') < 0) number = 'S{s}\u00B7E{e}';
-      var episode = number.replace('{s}', season);
+      var episode = number.replace('{s}', progress.season);
       var pct = Number(best.percent) || 0;
       if (pct >= EP_DONE) {
-        var next = bestEp + 1;
-        if (last && (parseInt(last.season_number, 10) || 0) === season && (parseInt(last.episode_number, 10) || 0) < next) return null;
-        return { kind: 'progress', text: episode.replace('{e}', next), percent: 0 };
+        var next = afterEpisode(progress);
+        return next ? { kind: 'progress', text: episode.replace('{e}', next.episode), percent: 0 } : null;
       }
       var whole = Math.max(1, Math.round(pct));
       var duration = Number(best.duration) || 0;
@@ -111,9 +130,9 @@
       var tpl = words && words.epLeft ? '' + words.epLeft : '';
       if (duration > 0 && time >= 0 && time < duration && tpl) {
         var left = Math.ceil((duration - time) / 60);
-        if (left >= 1) return { kind: 'progress', text: tpl.replace('{e}', episode.replace('{e}', bestEp)).replace('{n}', left), percent: whole, left: true };
+        if (left >= 1) return { kind: 'progress', text: tpl.replace('{e}', episode.replace('{e}', progress.episode)).replace('{n}', left), percent: whole, left: true };
       }
-      return { kind: 'progress', text: episode.replace('{e}', bestEp) + EP_PLAY, percent: whole };
+      return { kind: 'progress', text: episode.replace('{e}', progress.episode) + EP_PLAY, percent: whole };
     }
 
     /* Метка одной карточки. today — Date (или мс), ctx:
@@ -908,6 +927,7 @@
     return {
       badgeFor: badgeFor,
       episodeBadge: episodeBadge,
+      nextEpisode: nextEpisode,
       refreshContinue: refreshContinue,
       countdown: countdown,
       decorate: decorate,

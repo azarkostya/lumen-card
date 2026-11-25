@@ -1591,9 +1591,19 @@
           pickSeason(root, e.target);
           return;
         }
-        if (!$(e.target).closest('.lumen-episode', el).length) return;
+        var node = $(e.target).closest('.lumen-episode', el);
+        if (!node.length) {
+          if (LC.torrents && $(e.target).closest('.button--play, .button--priority', el).length) LC.torrents.selectEpisode(null);
+          return;
+        }
         /* Ревью п.5: «Смотреть» скрыта (read_only, нет источников) — делать нечего. */
-        root.find('.full-start-new__buttons').find('.button--play').not('.hide').eq(0).trigger('hover:enter');
+        var play = root.find('.full-start-new__buttons').find('.button--play').not('.hide').eq(0);
+        if (!play.length) return;
+        var row = root.find('.lumen-episodes')[0];
+        var info = row && row.lumenEpisodes;
+        var chosen = info && info.eps[node[0].lumenPos];
+        if (LC.torrents && chosen) LC.torrents.selectEpisode(info.movie, info.season, chosen.ep.episode_number);
+        play.trigger('hover:enter');
       } catch (err) {
         warn('episode enter failed', err);
       }

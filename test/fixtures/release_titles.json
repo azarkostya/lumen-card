@@ -1,0 +1,509 @@
+{
+  "tv": [
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (Novamedia), СТ / WEB-DL (1080p) | Amedia | Novamedia",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (Novamedia) / WEB-DLRip | Amedia | Novamedia",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (Novamedia), СТ / WEB-DLRip | Amedia | Novamedia",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (NewStudio) / WEB-DL (1080p)",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (TVShows) / WEB-DL (720p)",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон) [+5 серия] [Ultradox] [1080p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон) [+5 серия] [Ultradox] [720p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон) [+5 серия] [Ultradox] [400p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Сцены из супружеской жизни (1 сезон: 1-5 серии из 5) / Scenes from a Marriage / 2021 / ПМ (Novamedia), СТ / 4K, HEVC, Dolby Vision TV / WEB-DL (2160p)",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 5,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война 1 сезон (1-8 из 8) / War (2026) WEB-DL",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон: 1-8 серии из 8) / War / 2026 / ПМ (Red Head Sound) / 4K, HEVC, HDR / WEB-DL (2160p) | Red Head Sound",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война / War / Сезон: 1 / Серии: 1-8 из 8 (Чина Му-Ен, Бен Тэйлор, Дженнифер Шеридан) [2026, Великобритания, Триллер, драма, WEB-DL 720p] MVO (Red Head Sound) + Original (Eng) + Sub (Eng)",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон) [+8 серия] [Ultradox] [1080p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон) [+8 серия] [Ultradox] [720p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон) [+8 серия] [Ultradox] [400p]",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон: 1-7 серии из 8) / War / 2026 / ПМ (Red Head Sound, TVShows) / WEB-DL (1080p) | Red Head Sound | TVShows",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 7,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война (1 сезон: 1-7 серии из 8) / War / 2026 / ПМ (Red Head Sound) / WEB-DL (1080p) | Red Head Sound",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 7,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Война / War [1 сезон: 1-7 серии из 8] (2026) WEB-DLRip-AVC | P | Red Head Sound, TVShows",
+      "expected": {
+        "seasons": [
+          1
+        ],
+        "from": 1,
+        "to": 7,
+        "total": 8,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ПМ (Amedia) / WEB-DLRip | Amedia",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ПМ (TVShows) / WEB-DL (1080p) | TVShows",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ЛД (Jimmy J) / WEBRip",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ПМ (BaibaKo) / WEBRip",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ПД (Gears Media) / WEBRip | Gears Media",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Любовники (5 сезон: 1-11 серии из 11) / The Affair / 2019 / ПМ (Amedia) / WEB-DL (720p)",
+      "expected": {
+        "seasons": [
+          5
+        ],
+        "from": 1,
+        "to": 11,
+        "total": 11,
+        "single": false,
+        "known": true
+      }
+    }
+  ],
+  "synthetic": [
+    {
+      "title": "Series S02E05 WEB-DL",
+      "expected": {
+        "seasons": [
+          2
+        ],
+        "from": 5,
+        "to": 5,
+        "total": 0,
+        "single": true,
+        "known": true
+      }
+    },
+    {
+      "title": "Series S02E06-08",
+      "expected": {
+        "seasons": [
+          2
+        ],
+        "from": 6,
+        "to": 8,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Series [S01-02]",
+      "expected": {
+        "seasons": [
+          1,
+          2
+        ],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series 04x01-07",
+      "expected": {
+        "seasons": [
+          4
+        ],
+        "from": 1,
+        "to": 7,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Series [12 из 12]",
+      "expected": {
+        "seasons": [],
+        "from": 12,
+        "to": 12,
+        "total": 12,
+        "single": true,
+        "known": true
+      }
+    },
+    {
+      "title": "Series (3-10 из 20)",
+      "expected": {
+        "seasons": [],
+        "from": 3,
+        "to": 10,
+        "total": 20,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Series (2022-2023) 1080p",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series: серий нет",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series Сезон 2 / Серии 1-8 из 10",
+      "expected": {
+        "seasons": [
+          2
+        ],
+        "from": 1,
+        "to": 8,
+        "total": 10,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Series S02E08-E06",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series S02E06-S03E08",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series [S02E05] [S03E07]",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series (2 сезон: 1-12 серии из 8)",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series (0 сезон: 1-5 серии из 5)",
+      "expected": {
+        "seasons": [],
+        "from": 0,
+        "to": 0,
+        "total": 0,
+        "single": false,
+        "known": false
+      }
+    },
+    {
+      "title": "Series (2 сезон) [+5 серия] [x265]",
+      "expected": {
+        "seasons": [
+          2
+        ],
+        "from": 1,
+        "to": 5,
+        "total": 0,
+        "single": false,
+        "known": true
+      }
+    },
+    {
+      "title": "Series (2 сезон: 3–10 серии из 20)",
+      "expected": {
+        "seasons": [
+          2
+        ],
+        "from": 3,
+        "to": 10,
+        "total": 20,
+        "single": false,
+        "known": true
+      }
+    }
+  ]
+}

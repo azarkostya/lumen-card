@@ -44,6 +44,7 @@
     var installed = false;
     var maskUse = null;
     var lastText = null;
+    var pickedEpisode = null;
 
     /* Регулярка строже, чем \b: '.modal-loading' и '.selectbox-item' — другие классы. */
     function marked(sel) {
@@ -574,7 +575,68 @@
       if (root && root.length && typeof root.find === 'function') {
         splitHeaderYear(root.find('.explorer-card__head-create')[0]);
         frame(root, object.movie || object.card);
+        var seek = episodeContext(object, root);
+        var head = seek && seek.target && root.find('.explorer-card__head-body')[0];
+        if (head && !head.querySelector('.lumen-ep-seek')) {
+          head.appendChild(episodeLabel('span', 'lumen-ep-seek', LC.lang('lumen_et_search') +
+            ': S' + seek.target.season + '\u00b7E' + seek.target.episode));
+        }
       }
+    }
+
+    function selectEpisode(movie, season, episode) {
+      pickedEpisode = movie && movie.id != null && season > 0 && episode > 0 ?
+        { id: movie.id, source: movie.source, target: { season: season, episode: episode } } : null;
+    }
+
+    /* Цель закреплена за экраном раздач, а выбор плитки одноразовый.
+       Повторная отрисовка при фильтрации использует ту же цель. */
+    function episodeContext(object, root) {
+      var movie = object && (object.movie || object.card);
+      if (!root || !root[0] || !movie || !LC.epparse) return null;
+      if (root[0].lumenEpisodeContext) return root[0].lumenEpisodeContext;
+      var last = movie.last_episode_to_air;
+      var picked = pickedEpisode;
+      pickedEpisode = null;
+      if (!last && !movie.number_of_seasons && !movie.first_air_date && !movie.original_name) return null;
+      var target = picked && picked.id === movie.id && (!picked.source || !movie.source || picked.source === movie.source) ? picked.target : null;
+      if (!target && LC.badges && typeof LC.badges.nextEpisode === 'function' && Lampa.Timeline && typeof Lampa.Timeline.view === 'function' && Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
+        target = LC.badges.nextEpisode(movie, function (h) { return Lampa.Timeline.view(h); }, function (key) { return Lampa.Utils.hash(key); });
+      }
+      if (!target && last && last.season_number > 0 && last.episode_number > 0) {
+        target = { season: +last.season_number, episode: +last.episode_number };
+      }
+      root[0].lumenEpisodeContext = { target: target };
+      return root[0].lumenEpisodeContext;
+    }
+
+    function episodeLabel(tag, className, text) {
+      var label = document.createElement(tag);
+      label.className = className + ' hide';
+      label.textContent = text;
+      return label;
+    }
+
+    function addEpisodeTags(item, element) {
+      var box = item.find('.torrent-item__ffprobe')[0];
+      if (!box || box.getAttribute('data-lumen-episode') || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+      var act = Lampa.Activity.active();
+      if (!act || act.component !== 'torrents' || !act.activity || typeof act.activity.render !== 'function') return;
+      var context = episodeContext(act, act.activity.render());
+      if (!context) return;
+      box.setAttribute('data-lumen-episode', '1');
+      var parsed = LC.epparse.parse(element && (element.Title || element.title));
+      if (!parsed.known || parsed.seasons.length !== 1) return;
+
+      var nativeRange = box.querySelector('.m-general');
+      var text = 'S' + parsed.seasons[0] + ' \u00b7 ' + parsed.from + (parsed.single ? '' : '\u2013' + parsed.to);
+      box.insertBefore(episodeLabel('div', 'lumen-ep-range', text), nativeRange || null);
+      var verdict = LC.epparse.verdict(parsed, context.target);
+      if (verdict === 'has' || verdict === 'upto') {
+        text = verdict === 'has' ? 'E' + context.target.episode + ' \u2713' : LC.lang('lumen_et_upto') + ' E' + parsed.to;
+        box.appendChild(episodeLabel('div', 'lumen-ep-verdict lumen-ep-' + verdict, text));
+      }
+      if (box.classList) box.classList.remove('hide');
     }
 
     /* v2, экран 39: кадр-вуаль над шапкой фильма — задник фильма из TMDB
@@ -891,6 +953,7 @@
           emphasize(e.item);
           numbers(e.item);
           addTags(e.item, e.element);
+          addEpisodeTags(e.item, e.element);
         }
       } catch (err) {
         warn('torrents title failed', err);
@@ -902,7 +965,9 @@
        внешний .activity (проверено живьём). */
     function onActivity(e) {
       try {
-        if (e && e.type === 'start' && e.component === 'torrents') mark(e.object);
+        if (!e || e.type !== 'start') return;
+        if (e.component === 'torrents') mark(e.object);
+        pickedEpisode = null;
       } catch (err) {
         warn('torrents activity failed', err);
       }
@@ -965,7 +1030,7 @@
       }
     }
 
-    return { css: css, scoped: scoped, install: install, toggle: toggle, splitTitle: splitTitle, releaseTags: releaseTags, resumeIndex: resumeIndex };
+    return { css: css, scoped: scoped, install: install, toggle: toggle, splitTitle: splitTitle, releaseTags: releaseTags, resumeIndex: resumeIndex, selectEpisode: selectEpisode };
   })();
 
   /* В браузере "module" не определён — ветка не выполняется. Метка
