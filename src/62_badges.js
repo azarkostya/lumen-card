@@ -810,6 +810,25 @@
       }
     }
 
+    /* Ручная пачка отметок серии обновляет только одноимённую карточку
+       «Досмотреть», в том числе на ещё скрытом слое главной. */
+    function refreshContinue(movie) {
+      if (!movie || !movie.id || mode() === 'off') return;
+      var nodes = document.querySelectorAll('.card');
+      var shared = null;
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var card = el.card_data;
+        if (!card || !card.lumen_continue || !(card.name || card.original_name || card.first_air_date) ||
+            String(card.id) !== String(movie.id)) continue;
+        $(el).find('.lumen-badge,.lumen-badge-bar,.lumen-badge-cap').remove();
+        unrate(el);
+        el.lumen_badged = false;
+        if (!shared) shared = batch();
+        decorate(el, card, null, shared);
+      }
+    }
+
     function ownedBy(render) {
       if (!state || !state.root || !state.root.length) return false;
       if (!render || !render.length) return false;
@@ -871,6 +890,7 @@
     return {
       badgeFor: badgeFor,
       episodeBadge: episodeBadge,
+      refreshContinue: refreshContinue,
       countdown: countdown,
       decorate: decorate,
       mount: mount,

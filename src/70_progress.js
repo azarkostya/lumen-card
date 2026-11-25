@@ -22,6 +22,16 @@
       return v ? Number(v.percent) || 0 : 0;
     }
 
+    function markPlan(season, upTo, viewOf) {
+      var out = [];
+      if (!(season > 0) || !(upTo > 0)) return out;
+      for (var n = 1; n <= upTo; n++) {
+        var view = viewOf(season, n);
+        if (view && view.hash && percentOf(view) < WATCHED) out.push(view.hash);
+      }
+      return out;
+    }
+
     function movieProgress(movie, view, hash) {
       var key = movie.original_title || movie.original_name || movie.title || movie.name;
       if (!key) return null;
@@ -202,6 +212,7 @@
     }
 
     return {
+      markPlan: markPlan,
       movieProgress: movieProgress,
       serialProgress: serialProgress,
       seasonCount: seasonCount,

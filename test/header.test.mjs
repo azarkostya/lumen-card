@@ -2805,3 +2805,54 @@ test('D7: блок с фокусом, видимый целиком, в конц
     assert.deepEqual(scroll.wheelCalls, [1]);
   });
 });
+
+test('меню серии: отметить до пятой пачками, сохранить фокус и снять отметку только с выбранной', (t) => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(11));
+  const node = c.track._children[4];
+  const written = [];
+  const patches = [];
+  const first = lampaHash('21Fallout');
+  const selected = lampaHash('25Fallout');
+  const shown = [];
+  const toggles = [];
+  const refreshed = [];
+  views[first] = {percent: 98};
+  const previous = { Select: Lampa.Select, Controller: Lampa.Controller, update: Lampa.Timeline.update, refresh: LC.badges.refreshContinue };
+  Lampa.Select = { show: o => shown.push(o) };
+  Lampa.Controller = { enabled: () => ({name: 'content'}), toggle: name => toggles.push(name), collectionFocus: n => patches.push(n) };
+  Lampa.Timeline.update = v => { written.push(v); views[v.hash] = v; };
+  LC.badges.refreshContinue = movie => refreshed.push(movie.original_name);
+  t.mock.timers.enable({apis: ['setTimeout']});
+  try {
+    assert.equal(LC.header.episodeMenu(node), true);
+    assert.match(shown[0].items[0].title, /S2 · E1–E5/);
+    shown[0].onSelect(shown[0].items[0]);
+    assert.equal(written.length, 4);
+    assert.equal(written.some(x => x.hash === first), false);
+    assert.equal(written[3].hash, selected);
+    assert.equal(written[3].percent, 100);
+    assert.deepEqual(toggles, ['content']);
+    assert.deepEqual(patches, [node]);
+    assert.deepEqual(refreshed, ['Fallout']);
+
+    LC.header.episodeMenu(node);
+    shown[1].onSelect(shown[1].items[1]);
+    assert.deepEqual(written[4], {hash: selected, percent: 0, time: 0, duration: 0});
+
+    LC.header.episodeMenu(c.track._children[9]);
+    shown[2].onSelect(shown[2].items[0]);
+    assert.equal(written.length, 9, 'не больше четырёх записей в первом батче');
+    const synced = lampaHash('29Fallout');
+    views[synced] = {percent: 100};
+    t.mock.timers.tick(100);
+    assert.equal(written.length, 10, 'оставшаяся отметка пришла следующей пачкой');
+    assert.equal(written.some(x => x.hash === synced), false, 'не переписываем отметку CUB');
+  } finally {
+    Lampa.Select = previous.Select;
+    Lampa.Controller = previous.Controller;
+    Lampa.Timeline.update = previous.update;
+    LC.badges.refreshContinue = previous.refresh;
+    Object.keys(views).forEach(key => delete views[key]);
+  }
+});

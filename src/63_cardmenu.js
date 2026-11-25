@@ -860,6 +860,11 @@
     function onLong(e) {
       try {
         var el = e && e.target;
+        if (el && el.classList && el.classList.contains('lumen-episode')) {
+          pending = null;
+          if (LC.header && LC.header.episodeMenu) LC.header.episodeMenu(el);
+          return;
+        }
         if (!el || !el.card_data) { pending = null; return; }
         pending = { el: el, card: el.card_data, at: Date.now() };
         if (el.classList && el.classList.contains(OWN_CARD_CLASS)) open(el, el.card_data);

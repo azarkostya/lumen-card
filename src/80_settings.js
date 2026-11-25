@@ -1077,6 +1077,9 @@
       en: 'The trailer took too long to load — try again',
       uk: 'Трейлер не встиг завантажитися — спробуйте ще раз'
     },
+    lumen_episode_mark_title: { ru: 'Отметки просмотра', en: 'Watch status', uk: 'Позначки перегляду' },
+    lumen_episode_mark_through: { ru: 'Просмотрено до этой серии', en: 'Mark watched through this episode', uk: 'Переглянуто до цієї серії' },
+    lumen_episode_unmark: { ru: 'Снять отметку с этой серии', en: 'Clear this episode’s watch status', uk: 'Зняти позначку з цієї серії' },
     lumen_menu_marked: {
       ru: 'Отмечено просмотренным',
       en: 'Marked as watched',

@@ -1797,6 +1797,85 @@
     return true;
   }
 
+  var markingEpisodes = false;
+
+  function markEpisodes(hashes, movie, percent) {
+    if (!hashes.length || markingEpisodes) return;
+    markingEpisodes = true;
+    var index = 0;
+
+    function writeNext() {
+      try {
+        var end = Math.min(index + 4, hashes.length);
+        for (; index < end; index++) {
+          var hash = hashes[index];
+          /* Пока предыдущая пачка писалась, отметка могла прийти из CUB. */
+          if (percent && LC.progress.episodeState(timelineView(hash)).state === 'watched') continue;
+          Lampa.Timeline.update({ hash: hash, percent: percent, time: 0, duration: 0 });
+        }
+        if (index < hashes.length) {
+          setTimeout(writeNext, 40);
+          return;
+        }
+        if (LC.badges && LC.badges.refreshContinue) LC.badges.refreshContinue(movie);
+      } catch (e) {
+        warn('episode mark failed', e);
+      }
+      markingEpisodes = false;
+    }
+    writeNext();
+  }
+
+  function episodeMenu(node) {
+    if (markingEpisodes || !node || !Lampa.Select || typeof Lampa.Select.show !== 'function' ||
+        !Lampa.Timeline || typeof Lampa.Timeline.update !== 'function') return false;
+    var row = $(node).closest('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    var item = info && info.eps[node.lumenPos];
+    if (!item || !item.hash || !info.season) return false;
+
+    var number = Number(item.ep.episode_number);
+    var episode = 'E' + number;
+    var range = 'S' + info.season + ' · ' + (number > 1 ? 'E1–' : '') + episode;
+    var title = LC.lang('lumen_episode_mark_through') + ' (' + range + ')';
+    var items = [{ title: title, mark: true }];
+    if (Number((timelineView(item.hash) || {}).percent) > 0) {
+      items.push({ title: LC.lang('lumen_episode_unmark'), mark: false });
+    }
+
+    var back = Lampa.Controller.enabled().name;
+    function restore() {
+      Lampa.Controller.toggle(back);
+      if (node.offsetParent !== null) Lampa.Controller.collectionFocus(node);
+    }
+
+    Lampa.Select.show({
+      title: LC.lang('lumen_episode_mark_title'),
+      lumen_own: true,
+      items: items,
+      onBack: restore,
+      onSelect: function (choice) {
+        restore();
+        if (!choice.mark) {
+          markEpisodes([item.hash], info.movie, 0);
+          return;
+        }
+        var byNumber = {};
+        for (var i = 0; i < info.eps.length; i++) {
+          var entry = info.eps[i];
+          byNumber[entry.ep.episode_number] = entry.hash;
+        }
+        var hashes = LC.progress.markPlan(info.season, number, function (season, n) {
+          var hash = byNumber[n];
+          if (hash) return { hash: hash, percent: (timelineView(hash) || {}).percent };
+          return null;
+        });
+        markEpisodes(hashes, info.movie, 100);
+      }
+    });
+    return true;
+  }
+
   /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
      карточку серии с этим хэшем во всех карточках в DOM (история Lampa держит
      и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина.
@@ -2476,6 +2555,7 @@
     uninstallPeople: uninstallPeople,
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
+    episodeMenu: episodeMenu,
     bindStart: bindStart,
     bindDescr: bindDescr,
     refreshProgress: refreshProgress,
