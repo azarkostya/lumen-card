@@ -1171,8 +1171,10 @@ test('buildCss: модал отзыва (экран 08) — свой корен�
   assert.ok(tone && tone.indexOf('#D9622B') !== -1, 'тон модала — те же токены, что у карточки');
   const text = findDecl(css, (sel) => sel === '.lumen-review-modal__text');
   assert.ok(text, 'правило текста модала не найдено');
-  assert.ok(text.indexOf('font-size:1.01em') !== -1, 'Task 63: текст окна — 23 px = 1.01em');
-  assert.ok(text.indexOf('overflow:auto') !== -1 && text.indexOf('max-height:50vh') !== -1, 'длинный отзыв прокручивается внутри окна');
+  const description = findDecl(css, (sel) => sel === '.lumen-descr-modal__text');
+  assert.equal(declProp(text, 'font-size'), declProp(description, 'font-size'));
+  assert.equal(declProp(text, 'line-height'), '1.3');
+  assert.doesNotMatch(text, /max-height:|overflow:/, 'длинный отзыв прокручивает Scroll модала');
   const title = findDecl(css, (sel) => sel === '.lumen-review-modal__title');
   assert.ok(title && title.indexOf('font-size:1.58em') !== -1, 'заголовок 36px = 1.58em');
 });

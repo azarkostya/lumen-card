@@ -63,11 +63,11 @@ const LUMEN_SAMPLES = {
 /* Снимок Lumen после слияния окон и поиска v2 и обрезки ленты поиска (21.10.2026; правки Apple TV его не меняют);
    1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках;
    1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js). Если Lumen меняют
-   Пачка A: кольца фокуса, кегль и тени v2, отключение переходов списков в лёгком режиме.
+   Пачка A: кольца фокуса, минимум кегля, тени v2, лёгкий режим списков и крупный текст отзывов.
    Пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: 'cb6c5d8a61f0d978183a53ebcbdc6b3c3c9505e92d285be3b1435a0e8c10eac2',
-  black_solid: '1098677e1371fa249153273d7695ef1c0f1056e5f38f531a02710f9d957fa79b'
+  warm: '3ad514b3f0c911a8313382013adb5d854175ef1fbbf1b89fe04cecfc7ad19122',
+  black_solid: '946db5ba041da0436a8513e6faf7e655eee495c5e05166d1535c73d1957ec3cd'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

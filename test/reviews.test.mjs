@@ -1273,7 +1273,7 @@ test('render: подпись ряда учитывает режим — смен
   assert.equal(env.journal.calls.length, 2, 'свежая запись кэша отдаёт отзывы без запросов');
 });
 
-test('modal: спойлер замазан, кнопка раскрытия открывает и закрывает его', () => {
+test('modal: раскрытие спойлера снимает кнопку и возвращает прокрутку контроллеру окна', () => {
   const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
   const item = env.LC.reviews.normalize({
     items: [{ type: 'POSITIVE', author: 'Аня', title: 'Отлично', description: 'Картинка отличная. В финале героя убивают.' }]
@@ -1286,12 +1286,14 @@ test('modal: спойлер замазан, кнопка раскрытия от
   assert.ok(html.indexOf('lumen-review-modal__reveal') >= 0, 'кнопка раскрытия');
 
   const listener = (root._listeners || []).filter((l) => l.type === 'hover:enter')[0];
-  const btn = new FakeEl(['lumen-review-modal__reveal', 'selector']);
-  btn._parentEl = root;
+  const btn = root.find('.lumen-review-modal__reveal')[0];
+  assert.ok(html.indexOf('lumen-review-modal__reveal') < html.indexOf('lumen-review-modal__text'), 'первый фокус не прокручивает длинный отзыв к концу');
   listener.fn({ target: btn });
   assert.equal(root.hasClass('lumen-review-modal--open'), true, 'спойлеры раскрыты');
+  assert.equal(root.find('.selector').length, 0, 'стрелки больше не перехватывает навигация по кнопкам');
+  assert.deepEqual(env.toggled, ['modal'], 'контроллер пересобрал коллекцию');
   listener.fn({ target: btn });
-  assert.equal(root.hasClass('lumen-review-modal--open'), false, 'и закрываются обратно');
+  assert.deepEqual(env.toggled, ['modal'], 'старое событие не переключает контроллер снова');
   assert.deepEqual(warnLog, []);
 });
 

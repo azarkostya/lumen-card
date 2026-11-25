@@ -3819,7 +3819,7 @@
        двигает собственный скролл окна, а высота ограничена вьюпортом.
        Цвет — P.soft, как у выдержки в карточке (жалоба 2026-09-25): это
        основной текст окна, его читают целиком, и muted для него тускл. */
-    css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.4;color:' + P.soft + ';max-height:50vh;overflow:auto}');
+    css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.3;color:' + P.soft + '}');
     /* Фикс-раунд Task 59: окно полного описания по OK. Своих размеров и
        прокрутки ему не нужно: .selector внутри окна нет ни одного, и тогда
        стрелки листают его штатным Scroll модала (roll(), app.min.js:
@@ -3891,7 +3891,7 @@
     css.push('body.lumen-motion-full .lumen-review-modal .lumen-spoiler{-webkit-transition:color .2s,background-color .2s;transition:color .2s,background-color .2s}');
     /* Кнопка раскрытия — единственный .selector окна, поэтому фокус достаётся
        ей сразу (контроллер modal собирает коллекцию из содержимого окна). */
-    css.push('.lumen-review-modal__reveal{display:inline-block;margin-top:.86em;padding:.50em .79em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.text + '}');
+    css.push('.lumen-review-modal__reveal{display:inline-block;margin-bottom:.86em;padding:.50em .79em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.text + '}');
     /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
     css.push('.lumen-review-modal__reveal.focus{background:' + P.text + ';color:' + P.bg + '}');
 
