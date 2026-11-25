@@ -96,7 +96,7 @@
       /* Звезда рейтинга — символ, а не маска: одним цветом с метой. */
       r.push(s(['.explorer-card__head-rate:before']) + '{content:"\\2605";display:inline;width:auto;height:auto;margin:0 .3em 0 0;background:none !important;-webkit-mask-image:none !important;mask-image:none !important}');
       /* Плашка «16+» — после меты, с отступом .5em, а не поверх рейтинга. */
-      r.push(s(['.explorer-card__head-age']) + '{margin:0 0 0 .5em;padding:0 .4em;border:.066em solid ' + MUTED + ';border-radius:.3em;font-size:.877em;font-weight:600;line-height:1.4;color:' + SOFT + '}');
+      r.push(s(['.explorer-card__head-age']) + '{margin:0 0 0 .5em;padding:0 .4em;border:.066em solid ' + MUTED + ';border-radius:.3em;font-size:1.008em;font-weight:600;line-height:1.4;color:' + SOFT + '}');
       if (A) {
         /* Apple TV (39-A): «Драма · Триллер · 2022 · 1 сезон  16+  ★ 7.9». */
         r.push(s(['.explorer-card__genres']) + '{-webkit-order:1;order:1}');
@@ -178,7 +178,7 @@
       /* Медиаметки .877 → 1em; разрядка .052em из src/65_torrents.js снята —
          так выглядел вариант стенда, который сравнивали. Проверка на
          Philips: перенос меток и высота строки. */
-      r.push(s([row + ' .torrent-item__ffprobe > div']) + '{margin:.2em .3em 0 0;font-size:1em;letter-spacing:0;color:' + SOFT + ';border-color:' + LINE + '}');
+      r.push(s([row + ' .torrent-item__ffprobe > div']) + '{margin:.2em .3em 0 0;font-size:1.01em;letter-spacing:0;color:' + SOFT + ';border-color:' + LINE + '}');
       r.push(s([row + '.focus .torrent-item__ffprobe > div']) + '{color:' + ON_SUB + ';border-color:' + ON_SUB + '}');
       /* Значки медиачипов Lampa — белые картинки: на светлой заливке фокуса
          их не видно, инвертируем. */
@@ -206,7 +206,7 @@
       r.push(s([row + ' .torrent-item__date']) + '{grid-column:5;-ms-grid-column:5;min-width:6.4em;text-transform:lowercase}');
       /* Трекер и битрейт — нижней строкой, тихо: трекер под названием,
          битрейт под колонками чисел. */
-      r.push(s([row + ' .torrent-item__tracker', row + ' .torrent-item__bitrate']) + '{grid-row:3;-ms-grid-row:3;-ms-grid-row-span:1;padding-top:.3em;font-size:.877em;-webkit-align-self:start;align-self:start}');
+      r.push(s([row + ' .torrent-item__tracker', row + ' .torrent-item__bitrate']) + '{grid-row:3;-ms-grid-row:3;-ms-grid-row-span:1;padding-top:.3em;font-size:1.008em;-webkit-align-self:start;align-self:start}');
       r.push(s([row + ' .torrent-item__tracker']) + '{grid-column:1;-ms-grid-column:1;padding-left:0;padding-right:1.052em;text-align:left;white-space:normal}');
       r.push(s([row + ' .torrent-item__bitrate']) + '{grid-column:2 / 6;-ms-grid-column:2;-ms-grid-column-span:4}');
       var focusCells = [];
@@ -266,7 +266,7 @@
       }
       var PLATTER = A ? 'rgba(28,28,30,.92)' : (P.panelHi === '#221A13' ? '#231C16' : P.panelHi);
       r.push(m(['.selectbox__layer']) + '{background:none;-webkit-backdrop-filter:none;backdrop-filter:none}');
-      r.push(m(['.selectbox__content']) + '{top:auto !important;bottom:3.125vw;left:auto;right:3.125vw;width:31.25vw;height:auto !important;max-height:-webkit-calc(100vh - 9.375vw);max-height:calc(100vh - 9.375vw);padding:.877em .7em;-webkit-box-sizing:border-box;box-sizing:border-box;border:0;border-radius:.79em;background:' + PLATTER + ';-webkit-box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-transform:none !important;transform:none !important;-webkit-transition:none;transition:none}');
+      r.push(m(['.selectbox__content']) + '{top:auto !important;bottom:3.125vw;left:auto;right:3.125vw;width:31.25vw;height:auto !important;max-height:-webkit-calc(100vh - 9.375vw);max-height:calc(100vh - 9.375vw);padding:.877em .7em;-webkit-box-sizing:border-box;box-sizing:border-box;border:0;border-radius:.79em;background:' + PLATTER + ';-webkit-box-shadow:0 .35em .8em rgba(0,0,0,.55);box-shadow:0 .35em .8em rgba(0,0,0,.55);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-transform:none !important;transform:none !important;-webkit-transition:none;transition:none}');
       r.push('body.selectbox--open .selectbox.lumen-cardmenu.lumen-cardmenu--anchored .selectbox__content{left:var(--lc-anchor-x);right:auto}');
       r.push(m(['.selectbox__head']) + '{display:none}');
       r.push(m(['.selectbox__body']) + '{min-height:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 .5em,#000 -webkit-calc(100% - 1em),transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 .5em,#000 calc(100% - 1em),transparent 100%)}');

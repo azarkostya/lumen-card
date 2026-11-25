@@ -132,7 +132,8 @@
       css.push(KB + ' .hg-button:last-child{margin-right:0}');
       css.push(KB + ' .hg-functionBtn{background:' + SVC_BG + ';color:' + SVC_INK + '}');
       css.push(KB + ' .hg-button[data-skbtn="{MIC}"]{color:' + SVC_INK + '}');
-      css.push(KB + ' .hg-button[data-skbtn="{SIM}"]{font-size:' + ctx.round2(KF * 0.85) + 'em;height:' + ctx.round2(2.81 / (KF * 0.85)) + 'em;margin-right:' + ctx.round2(0.26 / (KF * 0.85)) + 'em;border-radius:' + ctx.round2(0.44 / (KF * 0.85)) + 'em}');
+      var simFont = Math.max(1.01, ctx.round2(KF * 0.85));
+      css.push(KB + ' .hg-button[data-skbtn="{SIM}"]{font-size:' + simFont + 'em;height:' + ctx.round2(2.81 / simFont) + 'em;margin-right:' + ctx.round2(0.26 / simFont) + 'em;border-radius:' + ctx.round2(0.44 / simFont) + 'em}');
       /* Служебные клавиши — иконки одного набора маской (цвет — currentColor,
          в фокусе он сам становится цветом текста на заливке). Без масок —
          картинки Lampa, в фокусе затемнённые, чтобы не исчезнуть на светлой
@@ -180,7 +181,7 @@
       css.push(S + ' .search-source{height:2.1em;padding:0 .84em;border-radius:.44em;font-family:' + FB + ';font-weight:500;font-size:1.1em;background:transparent;color:' + MUTED + ';opacity:1}');
       css.push(S + ' .search-source + .search-source{margin-left:.35em}');
       css.push(S + ' .search-source__tab{padding:0}');
-      css.push(S + ' .search-source__count{margin-left:.45em;padding:.12em .4em;min-width:1.4em;font-size:.8em;font-weight:600;background:rgba(' + P.textRgb + ',.14);color:inherit}');
+      css.push(S + ' .search-source__count{margin-left:.45em;padding:.12em .4em;min-width:1.4em;font-size:.92em;font-weight:600;background:rgba(' + P.textRgb + ',.14);color:inherit}');
       css.push(S + ' .search-source.active{background:' + CHIP + ';color:' + P.text + '}');
       css.push(S + ' .search-source.focus{background:' + FILL + ';color:' + ON_FILL + '}');
       css.push(S + ' .search-source.focus .search-source__count{background:rgba(0,0,0,.14)}');

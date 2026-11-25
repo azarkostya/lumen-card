@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 /* LC.buildCss() читает LC.pref (Storage 'proxy_tmdb' и т.п.) и PLUGIN — обе
    вещи объявлены в 00_head.js, но test/_load.mjs грузит модули по одному в
@@ -59,7 +59,7 @@ function tokensWith(storage) {
    им (Storage.field отдаёт значение из кэша в памяти), и от одной из них —
    'interface_size' — зависят оба порога раскладки (screenEm, src/30_css.js).
    Ключ тот же самый, поэтому вторая заглушка смотрит в тот же объект. */
-function withStorage(storage, fn, innerWidth) {
+function withStorage(storage, fn, innerWidth, layers = []) {
   const LC = {};
   const module = { exports: null, lumen: true };
   const Lampa = {
@@ -83,6 +83,7 @@ function withStorage(storage, fn, innerWidth) {
     loadInto(LC, module, '20_icons.js');
     loadInto(LC, module, '80_settings.js');
     loadInto(LC, module, '81_prefs.js');
+    for (const layer of layers) loadInto(LC, module, layer);
     loadInto(LC, module, '30_css.js');
     return fn(LC);
   } finally {
@@ -90,6 +91,11 @@ function withStorage(storage, fn, innerWidth) {
     delete globalThis.Lampa;
   }
 }
+
+const v2Layers = readdirSync(new URL('../src/', import.meta.url))
+  .filter((name) => /^31_v2_.*\.js$/.test(name)).sort();
+const cssAll = [false, true].map((apple) => withStorage(apple ? { lumen_flat: 'true' } : {},
+  (LC) => LC.buildCss(), 960, v2Layers));
 
 /* Правка 2026-09-26 (пользователь: «давай всегда строго как на стартовой»):
    сжатое состояние героя главной — за флагом LC.heroCompact
@@ -2022,7 +2028,7 @@ test('Task 38: ни одного box-shadow с размытием больше .
      Нулевой радиус пишется без единицы («0 .2em 0», Task 50) — такая запись
      проверке радиуса не подлежит, но форму ниже проходить обязана. */
   const offenders = [];
-  for (const m of css.matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
+  for (const m of cssAll.join('\n').matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
     if (parseFloat(m[2]) > 0.8) offenders.push(m[0]);
   }
   assert.deepEqual(offenders, [], 'радиус тени WebView считает по площади вокруг элемента, а таких элементов на экране десятки');
@@ -2993,7 +2999,7 @@ test('Task 50: подложка фокуса карточки без размы�
    у них своя копия этой проверки в test/torrents.test.mjs. */
 test('Task 50c: ни одной тени с размытием ни на одном правиле фокуса', () => {
   const shadows = [];
-  for (const r of ruleBodies(css)) {
+  for (const r of cssAll.flatMap(ruleBodiesWithMedia)) {
     if (!r.selectors.some((s) => /\.focus\b|\.hover\b/.test(s))) continue;
     for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(r.selectors.join(',') + ' -> ' + m[1]);
   }
@@ -3282,10 +3288,22 @@ function ruleBodiesWithMedia(cssText) {
       media = line.slice(0, line.indexOf('{'));
       body = line.slice(line.indexOf('{') + 1);
     }
+    /* Скобки внутри строк атрибутов (например, data-skbtn="{SIM}")
+       не являются границами правила. */
+    const structure = body.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g,
+      (quoted) => quoted.replace(/[{},]/g, ' '));
     const re = /([^{}]+)\{([^{}]*)\}/g;
     let m;
-    while ((m = re.exec(body))) {
-      out.push({ media: media, selectors: m[1].split(',').map((s) => s.trim()).filter(Boolean), decl: m[2] });
+    while ((m = re.exec(structure))) {
+      let offset = m.index;
+      const selectors = m[1].split(',').map((sel) => {
+        const original = body.slice(offset, offset + sel.length).trim();
+        offset += sel.length + 1;
+        return original;
+      }).filter(Boolean);
+      const open = m.index + m[1].length;
+      const decl = body.slice(open + 1, re.lastIndex - 1);
+      out.push({ media, selectors, decl });
     }
   }
   return out;
@@ -7625,7 +7643,28 @@ const TEXT_LESS_BOXES = ['.lumen-card .lumen-progress',
   '.lumen-card .lumen-stop', '.lumen-card .lumen-franchise',
   '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text'];
 
-test('Task 63: ни один текст интерфейса не мельче минимума tvOS', () => {
+/* Кегль-доля рассчитывается от фактического текста-родителя своей таблицы. */
+const V2_TEXT_PARENTS = [
+  [/\.search-source__count$/, /\.search-source$/],
+  [/\.search-looking__text:after$/, /\.search-looking__text$/],
+  [/\.explorer-card__head-rate > span$/, /\.explorer-card__head-rate$/],
+  [/\.torrent-file__title \.exe$/, /\.torrent-file__title$/],
+  [/\.shots-view-button__count$/, /\.selectbox-item__subtitle$/, '.selectbox-item__subtitle']
+];
+/* В этих контейнерах собственный кегль управляет геометрией, у текста
+   внутри есть отдельный селектор со своим кеглем. */
+const V2_LAYOUT_BOXES = [/\.search-history-key$/, /(?:lumen-lower--persons|lumen-lower--left|lumen-lower--right) \.full-person$/];
+
+for (const [mode, table] of cssAll.entries()) test('Task 63: ни один текст интерфейса не мельче минимума tvOS, стиль ' + mode, () => {
+  const css = table;
+  const allRules = ruleBodiesWithMedia(css);
+  const parentSize = new Map(V2_TEXT_PARENTS.map(([child, parent, nativeParent]) => {
+    const values = allRules.filter((r) => r.selectors.some((sel) => parent.test(sel)))
+      .map((r) => declProp(r.decl, 'font-size')).filter((value) => /^[\d.]+em$/.test(value ?? ''));
+    if (!values.length && nativeParent) return [child, lampaDecl(lampaCss(), nativeParent, 'font-size')];
+    assert.ok(values.length, String(parent));
+    return [child, Math.min(...values.map(parseFloat))];
+  }));
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);
   assert.equal(zoom, 1.1, 'множитель блока героя изменился — пересчитать эффективные кегли');
 
@@ -7669,7 +7708,7 @@ test('Task 63: ни один текст интерфейса не мельче �
          задан сокращением font:, а не font-size, поэтому сюда он и не
          попадает — проверяем явно, чтобы исключение осталось осознанным. */
       if (sel.indexOf('lumen-hud') !== -1) continue;
-      if (TEXT_LESS_BOXES.indexOf(sel) !== -1) continue;
+      if (TEXT_LESS_BOXES.indexOf(sel) !== -1 || V2_LAYOUT_BOXES.some((p) => p.test(sel))) continue;
       const found = /^([\d.]+)em$/.exec(value.trim());
       assert.ok(found, 'кегль задан не в em, и минимум по нему не посчитать: ' + sel + ' {' + value + '}');
       const inHero = HERO_TEXT_KIDS.some((cls) => sel.indexOf(cls) !== -1);
@@ -7680,7 +7719,9 @@ test('Task 63: ни один текст интерфейса не мельче �
       const inTitle = sel.indexOf('lumen-title__') !== -1;
       const inRowTitle = /\.items-line__title\s/.test(sel);
       const inMeta = sel.indexOf('.lumen-meta__') !== -1;
-      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1) * (inMeta ? metaMin : 1);
+      const v2Parent = V2_TEXT_PARENTS.find(([child]) => child.test(sel));
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1) * (inMeta ? metaMin : 1) *
+        (v2Parent ? parentSize.get(v2Parent[0]) : 1);
       checked++;
       if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
     }

@@ -72,7 +72,7 @@
       var CHECK = A ? '#FFFFFF' : P.text;
       var BOX = A ? 'rgba(235,235,245,.6)' : P.muted;
       var BTN = A ? V2.blockA : 'rgba(' + P.textRgb + ',.12)';
-      var SHADOW = A ? '' : '-webkit-box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);box-shadow:0 1.052em 2.104em rgba(0,0,0,.55);';
+      var SHADOW = A ? '' : '-webkit-box-shadow:0 .35em .8em rgba(0,0,0,.55);box-shadow:0 .35em .8em rgba(0,0,0,.55);';
       var R = '.526em';
       var NOBLUR = '-webkit-backdrop-filter:none;backdrop-filter:none';
 
@@ -144,7 +144,7 @@
          на текст. Счётчик — в строку после текста, видом счётчика вкладок
          поиска (src/31_v2_search.js). Весом G: меню карточки (своё,
          src/31_v2_torrents_menu.js) пункта Shots не содержит. */
-      css.push(g(['.selectbox-item__subtitle .shots-view-button__count']) + '{position:static;display:inline-block;vertical-align:middle;margin-left:.45em;padding:.12em .4em;min-width:1.4em;border-radius:.44em;font-size:.8em;font-weight:600;line-height:1.2;text-align:center}');
+      css.push(g(['.selectbox-item__subtitle .shots-view-button__count']) + '{position:static;display:inline-block;vertical-align:middle;margin-left:.45em;padding:.12em .4em;min-width:1.4em;border-radius:.44em;font-size:.92em;font-weight:600;line-height:1.2;text-align:center}');
       css.push(g(['.selectbox-item__subtitle .shots-view-button__count']) + '{background:rgba(' + P.textRgb + ',.14);color:inherit}');
       css.push(g(['.selectbox-item.focus .selectbox-item__subtitle .shots-view-button__count']) + '{background:rgba(0,0,0,.14);color:inherit}');
 
