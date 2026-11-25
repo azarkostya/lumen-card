@@ -216,7 +216,7 @@
       css.push(RES + ' .card__icons{top:.3em;left:auto;right:.3em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
       css.push(RES + ' .card__icon{width:1.25em;height:1.25em}');
       /* Фокус постера — картинка по экрану 33: Lumen — ×1.10, рамка
-         снаружи с зазором и тень; Apple TV — ×1.14 и тень без рамки. Масштаб
+         внутри кромки; Apple TV — ×1.14 и нейтральное кольцо. Масштаб
          остаётся и в «Лёгких» (фокус обязан быть виден без движения),
          переход — только в «Полных». */
       css.push(RES + ' .card.focus .card__view:after,' + RES + ' .card.hover .card__view:after{display:none}');
@@ -225,11 +225,9 @@
          теперь она остаётся своего кегля и на месте (как на главной). */
       var SC = APPLE ? V2.scalePosterA : V2.scalePosterL;
       css.push(RES + ' .card.focus{z-index:2}');
-      if (APPLE) {
-        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:0;-webkit-box-shadow:' + V2.shadowA + ';box-shadow:' + V2.shadowA + '}');
-      } else {
-        css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');outline:' + V2.ring + 'em solid ' + P.text + ';outline-offset:' + V2.ringGap + 'em;-webkit-box-shadow:' + V2.shadowL + ';box-shadow:' + V2.shadowL + '}');
-      }
+      var shade = APPLE ? V2.shadowA : V2.shadowL;
+      css.push(RES + ' .card.focus .card__view{-webkit-transform:scale(' + SC + ');transform:scale(' + SC + ');-webkit-box-shadow:' + shade + ';box-shadow:' + shade + '}');
+      css.push(RES + ' .card.focus .card__view:after{' + LC.focusRingOverlayCss(P.text, APPLE) + '}');
       /* Ревью: у Lampa на .card__view в фокусе своя анимация
          (body.advanced--animation … .card.focus .card__view{animation:
          animation-card-focus .2s}, по Enter — animation-trigger-enter
