@@ -425,6 +425,22 @@
        последняя; за пределами — продолжение дуги к краям слоя). Лампочки и
        провод берут её обе, поэтому провод проходит ровно через лампочки, и
        при низком слое (потолок 0.28 высоты) тоже. */
+    var SNOW_LIGHT_Y = 120;
+
+    function winterRandom() {
+      var seed = 2511;
+      return function () {
+        seed = seed * 16807 % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+    }
+
+    function snowGlow(g, rgb, blur) {
+      return unitGrad(g, blur ?
+        [[0, rgba(rgb, 0.85)], [0.5, rgba(rgb, 0.7)], [0.8, rgba(rgb, 0.3)], [1, rgba(rgb, 0)]] :
+        [[0, rgba(rgb, 1)], [0.3, rgba(rgb, 1)], [0.42, rgba(rgb, 0.5)], [0.68, rgba(rgb, 0.14)], [1, rgba(rgb, 0)]]);
+    }
+
     function garlandAt(t, w, h) {
       var sag = 4 * t * (1 - t);
       return [w * (0.04 + 0.92 * t), Math.min(h * 0.28, 60 + 32 * sag)];
@@ -963,25 +979,25 @@
 
       /* Зимняя ночь: 6 огней боке в правой части кадра (kind 3), гирлянда
          из 10 лампочек по провисающей дуге под шапкой (kind 4, бегущее
-         мерцание) и снег в трёх планах — 22 дальние точки (kind 0), 14
-         средних хлопьев (kind 1) и 6 ближних, крупных и размытых (kind 2),
-         которые летят быстрее всех и дают глубину. 58 частиц из MAX.
+         мерцание) и снег в трёх планах — 22 дальние точки (kind 0), 12
+         средних хлопьев (kind 1) и 6 ближних размытых (kind 2). В Apple TV
+         ближних хлопьев четыре. Всего 56 частиц в Lumen и 54 в Apple TV.
          Дальние точки — дуги (мягкий край точки в 1–2 px с трёх метров не
          виден), средние хлопья — светящиеся: градиент с белым ядром и
          ореолом, ближние, боке и лампочки — тоже градиенты.
          Правка по отзыву пользователя («снег более яркий, плиз»): все три
          плана плотнее (дальние .5–.8 вместо .42–.68, средние — ядро
-         непрозрачно, ближние .45–.65 вместо .3–.46), средние и ближние
+         непрозрачно, ближние .4–.55 вместо .3–.46), средние и ближние
          крупнее, у средних — ореол. Свечение средних дороже дуги, поэтому
          дальних точек 22 вместо 25: цена кадра остаётся в прежних
          пределах (замер в research/fx2). */
       winter: {
-        count: 58,
+        count: 56,
         scene: true,
         /* Раунд holB: праздничная сцена Нового года — см. halloween. */
         festive: true,
         keep: true,
-        spawn: function (i, w, h, rnd) {
+        spawn: function (i, w, h, rnd, cold) {
           var p;
           if (i < 6) {
             p = particle(
@@ -990,7 +1006,7 @@
               rand(rnd, -0.004, 0.004),
               rand(rnd, -0.003, 0.003),
               rand(rnd, 18, 38),
-              rand(rnd, 0.2, 0.38),
+              cold ? rand(rnd, 0.14, 0.26) : rand(rnd, 0.2, 0.38),
               i % 5,
               3
             );
@@ -1018,14 +1034,24 @@
             if (i === 6) p.wire = wirePoints(w, h);
             return p;
           }
-          var plane = i < 38 ? 0 : (i < 52 ? 1 : 2);
+          var plane = i < 38 ? 0 : (i < 50 ? 1 : 2);
+          var x = Math.max(rand(rnd, 0, w), rand(rnd, 0, w));
+          var y = Math.min(rand(rnd, 0, h), rand(rnd, 0, h));
+          var size = plane === 0 ? rand(rnd, 1, 1.4) : (plane === 1 ? rand(rnd, 2.4, 3.8) : rand(rnd, 9, 15));
+          if (plane === 1 && x < w * 0.5) y = Math.min(y, Math.max(0, h * 0.4 - size * 2.3));
+          if (plane === 2) {
+            /* Ближний план отступает от лампочек и правого верхнего декора. */
+            y = Math.max(y, Math.min(h * 0.72, 172));
+            x = rand(rnd, w * 0.53, w * (y < h * 0.4 ? 0.72 : 0.97));
+          }
+          var fall = plane === 0 ? rand(rnd, 0.011, 0.02) : (plane === 1 ? rand(rnd, 0.026, 0.045) : rand(rnd, 0.06, 0.095));
           p = particle(
-            rand(rnd, 0, w),
-            rand(rnd, -h * 0.2, h),
+            x,
+            y,
             plane === 2 ? rand(rnd, 0.004, 0.02) : rand(rnd, -0.004, 0.01),
-            plane === 0 ? rand(rnd, 0.011, 0.02) : (plane === 1 ? rand(rnd, 0.026, 0.045) : rand(rnd, 0.06, 0.095)),
-            plane === 0 ? rand(rnd, 1, 1.7) : (plane === 1 ? rand(rnd, 2.4, 3.8) : rand(rnd, 7, 13)),
-            plane === 0 ? rand(rnd, 0.5, 0.8) : (plane === 1 ? rand(rnd, 0.85, 1) : rand(rnd, 0.45, 0.65)),
+            cold ? fall * 0.85 : fall,
+            size,
+            plane === 0 ? rand(rnd, 0.5, 0.8) : (plane === 1 ? rand(rnd, 0.85, 1) : rand(rnd, 0.4, 0.55)),
             0,
             plane
           );
@@ -1069,26 +1095,26 @@
             dot(ctx, p, color, p.kind === 2 ? p.life * 0.5 : p.life);
             return;
           }
-          if (p.kind === 2) glow(ctx, s.blur, s.S, p.x, p.y, p.size * 1.15, p.size * 1.15, p.life);
-          else if (p.kind === 1) glow(ctx, s.flake, s.S, p.x, p.y, p.size * 2.3, p.size * 2.3, p.life);
+          if (p.kind === 2) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litBlur : s.blur, s.S, p.x, p.y, p.size * 1.15, p.size * 1.15, p.life);
+          else if (p.kind === 1) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litFlake : s.flake, s.S, p.x, p.y, p.size * 2.3, p.size * 2.3, p.life);
           else spot(ctx, p, color, p.life, s.S);
         },
         sprites: function (color, scale) {
           var g = maker();
           if (!g) return null;
           var white = rgbOf(color);
+          var lights = lightsNow();
+          var cold = lights === LIGHTS_COLD;
+          var tint = cold ? [220, 232, 255] : [255, 226, 176];
           var out = {
             S: scale,
-            /* Средний хлопок: непрозрачное ядро на треть радиуса (радиус
-               glow — 2.3 размера, то есть ядро ~0.8 размера хлопка) и
-               ореол до края — «светится», а не просто белая точка. */
-            flake: unitGrad(g, [[0, rgba(white, 1)], [0.3, rgba(white, 1)], [0.42, rgba(white, 0.5)], [0.68, rgba(white, 0.14)], [1, rgba(white, 0)]]),
-            blur: unitGrad(g, [[0, rgba(white, 0.85)], [0.5, rgba(white, 0.7)], [0.8, rgba(white, 0.3)], [1, rgba(white, 0)]]),
+            flake: snowGlow(g, white, false),
+            blur: snowGlow(g, white, true),
+            litFlake: snowGlow(g, tint, false),
+            litBlur: snowGlow(g, tint, true),
             bokeh: [],
             bulb: []
           };
-          var lights = lightsNow();
-          var cold = lights === LIGHTS_COLD;
           for (var i = 0; i < lights.length; i++) {
             out.bokeh.push(bokeh(g, lights[i]));
             out.bulb.push(bulb(g, lights[i], cold));
@@ -1194,9 +1220,11 @@
       if (!(count > 0)) return [];
       var random = typeof rnd === 'function' ? rnd : Math.random;
       var id = typeof name === 'string' ? name : '';
+      var cold = preset === presets.winter && flatLook();
+      if (cold) count = Math.min(count, 54);
       var out = [];
       for (var i = 0; i < count; i++) {
-        var p = preset.spawn(i, w, h, random);
+        var p = preset.spawn(i, w, h, random, cold);
         p.preset = id;
         out.push(p);
       }
@@ -1739,7 +1767,7 @@
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
       /* Раунд holB: частицы сцены keep — следующему монтажу (CARRY_MS). */
-      if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles };
+      if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles, still: inst.still, snowCold: inst.snowCold };
       /* Набор спрайтов, уже вытесненный из кэша, этот слой рисовал
          последним — снимки закрываются (closeSprites). */
       if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
@@ -1866,7 +1894,10 @@
         /* Раунд holB: частицы той же сцены keep, снятой недавно со слоя
            того же размера, — продолжаются. */
         var kept = null;
+        var still = stillNow(preset);
+        var snowCold = name === 'winter' && flatLook();
         if (preset.keep && carry && carry.name === name && Math.abs(carry.w - lw) < 1 && Math.abs(carry.h - lh) < 1 &&
+            (name !== 'winter' || (carry.still === still && carry.snowCold === snowCold)) &&
             nowMs() - carry.at < CARRY_MS) kept = carry.particles;
         if (preset.keep) carry = null;
 
@@ -1883,13 +1914,14 @@
           keep: !!preset.keep,
           festive: !!preset.festive,
           leaving: 0,
-          still: stillNow(preset),
+          still: still,
+          snowCold: snowCold,
           stillDone: false,
           color: color,
           safe: safeZone(opts.safe, lw, lh),
           sprites: spritesFor(name, color, ratio * unit),
           paused: typeof opts.paused === 'function' ? opts.paused : null,
-          particles: kept || spawn(name, lw, lh, opts.count, Math.random)
+          particles: kept || spawn(name, lw, lh, opts.count, name === 'winter' && still ? winterRandom() : Math.random)
         };
         /* Доступ к частицам из живой проверки и тестов — функцией, чтобы
            снаружи нельзя было подменить сам массив под циклом. */
@@ -1910,11 +1942,17 @@
       /* Режим анимаций могли сменить, пока слой ждал: статичный кадр — по
          нынешнему режиму и с новым цветом (перерисовка ниже). */
       var still = stillNow(presets[inst.name]);
+      var snowCold = inst.name === 'winter' && flatLook();
+      var snowChanged = snowCold !== inst.snowCold;
+      if (inst.name === 'winter' && (still !== inst.still || snowChanged)) {
+        inst.snowCold = snowCold;
+        inst.particles = spawn(inst.name, inst.w, inst.h, opts.count, still ? winterRandom() : Math.random);
+      }
       if (still !== inst.still) { inst.still = still; inst.stillDone = false; }
       inst.paused = typeof opts.paused === 'function' ? opts.paused : null;
       inst.safe = safeZone(opts.safe, inst.w, inst.h);
       var color = opts.color || '#FFFFFF';
-      if (color !== inst.color) {
+      if (color !== inst.color || snowChanged) {
         var old = inst.sprites;
         inst.color = color;
         inst.sprites = spritesFor(inst.name, color, inst.S);

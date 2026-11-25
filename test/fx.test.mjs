@@ -852,20 +852,77 @@ test('сцены: у зимы три плана снега — ближние к
   assert.equal(plane(3).length, 6, 'огни боке');
   assert.equal(plane(4).length, 10, 'лампочки гирлянды');
   const far = plane(0), mid = plane(1), near = plane(2);
-  assert.equal(far.length + mid.length + near.length, 42);
+  assert.equal(far.length, 22);
+  assert.equal(mid.length, 12);
+  assert.equal(far.length + mid.length + near.length, 40);
+  assert.ok(list.length <= 58 && list.length <= FX.MAX);
   assert.equal(near.length, 6, 'ближний план — шесть крупных хлопьев');
   const maxOf = (a, k) => Math.max.apply(null, a.map((p) => p[k]));
   const minOf = (a, k) => Math.min.apply(null, a.map((p) => p[k]));
   /* Отзыв пользователя «снег более яркий»: средний и ближний планы
      плотнее прежних (.75 и .3 — нижние границы до правки). */
   assert.ok(minOf(mid, 'life') >= 0.85, 'средние хлопья почти непрозрачны');
-  assert.ok(minOf(near, 'life') >= 0.45, 'ближние хлопья плотнее прежних');
+  assert.ok(minOf(near, 'life') >= 0.4 && maxOf(near, 'life') <= 0.55);
   assert.ok(maxOf(far, 'size') < minOf(mid, 'size') && maxOf(mid, 'size') < minOf(near, 'size'), 'размер растёт к зрителю');
   assert.ok(maxOf(far, 'vy') < minOf(near, 'vy'), 'ближние падают быстрее дальних');
   const bulbs = plane(4).map((p) => [p.x, p.y]);
   FX.step(list, 33, 960, 540);
   assert.deepEqual(plane(4).map((p) => [p.x, p.y]), bulbs, 'лампочки стоят на месте, мерцают фазой');
 });
+
+test('зима: независимые статичные монтажи повторяют один состав и не засыпают зону текста', () => {
+  env(() => {
+    const install = () => freshFx({ motionMode: () => 'lite' }).mount(fakeNode(960, 540), 'winter').particles();
+    const first = install(), second = install();
+    assert.deepEqual(first, second, 'позиции и размеры статичного кадра предсказуемы');
+    assert.ok(first.filter((p) => p.kind === 1 || p.kind === 2).every((p) => p.x >= 480 || p.y < 216));
+    assert.ok(first.filter((p) => p.kind === 2).every((p) => p.x >= 480 && (p.x < 720 || p.y >= 216)));
+    const snow = first.filter((p) => p.kind < 3);
+    assert.ok(snow.filter((p) => p.x >= 480).length > snow.length / 2, 'снег гуще справа');
+    assert.ok(snow.filter((p) => p.y < 270).length > snow.length / 2, 'снег гуще вверху');
+  });
+});
+
+test('зима: Apple TV тише, медленнее и без тёплого отсвета', () => {
+  const look = (cold) => loadCtx('52_fx.js', {
+    pref: (key) => key === 'lumen_flat' && cold
+  }).api;
+  const warm = look(false).spawn('winter', 960, 540, undefined, seeded(6));
+  const cold = look(true).spawn('winter', 960, 540, undefined, seeded(6));
+  assert.equal(cold.filter((p) => p.kind === 2).length, 4);
+  for (let i = 16; i < cold.length; i++) assert.ok(Math.abs(cold[i].vy / warm[i].vy - 0.85) < 1e-9);
+  assert.ok(cold.filter((p) => p.kind === 3).every((p) => p.life >= 0.14 && p.life <= 0.26));
+});
+
+test('зима: тёплый и холодный отсвет берутся только выше гирлянды', () => {
+  for (const [cold, tint] of [[false, 'rgba(255,226,176,1)'], [true, 'rgba(220,232,255,1)']]) {
+    richEnv(() => {
+      const fx = freshFx({ pref: (key, def) => key === 'lumen_flat' ? cold : def });
+      const winter = fx.presets.winter;
+      docGradientStops(window.document);
+      const sprites = winter.sprites('#FFFFFF', 1);
+      const p = fx.spawn('winter', 960, 540, undefined, seeded(6)).find((f) => f.kind === 1);
+      const ctx = { setTransform() {}, fillRect() {}, set fillStyle(style) { this.gradient = style; } };
+      p.y = 120;
+      winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, true);
+      assert.ok(ctx.gradient.stops.includes(tint));
+      p.y = 121;
+      winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, true);
+      assert.ok(!ctx.gradient.stops.includes(tint));
+    });
+  }
+});
+
+function docGradientStops(doc) {
+  const create = doc.createElement;
+  doc.createElement = (tag) => {
+    const node = create(tag);
+    node.getContext('2d').createRadialGradient = () => ({
+      stops: [], addColorStop(_, color) { this.stops.push(color); }
+    });
+    return node;
+  };
+}
 
 /* ====================================================================== */
 /* Полное ревью c644bfd: плеер Lampa и снимки спрайтов                     */
