@@ -66,11 +66,11 @@
     }
 
     function paint() {
-      if (!view || view.node || !ready()) return;
+      if (!view || view.node || !ready(view.card)) return;
       var node = document.createElement('div');
       node.className = 'lumen-garland lumen-garland--' + pack.style;
       node.setAttribute('aria-hidden', 'true');
-      if (pack.orn) {
+      if (!view.card && pack.orn) {
         pack.orn.img.className = 'lumen-garland__orn';
         node.appendChild(pack.orn.img);
       }
@@ -81,8 +81,8 @@
       setBulbs(view.host, true);
     }
 
-    function ready() {
-      return !!pack && pack.strip.status === 'ready' && (!pack.orn || pack.orn.status === 'ready');
+    function ready(card) {
+      return !!pack && pack.strip.status === 'ready' && (card || !pack.orn || pack.orn.status === 'ready');
     }
 
     function discard() {
@@ -110,15 +110,16 @@
       return true;
     }
 
-    function mount(layer) {
+    function mount(layer, opts) {
       var host = nodeOf(layer);
+      var card = !!(opts && opts.card);
       if (!host || !preload()) return;
-      if (view && view.host === host) {
+      if (view && view.host === host && view.card === card) {
         if (view.node) setBulbs(host, true);
         return true;
       }
       unmount();
-      view = { host: host, node: null };
+      view = { host: host, card: card, node: null };
       paint();
       return true;
     }

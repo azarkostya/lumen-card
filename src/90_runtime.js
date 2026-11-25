@@ -731,6 +731,7 @@
        выпавшему из документа канвасу. */
     try {
       var fxLayer = fxLayerOf(active.body);
+      if (fxLayer && LC.garland) LC.garland.unmount(fxLayer.find('.lumen-fx'));
       if (fxLayer && LC.fx) LC.fx.unmount(fxLayer.find('.lumen-fx'));
     } catch (eFxOff) {
       warn('destroy active: fx failed', eFxOff);
@@ -1118,6 +1119,7 @@
              src/52_fx.js). Слой частиц лежит внутри слоя фона, поэтому ищем
              его от orphanLayer, а не от тела активности. */
           try {
+            if (LC.garland) LC.garland.unmount(orphanLayer.find('.lumen-fx'));
             if (LC.fx) LC.fx.unmount(orphanLayer.find('.lumen-fx'));
           } catch (eFxOrphan) {
             warn('destroy orphan: fx failed', eFxOrphan);
@@ -2603,6 +2605,7 @@
 
     var theme = null;
     try { theme = LC.themes.forMovie(movie || null); } catch (eTheme) { warn('fx theme failed', eTheme); }
+    if (LC.garland && (!theme || theme.id !== 'christmas')) LC.garland.unmount(node);
     if (!theme) {
       try { if (LC.accent) LC.accent.setTheme(null); } catch (eAcc) {}
       return null;
@@ -2612,7 +2615,7 @@
        постер -> тема -> настройка разрешает src/57_color.js сам). */
     try { if (LC.accent) LC.accent.setTheme(theme.accent); } catch (eAcc2) {}
     try {
-      return LC.fx.mount(node, theme.preset, {
+      var made = LC.fx.mount(node, theme.preset, {
         color: LC.themes.particleColor(theme),
         /* Волна «праздники крупнее»: зона текста карточки — мета, название
            (логотип), оценки и ряд кнопок в левой части от 0.4 до 0.92
@@ -2626,6 +2629,8 @@
           try { return LC.trailer.isLive(layer); } catch (ePause) { return false; }
         }
       });
+      if (LC.garland && theme.id === 'christmas') LC.garland.mount(node, { card: true });
+      return made;
     } catch (eMount) {
       warn('fx mount failed', eMount);
       return null;

@@ -2569,6 +2569,24 @@ test('Task 21: тема найдена — класс на слое фона, ч
   assert.equal(log.unmount, 1, 'прежняя атмосфера снимается перед новой');
 });
 
+test('Гирлянда карточки монтируется только для рождественской темы', () => {
+  const LC = freshLC();
+  const { body, fx } = fxBody();
+  fxStubs(LC, { id: 'christmas', preset: 'winter', accent: '#E8C170' });
+  const calls = [];
+  LC.garland = {
+    mount: (host, opts) => calls.push([host, opts.card]),
+    unmount: (host) => calls.push([host, false])
+  };
+  LC.applyFxFor(body, { id: 771 });
+  assert.deepEqual(calls, [[fx, true]]);
+  LC.themes.forMovie = () => ({ id: 'newyear', preset: 'winter', accent: '#E8C170' });
+  LC.applyFxFor(body, { id: 1 });
+  LC.themes.forMovie = () => null;
+  LC.applyFxFor(body, { id: 771 });
+  assert.deepEqual(calls, [[fx, true], [fx, false], [fx, false]]);
+});
+
 test('Task 21: темы нет — слой чист, частиц нет, акцент темы снят', () => {
   const LC = freshLC();
   const { body, layer } = fxBody();

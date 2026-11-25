@@ -121,3 +121,18 @@ test('При выключенных анимациях нужна явная н�
   f.garland.preload();
   assert.equal(f.host.firstChild, null);
 });
+
+test('На карточке готовой полосы достаточно, а на главную возвращаются игрушки', () => {
+  const f = fixture();
+  const card = f.node();
+  f.garland.mount(f.host);
+  f.finish(0);
+  f.garland.mount(card, { card: true });
+  assert.equal(f.host.firstChild, null);
+  assert.equal(card.firstChild.children.length, 1);
+  f.finish(1);
+  f.garland.mount(f.host);
+  assert.equal(card.firstChild, null);
+  assert.equal(f.host.firstChild.children.length, 2);
+  assert.equal(f.requests.length, 2);
+});
