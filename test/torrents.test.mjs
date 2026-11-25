@@ -960,3 +960,16 @@ test('фокус на всех экранах: строки пути и пост
     assert.ok(hexContrast(k.text, bg) >= 3, 'кольцо к ' + bg + ': ' + hexContrast(k.text, bg).toFixed(2));
   }
 });
+
+test('пачка A: «Лёгкие» убирают переходы строк, но сохраняют переходы чипов', () => {
+  const table = rules().flatMap(parse).filter(Boolean);
+  const own = (selector, mode) => table.find((entry) => /(?:^|;)transition:/.test(entry.decl) && entry.selectors.some((s) =>
+    s.endsWith(selector) && (mode ? s.includes('.lumen-motion-' + mode) : !s.includes('.lumen-motion-'))));
+  for (const selector of ['.selectbox-item', '.torrent-item', '.watched-history', '.torrent-file', '.torrent-serial']) {
+    assert.match(own(selector, 'lite').decl, /(?:^|;)transition:none(?:;|$)/, selector);
+    assert.doesNotMatch(own(selector).decl, /(?:^|;)transition:none/, selector + ', полные');
+  }
+  assert.ok(table.some(({ selectors, decl }) => selectors.some((s) =>
+    s.includes('.lumen-motion-lite') && s.endsWith('.torrent-filter .simple-button')) &&
+    /(?:^|;)transition:background-color/.test(decl)));
+});
