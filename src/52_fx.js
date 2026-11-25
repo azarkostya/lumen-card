@@ -356,8 +356,18 @@
       ]);
     }
 
-    /* Лампочка гирлянды: почти белая сердцевина и цветной ореол. */
-    function bulb(maker, rgb) {
+    /* Лампочка гирлянды: почти белая сердцевина и цветной ореол.
+       Новый год, шаг 3: в Apple TV (cold) — белое ядро и голубоватый ореол
+       LIGHTS_COLD с альфой .55 у ядра: прежний холодно-белый ореол был того
+       же цвета и размера, что средний хлопок снега, и огни читались как ещё
+       десять снежинок. */
+    function bulb(maker, rgb, cold) {
+      if (cold) {
+        return unitGrad(maker, [
+          [0, 'rgba(255,255,255,1)'], [0.1, rgba(mix(rgb, [255, 255, 255], 0.6), 1)],
+          [0.22, rgba(rgb, 0.55)], [0.46, rgba(rgb, 0.2)], [1, rgba(rgb, 0)]
+        ]);
+      }
       return unitGrad(maker, [
         [0, 'rgba(255,250,235,1)'], [0.1, rgba(mix(rgb, [255, 250, 235], 0.45), 1)],
         [0.22, rgba(rgb, 0.7)], [0.46, rgba(rgb, 0.24)], [1, rgba(rgb, 0)]
@@ -399,14 +409,60 @@
     /* Огни зимней сцены: золото, янтарь, красный, зелёный, холодный
        голубой. Порядок значим — индекс цвета хранит поле rot частицы. */
     var LIGHTS = [[255, 206, 120], [255, 160, 64], [255, 86, 72], [108, 214, 138], [150, 200, 255]];
-    /* QA U5: в стиле Apple TV (lumen_flat) огни нейтральные — холодный
-       белый в пять оттенков (тот же порядок индексов, что у LIGHTS). */
-    var LIGHTS_COLD = [[244, 248, 255], [226, 236, 255], [236, 242, 252], [214, 228, 250], [250, 251, 255]];
+    /* QA U5: в стиле Apple TV (lumen_flat) огни нейтральные, без тёплого
+       (тот же порядок индексов, что у LIGHTS). Новый год, шаг 3: не
+       холодно-белые, а голубоватые — от #CFE0FF до #A9C6FF (дизайн «Подвесы»):
+       синий канал выше красного на 40+, и огни не сливаются с белым снегом. */
+    var LIGHTS_COLD = [[207, 224, 255], [188, 210, 255], [214, 229, 255], [169, 198, 255], [198, 218, 255]];
     function flatLook() {
       try { return !!(LC.pref && LC.pref('lumen_flat', false)); } catch (e) { return false; }
     }
     function lightsNow() {
       return flatLook() ? LIGHTS_COLD : LIGHTS;
+    }
+
+    /* Гирлянда зимней сцены: точка дуги при t (0 — первая лампочка, 1 —
+       последняя; за пределами — продолжение дуги к краям слоя). Лампочки и
+       провод берут её обе, поэтому провод проходит ровно через лампочки, и
+       при низком слое (потолок 0.28 высоты) тоже. */
+    function garlandAt(t, w, h) {
+      var sag = 4 * t * (1 - t);
+      return [w * (0.04 + 0.92 * t), Math.min(h * 0.28, 60 + 32 * sag)];
+    }
+
+    /* Новый год, шаг 3: провод запасной гирлянды — ломаная по дуге от края
+       до края слоя: края, десять лампочек и середины между ними (21 точка,
+       излом на глаз не виден). Считается один раз при spawn. */
+    function wirePoints(w, h) {
+      var edge = 0.04 / 0.92;
+      var out = [garlandAt(-edge, w, h)];
+      for (var k = 0; k < 19; k++) out.push(garlandAt(k / 18, w, h));
+      out.push(garlandAt(1 + edge, w, h));
+      return out;
+    }
+
+    /* Провод: тёмная жила и тонкий светлый блик над ней — два штриха одной
+       ломаной. Тёмная жила читается на светлом кадре (снежное небо), блик —
+       на тёмном. Lumen — тёмно-зелёный провод, Apple TV — графит с
+       серебристым бликом (дизайн, §3.5). Нет методов линии (чужая среда,
+       тесты с урезанным контекстом) — провода нет, лампочки остаются. */
+    var WIRE = { dark: 'rgba(31,42,31,.9)', light: 'rgba(120,138,108,.55)' };
+    var WIRE_COLD = { dark: 'rgba(58,58,60,.9)', light: 'rgba(142,142,147,.6)' };
+
+    function drawWire(ctx, pts, s) {
+      if (!pts || pts.length < 2 || typeof ctx.lineTo !== 'function' || typeof ctx.stroke !== 'function') return;
+      if (s) flat(ctx, s.S);
+      var look = flatLook() ? WIRE_COLD : WIRE;
+      var lift = [0, -0.7];
+      alpha(ctx, 1);
+      for (var pass = 0; pass < 2; pass++) {
+        ctx.strokeStyle = pass ? look.light : look.dark;
+        ctx.lineWidth = pass ? 0.6 : 1.8;
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1] + lift[pass]);
+        for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1] + lift[pass]);
+        ctx.stroke();
+      }
     }
 
     /* ctx['fill']() вместо ctx.fill(): скобочная запись обходит сторожа
@@ -943,11 +999,10 @@
             return p;
           }
           if (i < 16) {
-            var t = (i - 6) / 9;
-            var sag = 4 * t * (1 - t);
+            var at = garlandAt((i - 6) / 9, w, h);
             p = particle(
-              w * (0.04 + 0.92 * t),
-              Math.min(h * 0.28, 60 + 32 * sag),
+              at[0],
+              at[1],
               0,
               0,
               rand(rnd, 6, 7.5),
@@ -958,6 +1013,9 @@
             /* Бегущая волна: фаза сдвинута на номер лампочки. */
             p.phase = (i - 6) * 0.9;
             p.freq = 0.0021;
+            /* Новый год, шаг 3: провод несёт первая лампочка — он рисуется
+               перед ней, то есть поверх боке и под всеми огнями. */
+            if (i === 6) p.wire = wirePoints(w, h);
             return p;
           }
           var plane = i < 38 ? 0 : (i < 52 ? 1 : 2);
@@ -988,14 +1046,18 @@
           p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
           p.y += p.vy * dt;
         },
-        draw: function (ctx, p, w, h, color, s) {
+        draw: function (ctx, p, w, h, color, s, still) {
           if (p.kind === 3) {
             if (s) glow(ctx, s.bokeh[p.rot], s.S, p.x, p.y, p.size, p.size, p.life * (0.6 + 0.4 * Math.sin(p.phase)));
             return;
           }
           if (p.kind === 4) {
+            if (p.wire) drawWire(ctx, p.wire, s);
+            /* Новый год, шаг 3: статичный кадр («Лёгкие», слабая приставка)
+               рисуется один раз — по начальной фазе бегущей волны средние
+               лампочки замирали на .40–.45. В нём все горят ровно. */
             var tw = 0.5 + 0.5 * Math.sin(p.phase);
-            var a = 0.4 + 0.6 * tw * tw;
+            var a = still ? 1 : 0.4 + 0.6 * tw * tw;
             if (s) {
               glow(ctx, s.bulb[p.rot], s.S, p.x, p.y, p.size * 4, p.size * 4, a);
               return;
@@ -1026,9 +1088,10 @@
             bulb: []
           };
           var lights = lightsNow();
+          var cold = lights === LIGHTS_COLD;
           for (var i = 0; i < lights.length; i++) {
             out.bokeh.push(bokeh(g, lights[i]));
-            out.bulb.push(bulb(g, lights[i]));
+            out.bulb.push(bulb(g, lights[i], cold));
           }
           return out;
         }
@@ -1476,6 +1539,9 @@
       var h = inst.h;
       var color = inst.color;
       var moving = dt > 0;
+      /* Статичный кадр — седьмым аргументом draw: зимней сцене он велит
+         зажечь лампочки ровно (шаг 3 нового года), прочим не нужен. */
+      var still = !!inst.still;
       for (var i = 0; i < list.length; i++) {
         var p = list[i];
         if (moving) {
@@ -1483,7 +1549,7 @@
           wrap(p, w, h);
         }
         fadeK = zone ? shade(zone, p.x, p.y) : 1;
-        preset.draw(ctx, p, w, h, color, sprites);
+        preset.draw(ctx, p, w, h, color, sprites, still);
       }
       fadeK = 1;
       /* Кадр кончается в базовом преобразовании: clearRect следующего
@@ -1899,6 +1965,13 @@
       unmountAll: unmountAll,
       sweep: sweep,
       active: function () { return instances.length; },
+      /* Новый год, шаг 1: имя сцены, которая сейчас живёт на узле (не
+         удерживаемая после unmount), или ''. Герой главной по нему решает,
+         что сцена праздника уже стоит и трогать слой не надо. Только чтение. */
+      live: function (layer) {
+        var inst = find(nodeOf(layer));
+        return inst && !inst.leaving ? inst.name : '';
+      },
       stats: stats,
       REF_W: REF_W,
       unitOf: unitOf,

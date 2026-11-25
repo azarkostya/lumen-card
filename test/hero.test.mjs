@@ -8132,3 +8132,201 @@ test('этап 2а: детали пришли, когда фокус уже на
   assert.equal(other.text(), 'Первый', 'подпись плитки другого фильма переписана');
   assert.equal(main.card2.card_data.lumen_title, 'Saming the Werebeast');
 });
+
+/* ====================================================================== */
+/* Новый год, шаг 1: снег сразу по дате. Сцена праздника дня ставится при  */
+/* сборке героя, без деталей TMDB, и листание её не снимает.               */
+/* ====================================================================== */
+
+const NY = { id: 'newyear', preset: 'winter', accent: '#E8C170', holiday: true };
+const SNOW = { id: 'snow', preset: 'snow' };
+
+/* Фейк LC.fx с живым слоем: mount ставит сцену, unmount и уборка (sweep) её
+   снимают, live отвечает, что стоит на слое сейчас. */
+function nyEnv(o) {
+  const fx = { mounts: [], unmounts: 0, name: '' };
+  fx.api = {
+    mount: (host, preset, opts) => { fx.mounts.push({ preset: preset, opts: opts }); fx.name = preset; return { destroy() {} }; },
+    unmount: () => { fx.unmounts++; fx.name = ''; },
+    live: () => fx.name
+  };
+  fx.sweep = () => { fx.name = ''; };
+  const state = { mode: (o && o.mode) || 'seasonal', day: o && 'day' in o ? o.day : NY, film: (o && o.film) || null };
+  const env = makeEnv({
+    heroVh: () => 66.67,
+    themes: {
+      forHome: () => (state.mode === 'off' ? null : state.day),
+      forMovie: () => (state.mode === 'off' ? null : (state.day || state.film)),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--newyear lumen-theme--snow'
+    },
+    fx: fx.api
+  });
+  globalThis.window.innerHeight = 1080;
+  env.fx = fx;
+  env.themeState = state;
+  return env;
+}
+
+test('шаг 1: в декабре сцена праздника ставится при сборке героя — до деталей фильма, с размером слоя без раскладки', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  assert.equal(env.fx.mounts.length, 0, 'сборка главной ждёт канваса синхронно');
+  env.advance(0);
+  assert.equal(env.fx.mounts.length, 1, 'сцена праздника не встала по дате');
+  assert.equal(env.fx.mounts[0].preset, 'winter');
+  assert.equal(env.fx.mounts[0].opts.width, 1920, 'ширина слоя — из окна');
+  assert.equal(env.fx.mounts[0].opts.height, 720, 'высота слоя — доля кадра героя (66.67vh)');
+  assert.equal(node.hasClass('lumen-theme--newyear'), true);
+  const settled = env.fx.unmounts;
+  focusOn(main, main.card1);
+  env.advance(400);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'предусловие: детали в пути');
+  assert.equal(env.fx.mounts.length, 1, 'смена фильма поставила сцену заново');
+  assert.equal(env.fx.unmounts, settled, 'показ фильма снял сцену праздника');
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: листание — смена фильма и приход деталей не снимают и не перезапускают сцену праздника', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  env.advance(0);
+  const settled = env.fx.unmounts;
+  focusOn(main, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  /* Второе нажатие подряд — серия, у неё своя задержка (BURST_DELAY). */
+  env.advance(1000);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'предусловие: показан второй фильм');
+  assert.equal(node.hasClass('lumen-theme--newyear'), true, 'класс темы снят при листании');
+  /* Детали второго идут дольше LINGER_MS (6 с) — сцене это больше не важно. */
+  env.advance(7000);
+  detailsOf(env, 22).ok({ id: 22, overview: 'о втором' });
+  assert.equal(env.fx.mounts.length, 1, 'сцена смонтирована повторно');
+  assert.equal(env.fx.unmounts, settled, 'смена фильма позвала LC.fx.unmount');
+  assert.equal(env.fx.name, 'winter');
+  assert.equal(node.hasClass('lumen-theme--newyear'), true);
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: вне праздника — прежний путь: сцены нет до деталей, тема фильма по деталям, смена фильма её снимает', () => {
+  const env = nyEnv({ day: null, film: SNOW });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.advance(0);
+  assert.equal(env.timers.filter((t) => t.ms === 0).length, 0, 'вне праздника заведён тик сцены');
+  assert.equal(env.fx.mounts.length, 0, 'сцена без деталей вне праздника');
+  focusOn(main, main.card1);
+  env.advance(400);
+  assert.equal(env.fx.mounts.length, 0, 'до деталей — ничего');
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  assert.equal(env.fx.mounts.length, 1);
+  assert.equal(env.fx.mounts[0].preset, 'snow');
+  assert.equal(env.fx.mounts[0].opts.width, 0, 'после сборки размер слоя спрашивает сам LC.fx');
+  const before = env.fx.unmounts;
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(1000);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'предусловие: показан второй фильм');
+  assert.ok(env.fx.unmounts > before, 'тема фильма пережила смену фильма');
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: «Атмосферы: Выключены» — сцены нет ни при сборке, ни после деталей', () => {
+  const env = nyEnv({ mode: 'off' });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.advance(0);
+  focusOn(main, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  assert.equal(env.fx.mounts.length, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: карточка → назад — уборка сняла канвас, возврат ставит сцену праздника заново, листание её не трогает', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  env.advance(0);
+  focusOn(main, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  assert.equal(env.fx.mounts.length, 1);
+  env.hero.detach(card.activity);
+  /* Здесь рантайм зовёт LC.fx.sweep(): канвас героя снят. */
+  env.fx.sweep();
+  env.hero.mount(main.activity);
+  assert.equal(env.fx.mounts.length, 2, 'после возврата сцена праздника не поставлена заново');
+  assert.equal(env.fx.name, 'winter');
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(1000);
+  detailsOf(env, 22).ok({ id: 22, overview: 'о втором' });
+  assert.equal(env.fx.mounts.length, 2, 'листание после возврата перезапустило сцену');
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: ушли с главной раньше тика — запаркованному герою сцену не ставим, возврат ставит', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  env.hero.detach(card.activity);
+  env.advance(0);
+  assert.equal(env.fx.mounts.length, 0, 'канвас под чужим экраном');
+  env.hero.mount(main.activity);
+  assert.equal(env.fx.mounts.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: смена настройки на лету (LC.hero.applyFx) пересобирает и стоящую сцену праздника; выключили — снята', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  env.advance(0);
+  assert.equal(env.fx.mounts.length, 1);
+  const settled = env.fx.unmounts;
+  env.hero.applyFx();
+  assert.equal(env.fx.unmounts, settled + 1, 'настройку сменили — слой не пересобран');
+  assert.equal(env.fx.mounts.length, 2);
+  env.themeState.mode = 'off';
+  env.hero.applyFx();
+  assert.equal(env.fx.mounts.length, 2);
+  assert.equal(env.fx.name, '', 'выключили «Атмосферы» — сцена осталась');
+  assert.equal(node.hasClass('lumen-theme--newyear'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: снятие героя до тика гасит отложенную постановку сцены', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.hero.unmount();
+  env.advance(0);
+  assert.equal(env.fx.mounts.length, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+test('шаг 1: фокус на карточке уже при сборке — первый показ внутри mount() сцену не ставит, её ставит тик', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'предусловие: первый показ был внутри mount()');
+  assert.equal(env.fx.mounts.length, 0, 'канвас создан синхронно посреди сборки главной');
+  env.advance(0);
+  assert.equal(env.fx.mounts.length, 1);
+  assert.equal(env.fx.mounts[0].opts.height, 720);
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  assert.equal(env.fx.mounts.length, 1, 'детали перезапустили сцену');
+  assert.deepEqual(warnLog, []);
+});

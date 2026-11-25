@@ -2139,6 +2139,12 @@
   var heroOffAt = 0;
   LC.heroOffRatio = function () { return heroOffAt; };
 
+  /* Новый год, шаг 1: высота кадра героя в vh — та же, что в правиле
+     .lumen-hero ниже (HERO_VH). Герой отдаёт по ней размер слоя частиц при
+     сборке главной (src/48_hero.js, fxBox), чтобы LC.fx.mount не читал
+     offsetWidth/offsetHeight посреди сборки — это синхронная раскладка. */
+  LC.heroVh = function () { return HERO_VH[heroSizeKey()]; };
+
   /* Task 67: метрика плитки ряда серий — ширина и правый зазор в em. Раньше
      оба числа стояли литералами в правиле .lumen-episode ниже, а ширину
      вторым литералом повторял src/85_header.js (выбор размера кадра серии).
@@ -2424,25 +2430,11 @@
        один раз (поправки контроллера к Task 21). Класс темы ставится только
        при полных анимациях, поэтому отдельного гейта по motion тут нет.
 
-       Гирлянда «рождества» — десять огоньков по дуге вдоль верхней кромки
-       (экран 27). Позиции по горизонтали 5…95 %, по вертикали — точки
-       квадратичной кривой (0,10)-(500,90)-(1000,10) из макета, пересчитанные
-       в em: y = (10 + 160·t·(1−t)) / 30. Так дуга провисает к середине
-       ровно как на макете, а сама гирлянда остаётся одним фоном. */
-    var LIGHT = 'rgba(255,214,150,.42) 0%,rgba(255,182,72,.14) 45%,rgba(255,182,72,0) 72%';
-    var garland = [
-      'radial-gradient(circle 1.1em at 5% .59em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 15% 1.01em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 25% 1.33em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 35% 1.55em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 45% 1.65em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 55% 1.65em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 65% 1.55em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 75% 1.33em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 85% 1.01em,' + LIGHT + ')',
-      'radial-gradient(circle 1.1em at 95% .59em,' + LIGHT + ')'
-    ].join(',');
-    css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx,.lumen-hero.lumen-theme--christmas .lumen-fx{background-image:' + garland + ';background-repeat:no-repeat;background-position:top center;-webkit-background-size:100% 4em;background-size:100% 4em}');
+       Новый год, шаг 3: статичной CSS-гирлянды «рождества» (десять
+       radial-gradient под lumen-theme--christmas) больше нет. На главной она
+       не показывалась никогда (герой получает lumen-theme--newyear), в
+       карточке — только без канваса сцены; гирлянду рисует сцена winter
+       (src/52_fx.js), позже — гирлянда-картинка. */
     /* «Хэллоуин» — тыквенный свет снизу (экран 27): тёплое зарево от нижней
        кромки, гаснущее к трети высоты. */
     css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
@@ -2456,10 +2448,7 @@
     css.push('.lumen-backdrop .lumen-fx__canvas--scene,.lumen-hero .lumen-fx__canvas--scene{opacity:1}');
     /* Класс lumen-fx--scene ставит LC.fx.mount, пока смонтирована сцена, и
        снимает drop: без канваса (лёгкие анимации, тяжёлые эффекты
-       выключены) у темы остаётся прежний статичный фон.
-       Сцена winter рисует гирлянду сама — лампочки мерцают бегущей волной,
-       — и статичная CSS-гирлянда под ней стала бы вторым рядом огней. */
-    css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx.lumen-fx--scene,.lumen-hero.lumen-theme--christmas .lumen-fx.lumen-fx--scene{background-image:none}');
+       выключены) у темы остаётся прежний статичный фон. */
     /* Сцена halloween: к тыквенному зареву — дымка по низу, три пологих
        эллипса холодного серо-лилового поверх него. Это фон слоя, а не
        частицы: растрируется один раз, на кадре не стоит ничего (в канвасе

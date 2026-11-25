@@ -1265,11 +1265,175 @@ test('сцены: гирлянда зимы в Apple TV — холодно-бе�
   };
   const cold = colorOf(true);
   assert.ok(cold.length > 0);
+  /* Новый год, шаг 3: огни Apple TV голубоватые (#CFE0FF…#A9C6FF), а не
+     холодно-белые — синий канал заметно выше красного, иначе огни сливаются
+     с белым снегом. Тёплых (красный выше синего) нет по-прежнему. */
   for (const c of cold) {
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c);
     assert.ok(m, c);
-    assert.ok(+m[1] >= 200 && +m[2] >= 220 && +m[3] >= 245 && +m[1] <= +m[3], 'тёплый огонь в Apple TV: ' + c);
+    assert.ok(+m[1] <= +m[2] && +m[2] <= +m[3], 'тёплый огонь в Apple TV: ' + c);
+    assert.ok(+m[3] - +m[1] >= 40, 'огонь Apple TV почти белый, как снег: ' + c);
+    assert.ok(+m[3] >= 245, 'огонь Apple TV не светлый: ' + c);
   }
   const warm = colorOf(false);
   assert.ok(warm.some((c) => /255,\s*(160|206|86)/.test(c)), 'в Lumen пропала цветная гирлянда');
+});
+
+/* ====================================================================== */
+/* Новый год, шаг 3: запасная гирлянда канваса — провод, ровные огни в     */
+/* статичном кадре, голубоватый ореол в Apple TV.                          */
+/* ====================================================================== */
+
+/* Яркость каждой лампочки: альфа в миг, когда ставится её цвет (dot без
+   спрайтов: alpha, затем fillStyle). Снег без спрайтов — '#FFFFFF', боке без
+   спрайтов не рисуется, поэтому все rgba(…) — лампочки. */
+function bulbAlphas(ctx) {
+  const out = [];
+  let fill = '';
+  Object.defineProperty(ctx, 'fillStyle', {
+    configurable: true,
+    get() { return fill; },
+    set(v) { fill = v; if (/^rgba\(/.test(v)) out.push(ctx.globalAlpha); }
+  });
+  return out;
+}
+
+test('шаг 3: в статичном кадре все десять лампочек горят ровно; в анимации — бегущая волна', () => {
+  const list = FX.spawn('winter', 960, 540, FX.presets.winter.count, seeded(6));
+  const bulbs = list.filter((p) => p.kind === 4);
+  const run = (still) => {
+    const ctx = { globalAlpha: 1, beginPath() {}, arc() {}, fill() {} };
+    const out = bulbAlphas(ctx);
+    for (const p of bulbs) FX.presets.winter.draw(ctx, p, 960, 540, '#FFFFFF', null, still);
+    return out;
+  };
+  const still = run(true);
+  assert.equal(still.length, 10);
+  assert.deepEqual(still, still.map(() => 1), 'в статичном кадре есть тусклые лампочки: ' + still.join(', '));
+  const moving = run(false);
+  assert.ok(Math.min.apply(null, moving) < 0.5, 'анимация потеряла бегущую волну');
+});
+
+test('шаг 3: «Лёгкие» — статичный кадр зимы: ровные огни и провод одним рисунком', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'winter');
+    const ctx = layer.children[0].getContext('2d');
+    const alphas = bulbAlphas(ctx);
+    tick(40);
+    assert.equal(fx.stats().steps, 1, 'статичный кадр — один рисунок');
+    assert.equal(alphas.length, 10, 'лампочек в кадре не десять');
+    assert.ok(alphas.every((a) => a === alphas[0] && a > 0.9), 'яркость лампочек неровная: ' + alphas.join(', '));
+    const count = (name) => ctx.calls.filter((c) => c === name).length;
+    assert.equal(count('stroke'), 2, 'провод — тёмная жила и блик');
+    assert.equal(count('lineTo'), 40, 'провод — ломаная из 21 точки на каждый штрих');
+    fx.unmountAll();
+  });
+});
+
+test('шаг 3: в «Полных» провод рисуется в каждом кадре, ровно двумя штрихами', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'full', perf: { weakInfo: () => null } });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'winter');
+    tick(40); tick(40); tick(40);
+    const ctx = layer.children[0].getContext('2d');
+    const steps = fx.stats().steps;
+    assert.ok(steps >= 2, 'сцена не движется');
+    assert.equal(ctx.calls.filter((c) => c === 'stroke').length, 2 * steps);
+    fx.unmountAll();
+  });
+});
+
+test('шаг 3: провод идёт по дуге лампочек от края до края — и на низком слое, где дуга упирается в потолок', () => {
+  for (const [w, h] of [[960, 540], [960, 243], [1280, 720]]) {
+    const list = FX.spawn('winter', w, h, FX.presets.winter.count, seeded(2));
+    const bulbs = list.filter((p) => p.kind === 4);
+    const wired = bulbs.filter((p) => p.wire);
+    assert.equal(wired.length, 1, 'провод несёт одна лампочка');
+    assert.equal(wired[0], bulbs[0], 'провод рисуется перед первой лампочкой — под всеми огнями');
+    const wire = wired[0].wire;
+    assert.equal(wire.length, 21);
+    assert.ok(wire[0][0] <= 0.5 && wire[wire.length - 1][0] >= w - 0.5, 'провод не дотянут до краёв слоя');
+    for (const p of bulbs) {
+      assert.ok(wire.some((q) => Math.abs(q[0] - p.x) < 1e-6 && Math.abs(q[1] - p.y) < 1e-6), 'лампочка не на проводе: ' + p.x + ',' + p.y);
+    }
+    for (const q of wire) assert.ok(q[1] > 0 && q[1] <= h * 0.28 + 1e-6, 'провод ушёл из-под шапки вниз: ' + q[1]);
+  }
+});
+
+test('шаг 3: ореол лампочки Apple TV — голубоватый #CFE0FF с альфой .55, у Lumen — прежний', () => {
+  const stopsOf = (flat) => {
+    const saved = globalThis.document;
+    globalThis.document = {
+      createElement() {
+        const ctx = {
+          createRadialGradient() { const g = { stops: [], addColorStop(o, c) { g.stops.push([o, c]); } }; return g; }
+        };
+        return { width: 0, height: 0, getContext: () => ctx };
+      }
+    };
+    try {
+      const { api } = loadCtx('52_fx.js', { motionMode: () => 'full', enabled: () => true, pref: (k, d) => (k === 'lumen_flat' ? flat : d) });
+      return api.presets.winter.sprites('#FFFFFF', 1).bulb.map((g) => g.stops);
+    } finally {
+      globalThis.document = saved;
+    }
+  };
+  const cold = stopsOf(true);
+  assert.equal(cold.length, 5);
+  assert.ok(cold[0].some((s) => s[1] === 'rgba(207,224,255,0.55)'), 'нет ореола #CFE0FF .55: ' + JSON.stringify(cold[0]));
+  for (const stops of cold) {
+    assert.equal(stops[0][1], 'rgba(255,255,255,1)', 'ядро огня Apple TV не белое');
+    assert.ok(stops.every((s) => s[1].indexOf('255,250,235') === -1), 'тёплое ядро в Apple TV');
+  }
+  const warm = stopsOf(false);
+  assert.equal(warm[0][0][1], 'rgba(255,250,235,1)', 'ядро Lumen изменилось');
+  assert.ok(warm[0].some((s) => s[1] === 'rgba(255,206,120,0.7)'), 'ореол Lumen изменился');
+});
+
+/* ====================================================================== */
+/* Новый год, шаг 1: повторный монтаж сцены не трогает живой слой.         */
+/* ====================================================================== */
+
+test('шаг 1: повторный монтаж той же сцены в статичном режиме не сбрасывает stillDone — кадр не перерисовывается', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    const layer = fakeNode(960, 540);
+    const first = fx.mount(layer, 'winter', { color: '#FFFFFF' });
+    tick(40);
+    assert.equal(fx.stats().steps, 1);
+    const again = fx.mount(layer, 'winter', { color: '#FFFFFF' });
+    assert.equal(layer.children.length, 1, 'второй канвас на том же слое');
+    assert.equal(again.particles(), first.particles(), 'частицы пересозданы');
+    for (let i = 0; i < 3; i++) { if (timers.live().length) timers.fire(); tick(40); }
+    assert.equal(fx.stats().steps, 1, 'повторный монтаж перерисовал статичный кадр');
+    fx.unmountAll();
+  });
+});
+
+test('шаг 1: live — имя живой сцены на узле; удерживаемая после unmount и снятая — пустая строка', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 540);
+    assert.equal(fx.live(layer), '');
+    fx.mount(layer, 'winter');
+    assert.equal(fx.live(layer), 'winter');
+    /* Часы стенда стартуют с нуля, а метка удержания — время снятия. */
+    tick(40);
+    fx.unmount(layer);
+    assert.equal(fx.active(), 1, 'предусловие: праздничная сцена удерживается');
+    assert.equal(fx.live(layer), '', 'удерживаемая сцена — не живая');
+    fx.mount(layer, 'winter');
+    assert.equal(fx.live(layer), 'winter', 'ожившая — снова живая');
+    fx.unmountAll();
+    assert.equal(fx.live(layer), '');
+    assert.equal(fx.live(null), '');
+  });
 });

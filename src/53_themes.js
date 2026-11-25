@@ -593,13 +593,24 @@
        новогодняя и хэллоуинская. Гейт по режиму анимаций здесь не решается:
        праздничные сцены LC.fx.mount запустит и в «Лёгких», прочие — только
        в «Полных» с «Тяжёлыми эффектами» (src/52_fx.js, allowedNow). */
+    /* Новый год, шаг 1: праздник дня для кадра главной — без фильма. Тема
+       зависит только от даты и настройки «Атмосферы», поэтому герой ставит
+       сцену при сборке, не дожидаясь деталей TMDB (src/48_hero.js, applyFx),
+       и не снимает её при листании. null — праздника сегодня нет или
+       «Атмосферы» выключены. */
+    function forHome() {
+      if (mode() === 'off') return null;
+      var holiday = holidayAt(api._now());
+      return holiday ? themeOf(holiday) : null;
+    }
+
     function forMovie(movie) {
       var current_mode = mode();
       if (current_mode === 'off') return null;
       var today = api._now();
       if (onHome()) {
-        var holiday = holidayAt(today);
-        if (holiday) return themeOf(holiday);
+        var holiday = forHome();
+        if (holiday) return holiday;
       }
       var theme = matchTheme(rulesNow(), movie);
       /* Финальная проверка, B8 (logic-rows S1): при «Только сезонные»
@@ -676,6 +687,7 @@
       particleColor: particleColor,
       mode: mode,
       forMovie: forMovie,
+      forHome: forHome,
       _now: now
     };
     return api;

@@ -467,6 +467,27 @@ test('holB: на главной в окно праздника — сцена п
   assert.equal(ambientEnv({ now: at(12, 31), mode: 'off' }).forMovie(film('christmas')), null, '«Выключены» — ничего');
 });
 
+/* Новый год, шаг 1: праздник дня для кадра главной — без фильма, по дате и
+   настройке «Атмосферы». Героя спрашивать не нужно: его зовёт сам герой. */
+test('шаг 1: forHome — тема праздника в его окне, null вне окна и при «Атмосферы: Выключены»', () => {
+  const ny = ambientEnv({ now: at(12, 5) }).forHome();
+  assert.equal(ny.id, 'newyear');
+  assert.equal(ny.preset, 'winter');
+  assert.equal(ny.holiday, true);
+  assert.equal(ambientEnv({ now: at(1, 7) }).forHome().id, 'newyear', '7 января — последний день');
+  assert.equal(ambientEnv({ now: at(10, 25) }).forHome().id, 'halloween');
+  assert.equal(ambientEnv({ now: at(11, 30) }).forHome(), null, '30 ноября — ещё нет');
+  assert.equal(ambientEnv({ now: at(1, 8) }).forHome(), null, '8 января — уже нет');
+  assert.equal(ambientEnv({ now: at(7, 15), mode: 'all' }).forHome(), null, '«Все» праздник летом не придумывает');
+  assert.equal(ambientEnv({ now: at(12, 5), mode: 'off' }).forHome(), null, '«Выключены» — ничего');
+  /* От героя не зависит: зовёт его сам герой, и в миг сборки главной. */
+  assert.equal(ambientEnv({ now: at(12, 5), hero: 'none' }).forHome().id, 'newyear');
+  assert.equal(ambientEnv({ now: at(12, 5), home: false }).forHome().id, 'newyear');
+  /* forMovie на главной отдаёт ту же тему. */
+  const T1 = ambientEnv({ now: at(12, 25) });
+  assert.deepEqual(T1.forMovie(odyssey), T1.forHome());
+});
+
 test('holB: holiday() — по хуку даты; classNames — и праздники, и все правила каталога, без повторов', () => {
   const T1 = ambientEnv({ now: at(12, 20) });
   assert.equal(T1.holiday().id, 'newyear');

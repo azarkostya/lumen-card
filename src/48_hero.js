@@ -1889,9 +1889,58 @@
       return node && node.length ? node : null;
     }
 
+    /* Новый год, шаг 1: праздник дня (LC.themes.forHome) — тема без фильма,
+       по дате и настройке «Атмосферы». null — праздника нет, либо модуля тем
+       нет (тесты, где 48_hero.js грузится в одиночку или с урезанными темами). */
+    function dayTheme() {
+      if (!LC.themes || typeof LC.themes.forHome !== 'function') return null;
+      try {
+        return LC.themes.forHome() || null;
+      } catch (e) {
+        warn('hero: fx day theme failed', e);
+        return null;
+      }
+    }
+
+    /* Отметка сцены праздника, которая стоит на слое (state.fxKey): тема и
+       пресет. Ставит её только applyFx и только для праздничной темы
+       (theme.holiday); темы фильмов живут по-прежнему — снимаются при каждой
+       смене фильма и ставятся по его деталям. */
+    function fxKeyOf(theme) {
+      return theme.id + '|' + theme.preset;
+    }
+
+    /* Сцена на слое жива? LC.fx.live — только чтение; в тестах с урезанным
+       LC.fx его нет, и тогда верим отметке. */
+    function fxLive(host, preset) {
+      try {
+        if (typeof LC.fx.live !== 'function') return true;
+        return LC.fx.live(host) === preset;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Размер слоя частиц без чтения раскладки: ширина окна и высота кадра
+       героя (LC.heroVh, src/30_css.js — та же, что в правиле .lumen-hero).
+       Берёт его сцена праздника дня (applyFx): она ставится при сборке
+       главной (mount -> fxTick) и при показе фильма, а там offsetWidth
+       слоя — синхронная раскладка. null — посчитать нечем, LC.fx спросит
+       узел сам. */
+    function fxBox() {
+      try {
+        var vh = typeof LC.heroVh === 'function' ? LC.heroVh() : 0;
+        var w = window.innerWidth || 0;
+        var h = window.innerHeight || 0;
+        if (vh > 0 && w > 0 && h > 0) return { width: w, height: Math.round(h * vh / 100) };
+      } catch (e) { }
+      return null;
+    }
+
     /* Снимает частицы и класс темы. Идемпотентна: на снятом герое и на
        слое без канваса не делает ничего. */
     function clearFx() {
+      if (state) state.fxKey = null;
       var host = fxHost();
       if (host) {
         try { if (LC.fx) LC.fx.unmount(host); } catch (e) { warn('hero: fx unmount failed', e); }
@@ -1903,20 +1952,48 @@
       }
     }
 
-    /* Ставит атмосферу по деталям фильма под фокусом. Зовётся после
-       загрузки деталей и при смене настройки «Атмосферы» на лету. */
-    function applyFx() {
+    /* Ставит атмосферу кадра главной. Зовётся после загрузки деталей, при
+       сборке героя (fxTick), на возврате (resume) и при смене настройки
+       «Атмосферы» или режима анимаций на лету (force).
+       Новый год, шаг 1: первым — праздник дня (dayTheme). Он не зависит от
+       фильма, поэтому ставится без деталей, а если на слое уже живёт сцена
+       этого же праздника, функция выходит сразу — без clearFx, без снятия и
+       возврата класса темы: листание её не трогает (прежде слой снимался на
+       каждой смене фильма и замирал на LINGER_MS, src/52_fx.js, — детали
+       дольше 6 с, и снег пропадал посреди листания). Праздника нет — прежний
+       путь: тема по деталям фильма под фокусом.
+       force — снять и поставить заново даже ту же сцену: настройку или режим
+       анимаций сменили, и статичный кадр, цвет и пауза должны пересчитаться
+       (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
+       box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
+    function applyFx(force, box) {
       if (!state) return;
-      clearFx();
-      if (!LC.fx) return;
+      if (!LC.fx) { clearFx(); return; }
       var theme = null;
       if (benchPreset) {
         /* Самотест: пресет принудительно, без класса темы и её цвета. */
         theme = { id: '', preset: benchPreset };
       } else {
-        if (!state.details || !LC.themes) return;
-        try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+        theme = dayTheme();
+        if (!theme && state.details && LC.themes) {
+          try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+        }
       }
+      var key = theme && theme.holiday ? fxKeyOf(theme) : null;
+      if (!force && key && state.fxKey === key) {
+        var live = fxHost();
+        if (live && fxLive(live, theme.preset)) return;
+      }
+      /* Идёт сборка героя: сцену праздника поставит её тик (fxTick), а не
+         первый показ фильма или детали из памяти предзагрузки, пришедшие
+         синхронно внутри mount(). */
+      if (!force && key && state.fxTimer) return;
+      /* Сцена праздника ставится и на горячих путях (сборка, показ
+         фильма) — размер слоя без чтения раскладки. Один размер на все её
+         монтажи: частицы, снятые уборкой, продолжаются на возврате (CARRY_MS,
+         src/52_fx.js, сравнивает размер слоя). */
+      if (!box && key) box = fxBox();
+      clearFx();
       if (!theme) return;
       if (theme.id) {
         try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
@@ -1924,7 +2001,9 @@
       var host = fxHost();
       if (!host) return;
       try {
-        LC.fx.mount(host, theme.preset, {
+        var made = LC.fx.mount(host, theme.preset, {
+          width: box ? box.width : 0,
+          height: box ? box.height : 0,
           color: theme.id && LC.themes ? LC.themes.particleColor(theme) : '#FFFFFF',
           /* Волна «праздники крупнее»: зона текста героя — логотип, мета и
              две строки описания лежат в левой половине нижних трёх пятых
@@ -1962,9 +2041,22 @@
               Date.now() - state.focusAt < FX_CALM_MS));
           }
         });
+        /* Отметка — только когда сцена праздника действительно встала:
+           LC.fx.mount отдаёт null в «Выкл» анимаций, и тогда следующий вызов
+           попробует снова (как и прежде, без канваса и цикла). */
+        if (made && key) state.fxKey = key;
       } catch (e3) {
         warn('hero: fx mount failed', e3);
       }
+    }
+
+    /* Тик после сборки героя (mount): сцена праздника дня без деталей.
+       Запаркованному герою — ничего: возврат поставит её сам (resume). */
+    function fxTick() {
+      if (!state) return;
+      state.fxTimer = null;
+      if (state.parked) return;
+      applyFx(false);
     }
 
     /* Снимает всё, что связано с роликом: отложенный старт, ответ
@@ -3866,8 +3958,14 @@
         state.logoWhite = null;
         /* Task 21: атмосфера прошлой карточки уходит сразу — иначе снег с
            рождественского фильма висел бы над кадром следующего, пока не
-           придут его детали. */
-        clearFx();
+           придут его детали.
+           Новый год, шаг 1: кроме сцены праздника дня — она принадлежит
+           главной, а не фильму. Стоит — applyFx выходит сразу, и листание её
+           не трогает; не стоит (возврат с парковки, где канвас сняла уборка)
+           — ставится сейчас, не дожидаясь деталей. Пока ждёт тик сборки
+           (fxTimer) — ставит он. */
+        if (!dayTheme()) clearFx();
+        else applyFx();
         /* Волна 3: кадр выбирается по деталям (startFrame) — сначала
            запрос, потом, если ответ не пришёл синхронно из памяти
            предзагрузки, отсчёт FRAME_WAIT до кадра по данным ряда. */
@@ -4555,7 +4653,11 @@
           fixedCompact: !!opts.compact,
           /* Ревью Task 64: сжат ли герой сейчас — для предиката паузы
              частиц (см. applyFx). Мини-герой сетки сжат с самого начала. */
-          compact: !!opts.compact
+          compact: !!opts.compact,
+          /* Новый год, шаг 1: какая сцена праздника дня стоит на слое
+             (fxKeyOf) и отложенная на тик постановка её при сборке (fxTick). */
+          fxKey: null,
+          fxTimer: null
         };
         if (opts.compact) setCompact(true);
         /* Task 49: метка — только под нашей главной, и это не формальность.
@@ -4572,6 +4674,14 @@
         applyMotion();
         listenFocus(root);
         listenPlayer();
+        /* Новый год, шаг 1: сцена праздника дня — сразу по дате, а не после
+           ответа TMDB (было: текст героя 74 мс, снег 463 мс). На тик позже:
+           сборка главной не ждёт канваса, а размер слоя берётся без
+           раскладки (fxBox). Таймер заводится ДО первого показа: show() ниже
+           и детали, пришедшие синхронно из памяти предзагрузки, видят его и
+           сцену не ставят (applyFx). Праздника нет — таймера нет, атмосфера
+           фильма, как прежде, по деталям. */
+        if (dayTheme()) state.fxTimer = setTimeout(fxTick, 0);
         showFocused(root);
         /* Task 40: замер первого кадра ГЛАВНОЙ. Точка последняя в mount()
            намеренно — как и у карточки в src/90_runtime.js: замер обязан
@@ -4661,7 +4771,7 @@
       /* Волна «Логотипы сразу»: предзагрузка соседей уходит вместе с
          героем. */
       prefetch('stop');
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -4776,6 +4886,11 @@
       state.parked = true;
       cancelTrailer();
       stopTimer('timer');
+      /* Новый год, шаг 1: канвас сцены праздника снимает уборка
+         LC.fx.sweep() следом за парковкой — отметка «сцена стоит» уходит
+         вместе с ним, и resume поставит её заново (applyFx). */
+      stopTimer('fxTimer');
+      state.fxKey = null;
       /* Раунд «Листание», F2: серия кончилась уходом с главной — метка
          серии снимается вместе с её таймером. */
       markBurst(false);
@@ -4919,7 +5034,7 @@
        теме фильма. */
     function benchFx(preset) {
       benchPreset = preset || null;
-      applyFx();
+      applyFx(true);
     }
 
     /* Кроссфейд двух уже декодированных кадров — тем же путём, что в
@@ -5045,8 +5160,10 @@
       },
       /* Task 21: настройка «Атмосферы» переключена на лету (src/80_settings.js,
          applyPrefChange -> LC.applyFxPref). Выключение снимает слой частиц с
-         кадра главной, включение считает тему по уже загруженным деталям. */
-      applyFx: applyFx,
+         кадра главной, включение считает тему по уже загруженным деталям.
+         Новый год, шаг 1: снаружи — всегда с пересборкой (force): сцена
+         праздника дня, стоящая на слое, иначе не узнала бы о новом режиме. */
+      applyFx: function () { applyFx(true); },
       mount: mount,
       mountCurrent: mountCurrent,
       detach: detach,

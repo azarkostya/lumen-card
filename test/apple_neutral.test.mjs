@@ -62,11 +62,13 @@ const LUMEN_SAMPLES = {
 
 /* Снимок Lumen после слияния окон и поиска v2 и обрезки ленты поиска (21.10.2026; правки Apple TV его не меняют);
    1.4: QA U4/U6/U10, U13 экрана раздач, метки раздач; 1.5 — без подсказки «Ключ API не задан» и с пометкой «не действует» в настройках;
-   1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js). Если Lumen меняют
+   1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js);
+   Новый год, шаг 3 (25.11.2026): сняты два правила мёртвой CSS-гирлянды lumen-theme--christmas (src/30_css.js) — других
+   отличий в таблице нет (сверено построчно с HEAD 9ad8d21). Если Lumen меняют
    намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '13e2368e5cb4e2630696b4871601848f9ca67749824a2c76d3d69ff64a354387',
-  black_solid: 'a0862d4e041fa68ba246a5d4ac07d40bde6f5b03ce5f0a8fbeda5a3992a08793'
+  warm: '44f35e1a19bfbeea6b6dce0cbb6fc29a89f6fed0c1d213172100133c6bef265a',
+  black_solid: '5328ab41149567683b0e3ffb92df32d48b2cb57b1014200c0b1ef9a99a8dcbe7'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

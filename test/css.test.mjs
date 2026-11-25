@@ -6990,12 +6990,12 @@ test('buildCss: канвас частиц растянут по слою и пр
   assert.ok(decl.indexOf('width:100%') !== -1 && decl.indexOf('height:100%') !== -1);
 });
 
-test('buildCss: гирлянда «рождества» — десять огоньков по дуге, без SVG-фильтров', () => {
-  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas') === 0)[0];
-  assert.ok(rule, 'нет оверлея рождества');
-  assert.equal((rule.match(/radial-gradient/g) || []).length, 10, 'десять огоньков');
-  assert.equal(rule.indexOf('filter'), -1, 'SVG-фильтры на ТВ запрещены поправками контроллера');
-  assert.ok(rule.indexOf('background-repeat:no-repeat') !== -1);
+/* Новый год, шаг 3: статичная CSS-гирлянда «рождества» удалена — на главной
+   она не показывалась никогда, гирлянду рисует сцена winter (src/52_fx.js). */
+test('buildCss: правил lumen-theme--christmas с background-image больше нет (мёртвая CSS-гирлянда снята)', () => {
+  const rules = css.split('\n').filter((l) => l.indexOf('lumen-theme--christmas') !== -1);
+  assert.deepEqual(rules.filter((l) => l.indexOf('background-image') !== -1), [], 'CSS-гирлянда вернулась');
+  assert.equal(css.indexOf('255,182,72'), -1, 'огни CSS-гирлянды остались в таблице');
 });
 
 test('buildCss: «Хэллоуин» — тыквенное зарево снизу', () => {
@@ -7011,13 +7011,6 @@ test('buildCss: канвас сцены не приглушается — ярк
   assert.ok(rule, 'нет правила канваса сцены');
   assert.ok(rule.indexOf('.lumen-hero .lumen-fx__canvas--scene') !== -1, 'и в кадре главной');
   assert.ok(rule.indexOf('opacity:1') !== -1);
-});
-
-test('buildCss: сцена зимы снимает CSS-гирлянду (рисует свою), без сцены гирлянда остаётся', () => {
-  const lines = css.split('\n');
-  const off = lines.filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas .lumen-fx.lumen-fx--scene') === 0)[0];
-  assert.ok(off && off.indexOf('background-image:none') !== -1, 'гирлянда снимается только под классом сцены');
-  assert.ok(lines.indexOf(off) > lines.findIndex((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas .lumen-fx,') === 0), 'правило сцены — после гирлянды и берёт верх');
 });
 
 test('buildCss: сцена Хэллоуина — дымка по низу статичным фоном, без фильтров и анимаций', () => {
