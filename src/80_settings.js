@@ -175,6 +175,14 @@
        прежние «Все» и «Только сезонные» различались лишь сценой
        праздничного фильма вне праздника. Даты — окна праздников
        (forMovie, src/53_themes.js). */
+    lumen_fx_garland_apple_name: { ru: 'Гирлянда Apple TV', en: 'Apple TV garland', uk: 'Гірлянда Apple TV' },
+    lumen_fx_garland_apple_descr: {
+      ru: 'Вариант новогодней гирлянды для стиля Apple TV.',
+      en: 'New Year garland design for Apple TV style.',
+      uk: 'Варіант новорічної гірлянди для стилю Apple TV.'
+    },
+    lumen_fx_garland_cold: { ru: 'Подвесы', en: 'Pendants', uk: 'Підвіси' },
+    lumen_fx_garland_cold2: { ru: 'Струна', en: 'String', uk: 'Струна' },
     lumen_fx_garland_static_name: { ru: 'Гирлянда без анимаций', en: 'Garland without animations', uk: 'Гірлянда без анімацій' },
     lumen_fx_garland_static_descr: {
       ru: 'Показывать неподвижную гирлянду, когда анимации выключены.',
@@ -1735,7 +1743,7 @@
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным
        того, что открыто сейчас. */
-    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static') {
+    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static' || name === 'lumen_fx_garland_apple') {
       try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
       return true;
     }

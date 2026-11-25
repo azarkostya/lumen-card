@@ -65,12 +65,34 @@
       if (LC.fx && LC.fx.bulbs) LC.fx.bulbs(host, on);
     }
 
-    function startGlow(current) {
-      if (LC.motionMode() !== 'full') return;
+    function glowPath() {
+      if (LC.motionMode() !== 'full') return '';
       var weak = LC.perf && LC.perf.weakInfo && LC.perf.weakInfo();
-      if (weak && LC.pref('lumen_motion', 'auto') !== 'full') return;
+      if (weak && LC.pref('lumen_motion', 'auto') !== 'full') return '';
       var small = window.innerWidth <= 960 && window.innerHeight <= 540;
-      var prefix = (weak || small ? 'half/' : '') + 'garland-' + pack.style;
+      return (weak || small ? 'half/' : '') + 'garland-' + pack.style;
+    }
+
+    function stopGlow(current) {
+      if (current.timer !== null) clearInterval(current.timer);
+      current.timer = null;
+      if (current.glow) {
+        for (var i = 0; i < current.glow.length; i++) {
+          var asset = current.glow[i];
+          asset.cancel();
+          if (asset.img && asset.img.parentNode) asset.img.parentNode.removeChild(asset.img);
+        }
+        current.glow = null;
+      }
+      if (current.node) current.node.className = current.baseClass;
+    }
+
+    function syncGlow(current) {
+      var prefix = glowPath();
+      if (current.glowPath === prefix) return;
+      stopGlow(current);
+      current.glowPath = prefix;
+      if (!prefix) return;
       var node = current.node;
       function reveal() {
         if (view !== current) return;
@@ -85,7 +107,7 @@
         b.img.className = 'lumen-garland__b';
         node.appendChild(a.img);
         node.appendChild(b.img);
-        var className = node.className + ' has-glow';
+        var className = current.baseClass + ' has-glow';
         var phase = false;
         node.className = className;
         current.timer = setInterval(function () {
@@ -103,7 +125,7 @@
     function paint() {
       if (!view || view.node || !ready(view.card)) return;
       var node = document.createElement('div');
-      node.className = 'lumen-garland lumen-garland--' + pack.style;
+      node.className = 'lumen-garland lumen-garland--' + (pack.style === 'warm' ? 'warm' : 'cold');
       node.setAttribute('aria-hidden', 'true');
       if (!view.card && pack.orn) {
         pack.orn.img.className = 'lumen-garland__orn';
@@ -113,8 +135,9 @@
       node.appendChild(pack.strip.img);
       view.host.insertBefore(node, view.host.firstChild);
       view.node = node;
+      view.baseClass = node.className;
       setBulbs(view.host, true);
-      startGlow(view);
+      syncGlow(view);
     }
 
     function ready(card) {
@@ -134,7 +157,10 @@
         discard();
         return false;
       }
-      var style = LC.pref('lumen_flat', false) ? 'cold' : 'warm';
+      var style = 'warm';
+      if (LC.pref('lumen_flat', false)) {
+        style = LC.pref('lumen_fx_garland_apple', 'cold') === 'cold2' ? 'cold2' : 'cold';
+      }
       if (pack && pack.style === style) return true;
       unmount();
       discard();
@@ -153,22 +179,21 @@
       if (!host || !preload()) return;
       if (view && view.host === host && view.card === card) {
         view.paused = paused;
-        if (view.node) setBulbs(host, true);
+        if (view.node) {
+          setBulbs(host, true);
+          syncGlow(view);
+        }
         return true;
       }
       unmount();
-      view = { host: host, card: card, node: null, paused: paused, glow: null, timer: null };
+      view = { host: host, card: card, node: null, paused: paused, glow: null, glowPath: '', timer: null };
       paint();
       return true;
     }
 
     function unmount(layer) {
       if (!view || (layer && nodeOf(layer) !== view.host)) return;
-      if (view.timer !== null) clearInterval(view.timer);
-      if (view.glow) {
-        view.glow[0].cancel();
-        view.glow[1].cancel();
-      }
+      stopGlow(view);
       if (view.node) {
         if (view.node.parentNode) view.node.parentNode.removeChild(view.node);
         setBulbs(view.host, false);

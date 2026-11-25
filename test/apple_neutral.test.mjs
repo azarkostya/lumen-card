@@ -65,10 +65,11 @@ const LUMEN_SAMPLES = {
    1.4 (ноябрь 2026): кегль названий раздач 1.12em и медиаметок 1em без разрядки (src/31_v2_torrents_menu.js);
    Новый год, шаг 3 (25.11.2026): сняты правила мёртвой CSS-гирлянды lumen-theme--christmas (src/30_css.js);
    пачка A: кольца фокуса, кегль и тени v2, лёгкий режим списков, прокрутка отзывов, компактная шапка, облегчённая
-   предзагрузка. Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
+   предзагрузка. Новый год, шаги 5, 8 и 12: неподвижная гирлянда, два слоя мерцания и поправка для сжатого героя.
+   Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '474b10a8d6c10859555438d68744023a4b2939ed86e7f5a8b615d6c9ca406fed',
-  black_solid: 'dd6f81d6cf961bf59077777107ac793ca02a88994f0904ef04575a20a7ceaac1'
+  warm: '87a373ad8a8afe42a8e3f0a4d0e98f430c48d17bf7c46554b0e5ede96dfe541e',
+  black_solid: '1ad8230af363ff7ba6b60c3a0f26bd868a8fe4a89289c8e6b2009ecb1a892974'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

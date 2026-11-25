@@ -164,7 +164,7 @@ test('LIST: полный набор ключей 1.5 — старые имена
     'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_resume', 'lumen_resume_ttl', 'lumen_home_start',
     'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source',
     'lumen_ambient_delay', 'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew',
-    'lumen_whatsnew_show', 'lumen_hide_shots', 'lumen_hide_head_icons', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url'
+    'lumen_whatsnew_show', 'lumen_hide_shots', 'lumen_hide_head_icons', 'lumen_fx_garland_apple', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url'
   ].sort());
 });
 
@@ -257,7 +257,7 @@ const SECTION_GROUPS = {
     ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew', 'lumen_whatsnew_show',
       'lumen_hide_shots', 'lumen_hide_head_icons']],
     /* «Для разработчика» — в самом низу. */
-    ['lumen_group_dev', ['lumen_region_unblock', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url']]
+    ['lumen_group_dev', ['lumen_fx_garland_apple', 'lumen_region_unblock', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url']]
   ]
 };
 

@@ -1333,6 +1333,29 @@ test('шаг 3: «Лёгкие» — статичный кадр зимы: ро�
   });
 });
 
+test('Гирлянда-картинка отключает провод и лампочки, оставляя статичный снег', () => {
+  env(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'lite' });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'winter');
+    const ctx = layer.children[0].getContext('2d');
+    const alphas = bulbAlphas(ctx);
+    const strokes = () => ctx.calls.filter(c => c === 'stroke').length;
+    fx.bulbs(layer, true);
+    tick(40);
+    assert.equal(alphas.length, 0);
+    assert.equal(strokes(), 0);
+    assert.equal(fx.stats().steps, 1, 'снег нарисован одним статичным кадром');
+    fx.bulbs(layer, false);
+    tick(40);
+    assert.equal(alphas.length, 10);
+    assert.equal(strokes(), 2);
+    assert.equal(fx.stats().steps, 2);
+    fx.unmountAll();
+  });
+});
+
 test('шаг 3: в «Полных» провод рисуется в каждом кадре, ровно двумя штрихами', () => {
   env(({ tick }) => {
     const fx = freshFx({ motionMode: () => 'full', perf: { weakInfo: () => null } });

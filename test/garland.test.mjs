@@ -184,3 +184,45 @@ test('Слабая приставка в Авто остаётся на стат
     assert.match(f.requests[2].url, /half\/garland-warm-a\.webp$/);
   }
 });
+
+test('Струна заменяет Подвесы в Apple TV и оставляет Ретро в Lumen', () => {
+  const f = fixture();
+  f.settings.lumen_flat = true;
+  f.garland.mount(f.host);
+  f.finish(0);
+  const first = f.host.firstChild;
+  f.settings.lumen_fx_garland_apple = 'cold2';
+  f.garland.mount(f.host);
+  assert.equal(f.host.firstChild, null);
+  assert.match(f.requests[1].url, /garland-cold2-still\.webp$/);
+  f.finish(1);
+  assert.notEqual(f.host.firstChild, first);
+  assert.match(f.host.firstChild.className, /lumen-garland--cold/);
+  assert.equal(f.host.firstChild.children.length, 1);
+  f.settings.lumen_flat = false;
+  f.garland.mount(f.host);
+  assert.match(f.requests[2].url, /garland-warm-still\.webp$/);
+});
+
+test('На открытой карточке смена режима переставляет только накладки', () => {
+  const f = fixture();
+  f.settings.mode = 'full';
+  f.garland.mount(f.host, { card: true });
+  f.finish(0);
+  f.finish(1);
+  f.finish(2);
+  f.finish(3);
+  const picture = f.host.firstChild;
+  assert.equal(picture.children.length, 3);
+  f.settings.mode = 'lite';
+  f.garland.mount(f.host, { card: true });
+  assert.equal(f.host.firstChild, picture);
+  assert.equal(picture.children.length, 1);
+  assert.equal(f.timers.size, 0);
+  f.settings.mode = 'full';
+  f.garland.mount(f.host, { card: true });
+  f.finish(4);
+  f.finish(5);
+  assert.equal(picture.children.length, 3);
+  assert.equal(f.timers.size, 1);
+});

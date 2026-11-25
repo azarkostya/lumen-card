@@ -2418,15 +2418,12 @@
        Канвас держится на .82 прозрачности: атмосфера не должна спорить с
        текстом карточки, который лежит выше по DOM. */
     css.push('.lumen-backdrop .lumen-fx,.lumen-hero .lumen-fx{position:absolute;top:0;bottom:0;left:0;right:0;overflow:hidden;pointer-events:none}');
-    css.push('.lumen-garland{position:absolute;top:0;left:0;width:100%}');
-    css.push('.lumen-garland__strip{position:relative;display:block;width:100%;height:auto}');
-    css.push('.lumen-garland__orn{position:absolute;right:0;top:5vw;width:25%;height:auto}');
-    css.push('.lumen-garland__a,.lumen-garland__b{position:absolute;top:0;left:0;width:100%;height:auto;opacity:0;transition:opacity .8s ease-in-out}');
-    css.push('.lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-garland.is-b .lumen-garland__b{opacity:1}');
-    var garlandScale = LC.pref('lumen_hero_size', 'large');
-    if (garlandScale === 'medium' || garlandScale === 'compact') {
-      css.push('.lumen-hero .lumen-garland{top:1.2vw;transform:scale(.75);transform-origin:top center}');
-    }
+    css.push('.lumen-hero .lumen-garland,.lumen-backdrop .lumen-garland{position:absolute;top:0;left:0;width:100%}');
+    css.push('.lumen-hero .lumen-garland__strip,.lumen-backdrop .lumen-garland__strip{position:relative;display:block;width:100%;height:auto}');
+    css.push('.lumen-hero .lumen-garland__orn,.lumen-backdrop .lumen-garland__orn{position:absolute;right:0;top:5vw;width:25%;height:auto}');
+    css.push('.lumen-hero .lumen-garland__a,.lumen-backdrop .lumen-garland__a,.lumen-hero .lumen-garland__b,.lumen-backdrop .lumen-garland__b{position:absolute;top:0;left:0;width:100%;height:auto;opacity:0;-webkit-transition:opacity .8s ease-in-out;transition:opacity .8s ease-in-out}');
+    css.push('.lumen-hero .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland.is-b .lumen-garland__b{opacity:1}');
+    css.push('.lumen-hero .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland--cold.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland--cold.is-b .lumen-garland__b{opacity:.6}');
     css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
     /* Оверлеи тем — чистый CSS поверх частиц, без SVG-фильтров: на ТВ
        фильтр стоит отдельного прохода композитора, а градиент растеризуется
@@ -4825,6 +4822,14 @@
     css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
     css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx{opacity:1}');
     css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx canvas{opacity:0}');
+    /* Компенсируем ход героя с той же кривой, чтобы полоса не заезжала в шапку. */
+    var garlandScale = heroSize === 'large' ? '' : ' scale(.75)';
+    if (garlandScale) {
+      css.push('.lumen-hero .lumen-fx .lumen-garland{top:1.2vw;-webkit-transform:translateY(0)' + garlandScale + ';transform:translateY(0)' + garlandScale + ';-webkit-transform-origin:top center;transform-origin:top center}');
+    }
+    var garlandShift = 'translateY(' + heroShift + 'vh)' + garlandScale;
+    css.push('.lumen-hero.lumen-hero--compact .lumen-fx .lumen-garland{-webkit-transform:' + garlandShift + ';transform:' + garlandShift + '}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-fx .lumen-garland{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
     css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
     /* Затемнение кадра (разбор чисел — у констант SCRIM_* и FLOOR_*): все

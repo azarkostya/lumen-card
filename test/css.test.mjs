@@ -435,6 +435,21 @@ function gradAt(stops, p) {
   return stops[stops.length - 1].a;
 }
 
+test('Гирлянда анимирует прозрачность накладок, а сжатие героя сохраняет её высоту', () => {
+  const medium = withStorage({ lumen_hero_size: 'medium' }, (LC) => LC.buildCss());
+  const ornaments = findDecl(medium, (sel) => sel.includes('.lumen-hero .lumen-garland__orn'));
+  const glow = findDecl(medium, (sel) => sel.includes('.lumen-hero .lumen-garland__a'));
+  const still = findDecl(medium, (sel) => sel === '.lumen-hero .lumen-fx .lumen-garland');
+  const compact = findDecl(medium, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-fx .lumen-garland');
+  assert.match(ornaments, /top:5vw;width:25%/);
+  assert.match(glow, /transition:opacity \.8s ease-in-out/);
+  assert.match(still, /top:1\.2vw;.*transform:translateY\(0\) scale\(\.75\)/);
+  assert.match(compact, /transform:translateY\(14vh\) scale\(\.75\)/);
+  for (const rule of ruleBodies(medium).filter(r => r.selectors.some(s => s.includes('.lumen-garland')))) {
+    assert.doesNotMatch(rule.decl, /(?:animation|filter):/);
+  }
+});
+
 test('buildCss: все правила шапки ограничены допустимыми корнями', () => {
   const selectors = ruleSelectors(css);
   assert.ok(selectors.length > 20, 'подозрительно мало селекторов извлечено: ' + selectors.length);
