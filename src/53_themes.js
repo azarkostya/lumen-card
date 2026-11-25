@@ -556,7 +556,16 @@
        адвент читают время ЧЕРЕЗ api, а не через локальную ссылку: иначе
        подмена снаружи ничего бы не меняла. */
     function now() {
-      return new Date();
+      var real = new Date();
+      var pick = typeof LC.pref === 'function' ? String(LC.pref('lumen_dev_date', 'off')) : 'off';
+      if (!/^\d{4}$/.test(pick)) return real;
+      /* «Для разработчика → Дата для праздников»: день подменяется,
+         время суток остаётся настоящим (отсчёт 31-го идёт от него).
+         1 января — следующего года, иначе праздник уже прошёл бы. */
+      var month = parseInt(pick.slice(0, 2), 10) - 1;
+      var year = real.getFullYear() + (month === 0 && real.getMonth() > 0 ? 1 : 0);
+      return new Date(year, month, parseInt(pick.slice(2), 10),
+        real.getHours(), real.getMinutes(), real.getSeconds(), real.getMilliseconds());
     }
 
     var api = {

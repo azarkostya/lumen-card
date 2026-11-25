@@ -257,6 +257,7 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_fx: [],
     lumen_fx_garland_static: [],
     lumen_fx_garland_apple: [],
+    lumen_dev_date: [],
     /* Task 22 (фаза 3): заставка из кадров — LC.applyAmbientPref (вне
        POINTS: он только ставит и снимает подписки document, таймер покоя и
        сам слой, не трогая ни CSS, ни шаблон карточки). */

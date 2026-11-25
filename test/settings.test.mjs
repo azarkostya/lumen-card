@@ -397,6 +397,7 @@ test('каждая настройка применяется ровно один
     lumen_fx: ['fx'],
     lumen_fx_garland_static: ['fx'],
     lumen_fx_garland_apple: ['fx'],
+    lumen_dev_date: ['fx'],
     /* Task 22 (фаза 3): заставка из кадров — все три пункта ведут в одну
        точку: она и подписки ставит, и открытый слой снимает. */
     lumen_ambient: ['ambient'],

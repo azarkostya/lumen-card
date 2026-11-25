@@ -16245,7 +16245,13 @@ out.push('lumen-theme--'+id);
 return out.join(' ');
 }
 function now(){
-return new Date();
+var real=new Date();
+var pick=typeof LC.pref==='function'?String(LC.pref('lumen_dev_date','off')):'off';
+if(!/^\d{4}$/.test(pick))return real;
+var month=parseInt(pick.slice(0,2),10)-1;
+var year=real.getFullYear()+(month===0&&real.getMonth()>0?1:0);
+return new Date(year,month,parseInt(pick.slice(2),10),
+real.getHours(),real.getMinutes(),real.getSeconds(),real.getMilliseconds());
 }
 var api={
 matchTheme:matchTheme,
@@ -30312,6 +30318,18 @@ ru:'Вариант новогодней гирлянды для стиля Apple
 en:'New Year garland design for Apple TV style.',
 uk:'Варіант новорічної гірлянди для стилю Apple TV.'
 },
+lumen_dev_date_name:{ru:'Дата для праздников',en:'Holiday date',uk:'Дата для свят'},
+lumen_dev_date_descr:{
+ru:'Гирлянда, снег и адвент считают, что сегодня выбранный день. Для проверки.',
+en:'Garland, snow and advent act as if today were the chosen day. For testing.',
+uk:'Гірлянда, сніг і адвент вважають, що сьогодні обраний день. Для перевірки.'
+},
+lumen_dev_date_off:{ru:'Настоящая',en:'Real',uk:'Справжня'},
+lumen_dev_date_1201:{ru:'1 декабря',en:'1 December',uk:'1 грудня'},
+lumen_dev_date_1205:{ru:'5 декабря',en:'5 December',uk:'5 грудня'},
+lumen_dev_date_1224:{ru:'24 декабря',en:'24 December',uk:'24 грудня'},
+lumen_dev_date_1231:{ru:'31 декабря',en:'31 December',uk:'31 грудня'},
+lumen_dev_date_0101:{ru:'1 января',en:'1 January',uk:'1 січня'},
 lumen_fx_garland_cold:{ru:'Подвесы',en:'Pendants',uk:'Підвіси'},
 lumen_fx_garland_cold2:{ru:'Струна',en:'String',uk:'Струна'},
 lumen_fx_garland_static_name:{ru:'Гирлянда без анимаций',en:'Garland without animations',uk:'Гірлянда без анімацій'},
@@ -31352,7 +31370,7 @@ if(name==='lumen_resume'||name==='lumen_resume_ttl'){
 try{if(name==='lumen_resume'&&LC.resume&&!LC.pref('lumen_resume',true))LC.resume.cancel();}catch(eResume){}
 return true;
 }
-if(name==='lumen_fx'||name==='lumen_fx_garland_static'||name==='lumen_fx_garland_apple'){
+if(name==='lumen_fx'||name==='lumen_fx_garland_static'||name==='lumen_fx_garland_apple'||name==='lumen_dev_date'){
 try{if(LC.applyFxPref)LC.applyFxPref();}catch(eFx){}
 return true;
 }
@@ -31899,6 +31917,7 @@ var MORE=[
 {name:'lumen_hide_head_icons',type:'trigger','default':false,label:'lumen_hide_head_icons_name',descr:'lumen_hide_head_icons_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
 {name:'lumen_fx_garland_apple',type:'select',values:['cold','cold2'],vprefix:'lumen_fx_garland_','default':'cold',label:'lumen_fx_garland_apple_name',descr:'lumen_fx_garland_apple_descr'},
+{name:'lumen_dev_date',type:'select',values:['off','1201','1205','1224','1231','0101'],vprefix:'lumen_dev_date_','default':'off',label:'lumen_dev_date_name',descr:'lumen_dev_date_descr'},
 {name:'lumen_region_unblock',type:'trigger','default':false,label:'lumen_region_unblock_name',descr:'lumen_region_unblock_descr'},
 {name:'lumen_debug_hud',type:'trigger','default':false,label:'lumen_debug_hud_name',descr:'lumen_debug_hud_descr'},
 {name:'lumen_debug_bench',type:'button',label:'lumen_debug_bench_name',descr:'lumen_debug_bench_descr'},

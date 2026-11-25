@@ -181,6 +181,18 @@
       en: 'New Year garland design for Apple TV style.',
       uk: 'Варіант новорічної гірлянди для стилю Apple TV.'
     },
+    lumen_dev_date_name: { ru: 'Дата для праздников', en: 'Holiday date', uk: 'Дата для свят' },
+    lumen_dev_date_descr: {
+      ru: 'Гирлянда, снег и адвент считают, что сегодня выбранный день. Для проверки.',
+      en: 'Garland, snow and advent act as if today were the chosen day. For testing.',
+      uk: 'Гірлянда, сніг і адвент вважають, що сьогодні обраний день. Для перевірки.'
+    },
+    lumen_dev_date_off: { ru: 'Настоящая', en: 'Real', uk: 'Справжня' },
+    lumen_dev_date_1201: { ru: '1 декабря', en: '1 December', uk: '1 грудня' },
+    lumen_dev_date_1205: { ru: '5 декабря', en: '5 December', uk: '5 грудня' },
+    lumen_dev_date_1224: { ru: '24 декабря', en: '24 December', uk: '24 грудня' },
+    lumen_dev_date_1231: { ru: '31 декабря', en: '31 December', uk: '31 грудня' },
+    lumen_dev_date_0101: { ru: '1 января', en: '1 January', uk: '1 січня' },
     lumen_fx_garland_cold: { ru: 'Подвесы', en: 'Pendants', uk: 'Підвіси' },
     lumen_fx_garland_cold2: { ru: 'Струна', en: 'String', uk: 'Струна' },
     lumen_fx_garland_static_name: { ru: 'Гирлянда без анимаций', en: 'Garland without animations', uk: 'Гірлянда без анімацій' },
@@ -1744,7 +1756,7 @@
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным
        того, что открыто сейчас. */
-    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static' || name === 'lumen_fx_garland_apple') {
+    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static' || name === 'lumen_fx_garland_apple' || name === 'lumen_dev_date') {
       try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
       return true;
     }
