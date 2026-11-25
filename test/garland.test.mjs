@@ -13,7 +13,7 @@ function fixture() {
   let timer = 0;
   function node() {
     return {
-      className: '', children: [], parentNode: null,
+      nodeType: 1, className: '', children: [], parentNode: null,
       setAttribute() {},
       appendChild(child) { this.insertBefore(child, null); },
       insertBefore(child, next) {
@@ -70,6 +70,32 @@ test('Новогодний узел ждёт обе картинки, встаё
   assert.equal(f.host.firstChild, picture);
   assert.equal(f.host.children.length, 2);
   f.garland.unmount(f.host);
+  assert.equal(f.host.firstChild, canvas);
+  assert.deepEqual(f.flags.at(-1), [f.host, false]);
+});
+
+test('QA-01: jQuery-хост остаётся в герое вместе с гирляндой и канвасом', () => {
+  const f = fixture();
+  const hero = f.node();
+  const canvas = f.node();
+  hero.appendChild(f.host);
+  f.host.appendChild(canvas);
+  const wrapper = {
+    0: f.host,
+    length: 1,
+    insertBefore() { hero.removeChild(f.host); }
+  };
+
+  f.garland.mount(wrapper);
+  f.finish(0);
+  f.finish(1);
+
+  assert.equal(hero.firstChild, f.host, 'jQuery insertBefore не должен отсоединять слой');
+  assert.match(f.host.firstChild.className, /lumen-garland--warm/);
+  assert.equal(canvas.parentNode, f.host);
+  assert.equal(f.host.children[1], canvas);
+  assert.deepEqual(f.flags.at(-1), [f.host, true], 'FX получает DOM-узел слоя');
+  f.garland.unmount(wrapper);
   assert.equal(f.host.firstChild, canvas);
   assert.deepEqual(f.flags.at(-1), [f.host, false]);
 });

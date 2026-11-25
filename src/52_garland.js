@@ -22,7 +22,7 @@
     }
 
     function nodeOf(host) {
-      return host && (host.nodeType || host.insertBefore ? host : host[0]);
+      return host && (host.nodeType ? host : host[0]);
     }
 
     function load(path, changed) {
