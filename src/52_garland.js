@@ -123,25 +123,29 @@
     }
 
     function paint() {
-      if (!view || view.node || !ready(view.card)) return;
-      var node = document.createElement('div');
-      node.className = 'lumen-garland lumen-garland--' + (pack.style === 'warm' ? 'warm' : 'cold');
-      node.setAttribute('aria-hidden', 'true');
-      if (!view.card && pack.orn) {
-        pack.orn.img.className = 'lumen-garland__orn';
-        node.appendChild(pack.orn.img);
+      if (!view || !pack) return;
+      setBulbs(view.host, pack.strip.status !== 'failed');
+      if (!ready()) return;
+      var node = view.node;
+      if (!node) {
+        node = document.createElement('div');
+        node.className = 'lumen-garland lumen-garland--' + (pack.style === 'warm' ? 'warm' : 'cold');
+        node.setAttribute('aria-hidden', 'true');
+        pack.strip.img.className = 'lumen-garland__strip';
+        node.appendChild(pack.strip.img);
+        view.host.insertBefore(node, view.host.firstChild);
+        view.node = node;
+        view.baseClass = node.className;
+        syncGlow(view);
       }
-      pack.strip.img.className = 'lumen-garland__strip';
-      node.appendChild(pack.strip.img);
-      view.host.insertBefore(node, view.host.firstChild);
-      view.node = node;
-      view.baseClass = node.className;
-      setBulbs(view.host, true);
-      syncGlow(view);
+      if (!view.card && pack.orn && pack.orn.status === 'ready' && pack.orn.img.parentNode !== node) {
+        pack.orn.img.className = 'lumen-garland__orn';
+        node.insertBefore(pack.orn.img, node.firstChild);
+      }
     }
 
-    function ready(card) {
-      return !!pack && pack.strip.status === 'ready' && (card || !pack.orn || pack.orn.status === 'ready');
+    function ready() {
+      return !!pack && pack.strip.status === 'ready';
     }
 
     function discard() {
@@ -180,10 +184,8 @@
       if (!host || !preload()) return;
       if (view && view.host === host && view.card === card) {
         view.paused = paused;
-        if (view.node) {
-          setBulbs(host, true);
-          syncGlow(view);
-        }
+        paint();
+        if (view.node) syncGlow(view);
         return true;
       }
       unmount();
@@ -195,10 +197,8 @@
     function unmount(layer) {
       if (!view || (layer && nodeOf(layer) !== view.host)) return;
       stopGlow(view);
-      if (view.node) {
-        if (view.node.parentNode) view.node.parentNode.removeChild(view.node);
-        setBulbs(view.host, false);
-      }
+      if (view.node && view.node.parentNode) view.node.parentNode.removeChild(view.node);
+      setBulbs(view.host, false);
       view = null;
     }
 

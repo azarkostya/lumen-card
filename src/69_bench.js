@@ -4,7 +4,7 @@
   /*                                                                       */
   /* Консоли на телевизоре нет, и серии фото HUD (src/69_hud.js) читались  */
   /* гаданием: какой режим стоял и что в этот момент делал экран. Тест сам */
-  /* гоняет главную по девяти стадиям — покой и листание в «Лёгком» и в   */
+  /* гоняет главную по одиннадцати стадиям — покой и листание в «Лёгком» и в   */
   /* «Полном», по одному тяжёлому эффекту за раз, и листание с остановками, */
   /* где меряется ожидание героя (T_title/T_frame, серый фон, сеть под     */
   /* нажатиями — зонд LC.hud.probe) — и в конце рисует ОДНУ                */
@@ -82,12 +82,11 @@
        строки влезает в 960 CSS px (ширина окна телевизора при DPR 2),
        MAX_LINES — сколько строк в 540 (раунд «Листание»: вторая таблица
        обязана поместиться на тот же экран, фото одно).
-       Полоса телеметрии: девятая стадия добавила по строке в обе таблицы и
-       строку героя — 25 строк; межстрочный 1.45 → 1.3 (19,5 px на строку,
-       кегль прежний), и все 25 встают в 540. */
+       Праздничное листание добавило по строке в обе таблицы.
+       Межстрочный 1.1 даёт 29 строк по 16,5 px при прежнем кегле. */
     var FONT_PX = 15;
     var CHAR_EM = 0.6;
-    var LINE_EM = 1.3;
+    var LINE_EM = 1.1;
     var PAD_PX = 24;
     var SCREEN_W = 960;
     var SCREEN_H = 540;
@@ -102,11 +101,13 @@
       { id: 'lite idle', motion: 'lite' },
       { id: 'full idle', motion: 'full' },
       { id: '+fx', motion: 'full', heavy: true, fx: true },
+      { id: 'NY idle', motion: 'full', heavy: true, holiday: true },
       { id: '+frames', motion: 'full', heavy: true, fx: true, flip: true },
       { id: '+tint', motion: 'full', heavy: true, fx: true, flip: true, tint: true },
       { id: 'lite scroll', motion: 'lite', scroll: true },
       { id: 'full scroll', motion: 'full', heavy: true, scroll: true },
       { id: 'all', motion: 'full', heavy: true, fx: true, flip: true, tint: true, scroll: true },
+      { id: 'NY scroll', motion: 'lite', holiday: true, scroll: true },
       /* Полоса телеметрии: ожидание героя — T_title, T_frame, серый фон,
          предзагрузка и сеть под нажатиями (зонд LC.hud.probe). «Лёгкие» —
          режим пользователя на ТВ. */
@@ -119,13 +120,14 @@
 
     /* Подмены настроек стадии. Трейлер выключен везде (ролик — отдельная
        цена, и у каждого фильма своя); атмосферы по теме фильма — тоже:
-       частицы стадий «+fx» и «all» ставятся пресетом принудительно, а в
-       остальных их быть не должно, какой бы фильм ни стоял под фокусом. */
+       зимние слои в NY idle/NY scroll включаем датой. Стадии кроссфейда,
+       акцента и общего замера по-прежнему включают частицы принудительно. */
     function overridesFor(stage) {
       return {
         lumen_motion: stage.motion,
         lumen_fx_heavy: !!stage.heavy,
-        lumen_fx: 'off',
+        lumen_fx: stage.holiday ? 'seasonal' : 'off',
+        lumen_dev_date: stage.holiday ? '1205' : 'off',
         lumen_trailer: 'off',
         lumen_hero_media: 'frames',
         lumen_hero_trailer: false
@@ -289,7 +291,7 @@
        самый длинный кадр каждой стадии по фазам (partsOf), если браузер
        умеет LoAF; худший по блокировке кадр со скриптом, причина прерывания
        и подсказка «Назад» — одной строкой. Каждая — не длиннее MAX_COLS,
-       всех — не больше MAX_LINES (25 на экране 960×540): пустой строки под
+       всех — не больше MAX_LINES (29 на экране 960×540): пустой строки под
        шапкой ради второй таблицы больше нет. */
     function table(result) {
       var out = [];
@@ -390,6 +392,14 @@
 
     function heroFocused() {
       try { return hero() ? hero().focused() : null; } catch (e) { return null; }
+    }
+
+    function navigationFocus() {
+      try {
+        var nav = window.Navigator;
+        if (nav && typeof nav.getFocusedElement === 'function') return nav.getFocusedElement();
+      } catch (e) { }
+      return heroFocused();
     }
 
     /* Почему тест сейчас не может идти: '' — может. Герой главной на
@@ -830,15 +840,15 @@
       var k = 0;
       var group = 0;
       function move() {
-        var before = heroFocused();
+        var before = navigationFocus();
         if (dir < 0 && pos <= 0) dir = 1;
         if (r.probe) r.probe.key(perfNow());
         L.Controller.move(dir > 0 ? 'right' : 'left');
-        if (heroFocused() !== before) { pos += dir; return; }
+        if (navigationFocus() !== before) { pos += dir; return; }
         if (dir > 0 && pos > 0) {
           dir = -1;
           L.Controller.move('left');
-          if (heroFocused() !== before) pos--;
+          if (navigationFocus() !== before) pos--;
         }
       }
       function step() {
@@ -861,9 +871,9 @@
       var k = 0;
       function step() {
         if (k < MOVES) {
-          var before = heroFocused();
+          var before = navigationFocus();
           L.Controller.move('right');
-          if (heroFocused() !== before) rights++;
+          if (navigationFocus() !== before) rights++;
         } else if (rights > 0) {
           L.Controller.move('left');
           rights--;
@@ -922,7 +932,7 @@
        туда, куда просил пользователь. */
     function refocus(r) {
       var el = r.startEl;
-      if (!el || heroFocused() === el) return;
+      if (!el || navigationFocus() === el) return;
       var L = lampa();
       if (!L || !L.Controller) return;
       var on = L.Controller.enabled ? L.Controller.enabled() : null;
@@ -1004,21 +1014,64 @@
       } catch (e) { }
     }
 
-    function launch() {
+    function visibleCard(el) {
+      return !!el && el.offsetWidth > 0 && el.offsetParent !== null &&
+        (!el.classList || el.classList.contains('card'));
+    }
+
+    /* Настройки могут вернуть контроллер на ряд из истории, чей DOM уже
+       скрыт. Возвращаем живой Line Lampa, чтобы работало и движение вверх
+       между рядами, и движение внутри коллекции карточек. */
+    function restoreVisibleRow(L, remembered) {
+      if (visibleCard(navigationFocus())) return;
+      var act = L && L.Activity && L.Activity.active && L.Activity.active();
+      var main = act && act.component === 'main' && act.activity && act.activity.component;
+      if (!main || !Array.isArray(main.items)) return;
+      var preferred = visibleCard(remembered) ? remembered : null;
+      var owner = null;
+      var target = null;
+      for (var i = 0; i < main.items.length; i++) {
+        var row = main.items[i];
+        if (!row || typeof row.render !== 'function' || typeof row.toggle !== 'function') continue;
+        var body = row.render(true);
+        if (!body || typeof body.querySelectorAll !== 'function') continue;
+        if (preferred && body.contains(preferred)) {
+          owner = row;
+          target = preferred;
+          break;
+        }
+        if (target) continue;
+        var cards = body.querySelectorAll('.card.selector');
+        for (var j = 0; j < cards.length; j++) {
+          if (!visibleCard(cards[j])) continue;
+          owner = row;
+          target = cards[j];
+          break;
+        }
+      }
+      if (!owner) return;
+      owner.toggle();
+      L.Controller.collectionFocus(target, target.parentNode, true);
+    }
+
+    function launch(remembered) {
       var L = lampa();
+      try { if (!blocked()) restoreVisibleRow(L, remembered); } catch (eFocus) {
+        warn('bench: row restore failed', eFocus);
+      }
       /* Фокус в первом ряду: ниже кадр героя закрыт рядами, и «покой» мерил
          бы не главную, а её половину. */
       for (var i = 0; i < UP_TRIES && heroCompact() && !blocked(); i++) {
         try { L.Controller.move('up'); } catch (e) { break; }
       }
-      if (blocked() || heroCompact()) {
+      if (blocked() || heroCompact() || !visibleCard(navigationFocus())) {
         noty(lang('lumen_bench_need_home', 'Lumen Card: open the home screen and start the test again'));
         return;
       }
       var r = {
         step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
         loaf: { n: 0, ms: 0, worst: null, top: null, frames: [], topAt: -1 }, anim: -1, fx0: null, measureFrom: -1, obs: null,
-        startEl: heroFocused(), tintSaved: null, tag: null, probe: null, gc: null
+        startEl: navigationFocus(), tintSaved: null, tag: null, probe: null, gc: null
       };
       run = r;
       try {
@@ -1047,11 +1100,19 @@
       pending = setT(function onBenchLeave() {
         pending = 0;
         var L = lampa();
+        var remembered = heroFocused();
         try { if (L && L.Controller && L.Controller.toContent) L.Controller.toContent(); } catch (e) { }
-        try { if (L && L.Controller) L.Controller.toggle('content'); } catch (e2) { }
+        try {
+          if (L && L.Controller) {
+            var active = L.Controller.enabled && L.Controller.enabled();
+            /* toContent уже вернул родной ряд. Повторный toggle('content')
+               восстанавливает ряд из истории, он может быть скрыт. */
+            if (!active || !onRows(active.name)) L.Controller.toggle('content');
+          }
+        } catch (e2) { }
         pending = setT(function onBenchLaunch() {
           pending = 0;
-          launch();
+          launch(remembered);
         }, LEAVE_MS);
       }, 0);
     }

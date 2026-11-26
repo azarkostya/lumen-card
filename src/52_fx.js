@@ -245,19 +245,6 @@
       tDirty = false;
     }
 
-    /* Точка сцены: дуга без повторной установки того же цвета. */
-    function spot(ctx, p, color, a, S) {
-      flat(ctx, S);
-      alpha(ctx, a);
-      if (fillNow !== color) {
-        ctx.fillStyle = color;
-        fillNow = color;
-      }
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
-      ctx['fill']();
-    }
-
     /* Контур летучей мыши анфас: правая половина узлами, левая — она же
        зеркально и в обратном порядке. Узел [x, y] — прямая, [x, y, cx, cy] —
        квадратичная кривая с контрольной точкой. Единица — полуразмах, a —
@@ -431,58 +418,199 @@
       };
     }
 
-    function snowGlow(g, rgb, blur) {
-      return unitGrad(g, blur ?
-        [[0, rgba(rgb, 0.85)], [0.5, rgba(rgb, 0.7)], [0.8, rgba(rgb, 0.3)], [1, rgba(rgb, 0)]] :
-        [[0, rgba(rgb, 1)], [0.3, rgba(rgb, 1)], [0.42, rgba(rgb, 0.5)], [0.68, rgba(rgb, 0.14)], [1, rgba(rgb, 0)]]);
+    /* Одна геометрия для маленького растрового атласа и статичного SVG. */
+    var FLAKE_CORE = [[0,-10,0,10],[-8.7,-5,8.7,5],[-8.7,5,8.7,-5]];
+    var FLAKE_TIPS = [[-3,-7,0,-4],[3,-7,0,-4],[-3,7,0,4],[3,7,0,4],
+      [-8,-1,-4,-2],[-5,-7,-4,-2],[8,1,4,2],[5,7,4,2],
+      [-8,1,-4,2],[-5,7,-4,2],[8,-1,4,-2],[5,-7,4,-2]];
+    var FLAKE_MID = [[-2,-3,2,-3],[2,-3,4,0],[4,0,2,3],[2,3,-2,3],[-2,3,-4,0],[-4,0,-2,-3]];
+    var FLAKES = [FLAKE_CORE, FLAKE_CORE.concat(FLAKE_TIPS), FLAKE_CORE.concat(FLAKE_TIPS, FLAKE_MID)];
+
+    function flakeAtlas(color) {
+      var sprites = [];
+      for (var i = 0; i < FLAKES.length; i++) {
+        var sheet = surface(24, 24);
+        if (!sheet || typeof sheet.ctx.moveTo !== 'function') return null;
+        var ctx = sheet.ctx;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = i ? 1.2 : 1.55;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        var flake = FLAKES[i];
+        for (var j = 0; j < flake.length; j++) {
+          var q = flake[j];
+          ctx.moveTo(12 + q[0], 12 + q[1]);
+          ctx.lineTo(12 + q[2], 12 + q[3]);
+        }
+        ctx.stroke();
+        sprites.push(sheet.canvas);
+      }
+      return sprites;
     }
 
-    /* Четыре ячейки атласа вырезаются один раз на весь движок.
-       Пустой массив значит, что загрузка уже идёт либо недоступна. */
-    var snowSprites = null;
-    var SNOW_CELL = 64;
-    var SNOW_PLATE = 2;
+    /* Вертикально повторяемая полоса из двух размеров и трёх форм.
+       Три повтора сохраняют непрерывный срез на протяжении одного оборота. */
+    var TILE_W = 480;
+    var TILE_H = 102;
 
-    function requestSnowSprites() {
-      snowSprites = [];
+    /* На каждой глубине снег занимает всю сцену. Интервал на частицу
+       сохраняет плотность даже у редкого ближнего слоя. */
+    function snowX(index, count, width, rnd) {
+      return (index % count + rand(rnd, 0.18, 0.82)) * width / count;
+    }
+
+    function snowBand(color, cold) {
+      var sheet = surface(TILE_W, 3 * TILE_H);
+      if (!sheet || typeof sheet.ctx.moveTo !== 'function') return null;
+      var ctx = sheet.ctx;
+      var rnd = winterRandom();
+      ctx.lineCap = 'round';
+      for (var plane = 0; plane < 2; plane++) {
+        ctx.lineWidth = plane ? 0.72 : 0.85;
+        var count = plane ? (cold ? 5 : 6) : 8;
+        for (var i = 0; i < count; i++) {
+          var x = snowX(i, count, TILE_W, rnd);
+          var y = rnd() * (TILE_H - 18) + 9;
+          var scale = plane ? rand(rnd, 0.32, 0.48) : rand(rnd, 0.18, 0.3);
+          var flake = FLAKES[plane ? i % 2 + 1 : 0];
+          ctx.strokeStyle = i % 3 === 0 ? snowColor(cold) : color;
+          ctx.globalAlpha = plane ? rand(rnd, 0.68, 0.86) : rand(rnd, 0.48, 0.65);
+          ctx.beginPath();
+          for (var j = 0; j < flake.length; j++) {
+            var q = flake[j];
+            ctx.moveTo(x + q[0] * scale, y + q[1] * scale);
+            ctx.lineTo(x + q[2] * scale, y + q[3] * scale);
+            ctx.moveTo(x + q[0] * scale, y + TILE_H + q[1] * scale);
+            ctx.lineTo(x + q[2] * scale, y + TILE_H + q[3] * scale);
+            ctx.moveTo(x + q[0] * scale, y + 2 * TILE_H + q[1] * scale);
+            ctx.lineTo(x + q[2] * scale, y + 2 * TILE_H + q[3] * scale);
+          }
+          ctx.stroke();
+        }
+      }
+      return sheet.canvas;
+    }
+
+    function cancelSnowBand(inst) {
+      if (!inst.bandAnimation) return;
+      var time = inst.bandAnimation.currentTime;
+      if (typeof time === 'number' && isFinite(time)) inst.snowTime = time;
+      inst.bandAnimation.cancel();
+      inst.bandAnimation = null;
+    }
+
+    function pauseSnowBand(inst) {
+      var animation = inst.bandAnimation;
+      if (animation && animation.playState !== 'paused') animation.pause();
+    }
+
+    /* Три одинаковые плитки движутся на композиторе под обрезающим
+       слоем .lumen-fx. Запасная струна при сбое WebP и старые браузеры
+       рисуют на обычном холсте. Оба размера остаются в DPR 1. */
+    function fitSnowCanvas(inst) {
+      cancelSnowBand(inst);
+      var canvas = inst.surface;
+      var tiled = !!(inst.pictureBulbs && inst.sprites && inst.sprites.band &&
+        canvas.style && typeof canvas.animate === 'function' && !inst.noBandAnimation);
+      var first = !inst.bandW;
+      inst.bandTiled = tiled;
+      inst.bandW = inst.w;
+      inst.bandH = inst.h * (tiled ? 1.5 : 1);
+      var w = Math.max(1, Math.round(inst.bandW * inst.S));
+      var h = Math.max(1, Math.round(inst.bandH * inst.S));
+      if (first || canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        if (typeof inst.ctx.setTransform === 'function') inst.ctx.setTransform(inst.S, 0, 0, inst.S, 0, 0);
+      }
+      if (canvas.style) {
+        canvas.style.height = tiled ? '150%' : '';
+      }
+    }
+
+    function playSnowBand(inst) {
+      var animation = inst.bandAnimation;
+      if (animation) {
+        if (animation.playState === 'paused') animation.play();
+        return true;
+      }
       try {
-        if (typeof window.Image !== 'function') return;
-        var source = new window.Image();
-        var path = 'assets/newyear/v1/snowflakes.webp';
-        source.onload = function () {
-          source.onload = source.onerror = null;
-          if (source.naturalWidth !== SNOW_CELL * 4 || source.naturalHeight !== SNOW_CELL) return;
-          var cells = [];
-          try {
-            for (var i = 0; i < 4; i++) {
-              var sheet = surface(SNOW_CELL, SNOW_CELL);
-              if (!sheet || typeof sheet.ctx.drawImage !== 'function') return;
-              sheet.ctx.drawImage(source, i * SNOW_CELL, 0, SNOW_CELL, SNOW_CELL, 0, 0, SNOW_CELL, SNOW_CELL);
-              cells.push(sheet.canvas);
-            }
-          } catch (e) {
-            return;
-          }
-          snowSprites = cells;
-          for (var j = 0; j < cells.length; j++) bitmapize(cells, j);
-          /* Статичная сцена уже нарисовала хлопья, пока грузился лист. */
-          var repaint = false;
-          for (var k = 0; k < instances.length; k++) {
-            var inst = instances[k];
-            if (inst.name === 'winter' && inst.pictureBulbs && inst.still) {
-              inst.stillDone = false;
-              repaint = true;
-            }
-          }
-          if (repaint) wake();
-        };
-        source.onerror = function () { source.onload = source.onerror = null; };
-        source.src = typeof LC.assetUrl === 'function' ? LC.assetUrl(path) : 'https://azarkostya.github.io/lumen-card/' + path;
+        animation = inst.surface.animate([
+          { transform: 'translate3d(0,-33.333%,0)' },
+          { transform: 'translate3d(3px,-22.222%,0)' },
+          { transform: 'translate3d(-3px,-11.111%,0)' },
+          { transform: 'translate3d(0,0,0)' }
+        ], { duration: inst.snowCold ? 9570 : 7845, iterations: Infinity });
+        if (animation && typeof animation.pause === 'function' &&
+            typeof animation.play === 'function' && typeof animation.cancel === 'function') {
+          inst.bandAnimation = animation;
+          if (inst.snowTime > 0) animation.currentTime = inst.snowTime;
+          inst.ctx.globalCompositeOperation = 'copy';
+          inst.bandCopy = true;
+          inst.ctx.drawImage(inst.sprites.band, 0, 0, TILE_W, 3 * TILE_H, 0, 0, inst.bandW, inst.bandH);
+          stat_steps++;
+          return true;
+        }
       } catch (e) { }
+      inst.noBandAnimation = true;
+      fitSnowCanvas(inst);
+      return false;
     }
 
-    function snowLimit(still, cold) {
-      return cold ? (still ? 3 : 2) : (still ? 6 : 3);
+    function drawSnowBand(inst) {
+      var h = Math.min(2 * TILE_H, inst.bandH * TILE_W / inst.bandW);
+      var speed = inst.snowCold ? 0.82 : 1;
+      var t = inst.snowTime;
+      var y = TILE_H - t * 0.013 * speed % TILE_H;
+      var wind = snowWind(t % 24000, inst.snowCold) * Math.min(640, t);
+      inst.ctx.drawImage(inst.sprites.band, 0, y, TILE_W, h, wind, 0, inst.bandW, inst.bandH);
+    }
+
+    function flakePath(segments) {
+      var d = '';
+      for (var i = 0; i < segments.length; i++) {
+        var q = segments[i];
+        d += 'M' + q[0] + ' ' + q[1] + 'L' + q[2] + ' ' + q[3];
+      }
+      return d;
+    }
+
+    var FLAKE_PATHS = FLAKES.map(flakePath);
+
+    function snowRadius(p) {
+      return p.kind === 0 ? 4 : (p.kind === 1 ? 6 + p.size : 4 + p.size * 0.65);
+    }
+
+    function snowColor(cold) {
+      return cold ? '#dce8ff' : '#ffe6c7';
+    }
+
+    function paintStill(inst) {
+      var svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="', inst.w, '" height="', inst.h,
+        '" viewBox="0 0 ', inst.w, ' ', inst.h, '" preserveAspectRatio="none">'];
+      var list = inst.particles;
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i];
+        if (p.kind === 4) {
+          if (inst.pictureBulbs) continue;
+          if (p.wire) {
+            svg.push('<path fill="none" stroke="#535956" stroke-width="1.2" d="');
+            for (var j = 0; j < p.wire.length; j++) svg.push(j ? 'L' : 'M', p.wire[j][0], ' ', p.wire[j][1]);
+            svg.push('"/>');
+          }
+          svg.push('<circle cx="', p.x, '" cy="', p.y, '" r="3.2" fill="', rgba(lightsNow()[p.rot], 1), '"/>');
+          continue;
+        }
+        var opacity = p.life;
+        if (inst.safe) opacity *= 0.78 + 0.22 * shade(inst.safe, p.x, p.y);
+        svg.push('<path fill="none" stroke="', p.y <= SNOW_LIGHT_Y ? snowColor(inst.snowCold) : inst.color,
+          '" stroke-linecap="round" stroke-width="1.4" opacity="', opacity.toFixed(3), '" transform="translate(',
+          p.x.toFixed(1), ' ', p.y.toFixed(1), ') rotate(', p.flake * 15, ') scale(', (snowRadius(p) / 12).toFixed(3),
+          ')" d="', FLAKE_PATHS[p.flake], '"/>');
+      }
+      svg.push('</svg>');
+      inst.surface.src = 'data:image/svg+xml,' + encodeURIComponent(svg.join(''));
+      stat_steps++;
     }
 
     function snowWind(elapsed, cold) {
@@ -490,16 +618,6 @@
       var gust = Math.max(0, (elapsed - 20000) / 2000);
       if (gust > 1) gust = 2 - gust;
       return Math.sin(elapsed * TWO_PI / 12000) * (0.014 + 0.02 * gust * gust) * (cold ? 0.5 : 1);
-    }
-
-    function drawCrystal(ctx, p, S, sprite) {
-      var cos = Math.cos(p.rot) * S;
-      var sin = Math.sin(p.rot) * S;
-      var radius = p.size * 3.2;
-      alpha(ctx, p.life);
-      ctx.setTransform(cos, sin, -sin, cos, S * p.x, S * p.y);
-      ctx.drawImage(sprite, -radius, -radius, radius * 2, radius * 2);
-      tDirty = true;
     }
 
     /* Гирлянда зимней сцены: точка дуги при t (0 — первая лампочка, 1 —
@@ -1042,45 +1160,18 @@
         }
       },
 
-      /* Зимняя ночь: 6 огней боке в правой части кадра (kind 3), гирлянда
-         из 10 лампочек по провисающей дуге под шапкой (kind 4, бегущее
-         мерцание) и снег в трёх планах — 22 дальние точки (kind 0), 12
-         средних хлопьев (kind 1) и 6 ближних размытых (kind 2). В Apple TV
-         ближних хлопьев четыре. Всего 56 частиц в Lumen и 54 в Apple TV.
-         Дальние точки — дуги (мягкий край точки в 1–2 px с трёх метров не
-         виден), средние хлопья — светящиеся: градиент с белым ядром и
-         ореолом, ближние, боке и лампочки — тоже градиенты.
-         Правка по отзыву пользователя («снег более яркий, плиз»): все три
-         плана плотнее (дальние .5–.8 вместо .42–.68, средние — ядро
-         непрозрачно, ближние .4–.55 вместо .3–.46), средние и ближние
-         крупнее, у средних — ореол. Свечение средних дороже дуги, поэтому
-         дальних точек 22 вместо 25: цена кадра остаётся в прежних
-         пределах (замер в research/fx2). */
+      /* Новогодняя сцена: 22 снежинки в атласе и запасные лампочки.
+         Большие круги боке здесь больше не нужны. */
       winter: {
-        count: 56,
+        count: 32,
         scene: true,
         /* Раунд holB: праздничная сцена Нового года — см. halloween. */
         festive: true,
         keep: true,
         spawn: function (i, w, h, rnd, cold, still) {
           var p;
-          if (i < 6) {
-            p = particle(
-              rand(rnd, w * 0.48, w),
-              rand(rnd, h * 0.14, h * 0.72),
-              rand(rnd, -0.004, 0.004),
-              rand(rnd, -0.003, 0.003),
-              rand(rnd, 18, 38),
-              cold ? rand(rnd, 0.14, 0.26) : rand(rnd, 0.2, 0.38),
-              i % 5,
-              3
-            );
-            p.phase = rand(rnd, 0, TWO_PI);
-            p.freq = rand(rnd, 0.0004, 0.0009);
-            return p;
-          }
-          if (i < 16) {
-            var at = garlandAt((i - 6) / 9, w, h);
+          if (i < 10) {
+            var at = garlandAt(i / 9, w, h);
             p = particle(
               at[0],
               at[1],
@@ -1088,32 +1179,32 @@
               0,
               rand(rnd, 6, 7.5),
               1,
-              (i - 6) % 5,
+              i % 5,
               4
             );
             /* Бегущая волна: фаза сдвинута на номер лампочки. */
-            p.phase = (i - 6) * 0.9;
+            p.phase = i * 0.9;
             p.freq = 0.0021;
             /* Новый год, шаг 3: провод несёт первая лампочка — он рисуется
                перед ней, то есть поверх боке и под всеми огнями. */
-            if (i === 6) p.wire = wirePoints(w, h);
+            if (i === 0) p.wire = wirePoints(w, h);
             return p;
           }
-          var plane = i < 38 ? 0 : (i < 50 ? 1 : 2);
-          var x = Math.max(rand(rnd, 0, w), rand(rnd, 0, w));
+          var plane = i < 20 ? 0 : (i < 28 ? 1 : 2);
+          var index = plane === 0 ? i - 10 : (plane === 1 ? i - 20 : i - 28);
+          var count = plane === 0 ? 10 : (plane === 1 ? 8 : (cold ? 2 : 4));
+          var x = snowX(index, count, w, rnd);
           var y = Math.min(rand(rnd, 0, h), rand(rnd, 0, h));
           var size = plane === 0 ? rand(rnd, 1, 1.4) : (plane === 1 ? rand(rnd, 2.4, 3.8) : rand(rnd, 9, 15));
-          var crystal = plane === 1 && i < 44 ? i - 37 : 0;
+          var crystal = plane === 1 && i < 26 ? i - 19 : 0;
           if (crystal && still) {
-            x = w * 0.53 + x * 0.42;
             y = Math.min(y, h * 0.48);
           } else if (plane === 1 && x < w * 0.5) {
             y = Math.min(y, Math.max(0, h * 0.4 - size * 2.3));
           }
           if (plane === 2) {
-            /* Ближний план отступает от лампочек и правого верхнего декора. */
+            /* Ближний план остаётся ниже гирлянды. */
             y = Math.max(y, Math.min(h * 0.72, 172));
-            x = rand(rnd, w * 0.53, w * (y < h * 0.4 ? 0.72 : 0.97));
           }
           var fall = plane === 0 ? rand(rnd, 0.011, 0.02) : (plane === 1 ? rand(rnd, 0.026, 0.045) : rand(rnd, 0.06, 0.095));
           p = particle(
@@ -1131,6 +1222,7 @@
           var angle = rand(rnd, 0, TWO_PI);
           var period = rand(rnd, 20000, 40000);
           var drift = rand(rnd, 0, 0.06);
+          p.flake = plane === 0 ? 0 : (i % 2) + 1;
           p.wind = (plane === 0 ? 0.3 : (plane === 1 ? 0.7 : 0.95)) + drift;
           if (crystal) {
             p.crystal = crystal;
@@ -1152,11 +1244,7 @@
             if (p.rot >= TWO_PI) p.rot -= TWO_PI;
           }
         },
-        draw: function (ctx, p, w, h, color, s, still, inst) {
-          if (p.kind === 3) {
-            if (s) glow(ctx, s.bokeh[p.rot], s.S, p.x, p.y, p.size, p.size, p.life * (0.6 + 0.4 * Math.sin(p.phase)));
-            return;
-          }
+        draw: function (ctx, p, w, h, color, s, still) {
           if (p.kind === 4) {
             if (p.wire) drawWire(ctx, p.wire, s);
             /* Новый год, шаг 3: статичный кадр («Лёгкие», слабая приставка)
@@ -1164,50 +1252,28 @@
                лампочки замирали на .40–.45. В нём все горят ровно. */
             var tw = 0.5 + 0.5 * Math.sin(p.phase);
             var a = still ? 1 : 0.4 + 0.6 * tw * tw;
-            if (s) {
+            if (s && s.bulb[p.rot]) {
               glow(ctx, s.bulb[p.rot], s.S, p.x, p.y, p.size * 4, p.size * 4, a);
               return;
             }
             dot(ctx, p, rgba(lightsNow()[p.rot], 1), a);
             return;
           }
-          if (!s) {
-            dot(ctx, p, color, p.kind === 2 ? p.life * 0.5 : p.life);
-            return;
-          }
-          if (p.crystal && inst && inst.pictureBulbs && p.crystal <= snowLimit(still, inst.snowCold) &&
-              typeof ctx.drawImage === 'function') {
-            if (snowSprites === null) requestSnowSprites();
-            if (snowSprites.length) {
-              var cell = inst.snowCold ? SNOW_PLATE : (p.crystal - 1) % snowSprites.length;
-              drawCrystal(ctx, p, s.S, snowSprites[cell]);
-              return;
-            }
-          }
-          if (p.kind === 2) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litBlur : s.blur, s.S, p.x, p.y, p.size * 1.15, p.size * 1.15, p.life);
-          else if (p.kind === 1) glow(ctx, p.y <= SNOW_LIGHT_Y ? s.litFlake : s.flake, s.S, p.x, p.y, p.size * 2.3, p.size * 2.3, p.life);
-          else spot(ctx, p, color, p.life, s.S);
+          if (!s || !s.flakes || typeof ctx.drawImage !== 'function') return;
+          flat(ctx, s.S);
+          var radius = snowRadius(p);
+          var atlas = p.y <= SNOW_LIGHT_Y && s.lit ? s.lit : s.flakes;
+          alpha(ctx, p.life);
+          ctx.drawImage(atlas[p.flake], p.x - radius, p.y - radius, radius * 2, radius * 2);
         },
         sprites: function (color, scale) {
           var g = maker();
-          if (!g) return null;
-          var white = rgbOf(color);
           var lights = lightsNow();
           var cold = lights === LIGHTS_COLD;
-          var tint = cold ? [220, 232, 255] : [255, 226, 176];
-          var out = {
-            S: scale,
-            flake: snowGlow(g, white, false),
-            blur: snowGlow(g, white, true),
-            litFlake: snowGlow(g, tint, false),
-            litBlur: snowGlow(g, tint, true),
-            bokeh: [],
-            bulb: []
-          };
-          for (var i = 0; i < lights.length; i++) {
-            out.bokeh.push(bokeh(g, lights[i]));
-            out.bulb.push(bulb(g, lights[i], cold));
-          }
+          var out = { S: scale, flakes: flakeAtlas(color), lit: flakeAtlas(snowColor(cold)),
+            band: snowBand(color, cold), bulb: [] };
+          bitmapize(out, 'band');
+          if (g) for (var i = 0; i < lights.length; i++) out.bulb.push(bulb(g, lights[i], cold));
           return out;
         }
       },
@@ -1310,7 +1376,7 @@
       var random = typeof rnd === 'function' ? rnd : Math.random;
       var id = typeof name === 'string' ? name : '';
       var cold = preset === presets.winter && flatLook();
-      if (cold) count = Math.min(count, 54);
+      if (cold) count = Math.min(count, preset.count - 2);
       var out = [];
       for (var i = 0; i < count; i++) {
         var p = preset.spawn(i, w, h, random, cold, still);
@@ -1514,6 +1580,7 @@
 
     function onKey() {
       lastKey = nowMs();
+      wake();
     }
 
     function bindKeys() {
@@ -1557,9 +1624,9 @@
     function attached(inst) {
       var d = doc();
       try {
-        if (d && d.body && typeof d.body.contains === 'function') return d.body.contains(inst.canvas);
+        if (d && d.body && typeof d.body.contains === 'function') return d.body.contains(inst.surface);
       } catch (e) { }
-      return !!inst.canvas.parentNode;
+      return !!inst.surface.parentNode;
     }
 
     /* Экран накрыт непрозрачным слоем плагина (заставка, src/54_ambient.js):
@@ -1598,7 +1665,7 @@
        декодирования ролика. */
     function paused(inst) {
       if (inst.leaving) return true;
-      if (inst.festive && lastKey && nowMs() - lastKey < CALM_MS) return true;
+      if (inst.keyPause && lastKey && nowMs() - lastKey < CALM_MS) return true;
       if (hidden()) return true;
       if (covered()) return true;
       if (LC.util.playerOpen()) return true;
@@ -1640,6 +1707,24 @@
 
     function render(inst, dt) {
       var ctx = inst.ctx;
+      var sprites = inst.sprites;
+      var band = inst.name === 'winter' && sprites && sprites.band && typeof ctx.drawImage === 'function';
+      if (band && inst.pictureBulbs) {
+        /* Полнослойная замена одним blit: прозрачные пиксели вытесняют
+           прежние, отдельная очистка всего буфера не нужна. */
+        if (!inst.bandCopy) {
+          ctx.globalCompositeOperation = 'copy';
+          inst.bandCopy = true;
+        }
+        if (dt > 0) inst.snowTime += dt;
+        drawSnowBand(inst);
+        stat_steps++;
+        return;
+      }
+      if (inst.bandCopy) {
+        ctx.globalCompositeOperation = 'source-over';
+        inst.bandCopy = false;
+      }
       fadeK = 1;
       fillNow = null;
       tDirty = false;
@@ -1648,7 +1733,6 @@
       var preset = presets[inst.name];
       if (!preset) return;
       var zone = inst.safe;
-      var sprites = inst.sprites;
       /* Шаг и рисунок — одним проходом: у всех частиц инстанса один пресет
          (spawn), и искать его по p.preset на каждую частицу, как делает
          общий step(), незачем. Замер A/B на стенде (троттлинг 10×, 3 раунда
@@ -1665,17 +1749,17 @@
       var still = !!inst.still;
       var pictureBulbs = inst.name === 'winter' && inst.pictureBulbs;
       var wind = 0;
-      var crystalLimit = 0;
       if (moving && inst.name === 'winter') {
-        inst.snowTime = (inst.snowTime + dt) % 24000;
-        wind = snowWind(inst.snowTime, inst.snowCold);
-        if (inst.pictureBulbs && snowSprites && snowSprites.length) crystalLimit = snowLimit(false, inst.snowCold);
+        inst.snowTime += dt;
+        if (!band) wind = snowWind(inst.snowTime % 24000, inst.snowCold);
       }
+      if (band) drawSnowBand(inst);
       for (var i = 0; i < list.length; i++) {
         var p = list[i];
+        if (band && p.kind !== 4) continue;
         if (pictureBulbs && p.kind === 4) continue;
         if (moving) {
-          preset.step(p, dt, w, h, wind, crystalLimit);
+          preset.step(p, dt, w, h, wind);
           wrap(p, w, h);
         }
         fadeK = zone ? shade(zone, p.x, p.y) : 1;
@@ -1785,7 +1869,7 @@
         var inst = instances[i];
         if (!attached(inst) || (inst.leaving && clock - inst.leaving > LINGER_MS)) drop(inst);
       }
-      if (!instances.length) { last = 0; return; }
+      if (!hasCanvas()) { last = 0; return; }
       var time = typeof ts === 'number' ? ts : clock;
       /* 30 fps: кадр пришёл раньше срока — только заказ следующего. last —
          время прошлой ОТРИСОВКИ, поэтому dt ниже покрывает оба кадра. */
@@ -1805,15 +1889,20 @@
         var started = nowMs();
         var drawn = 0;
         for (i = 0; i < instances.length; i++) {
-          if (instances[i].still && instances[i].stillDone) continue;
-          if (paused(instances[i])) continue;
+          var scene = instances[i];
+          if (!scene.ctx || (scene.still && scene.stillDone)) continue;
           try {
-            if (instances[i].still) {
-              render(instances[i], 0);
-              instances[i].stillDone = true;
+            if (paused(scene)) {
+              pauseSnowBand(scene);
               continue;
             }
-            render(instances[i], dt);
+            if (scene.bandTiled && playSnowBand(scene)) continue;
+            if (scene.still) {
+              render(scene, 0);
+              scene.stillDone = true;
+              continue;
+            }
+            render(scene, dt);
             drawn++;
           } catch (e) {
             warn('fx: render failed', e);
@@ -1841,7 +1930,7 @@
        дёргал closest() по мёртвым карточкам. last сбрасывается, чтобы
        простой не пришёл в первый же шаг длинным dt. */
     function schedule(live) {
-      if (!instances.length) { last = 0; return; }
+      if (!hasCanvas()) { last = 0; return; }
       if (live) { frame = raf(loop); return; }
       last = 0;
       idle = setT(idleCheck, IDLE_MS);
@@ -1853,8 +1942,13 @@
       frame = raf(loop);
     }
 
+    function hasCanvas() {
+      for (var i = 0; i < instances.length; i++) if (instances[i].ctx) return true;
+      return false;
+    }
+
     function wake() {
-      if (frame || !instances.length) return;
+      if (frame || !hasCanvas()) return;
       clearIdle();
       last = 0;
       frame = raf(loop);
@@ -1866,6 +1960,7 @@
        СЕЙЧАС: снятый узел держал бы его до сборки мусора, а он на FHD при
        DPR 1.5 порядка 8 МБ (ревью фазы 3, Critical 1). */
     function drop(inst) {
+      cancelSnowBand(inst);
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
       /* Раунд holB: частицы сцены keep — следующему монтажу (CARRY_MS). */
@@ -1874,17 +1969,17 @@
          последним — снимки закрываются (closeSprites). */
       if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
       try {
-        if (inst.canvas.parentNode) inst.canvas.parentNode.removeChild(inst.canvas);
+        if (inst.surface.parentNode) inst.surface.parentNode.removeChild(inst.surface);
       } catch (e) {
         warn('fx: canvas remove failed', e);
       }
       try {
-        inst.canvas.width = 0;
-        inst.canvas.height = 0;
+        if (inst.ctx) inst.surface.width = inst.surface.height = 0;
+        else inst.surface.removeAttribute('src');
       } catch (e2) { }
       if (inst.scene) toggleClass(inst.node, 'lumen-fx--scene', false);
       if (inst.keep) toggleClass(inst.node, 'lumen-fx--' + inst.name, false);
-      if (!instances.length) {
+      if (!hasCanvas()) {
         unraf(frame);
         frame = 0;
         clearIdle();
@@ -1927,6 +2022,7 @@
     /* Монтирует слой частиц в узел. opts:
          color  — цвет частиц (акцент темы), по умолчанию белый;
          paused — функция «сейчас не рисовать» (трейлер играет);
+         ownScroll — главная сама управляет паузой зимы при листании;
          count  — сколько частиц вместо count пресета;
          width/height — размер слоя, когда его нельзя спросить у узла.
          safe   — зона текста {left, top, right, bottom, floor, feather}
@@ -1938,7 +2034,10 @@
         opts = opts || {};
         var node = nodeOf(layer);
         if (!node || !presets[name]) return null;
+        var preset = presets[name];
+        var still = stillNow(preset);
         var exist = find(node);
+        if (exist && exist.name === 'winter' && exist.still !== still) { drop(exist); exist = null; }
         /* Раунд holB: удерживаемый слой (unmount сцены keep) другого
            пресета или тот, что больше нельзя показывать, уступает место. */
         if (exist && exist.leaving && (exist.name !== name || !allowedNow(name))) {
@@ -1967,36 +2066,42 @@
         }
         if (!(w > 0) || !(h > 0)) return null;
 
-        var ratio = dpr();
-        var preset = presets[name];
-        var canvas = d.createElement('canvas');
-        canvas.className = 'lumen-fx__canvas' + (preset.scene ? ' lumen-fx__canvas--scene' : '');
-        canvas.width = Math.round(w * ratio);
-        canvas.height = Math.round(h * ratio);
-        var ctx = canvas.getContext ? canvas.getContext('2d') : null;
-        if (!ctx) return null;
-        /* Рисуем в логических пикселях слоя шириной REF_W — пресеты не
-           знают ни о плотности пикселей, ни о ширине экрана. Размер канваса
-           при этом прежний (w × ratio): единица меняет только масштаб
-           рисования, не число пикселей. */
+        var winter = name === 'winter';
+        var image = winter && still;
+        var ratio = winter ? 1 : dpr();
+        var artwork = d.createElement(image ? 'img' : 'canvas');
         var unit = unitOf(w);
-        if (typeof ctx.setTransform === 'function') ctx.setTransform(ratio * unit, 0, 0, ratio * unit, 0, 0);
-        else unit = 1;
+        var ctx = null;
+        if (image) {
+          artwork.className = 'lumen-fx__still';
+          artwork.alt = '';
+        } else {
+          artwork.className = 'lumen-fx__canvas' + (preset.scene ? ' lumen-fx__canvas--scene' : '') +
+            (winter ? ' lumen-fx__canvas--winter' : '');
+          if (!winter) {
+            artwork.width = Math.round(w * ratio);
+            artwork.height = Math.round(h * ratio);
+          }
+          ctx = artwork.getContext ? artwork.getContext('2d') : null;
+          if (!ctx) return null;
+          if (typeof ctx.setTransform !== 'function') unit = 1;
+          else if (!winter) ctx.setTransform(ratio * unit, 0, 0, ratio * unit, 0, 0);
+        }
         var lw = w / unit;
         var lh = h / unit;
         var color = opts.color || '#FFFFFF';
-        node.appendChild(canvas);
+        if (image && !/^#[a-f0-9]{6}$/i.test(color)) color = '#FFFFFF';
         if (preset.scene) toggleClass(node, 'lumen-fx--scene', true);
         /* Раунд holB: класс сцены keep — на весь монтаж, удержание
            включительно. Статичный фон сцены (src/30_css.js) висит на нём, а
            не на классе темы героя: тот снимается на каждой смене фильма. */
         if (preset.keep) toggleClass(node, 'lumen-fx--' + name, true);
-        if (preset.festive) bindKeys();
+        var keyPause = preset.festive && (!winter || (!still && !opts.ownScroll));
+        if (keyPause) bindKeys();
 
         /* Раунд holB: частицы той же сцены keep, снятой недавно со слоя
            того же размера, — продолжаются. */
         var kept = null;
-        var still = stillNow(preset);
         var snowCold = name === 'winter' && flatLook();
         if (preset.keep && carry && carry.name === name && Math.abs(carry.w - lw) < 1 && Math.abs(carry.h - lh) < 1 &&
             (name !== 'winter' || (carry.still === still && carry.snowCold === snowCold)) &&
@@ -2006,7 +2111,7 @@
 
         var inst = {
           node: node,
-          canvas: canvas,
+          surface: artwork,
           ctx: ctx,
           name: name,
           w: lw,
@@ -2015,7 +2120,7 @@
           S: ratio * unit,
           scene: !!preset.scene,
           keep: !!preset.keep,
-          festive: !!preset.festive,
+          keyPause: keyPause,
           leaving: 0,
           still: still,
           snowCold: snowCold,
@@ -2023,15 +2128,19 @@
           stillDone: false,
           color: color,
           safe: safeZone(opts.safe, lw, lh),
-          sprites: spritesFor(name, color, ratio * unit),
+          sprites: image ? null : spritesFor(name, color, ratio * unit),
+          pictureBulbs: winter && !!(LC.garland && LC.garland.allowed && LC.garland.allowed()),
           paused: typeof opts.paused === 'function' ? opts.paused : null,
           particles: kept || spawn(name, lw, lh, opts.count, name === 'winter' && still ? winterRandom() : Math.random, still)
         };
         /* Доступ к частицам из живой проверки и тестов — функцией, чтобы
            снаружи нельзя было подменить сам массив под циклом. */
         inst.particles_of = function () { return inst.particles; };
+        if (winter && ctx) fitSnowCanvas(inst);
+        node.appendChild(artwork);
         instances.push(inst);
-        wake();
+        if (image) paintStill(inst);
+        else wake();
         return handle(inst);
       } catch (e) {
         warn('fx: mount failed', e);
@@ -2062,6 +2171,7 @@
         inst.color = color;
         inst.sprites = spritesFor(inst.name, color, inst.S);
         if (old && !spritesUsed(old)) closeSprites(old);
+        if (inst.name === 'winter' && inst.ctx) fitSnowCanvas(inst);
         inst.stillDone = false;
       }
       wake();
@@ -2074,8 +2184,9 @@
       if (!inst) return;
       /* Раунд holB: праздничная сцена (keep) не снимается, а замирает — до
          повторного монтажа или LINGER_MS (разбор у lingerOk). */
-      if (lingerOk(inst)) {
+      if (inst.ctx && lingerOk(inst)) {
         if (!inst.leaving) inst.leaving = nowMs();
+        pauseSnowBand(inst);
         return;
       }
       drop(inst);
@@ -2085,8 +2196,10 @@
       var inst = find(nodeOf(layer));
       if (!inst || inst.name !== 'winter' || !!inst.pictureBulbs === !!on) return;
       inst.pictureBulbs = !!on;
-      inst.stillDone = false;
-      wake();
+      if (inst.ctx) {
+        fitSnowCanvas(inst);
+        wake();
+      } else paintStill(inst);
     }
 
     function unmountAll() {
@@ -2116,6 +2229,7 @@
       unmountAll: unmountAll,
       bulbs: bulbs,
       sweep: sweep,
+      wake: wake,
       active: function () { return instances.length; },
       /* Новый год, шаг 1: имя сцены, которая сейчас живёт на узле (не
          удерживаемая после unmount), или ''. Герой главной по нему решает,

@@ -417,14 +417,12 @@
     },
     /* Волна производительности: самотест на ТВ (src/69_bench.js). Строки
        экрана таблицы и отказа — здесь же: их видит только тот, кто нажал
-       эту кнопку. Ревью 1.0.2: стадий девять (STAGES, девятая — «stop
-       scroll» с 2026-09-27), 8 × (1 + 5) с + 1 + 18,4 с ≈ 67 с — «чуть
-       больше минуты», как в README; сторож — test/bench.test.mjs. */
+       эту кнопку. Число стадий (STAGES) сверяет test/bench.test.mjs. */
     lumen_debug_bench_name: { ru: 'Тест производительности', en: 'Performance test', uk: 'Тест продуктивності' },
     lumen_debug_bench_descr: {
-      ru: 'Минуту гоняет главную по девяти стадиям и показывает таблицу. Любая кнопка — стоп.',
-      en: 'Runs the home screen through nine stages for a minute and shows a table. Any key stops.',
-      uk: 'Хвилину ганяє головну через дев’ять стадій і показує таблицю. Будь-яка кнопка — стоп.'
+      ru: 'Гоняет главную по одиннадцати стадиям и показывает таблицу. Любая кнопка — стоп.',
+      en: 'Runs the home screen through eleven stages and shows a table. Any key stops.',
+      uk: 'Ганяє головну через одинадцять стадій і показує таблицю. Будь-яка кнопка — стоп.'
     },
     lumen_rowmem_name: { ru: 'Сон дальних рядов', en: 'Sleep for far rows', uk: 'Сон дальніх рядів' },
     lumen_rowmem_descr: {

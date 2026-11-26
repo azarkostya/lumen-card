@@ -1832,6 +1832,7 @@
     /* Волна производительности: сколько частицы стоят после нажатия
        (предикат paused в applyFx ниже). */
     var FX_CALM_MS = 1500;
+    var WINTER_SCROLL_MS = 360;
     /* Зона текста героя для слоя частиц (src/52_fx.js, safeZone). */
     var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
 
@@ -1900,7 +1901,7 @@
     /* Снимает частицы и класс темы. Идемпотентна: на снятом герое и на
        слое без канваса не делает ничего. */
     function clearFx() {
-      if (state) state.fxKey = null;
+      if (state) { state.fxKey = null; state.fxWinter = false; }
       var host = fxHost();
       if (host) {
         try { if (LC.garland) LC.garland.unmount(host); } catch (eGarland) { warn('hero: garland unmount failed', eGarland); }
@@ -1929,7 +1930,40 @@
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
     function fxPaused() {
       return !!(state && (state.trailer || state.compact || state.parked ||
-        Date.now() - state.focusAt < FX_CALM_MS));
+        (state.fxWinter ? state.fxScrolling : Date.now() - state.focusAt < FX_CALM_MS)));
+    }
+
+    function pauseWinterScroll() {
+      if (!state.fxScrolling) {
+        state.fxScrolling = true;
+        state.node.addClass('lumen-winter-scroll');
+        if (LC.fx && LC.fx.wake) LC.fx.wake();
+      }
+      stopTimer('fxScrollTimer');
+      state.fxScrollTimer = setTimeout(function () {
+        if (!state) return;
+        state.fxScrollTimer = null;
+        state.fxScrolling = false;
+        state.node.removeClass('lumen-winter-scroll');
+        if (LC.fx && LC.fx.wake) LC.fx.wake();
+      }, WINTER_SCROLL_MS);
+    }
+
+    /* Стрелка приходит до пересборки рядов. В адвенте есть цели фокуса
+       без фильма, поэтому ловим движение независимо от метаданных. */
+    function onWinterScroll(e) {
+      if (!state || !state.fxWinter || state.parked || !e) return;
+      var target = e.target;
+      var tag = target && target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+          (target && target.isContentEditable)) return;
+      if (e.type === 'wheel') {
+        if (!state.root[0].contains(target)) return;
+      } else {
+        var code = e.keyCode || e.which;
+        if (code < 37 || code > 40 || !code) return;
+      }
+      pauseWinterScroll();
     }
 
     function applyFx(force, box) {
@@ -1965,6 +1999,7 @@
       if (!box && key) box = fxBox();
       clearFx();
       if (!theme) return;
+      state.fxWinter = theme.preset === 'winter';
       if (theme.id) {
         try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
       }
@@ -2006,6 +2041,7 @@
              (смена текста, кадра, подсветки карточки), и перерисовка
              полноэкранного канваса поверх него отнимала кадры ровно там,
              где их видно. Каждое следующее нажатие отсчёт продлевает. */
+          ownScroll: state.hostClass === MAIN_HOST,
           paused: fxPaused
         });
         /* В режиме «Выкл» картинка может работать самостоятельно. */
@@ -4264,6 +4300,12 @@
       try {
         var el = e && e.target;
         if (!el || !el.classList || !el.classList.contains('card')) return;
+        if (state.fxWinter && el !== state.fxFocusEl) {
+          if ((state.fxFocusEl || state.focusEl) && (!state.fxScrolling || !LC.focus.remote(e))) {
+            pauseWinterScroll();
+          }
+          state.fxFocusEl = el;
+        }
         onFocus(el);
       } catch (err) {
         warn('hero: focus listener failed', err);
@@ -4314,6 +4356,11 @@
         if (!node) return;
         state.focusHandler = onFocusEvent;
         if (!LC.focus.capture(node, state.focusHandler)) state.focusHandler = null;
+        if (state.hostClass === MAIN_HOST && typeof document.addEventListener === 'function') {
+          document.addEventListener('keydown', onWinterScroll, true);
+          document.addEventListener('wheel', onWinterScroll, true);
+          state.fxInputBound = true;
+        }
       } catch (e) {
         warn('hero: listen failed', e);
       }
@@ -4323,9 +4370,13 @@
        состояния: unmount обнуляет state ДО уборки, а removeEventListener
        обязан получить ту же функцию и ту же фазу, что и подписка. */
     function unlistenFocus(s) {
-      if (!s || !s.focusHandler) return;
+      if (!s) return;
       try {
-        LC.focus.release(s.root && s.root[0], s.focusHandler);
+        if (s.fxInputBound) {
+          document.removeEventListener('keydown', onWinterScroll, true);
+          document.removeEventListener('wheel', onWinterScroll, true);
+        }
+        if (s.focusHandler) LC.focus.release(s.root && s.root[0], s.focusHandler);
       } catch (e) {
         warn('hero: unlisten failed', e);
       }
@@ -4617,7 +4668,12 @@
           /* Новый год, шаг 1: какая сцена праздника дня стоит на слое
              (fxKeyOf) и отложенная на тик постановка её при сборке (fxTick). */
           fxKey: null,
-          fxTimer: null
+          fxTimer: null,
+          fxScrollTimer: null,
+          fxFocusEl: null,
+          fxInputBound: false,
+          fxWinter: false,
+          fxScrolling: false
         };
         if (opts.compact) setCompact(true);
         /* Task 49: метка — только под нашей главной, и это не формальность.
@@ -4731,7 +4787,7 @@
       /* Волна «Логотипы сразу»: предзагрузка соседей уходит вместе с
          героем. */
       prefetch('stop');
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer', 'fxScrollTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -4853,6 +4909,9 @@
          LC.fx.sweep() следом за парковкой — отметка «сцена стоит» уходит
          вместе с ним, и resume поставит её заново (applyFx). */
       stopTimer('fxTimer');
+      stopTimer('fxScrollTimer');
+      state.fxScrolling = false;
+      state.node.removeClass('lumen-winter-scroll');
       state.fxKey = null;
       /* Раунд «Листание», F2: серия кончилась уходом с главной — метка
          серии снимается вместе с её таймером. */
