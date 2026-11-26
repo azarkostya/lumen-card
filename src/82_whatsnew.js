@@ -56,42 +56,39 @@
        Путь к выключателю дописывать не нужно — окно добавляет его само
        из строк раздела настроек (hintText). */
     var NOTES = {
-      /* 1.4.0 — изменения для зрителя. Подробности в журнале выпуска. */
-      '1.4.0': {
+      /* 1.5.0 — все изменения для зрителя с 1.3.1. */
+      '1.5.0': {
         ru: [
-          'Праздники. На главной и в новогодних карточках появились снег и гирлянда с двумя вариантами для Apple TV.',
-          'Адвент. Каждый день открывается подарок с фильмом, 31-го — «Ирония судьбы», с 18:00 — отсчёт до полуночи и поздравления.',
-          'Досмотреть. Минуты и номер серии теперь под постером, давние недосмотры скрываются, досмотренные фильмы исчезают сразу.',
-          'Моя раздача. Закрепите раздачу удержанием OK и открывайте из карточки, а крупные названия и метки помогут выбрать её.',
-          'Карточка. IMDb, КП и статус просмотра на виду, а удержание OK на серии отмечает просмотр до неё.',
-          'Оформление. Кольцо фокуса видно на постерах, текст крупнее, отзыв листается пультом, шапка раздач занимает одну строку.',
-          'Слабый ТВ. Праздники в «Лёгких» статичны, длинные списки открываются без переходов, экран предзагрузки проще.',
-          'Настройки. Новые разделы, окно знакомства и повтор «Что нового», а Shots и лишние значки шапки можно скрыть.'
+          'Новый год. Снежинки и гирлянда появляются при открытии, Apple TV получил цветной бархат, а в адвенте каждый день ждёт фильм-подарок.',
+          'Досмотреть. Остаток времени под постером, давние недосмотры скрываются, досмотренное исчезает сразу.',
+          'Досмотрели фильм? После внешнего плеера Lampa может предложить отметить фильм просмотренным.',
+          'Моя раздача. Удерживайте OK на раздаче, чтобы закрепить её и потом открыть прямо из карточки.',
+          'Найти серию. В шапке раздач виден номер искомой серии, а метки показывают, где она есть и до какой серии доступна раздача.',
+          'Просмотрено до этой серии. Удерживайте OK на серии, чтобы отметить её и все предыдущие серии сезона.',
+          'Оформление. Названия раздач крупнее, сведения о серии идут второй строкой, а на постерах видно кольцо фокуса.',
+          'Настройки. Пункты собраны по разделам, можно скрыть Shots и лишние значки шапки, а «Что нового» открыть повторно.'
         ],
         en: [
-          'Holidays. Snow and garlands on Home and holiday film pages, with two garland designs for Apple TV.',
-          'Advent. Daily gifts reveal films, with The Irony of Fate on Dec 31, a countdown from 6 pm and a greeting at midnight.',
-          'Continue Watching. See time left and the episode under the poster, hide older entries and clear finished films right away.',
-          'My pinned torrent. Larger titles and tags make torrents easier to choose, and you can hold OK to pin one to the title page.',
-          'Title pages. See IMDb, Kinopoisk and watch progress, and hold OK on an episode to mark it and earlier episodes watched.',
-          'Look and feel. Poster focus is clearer, text is larger, reviews scroll with the remote and the torrent header fits on one line.',
-          'Low-powered TVs. Light animations keep holiday scenes still, skip transitions in long lists and simplify the loading screen.',
-          'Settings. Find grouped options, a welcome screen and a way to reopen What’s New or hide Shots and extra header icons.'
+          'New Year. Snowflakes and garlands appear as you open the screen, Apple TV has coloured velvet ornaments, and Advent reveals a film each day.',
+          'Continue Watching. See time left under the poster, hide older entries and clear finished titles right away.',
+          'Did you finish the movie? After an external player closes, Lampa may offer to mark the film as watched.',
+          'My pinned torrent. Hold OK on a torrent to pin it, then open it directly from the title page.',
+          'Find an episode. See the episode you’re looking for in the torrent header and check the badges to see which releases include it.',
+          'Watched up to this episode. Hold OK on an episode to mark it and every earlier episode of the season as watched.',
+          'Look and feel. Torrent text is larger, episode details have their own line, and posters have a clear focus ring.',
+          'Settings. Options are grouped by topic, with controls for hiding Shots and extra icons or reopening What’s New.'
         ],
         uk: [
-          'Свята. На головній і в картках новорічних фільмів з’явилися сніг і гірлянда з двома варіантами для Apple TV.',
-          'Адвент. Щодня відкривається подарунок із фільмом, 31-го — «Іронія долі», з 18:00 — відлік до опівночі й привітання.',
-          'Додивитися. Залишок часу й номер серії під постером, давні недоглянуті приховуються, переглянуті фільми зникають одразу.',
-          'Моя роздача. Більші назви й мітки допоможуть вибрати роздачу, а утримання OK закріпить її на картці.',
-          'Картка. IMDb, КП і стан перегляду на видноті, а утримання OK на серії позначає перегляд до неї.',
-          'Оформлення. Фокус на постерах помітніший, текст більший, відгук гортається пультом, шапка роздач в один рядок.',
-          'Слабкий телевізор. Свята в «Легких» статичні, довгі списки відкриваються без переходів, екран завантаження простіший.',
-          'Налаштування. Нові розділи, вікно знайомства й повтор «Що нового», а Shots і зайві значки шапки можна сховати.'
+          'Новий рік. Сніжинки й гірлянда з’являються одразу, Apple TV отримав кольоровий оксамит, а в адвенті щодня відкривається фільм-подарунок.',
+          'Додивитися. Залишок часу під постером, давні записи приховуються, а переглянуте зникає одразу.',
+          'Додивилися фільм? Після зовнішнього плеєра Lampa може запропонувати позначити фільм як переглянутий.',
+          'Моя роздача. Утримуйте OK на роздачі, щоб закріпити її та потім відкривати прямо з картки.',
+          'Знайти серію. У шапці списку видно номер потрібної серії, а мітки підказують, у яких роздачах вона є.',
+          'Переглянуто до цієї серії. Утримуйте OK на серії, щоб позначити її та всі попередні серії сезону.',
+          'Оформлення. Текст роздач більший, відомості про серію на окремому рядку, а на постерах видно рамку фокуса.',
+          'Налаштування. Пункти зібрані за темами, можна сховати Shots і зайві значки або знову відкрити «Що нового».'
         ]
       },
-      /* ЧЕРНОВИК 1.3 (новее LC.VERSION — окно его не покажет, пока номер
-         не поднят): пока только «Вернуться к просмотру»; остальные пункты
-         выпуска допишет координатор, всего не больше пяти. */
       /* 1.3.1 — одна запись на весь выпуск 1.3: окно показывает самую новую
          версию в (seen; version], поэтому и с 1.2.0, и с 1.3.0 зритель видит
          этот список целиком. */

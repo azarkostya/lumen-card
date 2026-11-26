@@ -8,9 +8,9 @@ import { localProblems, behaviorPrefProblems, BEHAVIOR_PREFS, betaSoakWarning } 
    main. Те же проверки гоняет scripts/release.mjs перед выпуском. */
 const read = (p) => { try { return readFileSync(new URL('../' + p, import.meta.url), 'utf8'); } catch (e) { return null; } };
 
-test('релиз: версия 1.4.0 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
+test('релиз: версия 1.5.0 в LC.VERSION, баннере dist и CHANGELOG.md, загрузчик — на main', () => {
   const r = localProblems(read);
-  assert.equal(r.version, '1.4.0');
+  assert.equal(r.version, '1.5.0');
   assert.deepEqual(r.problems, []);
 });
 
