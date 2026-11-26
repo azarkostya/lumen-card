@@ -1870,55 +1870,38 @@ test('applyMotion зеркалит режим анимаций на узел г�
   assert.equal(node.hasClass('lumen-motion-full'), false);
 });
 
-test('режим off: текст меняется без подмены и БЕЗ загрузки кадра', () => {
-  /* В 'off' дорога не плавность (её гасит CSS), а сама загрузка и
-     декодирование кадра w1280/original на каждую остановку фокуса — поверх
-     кадра, который параллельно тянет сама Lampa (Background.change). */
-  const env = makeEnv();
-  env.LC.motionMode = () => 'off';
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  const node = heroOf(main.activity);
-
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  env.advance(400);
-  /* Task 71: вывод текста отложен на SWAP_MS и в 'off' — но анимации ухода
-     текста здесь по-прежнему нет, только отсрочка. */
-  assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
-  env.advance(200);
-  /* Правка 2026-09-22: название ждёт исхода логотипа — деталей ещё нет. */
-  assert.equal(node.find('.lumen-hero__title').text(), '');
-  assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
-  /* Таймаута загрузки кадра нет: кадр в 'off' не запрашивается вовсе.
-     Правка 2026-09-22: ждёт только потолок вывода названия (600 мс).
-     Раунд «Цвет сразу»: трёхсекундного отсчёта акцента больше нет. */
-  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [600], 'ни одного таймаута загрузки');
-
-  /* Текст при этом живой: детали запрашиваются и дорисовываются. */
-  assert.equal(env.requests.length, 1);
-  env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' });
-  /* Логотипа у фильма нет — ждать нечего, название встаёт тем же ответом. */
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
-  /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
-  assert.equal(env.images.length, 0, 'ответ деталей тоже не тянет кадр');
-  assert.deepEqual(warnLog, []);
-});
-
-test('режим off: кадр не грузится и когда он есть только в деталях', () => {
-  const env = makeEnv();
-  env.LC.motionMode = () => 'off';
+test('режим off: текст без анимации, кадр загружается и из деталей фильма', () => {
+  const env = makeEnv({ motionMode: () => 'off' });
   const main = makeMain();
   main.card1.card_data = { id: 55, title: 'Без кадра в ряду', release_date: '2022-02-02' };
   main.card1.addClass('focus');
   env.hero.mount(main.activity);
   env.advance(400);
+  const node = heroOf(main.activity);
+  assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
   env.requests[0].ok({ backdrop_path: '/late.jpg', runtime: 90, genres: [] });
-  assert.equal(env.images.length, 0);
+  const img = frameImg(env, '/late.jpg');
+  assert.ok(img);
+  img.onload();
+  assert.equal(stageOf(node).find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/late.jpg');
 });
 
-test('режимы full и lite кадр грузят — гейт стоит только на off', () => {
+test('режим off: фон текущей карточки показывается без анимации', () => {
+  const env = makeEnv({ motionMode: () => 'off' });
+  const main = makeMain();
+  main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  env.advance(400);
+  answerDetails(env);
+  const img = frameImg(env, '/b1.jpg');
+  assert.ok(img, 'кадр должен загрузиться и в режиме «Выкл»');
+  img.onload();
+  const stage = stageOf(heroOf(main.activity));
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+  assert.equal(stage.hasClass('lumen-motion-off'), true);
+});
+
+test('режимы full и lite кадр тоже грузят', () => {
   ['full', 'lite'].forEach((mode) => {
     const env = makeEnv();
     env.LC.motionMode = () => mode;
@@ -3658,7 +3641,7 @@ test('п.5: новый показ раньше кадра прошлого — �
   assert.equal(env.calls.indexOf(22), -1, 'цвет прошлого показа после нового не ставится');
 });
 
-test('п.5: «Выкл» — кадра нет, цвет при выводе текста', () => {
+test('п.5: «Выкл» — цвет с текстом, без ожидания кадра', () => {
   const env = accentEnv({ motionMode: () => 'off' });
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -3668,7 +3651,7 @@ test('п.5: «Выкл» — кадра нет, цвет при выводе т�
   assert.deepEqual(env.calls, []);
   env.advance(SWAP);
   assert.deepEqual(env.calls, [11], 'цвет — с текстом');
-  assert.deepEqual(frameLoads(env), [], 'кадр в «Выкл» не грузится');
+  assert.equal(frameLoads(env).length, 0, 'кадр ещё ждёт деталей');
 });
 
 test('п.5: у фильма нет ни кадра, ни постера — цвет не зависает', () => {
@@ -3684,7 +3667,7 @@ test('п.5: у фильма нет ни кадра, ни постера — цв
   assert.deepEqual(env.calls, [11], 'кадра не будет — цвет при отказе');
 });
 
-test('п.5: переключение в «Выкл», пока кадр едет, — цвет с погасшим кадром', () => {
+test('п.5: переключение в «Выкл», пока кадр едет, — цвет больше не ждёт', () => {
   const mode = { v: 'full' };
   const env = accentEnv({ motionMode: () => mode.v });
   const main = makeMain();
@@ -3698,7 +3681,7 @@ test('п.5: переключение в «Выкл», пока кадр едет
   assert.deepEqual(env.calls, [11]);
   mode.v = 'off';
   env.hero.applyMotion();
-  assert.deepEqual(env.calls, [11, 22], 'кадр погас — цвет второго фильма');
+  assert.deepEqual(env.calls, [11, 22], 'в «Выкл» цвет второго фильма не ждёт смены кадра');
 });
 
 /* Раунд правок финальной проверки, A1 (ревью rv2, RV2-1): у цвета показа
@@ -6614,26 +6597,7 @@ test('E3: все кандидаты не чистые — кадр с наиме
   assert.deepEqual(w1280(env), ['/c3.jpg'], 'наименее похожий, а не первый кандидат');
 });
 
-/* Раунд правок финальной проверки, A7 (logic-hero, LH-2): в «Выкл» кадр
-   выбирается без сравнения с постером (там он не грузится), и выход из
-   «Выкл» грузил этот выбор как есть — копию постера, даже когда вердикт
-   «похож» уже в памяти LC.thumbs. Теперь выбор заново, обычным путём. */
-test('финал A7: выход из «Выкл» — кадр показанного фильма выбирается заново, с проверкой «кадр ≈ постер»', () => {
-  const mode = { v: 'off' };
-  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': true, '/p1.jpg|/c2.jpg': false });
-  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs, motionMode: () => mode.v });
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  fireFocus(main.activity, main.card1);
-  env.advance(400);
-  detailsOf(env, 11).ok(LOOK_DETAILS(11));
-  assert.deepEqual(w1280(env), [], 'предусловие: в «Выкл» кадр не грузится');
-  mode.v = 'lite';
-  env.hero.applyMotion();
-  assert.deepEqual(w1280(env), ['/c2.jpg'], 'кадр после выхода из «Выкл» — не копия постера');
-});
-
-test('финал A7: выход из «Выкл», сравнение в пути — смена кадров ждёт выбора первого кадра', () => {
+test('выход из «Выкл» сохраняет первый кадр и снова разрешает смену кадров', () => {
   const thumbs = fakeThumbs();
   const env = slidesEnv({ thumbs: thumbs });
   const mode = { v: 'off' };
@@ -6644,14 +6608,14 @@ test('финал A7: выход из «Выкл», сравнение в пут�
     focusOn(main, main.card1);
     env.advance(400);
     detailsOf(env, 11).ok(LOOK_DETAILS(11));
-    assert.equal(env.live().length, 0, 'предусловие: в «Выкл» смены кадров нет');
+    const img = frameImg(env, '/c1.jpg');
+    img.onload();
+    assert.equal(env.live().length, 0);
     mode.v = 'lite';
     env.hero.applyMotion();
-    assert.equal(thumbs.calls.length, 1, 'кадр выбирается заново — сравнение с постером');
-    assert.equal(env.live().length, 0, 'до выбора первого кадра смена кадров не заводится');
-    thumbs.answer(0, false);
-    assert.deepEqual(w1280(env), ['/c1.jpg'], 'выбран непохожий кадр');
-    assert.equal(env.live().length, 1, 'смена кадров — после выбора');
+    assert.equal(thumbs.calls.length, 0, 'кадр текущего фильма уже выбран');
+    assert.equal(activeSrc(main), 'https://img/t/p/w1280/c1.jpg');
+    assert.equal(env.live().length, 1);
   } finally {
     env.restore();
   }
@@ -6783,7 +6747,7 @@ test('п.C2: сравнивать нечего (нет постера) или «
   fireFocus(mainOff.activity, mainOff.card1);
   envOff.advance(400);
   detailsOf(envOff, 11).ok(LOOK_DETAILS(11));
-  assert.equal(off.calls.length, 0, 'в «Выкл» кадр не грузится — сравнивать незачем');
+  assert.equal(off.calls.length, 0, 'в «Выкл» основной кадр берётся без сравнения');
 });
 
 test('п.C2: парковка во время сравнения — сравнение снято, на возврате фильм показан заново', () => {
@@ -7299,30 +7263,28 @@ test('ревью H2: возврат с парковки показывает к�
 /* Ревью H3: «Выкл» анимаций на живой главной                              */
 /* ====================================================================== */
 
-/* В «Выкл» кадр не грузится вовсе (loadFrame), заглушка не заводится
-   (holdDue в show), а applyMotion кадр не убирал: кадр фильма, показанного
-   до переключения, оставался под текстом ВСЕХ следующих. Репро ревьюера —
-   zz_off.test.mjs, вне репозитория. */
-test('ревью H3: переключение в «Выкл» гасит кадр и подложку — под текстом следующих фильмов нет кадра прошлого', () => {
+test('переключение в «Выкл» сохраняет кадр; смена фильма обновляет его', () => {
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
   const stage = shownFrame(env, main);
-  const lit = () => stage.find('.lumen-hero__bg.is-active').length + stage.find('.lumen-hero__lqip.is-active').length;
+  const active = () => stage.find('.lumen-hero__bg.is-active');
   env.LC.motionMode = () => 'off';
   env.hero.applyMotion();
-  assert.equal(lit(), 0, 'кадр прошлого фильма остался под текстом');
-  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), BLANK, 'подложка держит растр (этап 2в: освобождение — пустой GIF)');
-
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg');
   fireFocus(main.activity, main.card2);
-  env.advance(DELAY);
-  env.advance(200);
-  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'подготовка: показан второй фильм');
-  assert.equal(lit(), 0, 'под текстом второго фильма — кадр первого');
-  assert.deepEqual(warnLog, []);
+  env.advance(400);
+  detailsOf(env, 22).ok({ backdrop_path: '/b2.jpg' });
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b2.jpg');
+  const loads = frameLoads(env).length;
+  env.LC.motionMode = () => 'lite';
+  env.hero.applyMotion();
+  assert.equal(frameLoads(env).length, loads);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b2.jpg');
 });
 
-test('ревью H3: кадр, ехавший при переключении в «Выкл», снят и в сети и не встаёт, когда доедет', () => {
+test('кадр, начатый до переключения в «Выкл», доезжает без сброса', () => {
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -7330,33 +7292,12 @@ test('ревью H3: кадр, ехавший при переключении в
   env.advance(400);
   answerDetails(env);
   const img = removable(frameImg(env, '/b1.jpg'));
-  const onload = img.onload;
   env.LC.motionMode = () => 'off';
   env.hero.applyMotion();
-  assert.equal(img.removed, true, 'загрузка кадра в «Выкл» едет дальше');
-  img.complete = true;
-  img.naturalWidth = 1280;
-  if (onload) onload();
-  env.advance(9000);
+  assert.notEqual(img.removed, true);
+  img.onload();
   const stage = stageOf(heroOf(main.activity));
-  assert.equal(stage.find('.lumen-hero__bg.is-active').length, 0, 'доехавший кадр встал в «Выкл»');
-});
-
-test('ревью H3: из «Выкл» обратно — кадр показанного фильма возвращается без смены фокуса', () => {
-  const env = makeEnv({ fxHeavy: () => false });
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  const stage = shownFrame(env, main);
-  const loads = frameLoads(env).length;
-  env.LC.motionMode = () => 'off';
-  env.hero.applyMotion();
-  assert.equal(stage.find('.lumen-hero__bg.is-active').length, 0, 'подготовка: в «Выкл» кадр погашен');
-  env.LC.motionMode = () => 'lite';
-  env.hero.applyMotion();
-  assert.equal(frameLoads(env).length, loads + 1, 'кадр показанного фильма не грузится снова');
-  const again = frameImg(env, '/b1.jpg');
-  again.onload();
-  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр показанного фильма не вернулся');
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg');
 });
 
 /* ====================================================================== */

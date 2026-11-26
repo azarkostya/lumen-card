@@ -1517,63 +1517,23 @@
            слабого ТВ) — играющий ролик обязан уйти вместе с полными
            анимациями. */
         applyTrailer();
-        /* Ревью H3: в «Выкл» кадр не грузится (loadFrame), и заглушка не
-           заводится (holdDue в show) — кадр фильма, показанного до
-           переключения, стоял бы под текстом ВСЕХ следующих. Он гаснет
-           сразу, вместе с подложкой, как в заглушке, а ехавший кадр снимается
-           и в сети. Обратно из «Выкл» — кадр показанного фильма грузится
-           заново, не дожидаясь смены фокуса. */
+        /* Смена режима не сбрасывает кадр и загрузку текущего фильма.
+           Режим управляет переходами, роликом и ротацией кадров. */
         var was = state.motion;
         state.motion = mode;
-        if (mode === 'off') offFrame();
-        else if (was === 'off') onFrame();
-        /* «Несколько кадров»: в 'off' ротации нет. Раунд правок финальной
-           проверки, A7: после выбора кадра (onFrame) — круг смены кадров
-           начинается с кадра, который встанет на экране. */
+        if (mode === 'off') settleAccent(true);
+        else if (was === 'off' && !state.parked && state.shownCard && !focusAway()) {
+          state.accentCard = state.shownCard;
+          if (state.frameUrl && String(state.frameId) === String(state.shownId)) flushAccent();
+          else {
+            state.accentWait = true;
+            armHold();
+          }
+        }
         applySlides();
       } catch (e) {
         warn('hero: motion failed', e);
       }
-    }
-
-    function offFrame() {
-      stopTimer('loadTimer');
-      stopTimer('holdTimer');
-      state.holdDue = false;
-      if (state.loader) {
-        dropLoader(state.loader);
-        state.loader = null;
-      }
-      neutralFrame();
-      /* Погасшие слои растр не держат: в «Выкл» их до выхода из режима
-         никто не покажет. */
-      state.stage.find('.lumen-hero__bg').attr('src', BLANK);
-      /* Следующий раунд, п.5: ехавший кадр снят, картинка — нейтральный
-         фон: цвет показа, если ждал кадра, встаёт с ним. */
-      settleAccent(true);
-    }
-
-    /* Обратно из «Выкл» (applyMotion). Раунд правок финальной проверки:
-       A7 (logic-hero, LH-2) — кадр, выбранный в «Выкл», выбран без
-       сравнения с постером (chooseFrame сравнивает только там, где кадр
-       грузится), и грузить его как есть значило показать копию постера,
-       даже когда вердикт «похож» уже в памяти LC.thumbs: выбор заново,
-       обычным путём (chooseFrame → startFrame);
-       A8 (logic-hero, LH-3) — цвет фильма в «Выкл» сброшен (LC.accent там
-       не красит), и прежде он не возвращался до смены фокуса: теперь цвет
-       показа снова ждёт своей картинки — встаёт с кадром, при отказе или
-       через HOLD_MS (settleAccent, armHold), как на показе. Фокус ушёл на
-       другую карточку — её показ поставит свой цвет сам. */
-    function onFrame() {
-      if (state.parked || !state.model) return;
-      if (state.shownCard && !focusAway()) {
-        state.accentCard = state.shownCard;
-        state.accentWait = true;
-        armHold();
-      }
-      if (state.frameUrl || state.framePath === null) return;
-      state.framePath = null;
-      chooseFrame(state.model, gen);
     }
 
     function motionMode() {
@@ -2999,8 +2959,9 @@
       /* v2, экран 46: в «Лёгких» кадр меняется fade 220 мс вместо мигания —
          теми же двумя слоями (переход только у --b, src/31_v2_typo.js), без
          оглядки на тяжёлые эффекты и паузу фокуса. */
-      var liteFade = motionMode() === 'lite' && !!LC.typo;
-      if (!liteFade && (!fxHeavy() || (!slide && Date.now() - state.focusAt < CROSSFADE_CALM_MS))) {
+      var mode = motionMode();
+      var liteFade = mode === 'lite' && !!LC.typo;
+      if (mode === 'off' || (!liteFade && (!fxHeavy() || (!slide && Date.now() - state.focusAt < CROSSFADE_CALM_MS)))) {
         /* Слой, который уже на экране; на первом кадре карточки активного
            ещё нет — тогда это всегда --a, и --b остаётся пустым навсегда. */
         var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
@@ -3220,8 +3181,7 @@
        поколения; кадр, уже стоящий на экране, считается показанным.
        slide — кадр смены кадров (startSlides), а не кадр показа. */
     function loadFrame(model, captured, done, slide) {
-      if (!state) return;
-      if (motionMode() === 'off') return;
+      if (!state || (slide && motionMode() === 'off')) return;
       var blur = false;
       var path = model.backdrop;
       if (!path) { path = model.poster; blur = true; }
@@ -3331,10 +3291,7 @@
         if (state.parked) return;
         stopTimer('loadTimer');
         state.loader = null;
-        /* Ревью H3: и доехавший после переключения в «Выкл» (загрузчик
-           снимает offFrame в applyMotion, но промис decode() отменить
-           нечем). */
-        if (motionMode() === 'off') return;
+        if (slide && motionMode() === 'off') return;
         /* Ревью правок волны 3, п.7: кадр смены повёл тик до ухода фокуса,
            а доехал после — не ставим и не докладываем: смена на паузе,
            очередь контроллера стоит на месте, и тик после возврата
@@ -3519,7 +3476,7 @@
        кадр по тому, что известно (pickFrame, late), а выбранный кадр
        поздний ответ уже не меняет (одна смена кадра на показ — разбор у
        startFrame). Сравнения нет, если нечего сравнивать (нет постера или
-       кандидатов), в «Выкл» (кадр не грузится вовсе) и без модуля.
+       кандидатов), в «Выкл» (показываем основной кадр) и без модуля.
        Смена кадров заводится за выбором: её круг начинается с кадра на
        экране (startSlides). Сторож — gen: новый показ снимает и потолок, и
        сравнение (cancelPending). */
@@ -3630,7 +3587,7 @@
       state.holdSoon = null;
       /* Раунд C, C3: цвет фильма — низ этого кадра (w300, src/57_color.js);
          заказ — сейчас, параллельно с w1280: к тику кадра он обычно готов.
-         В «Выкл» кадра нет, и цвета нет. Четвёртый аргумент — кадр показа:
+         В «Выкл» цвет из кадра не берём. Четвёртый аргумент — кадр показа:
          гейта отказов подряд у него нет (ревью rv5, RV5-1). */
       if (state.framePath && motionMode() !== 'off' && LC.accent && typeof LC.accent.prepareFrame === 'function') {
         try { LC.accent.prepareFrame(state.framePath, null, state.shownCard, true); } catch (eColor) { warn('hero: frame color failed', eColor); }
@@ -3649,8 +3606,6 @@
            с ним и цвет; кадр уже стоял (kept) — цвет с текстом. */
         settleAccent(!kept);
       });
-      /* В «Выкл» кадр не грузится (loadFrame), и колбэка не будет. */
-      if (motionMode() === 'off') prefetch('warm', state.root);
       if (soon) soon();
     }
 
@@ -3659,8 +3614,8 @@
        нет), и его ошибка не имеет права ронять героя.
          around(el) — на каждом переводе фокуса (onFocus);
          warm(root) — когда первый показ героя кончился: детали пришли, а
-           кадр доехал или не доехал (колбэк loadFrame; в «Выкл» — сразу
-           по деталям). Сам warm срабатывает один раз на корень;
+           кадр доехал или не доехал (колбэк loadFrame).
+           Сам warm срабатывает один раз на корень;
          stop()     — park и unmount. */
     /* Раунд C, E3: выбор первого кадра карточки под фокусом ещё не кончился
        — её показ впереди (DELAY), ждёт деталей или сравнения с постером
@@ -3891,7 +3846,7 @@
     }
 
     /* Нейтральный фон вместо кадра: гаснут оба слоя кадра и подложка
-       (заглушка holdFrame и режим «Выкл» — applyMotion). */
+       (заглушка holdFrame). */
     function neutralFrame() {
       state.stage.find('.lumen-hero__bg').removeClass('is-active');
       state.frameUrl = '';
@@ -3947,8 +3902,8 @@
         state.shownCard = card;
         /* Раунд «Цвет сразу»: цвет фильма ставится один раз на показ.
            Следующий раунд, п.5: вместе с его картинкой — ждём её
-           (accentWait), если кадр этого фильма ещё не на экране и кадр
-           вообще будет (не «Выкл»). */
+           (accentWait), если кадр этого фильма ещё не на экране и включена
+           подкраска кадра. */
         state.accentCard = card;
         state.textOut = false;
         state.accentWait = motionMode() !== 'off' && !(state.frameUrl && String(state.frameId) === String(card.id));
@@ -3983,12 +3938,11 @@
            цвет стоит прошлого фильма (tinted): без него цвет нового ждал
            бы его кадра до таймаута загрузки. Первый показ (ни кадра, ни
            цвета фильма) ждёт кадра. */
-        state.holdDue = !!(state.frameUrl || state.lqipUrl || state.tinted) && motionMode() !== 'off';
+        state.holdDue = !!(state.frameUrl || state.lqipUrl || state.tinted);
         var model = heroModel(card, null, words());
         render(model, true);
         loadDetails(card, captured);
-        /* В «Выкл» кадр не грузится вовсе (loadFrame) — и ждать нечего. */
-        if (gen === captured && state && state.framePath === null && motionMode() !== 'off') {
+        if (gen === captured && state && state.framePath === null) {
           state.frameWait = setTimeout(function heroFrameWait() {
             if (gen !== captured || !state) return;
             state.frameWait = null;
@@ -4272,7 +4226,7 @@
        памяти) и его байты доехали — w1280 или хотя бы подложка w300
        (preloadFrame дорожки кадра): через HOLD_MS от вывода текста под
        новым фильмом встанет его картинка, а не нейтральный фон. Кадра у
-       фильма нет (постер) и «Выкл» — ждать нечего. */
+       фильма нет (постер) или «Выкл» — не ждём предзагрузку соседей. */
     function showReady(card) {
       var json = null;
       try {
