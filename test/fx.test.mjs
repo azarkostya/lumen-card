@@ -127,7 +127,7 @@ function fakeCtx() {
     moveTo: rec('moveTo'), lineTo: rec('lineTo'), arc: rec('arc'),
     ellipse: rec('ellipse'), quadraticCurveTo: rec('quadraticCurveTo'),
     bezierCurveTo: rec('bezierCurveTo'), fill: rec('fill'), stroke: rec('stroke'),
-    fillRect: rec('fillRect'), translate: rec('translate'), rotate: rec('rotate'),
+    fillRect: rec('fillRect'), drawImage: rec('drawImage'), translate: rec('translate'), rotate: rec('rotate'),
     scale: rec('scale'), createLinearGradient: () => ({ addColorStop() {} })
   };
 }
@@ -164,7 +164,7 @@ function fakeCardNode(w, h, active) {
 
 /* Окружение одного рантайм-теста: document.createElement('canvas'),
    requestAnimationFrame под ручным управлением, performance.now по шагам. */
-function env(run) {
+function env(run, dpr = 3) {
   const frames = [];
   let time = 0;
   const contexts = [];
@@ -189,7 +189,7 @@ function env(run) {
   };
   const win = {
     document: doc,
-    devicePixelRatio: 3,
+    devicePixelRatio: dpr,
     requestAnimationFrame(fn) { frames.push(fn); return frames.length; },
     cancelAnimationFrame(id) { frames[id - 1] = null; },
     performance: { now: () => time }
@@ -849,14 +849,14 @@ test('сцены: мыши Хэллоуина держатся верхней т
 test('сцены: у зимы три плана снега — ближние крупнее и быстрее дальних; гирлянда неподвижна', () => {
   const list = FX.spawn('winter', 960, 540, FX.presets.winter.count, seeded(6));
   const plane = (k) => list.filter((p) => p.kind === k);
-  assert.equal(plane(3).length, 6, 'огни боке');
+  assert.equal(plane(3).length, 0, 'нет декоративных кругов');
   assert.equal(plane(4).length, 10, 'лампочки гирлянды');
   const far = plane(0), mid = plane(1), near = plane(2);
-  assert.equal(far.length, 22);
-  assert.equal(mid.length, 12);
-  assert.equal(far.length + mid.length + near.length, 40);
+  assert.equal(far.length, 10);
+  assert.equal(mid.length, 8);
+  assert.equal(far.length + mid.length + near.length, 22);
   assert.ok(list.length <= 58 && list.length <= FX.MAX);
-  assert.equal(near.length, 6, 'ближний план — шесть крупных хлопьев');
+  assert.equal(near.length, 4, 'ближний план — четыре крупных хлопья');
   const maxOf = (a, k) => Math.max.apply(null, a.map((p) => p[k]));
   const minOf = (a, k) => Math.min.apply(null, a.map((p) => p[k]));
   /* Отзыв пользователя «снег более яркий»: средний и ближний планы
@@ -870,16 +870,29 @@ test('сцены: у зимы три плана снега — ближние к
   assert.deepEqual(plane(4).map((p) => [p.x, p.y]), bulbs, 'лампочки стоят на месте, мерцают фазой');
 });
 
-test('зима: независимые статичные монтажи повторяют один состав и не засыпают зону текста', () => {
+test('зима: Lite повторяет композицию, и на всех третях видны снежинки разной глубины', () => {
   env(() => {
-    const install = () => freshFx({ motionMode: () => 'lite' }).mount(fakeNode(960, 540), 'winter').particles();
-    const first = install(), second = install();
-    assert.deepEqual(first, second, 'позиции и размеры статичного кадра предсказуемы');
-    assert.ok(first.filter((p) => p.kind === 1 || p.kind === 2).every((p) => p.x >= 480 || p.y < 216));
-    assert.ok(first.filter((p) => p.kind === 2).every((p) => p.x >= 480 && (p.x < 720 || p.y >= 216)));
-    const snow = first.filter((p) => p.kind < 3);
-    assert.ok(snow.filter((p) => p.x >= 480).length > snow.length / 2, 'снег гуще справа');
-    assert.ok(snow.filter((p) => p.y < 270).length > snow.length / 2, 'снег гуще вверху');
+    for (const cold of [false, true]) {
+      const install = () => {
+        const fx = freshFx({ motionMode: () => 'lite', pref: (key) => key === 'lumen_flat' && cold });
+        const layer = fakeNode(960, 360);
+        const inst = fx.mount(layer, 'winter', { safe: { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15 } });
+        return { snow: inst.particles().filter(p => p.kind < 3), svg: decodeURIComponent(layer.children[0].src) };
+      };
+      const first = install(), second = install();
+      assert.deepEqual(first, second, 'позиции и размеры статичного кадра предсказуемы');
+      const counts = [0, 1, 2].map(i => first.snow.filter(p => Math.floor(p.x / 320) === i));
+      for (const lane of counts) {
+        assert.ok(lane.length >= 5, 'не меньше пяти снежинок в каждой трети');
+        assert.ok(lane.some(p => p.kind === 0) && lane.some(p => p.kind === 1), 'разная глубина в каждой трети');
+      }
+      assert.ok(first.snow.filter(p => p.y < 180).length > first.snow.length / 2, 'снег остаётся гуще вверху');
+      assert.ok(first.snow.filter(p => p.kind === 2).every(p => p.y >= 172), 'ближняя глубина сохраняет нижнюю границу');
+      const flakes = [...first.svg.matchAll(/opacity="([\d.]+)" transform="translate\(([\d.]+) ([\d.]+)\)/g)];
+      assert.equal(flakes.length, first.snow.length);
+      assert.ok(flakes.filter(([, a, x, y]) => +x < 480 && +y >= 144).some(([, a]) => +a >= 0.31),
+        'слева снег над текстом только слегка гаснет');
+    }
   });
 });
 
@@ -889,104 +902,42 @@ test('зима: Apple TV тише, медленнее и без тёплого �
   }).api;
   const warm = look(false).spawn('winter', 960, 540, undefined, seeded(6));
   const cold = look(true).spawn('winter', 960, 540, undefined, seeded(6));
-  assert.equal(cold.filter((p) => p.kind === 2).length, 4);
-  for (let i = 16; i < cold.length; i++) assert.ok(Math.abs(cold[i].vy / warm[i].vy - 0.85) < 1e-9);
-  assert.ok(cold.filter((p) => p.kind === 3).every((p) => p.life >= 0.14 && p.life <= 0.26));
-});
-
-test('зима: тёплый и холодный отсвет берутся только выше гирлянды', () => {
-  for (const [cold, tint] of [[false, 'rgba(255,226,176,1)'], [true, 'rgba(220,232,255,1)']]) {
-    richEnv(() => {
-      const fx = freshFx({ pref: (key, def) => key === 'lumen_flat' ? cold : def });
-      const winter = fx.presets.winter;
-      docGradientStops(window.document);
-      const sprites = winter.sprites('#FFFFFF', 1);
-      const p = fx.spawn('winter', 960, 540, undefined, seeded(6)).find((f) => f.kind === 1);
-      const ctx = { setTransform() {}, fillRect() {}, set fillStyle(style) { this.gradient = style; } };
-      p.y = 120;
-      winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, true);
-      assert.ok(ctx.gradient.stops.includes(tint));
-      p.y = 121;
-      winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, true);
-      assert.ok(!ctx.gradient.stops.includes(tint));
+  assert.equal(cold.filter((p) => p.kind === 2).length, 2);
+  for (let i = 10; i < cold.length; i++) assert.ok(Math.abs(cold[i].vy / warm[i].vy - 0.85) < 1e-9);
+  for (const [palette, tint] of [[false, '#ffe6c7'], [true, '#dce8ff']]) {
+    env(() => {
+      const fx = freshFx({ motionMode: () => 'lite', pref: (key, def) => key === 'lumen_flat' ? palette : def });
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, 'winter');
+      assert.ok(decodeURIComponent(layer.children[0].src).includes(tint));
+      fx.unmountAll();
     });
   }
 });
 
-test('зима: площадь листа и бюджет кристаллов с картинкой гирлянды', () => {
-  richEnv(({ all, doc }) => {
-    const requests = [];
-    window.Image = class {
-      set src(url) { requests.push({ url, image: this }); }
-    };
-    const paths = [];
-    const fx = freshFx({ assetUrl(path) { paths.push(path); return 'beta/' + path; } });
-    const winter = fx.presets.winter;
-    const warm = fx.spawn('winter', 960, 540, undefined, seeded(39));
-    const cold = { pictureBulbs: true, snowCold: true };
-    const picture = { pictureBulbs: true, snowCold: false };
-    const sprites = winter.sprites('#FFFFFF', 1);
-    const ctx = doc.createElement('canvas').getContext('2d');
-    function draw(still, scene) {
-      ctx.calls.length = 0;
-      ctx.log.length = 0;
-      ctx.banned.length = 0;
-      for (const p of warm) {
-        if (scene?.pictureBulbs && p.kind === 4) continue; // render пропускает лампы при картинке
-        winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, still, scene);
-      }
-      assert.deepEqual(ctx.banned, []);
-      assert.equal(ctx.calls.includes('createRadialGradient'), false);
-      const images = ctx.log.filter(([op]) => op === 'drawImage');
-      if (!still) {
-        const operations = ctx.calls.filter((op) => op === 'arc').length * 3 +
-          ctx.calls.filter((op) => op === 'fillRect').length * 8 + images.length * 27;
-        assert.ok(operations <= 340, 'расчётный потолок 340 мкс по ценам из стенда');
-      }
-      return images;
+test('зима: один срез маленькой полосы рисуется без арок и сетевого атласа', () => {
+  richEnv(({ doc, tick }) => {
+    let requests = 0;
+    window.Image = class { set src(url) { requests++; } };
+    const fx = freshFx({ motionMode: () => 'full' });
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'winter');
+    fx.bulbs(layer, true);
+    const ctx = layer.children[0].getContext('2d');
+    tick(40);
+    const blits = ctx.log.filter(([op]) => op === 'drawImage');
+    assert.equal(blits.length, 1);
+    for (const [, tile] of blits) {
+      assert.equal(tile.width, 480);
+      assert.equal(tile.height, 306);
     }
-    assert.equal(draw(false, null).length, 0);
-    assert.equal(requests.length, 0, 'полный fallback не загружает лист');
-    assert.equal(draw(false, picture).length, 0, 'до загрузки остаются обычные хлопья');
-    assert.deepEqual(paths, ['assets/newyear/v1/snowflakes.webp']);
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, 'beta/assets/newyear/v1/snowflakes.webp');
-    const image = requests[0].image;
-    Object.assign(image, { naturalWidth: 256, naturalHeight: 64 });
-    image.onload();
-    const crops = all.filter((c) => c !== ctx).flatMap((c) => c.log.filter(([op, src]) => op === 'drawImage' && src === image));
-    assert.deepEqual(crops.map(([, , x, y, w, h]) => [x, y, w, h]), [[0, 0, 64, 64], [64, 0, 64, 64], [128, 0, 64, 64], [192, 0, 64, 64]]);
-    const full = draw(false, picture);
-    assert.equal(full.length, 3);
-    const staticCrystals = draw(true, picture);
-    assert.equal(staticCrystals.length, 6);
-    assert.equal(new Set(staticCrystals.map(([, image]) => image)).size, 4);
-    const apple = draw(false, cold);
-    assert.equal(apple.length, 2);
-    assert.ok(apple.every(([, image]) => image === full[2][1]), 'в Apple TV только пластинка с третьей ячейки');
-    assert.equal(draw(true, cold).length, 3);
-    assert.equal(draw(true, null).length, 0, 'кешированный лист не меняет fallback');
-    assert.equal(requests.length, 1);
-  });
-});
-
-test('зима: ошибка WebP оставляет градиенты и один запрос на лист', () => {
-  richEnv(({ doc }) => {
-    const requests = [];
-    window.Image = class { set src(url) { requests.push({ url, image: this }); } };
-    const fx = freshFx();
-    const winter = fx.presets.winter;
-    const sprites = winter.sprites('#FFFFFF', 1);
-    const p = fx.spawn('winter', 960, 540, undefined, seeded(6)).find((f) => f.kind === 1);
-    const ctx = doc.createElement('canvas').getContext('2d');
-    const scene = { pictureBulbs: true, snowCold: false };
-    winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, false, scene);
-    assert.equal(requests.length, 1);
-    requests[0].image.onerror();
-    winter.draw(ctx, p, 960, 540, '#FFFFFF', sprites, false, scene);
-    assert.equal(requests.length, 1);
-    assert.equal(ctx.calls.filter((op) => op === 'fillRect').length, 2);
-    assert.equal(ctx.calls.includes('drawImage'), false);
+    assert.equal(ctx.calls.filter((op) => op === 'arc' || op === 'createRadialGradient' || op === 'clearRect').length, 0);
+    assert.equal(ctx.globalCompositeOperation, 'copy');
+    fx.bulbs(layer, false);
+    tick(40);
+    assert.equal(ctx.globalCompositeOperation, 'source-over', 'аварийные лампы рисуются поверх снега');
+    assert.equal(requests, 0);
+    fx.unmountAll();
   });
 });
 
@@ -1293,6 +1244,27 @@ test('holB: пауза при листании — после нажатия п�
     const fx = freshFx({ motionMode: () => 'full', fxHeavy: () => false });
     const timers = fakeTimers();
     fx._timers = timers.hook;
+    fx.mount(fakeNode(960, 360), 'halloween');
+    tick(40); tick(40);
+    const moving = fx.stats().steps;
+    assert.ok(moving > 0);
+    assert.equal(keys.length, 1, 'слушатель пульта — один на движок');
+    keys[0]({ type: 'keydown' });
+    tick(40); tick(40);
+    assert.equal(fx.stats().steps, moving, 'после нажатия — стоит');
+    for (let i = 0; i < 6; i++) { if (timers.live().length) timers.fire(); tick(300); }
+    assert.ok(fx.stats().steps > moving, 'через паузу — снова движется');
+    fx.unmountAll();
+  });
+});
+
+test('Снег на карточке сохраняет паузу после нажатия пульта', () => {
+  env(({ doc, tick }) => {
+    const keys = [];
+    doc.addEventListener = (type, fn) => { if (type === 'keydown') keys.push(fn); };
+    const fx = freshFx({ motionMode: () => 'full', fxHeavy: () => false });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
     fx.mount(fakeNode(960, 360), 'winter');
     tick(40); tick(40);
     const moving = fx.stats().steps;
@@ -1319,11 +1291,11 @@ test('holB: keydown снимается, когда слоёв не остало�
     };
     const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
     fx._timers = fakeTimers().hook;
-    fx.mount(fakeNode(960, 360), 'winter');
+    fx.mount(fakeNode(960, 360), 'halloween');
     assert.equal(keys.length, 1);
     fx.unmountAll();
     assert.equal(keys.length, 0, 'слушатель пульта пережил движок');
-    fx.mount(fakeNode(960, 360), 'winter');
+    fx.mount(fakeNode(960, 360), 'halloween');
     assert.equal(keys.length, 1, 'новый монтаж возвращает слушатель');
     fx.unmountAll();
     assert.equal(keys.length, 0);
@@ -1334,6 +1306,87 @@ test('holB: keydown снимается, когда слоёв не остало�
 /* v1.4 «Слабый ТВ»: праздничная сцена в «Лёгких» и на слабой приставке —  */
 /* статичный кадр: один рисунок, без кадрового цикла 30 fps.              */
 /* ====================================================================== */
+
+test('Раунд 2: в Lite зимняя сцена ставит одно SVG-изображение без канваса и rAF', () => {
+  env(({ pending }) => {
+    const fx = freshFx({ motionMode: () => 'lite' });
+    const layer = fakeNode(960, 360);
+    fx.mount(layer, 'winter');
+    const image = layer.children[0];
+    assert.match(image.className, /lumen-fx__still/);
+    assert.match(decodeURIComponent(image.src), /<path/);
+    assert.equal(pending(), 0);
+    assert.equal(fx.stats().steps, 1);
+    fx.unmountAll();
+    assert.equal(layer.children.length, 0);
+  });
+});
+
+test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и снег рисуется атласом', () => {
+  richEnv(({ tick, win }) => {
+    win.devicePixelRatio = 2;
+    const fx = freshFx({ motionMode: () => 'full' });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 360);
+    let scroll = false;
+    fx.mount(layer, 'winter', { paused: () => scroll });
+    const canvas = layer.children[0];
+    assert.deepEqual([canvas.width, canvas.height], [960, 360], 'запасной гирлянде нужен весь слой');
+    canvas.style = {};
+    const animation = {
+      playState: 'running',
+      currentTime: 0,
+      pause() { this.playState = 'paused'; },
+      play() { this.playState = 'running'; },
+      cancel() { this.playState = 'idle'; this.currentTime = null; }
+    };
+    canvas.animate = (keyframes, options) => {
+      assert.match(keyframes[0].transform, /-33\.333%/);
+      assert.equal(options.duration, 7845);
+      assert.equal(options.iterations, Infinity);
+      animation.playState = 'running';
+      return animation;
+    };
+    fx.bulbs(layer, true);
+    assert.deepEqual([canvas.width, canvas.height], [960, 540], 'три короткие полноширинные плитки в одном canvas DPR 1');
+    const canvasCtx = canvas.getContext('2d');
+    assert.ok(canvas.width * canvas.height * 4 / 1024 ** 2 < 2, 'память слоя в пределах 2 МиБ');
+    tick(40);
+    assert.equal(animation.playState, 'running');
+    tick(40);
+    assert.equal(fx.stats().frames, 0, 'композитор двигает слой без рисования JS-кадров');
+    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'атлас рисуется только при монтаже');
+    const upload = canvasCtx.log.find(c => c[0] === 'drawImage');
+    assert.equal(upload[5], 306, 'атлас содержит три плитки по 102 пикселя');
+    assert.deepEqual(upload.slice(-4), [0, 0, 960, 540], 'атлас растёт на всю ширину слоя');
+    const atlas = upload[1].getContext('2d');
+    const centers = atlas.log.flatMap(([op], i) => op === 'beginPath' ? [atlas.log[i + 1][1]] : []);
+    const bands = [0, 1, 2].map(i => centers.filter(x => Math.floor(x / (upload[1].width / 3)) === i).length);
+    assert.equal(centers.length * 2, 28, 'плотность двух видимых плиток сохранена');
+    assert.ok(Math.min(...bands) >= 3 && Math.max(...bands) - Math.min(...bands) <= 2,
+      'равномерное покрытие атласа с ненулевой плотностью в центре');
+    assert.ok(atlas.alphas.every(a => a >= 0.45), 'нет почти прозрачной левой половины');
+    assert.equal(canvasCtx.calls.filter(c => c === 'arc' || c === 'createRadialGradient').length, 0);
+    scroll = true;
+    fx.wake();
+    tick(40);
+    assert.equal(animation.playState, 'paused');
+    scroll = false;
+    fx.wake();
+    tick(40);
+    assert.equal(animation.playState, 'running');
+    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'возврат не перерисовывает атлас');
+    animation.currentTime = 4200;
+    fx.bulbs(layer, false);
+    assert.equal(animation.playState, 'idle');
+    assert.deepEqual([canvas.width, canvas.height], [960, 360], 'сбой WebP возвращает весь слой без второго холста');
+    assert.equal(layer.children.length, 1);
+    fx.bulbs(layer, true);
+    tick(40);
+    assert.equal(animation.currentTime, 4200, 'пересборка подхватывает фазу снега');
+    fx.unmountAll();
+  });
+});
 
 test('v1.4: в «Лёгких» праздничная сцена рисуется один раз и цикл не крутится', () => {
   env(({ tick, pending }) => {
@@ -1467,43 +1520,34 @@ test('шаг 3: в статичном кадре все десять лампо�
   assert.ok(Math.min.apply(null, moving) < 0.5, 'анимация потеряла бегущую волну');
 });
 
-test('шаг 3: «Лёгкие» — статичный кадр зимы: ровные огни и провод одним рисунком', () => {
-  env(({ tick }) => {
-    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
-    fx._timers = fakeTimers().hook;
+test('шаг 3: в Lite при отказе WebP провод и ровные огни остаются в SVG', () => {
+  env(() => {
+    const fx = freshFx({ motionMode: () => 'lite' });
     const layer = fakeNode(960, 540);
     fx.mount(layer, 'winter');
-    const ctx = layer.children[0].getContext('2d');
-    const alphas = bulbAlphas(ctx);
-    tick(40);
-    assert.equal(fx.stats().steps, 1, 'статичный кадр — один рисунок');
-    assert.equal(alphas.length, 10, 'лампочек в кадре не десять');
-    assert.ok(alphas.every((a) => a === alphas[0] && a > 0.9), 'яркость лампочек неровная: ' + alphas.join(', '));
-    const count = (name) => ctx.calls.filter((c) => c === name).length;
-    assert.equal(count('stroke'), 2, 'провод — тёмная жила и блик');
-    assert.equal(count('lineTo'), 40, 'провод — ломаная из 21 точки на каждый штрих');
+    const image = layer.children[0];
+    assert.equal(image.tagName, 'IMG');
+    const svg = decodeURIComponent(image.src);
+    assert.equal((svg.match(/<circle/g) || []).length, 10);
+    assert.match(svg, /stroke="#535956"/);
+    assert.match(svg, /stroke-linecap/);
     fx.unmountAll();
   });
 });
 
-test('Гирлянда-картинка отключает провод и лампочки, оставляя статичный снег', () => {
-  env(({ tick }) => {
-    const fx = freshFx({ motionMode: () => 'lite' });
-    fx._timers = fakeTimers().hook;
+test('Загрузка гирлянды не рисует запасной провод, при отказе он возвращается', () => {
+  env(() => {
+    const fx = freshFx({ motionMode: () => 'lite', garland: { allowed: () => true } });
     const layer = fakeNode(960, 540);
     fx.mount(layer, 'winter');
-    const ctx = layer.children[0].getContext('2d');
-    const alphas = bulbAlphas(ctx);
-    const strokes = () => ctx.calls.filter(c => c === 'stroke').length;
+    const image = layer.children[0];
+    const svg = () => decodeURIComponent(image.src);
+    assert.doesNotMatch(svg(), /<circle|stroke="#535956"/);
+    assert.match(svg(), /stroke-linecap/);
     fx.bulbs(layer, true);
-    tick(40);
-    assert.equal(alphas.length, 0);
-    assert.equal(strokes(), 0);
-    assert.equal(fx.stats().steps, 1, 'снег нарисован одним статичным кадром');
+    assert.equal(fx.stats().steps, 1, 'готовая картинка не порождает второй снежный растр');
     fx.bulbs(layer, false);
-    tick(40);
-    assert.equal(alphas.length, 10);
-    assert.equal(strokes(), 2);
+    assert.equal((svg().match(/<circle/g) || []).length, 10);
     assert.equal(fx.stats().steps, 2);
     fx.unmountAll();
   });
@@ -1585,7 +1629,7 @@ test('шаг 1: повторный монтаж той же сцены в ста
     tick(40);
     assert.equal(fx.stats().steps, 1);
     const again = fx.mount(layer, 'winter', { color: '#FFFFFF' });
-    assert.equal(layer.children.length, 1, 'второй канвас на том же слое');
+    assert.equal(layer.children.length, 1, 'второе изображение на том же слое');
     assert.equal(again.particles(), first.particles(), 'частицы пересозданы');
     for (let i = 0; i < 3; i++) { if (timers.live().length) timers.fire(); tick(40); }
     assert.equal(fx.stats().steps, 1, 'повторный монтаж перерисовал статичный кадр');
@@ -1595,7 +1639,7 @@ test('шаг 1: повторный монтаж той же сцены в ста
 
 test('шаг 1: live — имя живой сцены на узле; удерживаемая после unmount и снятая — пустая строка', () => {
   env(({ tick }) => {
-    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    const fx = freshFx({ motionMode: () => 'full', fxHeavy: () => false });
     fx._timers = fakeTimers().hook;
     const layer = fakeNode(960, 540);
     assert.equal(fx.live(layer), '');

@@ -2409,6 +2409,11 @@
     css.push('.lumen-hero .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland.is-b .lumen-garland__b{opacity:1}');
     css.push('.lumen-hero .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland--cold.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland--cold.is-b .lumen-garland__b{opacity:.6}');
     css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
+    css.push('.lumen-hero.lumen-theme--newyear .lumen-fx,.lumen-backdrop.lumen-theme--christmas .lumen-fx{contain:paint}');
+    css.push('.lumen-backdrop .lumen-fx__still,.lumen-hero .lumen-fx__still{position:absolute;top:0;left:0;width:100%;height:100%}');
+    css.push('.lumen-hero.lumen-winter-scroll .lumen-fx__canvas--winter,.lumen-hero.lumen-winter-scroll .lumen-fx__still,' +
+      '.lumen-hero.lumen-hero--compact .lumen-fx__still,.lumen-hero.lumen-winter-scroll .lumen-garland__a,' +
+      '.lumen-hero.lumen-winter-scroll .lumen-garland__b{visibility:hidden;-webkit-transition:none;transition:none}');
     /* Оверлеи тем — чистый CSS поверх частиц, без SVG-фильтров: на ТВ
        фильтр стоит отдельного прохода композитора, а градиент растеризуется
        один раз (поправки контроллера к Task 21). Класс темы ставится только

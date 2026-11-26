@@ -8189,6 +8189,62 @@ test('шаг 1: в декабре сцена праздника ставится
   assert.deepEqual(warnLog, []);
 });
 
+test('Новогодний слой доступен на первом фокусе и скрывается при смене карточек', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.advance(0);
+  const node = heroOf(main.activity);
+  const paused = env.fx.mounts[0].opts.paused;
+  focusOn(main, main.card1);
+  assert.equal(paused(), false, 'первый фокус не задерживает снег');
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  assert.equal(paused(), true);
+  assert.equal(node.hasClass('lumen-winter-scroll'), true);
+  env.advance(359);
+  assert.equal(paused(), true);
+  env.advance(2);
+  assert.equal(paused(), false);
+  assert.equal(node.hasClass('lumen-winter-scroll'), false);
+  assert.equal(env.fx.mounts.length, 1);
+});
+
+test('Стрелки гасят снег даже в ряду без метаданных фильма', () => {
+  const env = nyEnv();
+  const main = makeMain();
+  const handlers = new Map();
+  document.addEventListener = (type, handler, capture) => {
+    assert.equal(capture, true);
+    handlers.set(type, handler);
+  };
+  document.removeEventListener = (type, handler, capture) => {
+    assert.equal(handlers.get(type), handler);
+    assert.equal(capture, true);
+    handlers.delete(type);
+  };
+  env.hero.mount(main.activity);
+  env.advance(0);
+  const paused = env.fx.mounts[0].opts.paused;
+  const arrow = { keyCode: 39, target: { tagName: 'BODY' } };
+  const keydown = handlers.get('keydown');
+  assert.equal(typeof keydown, 'function');
+  keydown({ keyCode: 39, target: { tagName: 'INPUT' } });
+  keydown({ keyCode: 13, target: arrow.target });
+  assert.equal(paused(), false);
+  keydown(arrow);
+  assert.equal(paused(), true);
+  env.advance(300);
+  keydown(arrow);
+  env.advance(100);
+  focusOn(main, main.card1);
+  assert.equal(paused(), true);
+  env.advance(261);
+  assert.equal(paused(), false, 'Нативный фокус не продлевает таймер стрелки');
+  env.hero.unmount();
+  assert.equal(handlers.size, 0);
+});
+
 test('шаг 1: листание — смена фильма и приход деталей не снимают и не перезапускают сцену праздника', () => {
   const env = nyEnv();
   const main = makeMain();
