@@ -806,3 +806,17 @@ test('apply: ряды выбранного вручную состава дед�
   fetched[0]({ results: [{ id: 1 }] });
   assert.equal(got[0].lumen_keep, true);
 });
+
+test('«Хэллоуин» на главной только 25 октября – 1 ноября, включая выбранный вручную ряд', () => {
+  const themes = load('53_themes.js');
+  for (const mode of ['rotate', 'history']) {
+    for (const [month, day, shown] of [[10, 24, false], [10, 25, true], [11, 1, true], [11, 2, false], [11, 25, false]]) {
+      const env = setupApply({ month, prefs: { lumen_home_start: mode, lumen_home_rows: 'halloween' } });
+      env.LC.themes.holiday = () => themes.holidayAt(new Date(2026, month - 1, day));
+      env.H.apply({ start: true, manifest: CATALOG });
+      const rows = env.ours();
+      assert.equal(rows.some((row) => row.name === 'lumen_halloween'), shown, mode + ' ' + month + '/' + day);
+      assert.ok(rows.every((row) => row.name && row.title));
+    }
+  }
+});

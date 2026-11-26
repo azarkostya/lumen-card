@@ -189,7 +189,10 @@
     function choose(o, month, limit) {
       var manifest = o.manifest;
       if (!manifest || !Array.isArray(manifest.collections) || limit <= 0) return [];
-      var off = typeof o.off === 'function' ? o.off : function () { return false; };
+      function off(id) {
+        return (id === 'halloween' && o.halloween === false) ||
+          (typeof o.off === 'function' && o.off(id));
+      }
       var i, c;
       var pool = [];
       var weight = [];
@@ -420,7 +423,7 @@
                {continue, because, new_episodes, soon, digital}: какие личные ряды
                есть; recentLeads — лидеры двух прошлых эпох; limit — число
                подборок; mode — 'rotate' или 'history'; advent — есть ли
-               ряд адвента (декабрь);
+               ряд адвента (декабрь); halloween — показывать ли одноимённый ряд;
                off(id) — подборка выключена пользователем в «Каналах» Lampa.
        Возвращает {slots, lead}: слоты по возрастанию места — kind
        'collection' (id, item), 'personal' (id) или 'advent'; lead — id
@@ -445,9 +448,11 @@
         }
         var next = HISTORY_ROWS_FROM;
         if (o.advent) put(next++, 'advent', 'advent');
+        var end = next + limit;
         var list = (o.manifest && LC.rows && typeof LC.rows.homeRows === 'function')
-          ? LC.rows.homeRows(o.manifest, o.picked, month, limit) : [];
-        for (i = 0; i < list.length; i++) {
+          ? LC.rows.homeRows(o.manifest, o.picked, month, limit + (o.halloween === false ? 1 : 0)) : [];
+        for (i = 0; i < list.length && next < end; i++) {
+          if (o.halloween === false && list[i].id === 'halloween') continue;
           slots.push({ place: next++, kind: 'collection', id: list[i].id, item: list[i] });
         }
         slots.sort(byPlace);
@@ -616,8 +621,16 @@
       var kidsMode = false;
       try { kidsMode = !!(LC.kids && LC.kids.enabled()); } catch (eKids) {}
 
+      /* У праздничного ряда то же окно, что у атмосферы Хэллоуина.
+         Месяцы каталога описывают подборку и по-прежнему нужны в хабе. */
+      var halloween = true;
+      if (LC.themes && typeof LC.themes.holiday === 'function') {
+        var holiday = LC.themes.holiday();
+        halloween = !!holiday && holiday.id === 'halloween';
+      }
       var plan = planHome({
         manifest: _manifest,
+        halloween: halloween,
         picked: picked,
         month: monthNow(),
         epoch: epoch.n,
