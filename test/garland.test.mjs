@@ -51,17 +51,20 @@ function fixture() {
   return { garland: LC.garland, host: node(), node, settings, requests, finish, flags, tick, timers, document, window };
 }
 
-test('Новогодний узел ждёт обе картинки, встаёт перед канвасом и переживает повторный mount', () => {
+test('Новогодняя полоса появляется сразу, дождётся украшений и переживает повторный mount', () => {
   const f = fixture();
   const canvas = f.node();
   f.host.appendChild(canvas);
   f.garland.preload();
   f.garland.mount(f.host);
   assert.deepEqual(f.requests.map(r => r.url.split('/').pop()), ['garland-warm-still.webp', 'ornaments-warm.webp']);
-  f.finish(0);
   assert.equal(f.host.firstChild, canvas);
-  f.finish(1);
+  assert.deepEqual(f.flags.at(-1), [f.host, true], 'ожидание полосы гасит запасной провод');
+  f.finish(0);
   const picture = f.host.firstChild;
+  assert.equal(picture.children.length, 1);
+  f.finish(1);
+  assert.equal(f.host.firstChild, picture);
   assert.match(picture.className, /lumen-garland--warm/);
   assert.equal(picture.children[0].className, 'lumen-garland__orn');
   assert.equal(f.host.children[1], canvas);
@@ -127,7 +130,7 @@ test('Сетевая ошибка или таймаут оставляют ка�
     f.garland.mount(f.host);
     assert.equal(f.host.firstChild, null);
     assert.equal(f.requests.length, 2);
-    assert.equal(f.flags.some(([, on]) => on), false);
+    assert.deepEqual(f.flags.at(-1), [f.host, false], 'только после отказа возвращается запасной провод');
   }
 });
 
