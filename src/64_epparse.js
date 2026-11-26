@@ -9,6 +9,7 @@
       [/(?:^|[\s._/[(])s(\d{1,2})e(\d{1,3})(?:\s*-\s*e?(\d{1,3}))?(?![\w]|\s*-\s*(?:s|e)?\d)/gi, 0],
       [/(?:^|[\s._/[(])(\d{1,2})x(\d{1,3})(?:\s*-\s*(\d{1,3}))?(?![\w]|\s*-\s*\d)/gi, 0]
     ];
+    var SEASON_SPAN = /(?:^|[\s._/[(])(\d{1,2})\s*-\s*(\d{1,2})x(\d{1,3})\s*-\s*(\d{1,3})(?:\s+из\s+(\d{1,3}))?(?![\w]|\s*-\s*\d)/gi;
     var EPISODES_ONLY = /[[(]\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s+из\s+(\d{1,3})\s*[\])]/gi;
     var SEASONS_ONLY = /\[\s*s(\d{1,2})(?:\s*-\s*s?(\d{1,2}))?\s*\]/gi;
 
@@ -18,6 +19,12 @@
 
     function empty() {
       return result([], 0, 0, 0);
+    }
+
+    function seasonsBetween(start, end) {
+      var seasons = [];
+      for (var s = start; s <= end; s++) seasons.push(s);
+      return seasons;
     }
 
     function parse(title) {
@@ -30,13 +37,20 @@
           invalid = true;
           return;
         }
-        if (found && (found.seasons[0] !== seasons[0] || found.from !== first || found.to !== last ||
+        if (found && (found.seasons.join(',') !== seasons.join(',') || found.from !== first || found.to !== last ||
             (found.total && total && found.total !== total))) {
           invalid = true;
           return;
         }
         found = result(seasons, first, last, total || (found && found.total) || 0);
       }
+      /* Сезоны и серии в сквозной записи — общие диапазоны, без
+         соответствия «сезон → серии». Скрываем этот кусок от одиночного x. */
+      title = title.replace(SEASON_SPAN, function (text, start, end, first, last, total) {
+        if (!+start || +start >= +end) invalid = true;
+        else add(seasonsBetween(+start, +end), +first, +last, total ? +total : null);
+        return ' ';
+      });
       for (var i = 0; i < SEASON_RANGES.length; i++) {
         var rule = SEASON_RANGES[i];
         rule[0].lastIndex = 0;
@@ -58,13 +72,11 @@
       var start = +m[1];
       var end = +(m[2] || m[1]);
       if (!start || start > end) return empty();
-      var seasons = [];
-      for (var s = start; s <= end; s++) seasons.push(s);
-      return result(seasons, 0, 0, 0);
+      return result(seasonsBetween(start, end), 0, 0, 0);
     }
 
     function verdict(parsed, target) {
-      if (!parsed || !parsed.known || !parsed.seasons.length || !target || !(target.season > 0) || !(target.episode > 0)) return 'unknown';
+      if (!parsed || !parsed.known || parsed.seasons.length !== 1 || !target || !(target.season > 0) || !(target.episode > 0)) return 'unknown';
       if (parsed.seasons.indexOf(Number(target.season)) === -1) return 'other_season';
       if (target.episode > parsed.to) return 'upto';
       if (target.episode >= parsed.from) return 'has';

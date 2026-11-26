@@ -626,10 +626,15 @@
       if (!context) return;
       box.setAttribute('data-lumen-episode', '1');
       var parsed = LC.epparse.parse(element && (element.Title || element.title));
-      if (!parsed.known || parsed.seasons.length !== 1) return;
+      if (!parsed.known || !parsed.seasons.length) return;
 
       var nativeRange = box.querySelector('.m-general');
-      var text = 'S' + parsed.seasons[0] + ' \u00b7 ' + parsed.from + (parsed.single ? '' : '\u2013' + parsed.to);
+      var text = 'S' + parsed.seasons[0];
+      if (parsed.seasons.length > 1) {
+        text += '-' + parsed.seasons[parsed.seasons.length - 1] + ' ' + parsed.from + (parsed.single ? '' : '-' + parsed.to);
+      } else {
+        text += ' \u00b7 ' + parsed.from + (parsed.single ? '' : '\u2013' + parsed.to);
+      }
       box.insertBefore(episodeLabel('div', 'lumen-ep-range', text), nativeRange || null);
       var verdict = LC.epparse.verdict(parsed, context.target);
       if (verdict === 'has' || verdict === 'upto') {

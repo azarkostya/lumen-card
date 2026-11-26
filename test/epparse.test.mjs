@@ -40,3 +40,12 @@ test('вердикт различает серию в раздаче, верхн
   assert.equal(verdict('Сериал [12 из 12]', 12), 'unknown');
   assert.equal(verdict('Сериал S02E05', 0), 'unknown');
 });
+
+test('сквозной диапазон раздачи «Медленные лошади» не обещает конкретную серию сезона', () => {
+  const api = epparse();
+  const { title, expected } = data.acceptance[0];
+  const parsed = api.parse(title);
+  assert.deepEqual(exact(parsed), expected);
+  assert.equal(api.verdict(parsed, { season: 3, episode: 5 }), 'unknown');
+  assert.equal(api.verdict(parsed, { season: 6, episode: 36 }), 'unknown');
+});
