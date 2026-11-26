@@ -41,8 +41,7 @@
          больше нет overflow:hidden: скругление держат сам кадр и верхняя
          строка. Высота ряда — кадр плюс подпись плюс запас на масштаб
          фокуса (1.08/1.09 — по .36/.40em сверху и снизу). */
-      var rowH = APPLE ? H + 3.6 : H + 2.3;
-      css.push('.lumen-card .lumen-episodes__viewport{height:' + ctx.round2(rowH) + 'em}');
+      css.push('.lumen-card .lumen-episodes__viewport{height:' + ctx.round2(H + 3.6) + 'em}');
       css.push('.lumen-card .lumen-episodes__track{height:' + H + 'em}');
       css.push('.lumen-card .lumen-episode{height:' + H + 'em;overflow:visible}');
       css.push('.lumen-card .lumen-episode__still{border-radius:inherit}');
@@ -82,10 +81,8 @@
       css.push('.lumen-card .lumen-episodes .lumen-episode--past:not(.focus){opacity:0}');
 
       if (!APPLE) {
-        /* L: «N. Название» и длительность справа в одной строке. */
-        css.push('.lumen-card .lumen-episode__bottom{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline}');
-        css.push('.lumen-card .lumen-episode__name{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0}');
-        css.push('.lumen-card .lumen-episode__caption{-webkit-flex-shrink:0;flex-shrink:0;max-width:55%;margin-left:.53em}');
+        /* Метаданные под названием — статус просмотра не сжимает текст серии. */
+        css.push('.lumen-card .lumen-episode__caption{margin-top:.09em}');
         /* Полоса прогресса — 6 px акцентом по нижней кромке кадра, без трека. */
         css.push('.lumen-card .lumen-episode__bar,.lumen-card .lumen-episode.focus .lumen-episode__bar{position:absolute;left:0;right:0;top:-.26em;height:.26em;margin:0;border-radius:0 0 .42em .42em;background:none}');
         css.push('.lumen-card .lumen-episode__bar > div,.lumen-card .lumen-episode.focus .lumen-episode__bar > div{border-radius:0;background:' + A + '}');

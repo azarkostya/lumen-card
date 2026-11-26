@@ -93,3 +93,11 @@ test('QA v2: при построенном ряде серий короткое 
   assert.match(header, /row\.addClass\('hide'\);[\s\S]{0,200}root\.removeClass\('lumen-has-episodes'\)/);
   assert.match(header, /row\.removeClass\('hide'\);\s*root\.addClass\('lumen-has-episodes'\)/);
 });
+
+test('метаданные серии занимают отдельную строку и не сужают название', () => {
+  for (const { css } of [lumen, apple]) {
+    assert.notEqual(last(css, '.lumen-card .lumen-episode__bottom', 'display'), 'flex');
+    assert.equal(last(css, '.lumen-card .lumen-episode__caption', 'max-width'), null);
+    assert.equal(last(css, '.lumen-card .lumen-episodes__viewport', 'height'), '12.48em');
+  }
+});
