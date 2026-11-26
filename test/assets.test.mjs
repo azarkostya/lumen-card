@@ -11,7 +11,7 @@ const assets = {
   'ornaments-warm.webp': [480, 336, 40000],
   'snowflakes.webp': [256, 64, 12000]
 };
-for (const style of ['warm', 'cold', 'cold2']) {
+for (const style of ['warm', 'cold', 'cold2', 'velvet', 'velvet2', 'velvet3']) {
   if (style !== 'warm') assets['garland-' + style + '-still.webp'] = [1920, 288, 60000];
   for (const group of ['a', 'b']) {
     const file = 'garland-' + style + '-' + group + '.webp';

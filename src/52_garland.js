@@ -159,7 +159,8 @@
       }
       var style = 'warm';
       if (LC.pref('lumen_flat', false)) {
-        style = LC.pref('lumen_fx_garland_apple', 'cold') === 'cold2' ? 'cold2' : 'cold';
+        style = LC.pref('lumen_fx_garland_apple', 'velvet');
+        if (['velvet', 'velvet2', 'velvet3', 'cold', 'cold2'].indexOf(style) === -1) style = 'velvet';
       }
       if (pack && pack.style === style) return true;
       unmount();

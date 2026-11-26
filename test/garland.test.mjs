@@ -113,7 +113,7 @@ test('Вне сезона и при выключенных эффектах за
   f.settings.lumen_flat = true;
   f.garland.mount(f.host);
   assert.equal(f.requests.length, 1);
-  assert.match(f.requests[0].url, /garland-cold-still\.webp$/);
+  assert.match(f.requests[0].url, /garland-velvet-still\.webp$/);
   f.finish(0);
   assert.equal(f.host.firstChild.children.length, 1);
 });
@@ -214,7 +214,9 @@ test('Слабая приставка в Авто остаётся на стат
 test('Струна заменяет Подвесы в Apple TV и оставляет Ретро в Lumen', () => {
   const f = fixture();
   f.settings.lumen_flat = true;
+  f.settings.lumen_fx_garland_apple = 'cold';
   f.garland.mount(f.host);
+  assert.match(f.requests[0].url, /garland-cold-still\.webp$/);
   f.finish(0);
   const first = f.host.firstChild;
   f.settings.lumen_fx_garland_apple = 'cold2';
@@ -228,6 +230,26 @@ test('Струна заменяет Подвесы в Apple TV и оставля
   f.settings.lumen_flat = false;
   f.garland.mount(f.host);
   assert.match(f.requests[2].url, /garland-warm-still\.webp$/);
+});
+
+test('Палитры Apple TV подставляют свои полосы и накладки, незнакомое значение берёт Бархат', () => {
+  for (const [pref, palette] of [
+    ['velvet', 'velvet'], ['velvet2', 'velvet2'], ['velvet3', 'velvet3'], ['unknown', 'velvet']
+  ]) {
+    const f = fixture();
+    f.settings.lumen_flat = true;
+    f.settings.lumen_fx_garland_apple = pref;
+    f.settings.mode = 'full';
+    f.window.innerWidth = 960;
+    f.window.innerHeight = 540;
+    const paths = () => f.requests.map(r => r.url.split('/v1/')[1]);
+    f.garland.mount(f.host, { card: true });
+    assert.deepEqual(paths(), ['garland-' + palette + '-still.webp']);
+    f.finish(0);
+    assert.deepEqual(paths(), ['garland-' + palette + '-still.webp',
+      'half/garland-' + palette + '-a.webp', 'half/garland-' + palette + '-b.webp']);
+    assert.match(f.host.firstChild.className, /lumen-garland--cold/);
+  }
 });
 
 test('На открытой карточке смена режима переставляет только накладки', () => {
