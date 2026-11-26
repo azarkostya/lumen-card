@@ -58,14 +58,25 @@ test('bench: period — медиана дельт', () => {
   assert.equal(api.period([]), 0);
 });
 
-test('bench: стадии — девять, в порядке ТЗ; тяжёлые эффекты только в «Полном»', () => {
+test('Раунд 2: самотест сравнивает обычное листание и реальную дату Нового года', () => {
   const { api } = fresh();
-  assert.deepEqual(api.STAGES.map((s) => s.id), ['lite idle', 'full idle', '+fx', '+frames', '+tint', 'lite scroll', 'full scroll', 'all', 'stop scroll']);
+  const old = api.STAGES.find((s) => s.id === 'lite scroll');
+  const holiday = api.STAGES.find((s) => s.id === 'NY scroll');
+  assert.ok(old && holiday && holiday.scroll);
+  assert.equal(holiday.motion, old.motion);
+  assert.equal(api.overridesFor(holiday).lumen_dev_date, '1205');
+  assert.equal(api.overridesFor(holiday).lumen_fx, 'seasonal');
+  assert.equal(api.overridesFor(old).lumen_fx, 'off');
+});
+
+test('bench: стадии — одиннадцать, в порядке ТЗ; тяжёлые эффекты только в «Полном»', () => {
+  const { api } = fresh();
+  assert.deepEqual(api.STAGES.map((s) => s.id), ['lite idle', 'full idle', '+fx', 'NY idle', '+frames', '+tint', 'lite scroll', 'full scroll', 'all', 'NY scroll', 'stop scroll']);
   for (const s of api.STAGES) {
     if (s.heavy || s.fx || s.flip || s.tint) assert.equal(s.motion, 'full', s.id);
   }
-  const all = api.STAGES[7];
-  assert.ok(all.fx && all.flip && all.tint && all.scroll && all.heavy, 'восьмая — всё сразу');
+  const all = api.STAGES[8];
+  assert.ok(all.fx && all.flip && all.tint && all.scroll && all.heavy, 'девятая — всё сразу');
   /* Подмены: трейлер выключен на всех стадиях, режим и тумблер — по стадии. */
   const o = api.overridesFor(api.STAGES[2]);
   assert.equal(o.lumen_motion, 'full');
@@ -73,9 +84,9 @@ test('bench: стадии — девять, в порядке ТЗ; тяжёлы
   assert.equal(o.lumen_trailer, 'off');
   assert.equal(o.lumen_hero_media, 'frames');
   assert.equal(api.overridesFor(api.STAGES[0]).lumen_fx_heavy, false);
-  /* Полоса телеметрии: девятая — листание с остановками в «Лёгких», без
+  /* Полоса телеметрии: заключительная — листание с остановками в «Лёгких», без
      тяжёлых эффектов; замер — вся последовательность 4 × (4 × 400 + 3000). */
-  const stops = api.STAGES[8];
+  const stops = api.STAGES[10];
   assert.equal(stops.stops, true);
   assert.equal(stops.motion, 'lite');
   assert.ok(!stops.heavy && !stops.fx && !stops.flip && !stops.tint && !stops.scroll, JSON.stringify(stops));
@@ -90,7 +101,7 @@ test('bench: описание кнопки «Тест производитель
   const LC = {};
   new Function('LC', 'module', readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8'))(LC, { exports: null, lumen: true });
   const descr = LC.STRINGS.lumen_debug_bench_descr;
-  const words = { 9: { ru: 'девяти стадиям', en: 'nine stages', uk: 'дев’ять стадій' } }[api.STAGES.length];
+  const words = { 11: { ru: 'одиннадцати стадиям', en: 'eleven stages', uk: 'одинадцять стадій' } }[api.STAGES.length];
   assert.ok(words, 'стадий ' + api.STAGES.length + ' — поправить описание кнопки и эту таблицу слов');
   for (const lang of ['ru', 'en', 'uk']) {
     assert.ok(descr[lang].indexOf(words[lang]) !== -1, lang + ': нет «' + words[lang] + '»: ' + descr[lang]);
@@ -108,7 +119,7 @@ function wideResult(api) {
   /* Полоса gc3: сборок за замер — не больше одной на тик датчика (18,4 с
      / 0,5 с ≈ 37), совпавших кадров — не больше сборок. */
   const rows = api.STAGES.map((s, i) => Object.assign({
-    n: i + 1, id: s.id, partial: i === 7, frames: 300, fps: 59.9, p50: 16.7, p95: 1234.5, miss1: 1234, miss2: 999,
+    n: i + 1, id: s.id, partial: s.id === 'all', frames: 300, fps: 59.9, p50: 16.7, p95: 1234.5, miss1: 1234, miss2: 999,
     loafN: 123, loafMs: 98765, worst: { ms: 4321, host: 'very-long-cdn-hostname.example.com setTimeout handler with a long name' },
     lat95: 123.4, anim: 1234, fxMs: 12.34, gc: { n: 37, hit: 37, t: [] },
     top: { ms: 12345.6, block: 9876.5, js: 1234.4, rev: 2345.6, sl: 3456.7, forced: 456.7, other: 12345.6, gc: true,
@@ -116,7 +127,7 @@ function wideResult(api) {
   }, s.stops ? { hero: WIDE_HERO } : {}));
   return {
     version: '0.2.0', cr: '153', hw: '4c/n/a', w: 960, h: 540, dpr: 2, P: 16.7, time: '21:05',
-    reason: 'key', stoppedAt: 8, rows
+    reason: 'key', stoppedAt: 9, rows
   };
 }
 
@@ -142,7 +153,7 @@ test('bench: таблица — шапка cr · hw · 960×540@2 · P · вре
   assert.ok(text.indexOf('прервано') !== -1, 'причина прерывания');
   /* Раунд «Листание»: вторая таблица съела строки экрана — причина
      прерывания и «Назад» делят одну строку. */
-  assert.equal(lines[lines.length - 1], 'прервано: key · 8/9 · Назад — закрыть');
+  assert.equal(lines[lines.length - 1], 'прервано: key · 9/11 · Назад — закрыть');
   const done = api.table(Object.assign({}, r, { reason: 'done' }));
   assert.equal(done[done.length - 1], 'Назад — закрыть');
   /* Без LoAF — «n/a», а не ноль. */
@@ -247,21 +258,19 @@ test('bench: подвал «loaf max» и JSON — без почты из invoke
 test('bench: вторая таблица — самый длинный кадр каждой стадии по фазам; обе таблицы — на одном экране 960×540', () => {
   const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k, hud: HUD });
   const lines = api.table(wideResult(api));
-  /* Экран: кегль FONT_PX, межстрочный LINE_EM, поля PAD_PX — 25 строк на
-     540 CSS px (телевизор 960×540@2); полоса телеметрии: девятая стадия и
-     строка героя, межстрочный 1.3. */
+  /* Две таблицы, строка героя и подсказка помещаются в 540 CSS px. */
   assert.equal(api.MAX_LINES, Math.floor((540 - 2 * api.PAD_PX) / (api.FONT_PX * api.LINE_EM)));
-  assert.equal(api.MAX_LINES, 25);
-  assert.equal(lines.length, 25, 'самый длинный случай занимает экран целиком:\n' + lines.join('\n'));
+  assert.equal(api.MAX_LINES, 29);
+  assert.equal(lines.length, 29, 'самый длинный случай занимает экран целиком:\n' + lines.join('\n'));
   assert.ok(lines.length <= api.MAX_LINES, 'таблица длиннее экрана: ' + lines.length + ' строк\n' + lines.join('\n'));
   for (const line of lines) assert.ok(line.length <= api.MAX_COLS, 'строка шире экрана: «' + line + '»');
   const head = lines.findIndex((l) => /^\s*#\s+max\s+blk\s+js\s+r\+ev\s+st\+l\s+frc\s+other\s+script( · other: .+)?$/.test(l));
   assert.ok(head > 0, 'заголовка второй таблицы нет:\n' + lines.join('\n'));
   /* v1.4: подпись колонки «other» — в заголовке, без лишней строки. */
   assert.ok(/ · other: pre-render, no JS \(GC, decode\)$/.test(lines[head]), 'подписи other нет: «' + lines[head] + '»');
-  const rows = lines.slice(head + 1, head + 10);
-  assert.equal(rows.length, 9);
-  assert.ok(/^\s*9\s+12346\s/.test(rows[8]), 'у стадии stop scroll — своя строка фаз: «' + rows[8] + '»');
+  const rows = lines.slice(head + 1, head + 12);
+  assert.equal(rows.length, 11);
+  assert.ok(/^\s*11\s+12346\s/.test(rows[10]), 'у стадии stop scroll — своя строка фаз: «' + rows[10] + '»');
   const cells = rows[0].trim().split(/\s+/);
   assert.deepEqual(cells.slice(0, 8), ['1', '12346', '9877', '1234', '2346', '3457', '457', '12346'], rows[0]);
   assert.ok(rows[0].indexOf('very-long-cdn-hostname') !== -1, 'скрипта нет: ' + rows[0]);
@@ -314,7 +323,7 @@ function makeEnv(opts) {
     removeEventListener: (t, fn) => { docListeners[t] = (docListeners[t] || []).filter((f) => f !== fn); }
   };
   let focusIdx = 0;
-  const cards = [{ id: 'c0' }, { id: 'c1' }, { id: 'c2' }, { id: 'c3' }, { id: 'c4' }, { id: 'c5' }, { id: 'c6' }, { id: 'c7' }];
+  const cards = Array.from({ length: 8 }, (_, i) => ({ id: 'c' + i, offsetWidth: 100 }));
   const hero = {
     parked: false, activeFlag: true, compactFlag: !!opts.compact,
     active: () => hero.activeFlag,
@@ -460,7 +469,7 @@ function makeEnv(opts) {
 const LEAVE = 600;
 const STAGE = 6000;
 const STOP_STAGE = 1000 + 18400;
-const RUN = 8 * STAGE + STOP_STAGE;
+const RUN = 10 * STAGE + STOP_STAGE;
 
 /* Уборка — одна на все пути выхода: подмены сняты, режим применён заново,
    принудительный канвас снят, смена кадров героя отпущена, цвет подкраски
@@ -483,7 +492,74 @@ function assertCleanup(e, label) {
   assert.equal(e.api.running(), false, label + ': прогон не закрыт');
 }
 
-test('bench: полный прогон — восемь стадий, подмены только в памяти, одна уборка, таблица до «Назад»', () => {
+test('bench: запуск сохраняет контроллер ряда после закрытия настроек', () => {
+  const e = makeEnv();
+  const controller = e.win.Lampa.Controller;
+  controller.toggle('settings_component');
+  const toContent = controller.toContent;
+  controller.toContent = () => {
+    toContent();
+    controller.toggle('items_line');
+  };
+  e.api.start();
+  e.advance(LEAVE + 10);
+  assert.equal(e.api.running(), true);
+  assert.deepEqual(e.toggles, ['settings_component', 'items_line']);
+  assert.equal(controller.enabled().name, 'items_line');
+  e.api.stop();
+});
+
+test('bench: запуск возвращает content, если после закрытия настроек контроллер ряда не восстановился', () => {
+  const e = makeEnv();
+  e.win.Lampa.Controller.toggle('settings_component');
+  e.api.start();
+  e.advance(LEAVE + 10);
+  assert.equal(e.api.running(), true);
+  assert.deepEqual(e.toggles, ['settings_component', 'content']);
+  e.api.stop();
+});
+
+test('bench: скрытый ряд после выхода из настроек заменяется прежним видимым рядом', () => {
+  const e = makeEnv();
+  const L = e.win.Lampa;
+  const C = L.Controller;
+  const [remembered, hidden, first] = e.cards;
+  const row = (card) => ({
+    contains: (el) => el === card,
+    querySelectorAll: () => [card]
+  });
+  hidden.offsetWidth = 0;
+  remembered.offsetWidth = first.offsetWidth = 100;
+  remembered.parentNode = row(remembered);
+  first.parentNode = row(first);
+  L.Activity = { active: () => ({
+    component: 'main',
+    activity: { component: { items: [first, remembered].map((card) => ({
+      render: () => card.parentNode,
+      toggle: () => { e.log.push('line.toggle ' + card.id); C.toggle('items_line'); }
+    })) } }
+  }) };
+  /* Герой помнит прежнюю карточку, хотя Lampa уже увела свой фокус. */
+  let navigatorFocus = remembered;
+  e.win.Navigator = { getFocusedElement: () => navigatorFocus };
+  const focus = C.collectionFocus;
+  C.collectionFocus = (el) => { navigatorFocus = el; focus(el); };
+  const toggle = C.toggle;
+  C.toggle = (name) => {
+    toggle(name);
+    if (name === 'content') navigatorFocus = hidden;
+  };
+  C.toggle('settings_component');
+  e.api.start();
+  e.advance(LEAVE + 10);
+  assert.ok(e.log.includes('line.toggle ' + remembered.id));
+  assert.equal(navigatorFocus, remembered);
+  assert.equal(e.hero.focused(), remembered);
+  assert.equal(e.api.running(), true);
+  e.api.stop();
+});
+
+test('bench: полный прогон — одиннадцать стадий, подмены только в памяти, одна уборка, таблица до «Назад»', () => {
   const e = makeEnv({ loaf: true });
   e.api.start();
   e.advance(LEAVE + 10);
@@ -493,8 +569,9 @@ test('bench: полный прогон — восемь стадий, подме
   assert.equal(e.api.running(), true);
   e.advance(RUN + 100);
 
-  assert.deepEqual(e.overrides.map((o) => o.lumen_motion), ['lite', 'full', 'full', 'full', 'full', 'lite', 'full', 'full', 'lite']);
-  assert.deepEqual(e.overrides.map((o) => o.lumen_fx_heavy), [false, false, true, true, true, false, true, true, false]);
+  assert.deepEqual(e.overrides.map((o) => o.lumen_motion), ['lite', 'full', 'full', 'full', 'full', 'full', 'lite', 'full', 'full', 'lite', 'lite']);
+  assert.deepEqual(e.overrides.map((o) => o.lumen_fx_heavy), [false, false, true, true, true, true, false, true, true, false, false]);
+  assert.deepEqual(e.overrides.map((o, i) => o.lumen_dev_date === '1205' ? i : -1).filter(i => i >= 0), [3, 9]);
   assert.ok(e.overrides.every((o) => o.lumen_trailer === 'off' && o.lumen_hero_media === 'frames'), 'трейлер выключен подменой');
   /* Ревью ba6a3ac..6a1c364 (~60): праздничные темы рисуют сцены
      (winter/halloween — спрайты свечения, src/52_fx.js), и дороже всего на
@@ -502,7 +579,7 @@ test('bench: полный прогон — восемь стадий, подме
   assert.ok(e.log.indexOf('hero.benchFx winter') !== -1, 'частицы — сцена winter принудительно');
   assert.equal(e.log.indexOf('hero.benchFx snow'), -1, 'прежний движок snow — не то, что рисуют праздники');
   assert.equal(FX_PRESETS.winter && FX_PRESETS.winter.scene, true, 'winter — сцена движка частиц');
-  assert.ok(e.log.indexOf('hero.benchFlip') !== -1, 'смена кадров на стадиях 4, 5, 8');
+  assert.ok(e.log.indexOf('hero.benchFlip') !== -1, 'смена кадров на стадиях 5, 6, 9');
   assert.ok(e.log.some((x) => /^accent\.drive \{"r":(?!1,)\d+/.test(x)), 'подкраска меняется на стадиях +tint и all');
   assert.ok(e.log.indexOf('move right') !== -1 && e.log.indexOf('move left') !== -1, 'листание');
   assert.equal(e.focusIdx(), 0, 'листание вернуло фокус на исходную карточку');
@@ -510,9 +587,9 @@ test('bench: полный прогон — восемь стадий, подме
   assertCleanup(e, 'конец');
   const r = e.api.last();
   assert.equal(r.reason, 'done');
-  assert.equal(r.rows.length, 9);
-  assert.equal(r.rows[8].hero, null, 'зонда нет (LC.hud без probe) — строка героя n/a');
-  assert.ok(e.api.table(r).indexOf('9 hero: n/a') !== -1, e.api.table(r).join('\n'));
+  assert.equal(r.rows.length, 11);
+  assert.equal(r.rows[10].hero, null, 'зонда нет (LC.hud без probe) — строка героя n/a');
+  assert.ok(e.api.table(r).indexOf('11 hero: n/a') !== -1, e.api.table(r).join('\n'));
   assert.equal(r.rows[0].hero, undefined, 'у прочих стадий строки героя нет');
   assert.equal(r.rows[0].gc, null, 'нет FinalizationRegistry — датчик сборки молчит');
   assert.ok(r.rows[0].frames > 250, 'кадры считаются только в окне замера (5 с): ' + r.rows[0].frames);
@@ -567,7 +644,7 @@ test('bench: фон, смена активности, смена контрол�
   const e = makeEnv({ flipThrows: true });
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(4 * STAGE);
+  e.advance(4 * STAGE + 1600);
   assertCleanup(e, 'error');
   assert.equal(e.api.last().reason, 'error');
 });
@@ -704,9 +781,9 @@ test('stop scroll: 4 группы по 5 шагов через 400 мс и ос�
   f = fakeProbe(e.log);
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(8 * STAGE + 1000 + 10);
+  e.advance(10 * STAGE + 1000 + 10);
   const at = e.log.lastIndexOf('probe.make');
-  assert.ok(at !== -1, 'зонд не создан к началу замера девятой стадии');
+  assert.ok(at !== -1, 'зонд не создан к началу замера последней стадии');
   assert.deepEqual(f.made, [{ keys: false }], 'клавиш у теста нет — нажатия зонду даёт сам тест');
   e.advance(18400 + 100);
   const moves = e.log.slice(at).filter((x) => x.indexOf('move ') === 0).map((x) => (x === 'move right' ? 'R' : 'L')).join('');
@@ -720,17 +797,17 @@ test('stop scroll: 4 группы по 5 шагов через 400 мс и ос�
   assert.ok(e.log.indexOf('probe.stop') < e.log.lastIndexOf('clearOverride'), 'зонд снят до уборки');
   const r = e.api.last();
   assert.equal(r.reason, 'done');
-  assert.equal(r.rows.length, 9);
-  const row = r.rows[8];
+  assert.equal(r.rows.length, 11);
+  const row = r.rows[10];
   assert.equal(row.id, 'stop scroll');
   assert.ok(row.frames > 1000, 'кадры считаются все 18,4 с замера: ' + row.frames);
   assert.deepEqual(row.hero.title, [880, 1480]);
   assert.equal(row.hero.shows.length, 1, 'сами показы — в JSON результата');
   assert.equal(e.focusIdx(), 0, 'уборка вернула фокус на исходную карточку');
   const lines = e.api.table(r);
-  const i = lines.findIndex((l) => /^\s*9\s+stop scroll/.test(l));
+  const i = lines.findIndex((l) => /^\s*11\s+stop scroll/.test(l));
   assert.ok(i > 0, lines.join('\n'));
-  assert.equal(lines[i + 1], '9 hero 4: T_title 880/1480 · T_frame 1650/2900 (3) · gray 1 · pf h/m 3/1 · net-in-burst 0',
+  assert.equal(lines[i + 1], '11 hero 4: T_title 880/1480 · T_frame 1650/2900 (3) · gray 1 · pf h/m 3/1 · net-in-burst 0',
     'строка героя — сразу под строкой стадии');
   assert.ok(lines.length <= e.api.MAX_LINES, lines.length + ' строк');
 });
@@ -741,15 +818,15 @@ test('stop scroll: прерывание посреди стадии — стро
   f = fakeProbe(e.log);
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(8 * STAGE + 1000 + 6000);
+  e.advance(10 * STAGE + 1000 + 6000);
   e.key();
   assertCleanup(e, 'клавиша в stop scroll');
   assert.equal(f.stops, 1);
   const r = e.api.last();
-  assert.equal(r.rows.length, 9);
-  assert.equal(r.rows[8].partial, true);
-  assert.deepEqual(r.rows[8].hero.frame, [1650, 2900]);
-  assert.ok(e.api.table(r).some((l) => l.indexOf('9 hero 4: ') === 0));
+  assert.equal(r.rows.length, 11);
+  assert.equal(r.rows[10].partial, true);
+  assert.deepEqual(r.rows[10].hero.frame, [1650, 2900]);
+  assert.ok(e.api.table(r).some((l) => l.indexOf('11 hero 4: ') === 0));
 });
 
 test('stop scroll: ни один шаг не уходит левее исходной карточки даже в ряду из двух', () => {
@@ -758,7 +835,7 @@ test('stop scroll: ни один шаг не уходит левее исход�
   f = fakeProbe(e.log);
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(8 * STAGE + 1000 + 10);
+  e.advance(10 * STAGE + 1000 + 10);
   const at = e.log.lastIndexOf('probe.make');
   let pos = 0;
   let min = 0;
@@ -784,9 +861,9 @@ test('stop scroll: зонд снимается в конце СВОЕЙ стад
     e.advance(LEAVE + 10);
     e.advance(RUN + STAGE + 100);
     const overrides = e.log.map((x, i) => [x, i]).filter((x) => x[0].indexOf('override ') === 0);
-    assert.equal(overrides.length, 10);
+    assert.equal(overrides.length, 12);
     const stop = e.log.indexOf('probe.stop');
-    assert.ok(stop !== -1 && stop < overrides[9][1], 'зонд жил и в следующей стадии');
+    assert.ok(stop !== -1 && stop < overrides[11][1], 'зонд жил и в следующей стадии');
     assert.equal(f.stops, 1);
   } finally {
     e.api.STAGES.pop();
@@ -873,7 +950,7 @@ test('bench: датчик сборки — своя метка отпускае�
   const e = makeEnv({ loaf: true, fr: true });
   e.api.start();
   e.advance(LEAVE + 10);
-  e.advance(5 * STAGE + 1100);             /* стадия 6, замер */
+  e.advance(6 * STAGE + 1100);             /* lite scroll, замер */
   const released = () => e.gcReg.filter((x) => x.held < 0).length;
   assert.equal(released(), e.api.GC_POOL, 'ветераны отпущены все, и больше ничего: своим меткам сборок ещё не было');
   e.gc('major');                           /* ветераны */
@@ -886,7 +963,7 @@ test('bench: датчик сборки — своя метка отпускае�
   e.advance(200);
   e.gc('major');
   e.advance(RUN);
-  const row = e.api.last().rows[5];
+  const row = e.api.last().rows[6];
   assert.equal(row.id, 'lite scroll');
   assert.equal(row.gc.n, 2, 'ветераны и старая метка; сборка без отпущенных меток не видна: ' + JSON.stringify(row.gc));
   assert.equal(row.gc.hit, 0, 'длинных кадров не было');
