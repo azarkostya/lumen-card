@@ -1,5 +1,6 @@
 
 const fs = await import('node:fs');
+const { createHash } = await import('node:crypto');
 const { default: assert } = await import('node:assert/strict');
 const { default: test } = await import('node:test');
 const { runInNewContext } = await import('node:vm');
@@ -11,7 +12,7 @@ const assets = {
   'ornaments-warm.webp': [480, 336, 40000],
   'snowflakes.webp': [256, 64, 12000]
 };
-for (const style of ['warm', 'cold', 'cold2']) {
+for (const style of ['warm', 'cold', 'cold2', 'velvet', 'velvet2', 'velvet3']) {
   if (style !== 'warm') assets['garland-' + style + '-still.webp'] = [1920, 288, 60000];
   for (const group of ['a', 'b']) {
     const file = 'garland-' + style + '-' + group + '.webp';
@@ -37,6 +38,17 @@ test('новогодние WebP лежат по релизным адресам,
     assert.deepEqual(rasterSize(data), [w, h], file);
     assert.ok(data.length <= limit, file + ' превышает лимит');
   }
+});
+
+/* В WebP зафиксированы координаты провода и шаров. Снимок покрывает
+   три полосы и их A/B-фазы в обоих размерах: все поднимаются вместе. */
+test('бархатные WebP составляют согласованный поднятый комплект', () => {
+  const hash = createHash('sha256');
+  for (const file of Object.keys(assets).filter(name => /garland-velvet/.test(name)).sort()) {
+    hash.update(file + '\0');
+    hash.update(fs.readFileSync(new URL(prefix + file, root)));
+  }
+  assert.equal(hash.digest('hex'), 'f7ec670c5b577921308efb7f3848895b3b88e6d237bddd3d91a9fee6f22936d0');
 });
 
 test('все новогодние файлы участвуют в выпуске до загрузчика', async () => {

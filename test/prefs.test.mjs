@@ -1603,3 +1603,10 @@ test('v1.4: на слабой приставке «Что в кадре» — «
     assert.equal(LC.pref('lumen_hero_media', LC.prefs.heroMediaDefault(LC.platformInfo())), 'trailer', 'ручной выбор не перетирается');
   });
 });
+
+test('Гирлянда Apple TV: Бархат по умолчанию, остальные палитры и старые варианты доступны', () => {
+  const e = prefs.find('lumen_fx_garland_apple');
+  assert.equal(e['default'], 'velvet');
+  assert.deepEqual(e.values, ['velvet', 'velvet2', 'velvet3', 'cold', 'cold2']);
+  assert.equal(e.vprefix, 'lumen_fx_garland_');
+});
