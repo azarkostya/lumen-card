@@ -8144,6 +8144,11 @@ test('Новогодний слой доступен на первом фоку�
   assert.equal(paused(), true);
   assert.equal(node.hasClass('lumen-winter-scroll'), true);
   env.advance(359);
+  assert.equal(node.hasClass('lumen-winter-scroll'), true);
+  env.advance(1);
+  assert.equal(node.hasClass('lumen-winter-scroll'), false, 'стоп-кадр снова виден через 360 мс');
+  assert.equal(paused(), true);
+  env.advance(1439);
   assert.equal(paused(), true);
   env.advance(2);
   assert.equal(paused(), false);
@@ -8151,10 +8156,12 @@ test('Новогодний слой доступен на первом фоку�
   assert.equal(env.fx.mounts.length, 1);
 });
 
-test('Стрелки гасят снег даже в ряду без метаданных фильма', () => {
+test('Снег стоит в ряду между редкими стрелками и едет после 1,8 с покоя в шапке', () => {
   const env = nyEnv();
   const main = makeMain();
   const handlers = new Map();
+  let controller = 'items_line';
+  env.Lampa.Controller = { enabled: () => ({ name: controller }) };
   document.addEventListener = (type, handler, capture) => {
     assert.equal(capture, true);
     handlers.set(type, handler);
@@ -8170,18 +8177,27 @@ test('Стрелки гасят снег даже в ряду без метад�
   const arrow = { keyCode: 39, target: { tagName: 'BODY' } };
   const keydown = handlers.get('keydown');
   assert.equal(typeof keydown, 'function');
+  assert.equal(paused(), true, 'первый кадр снега стоит, если Lampa сразу вернула фокус ряду');
+  controller = 'head';
   keydown({ keyCode: 39, target: { tagName: 'INPUT' } });
   keydown({ keyCode: 13, target: arrow.target });
   assert.equal(paused(), false);
   keydown(arrow);
   assert.equal(paused(), true);
-  env.advance(300);
-  keydown(arrow);
-  env.advance(100);
-  focusOn(main, main.card1);
+  controller = 'items_line';
+  env.hero.onToggle();
+  for (let step = 0; step < 3; step++) {
+    env.advance(2100);
+    assert.equal(paused(), true, 'движение не возобновляется между шагами даже у подарка без фильма');
+    keydown(arrow);
+  }
+  keydown({ keyCode: 38, target: arrow.target });
+  controller = 'head';
+  env.hero.onToggle();
+  env.advance(1799);
   assert.equal(paused(), true);
-  env.advance(261);
-  assert.equal(paused(), false, 'Нативный фокус не продлевает таймер стрелки');
+  env.advance(2);
+  assert.equal(paused(), false, 'покой вне рядов возвращает движение');
   env.hero.unmount();
   assert.equal(handlers.size, 0);
 });

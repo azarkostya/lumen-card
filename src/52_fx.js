@@ -509,6 +509,7 @@
        рисуют на обычном холсте. Оба размера остаются в DPR 1. */
     function fitSnowCanvas(inst) {
       cancelSnowBand(inst);
+      inst.winterPainted = false;
       var canvas = inst.surface;
       var tiled = !!(inst.pictureBulbs && inst.sprites && inst.sprites.band &&
         canvas.style && typeof canvas.animate === 'function' && !inst.noBandAnimation);
@@ -528,6 +529,15 @@
       }
     }
 
+    function paintSnowBand(inst) {
+      if (inst.winterPainted) return;
+      inst.ctx.globalCompositeOperation = 'copy';
+      inst.bandCopy = true;
+      inst.ctx.drawImage(inst.sprites.band, 0, 0, TILE_W, 3 * TILE_H, 0, 0, inst.bandW, inst.bandH);
+      inst.winterPainted = true;
+      stat_steps++;
+    }
+
     function playSnowBand(inst) {
       var animation = inst.bandAnimation;
       if (animation) {
@@ -545,10 +555,7 @@
             typeof animation.play === 'function' && typeof animation.cancel === 'function') {
           inst.bandAnimation = animation;
           if (inst.snowTime > 0) animation.currentTime = inst.snowTime;
-          inst.ctx.globalCompositeOperation = 'copy';
-          inst.bandCopy = true;
-          inst.ctx.drawImage(inst.sprites.band, 0, 0, TILE_W, 3 * TILE_H, 0, 0, inst.bandW, inst.bandH);
-          stat_steps++;
+          paintSnowBand(inst);
           return true;
         }
       } catch (e) { }
@@ -1893,6 +1900,13 @@
           if (!scene.ctx || (scene.still && scene.stillDone)) continue;
           try {
             if (paused(scene)) {
+              /* Полоса видна на первом кадре, даже если Lampa сразу
+                 сфокусировала ряд и движение пока не разрешено. */
+              if (scene.name === 'winter' && !scene.winterPainted && !scene.leaving) {
+                if (scene.bandTiled) paintSnowBand(scene);
+                else render(scene, 0);
+                scene.winterPainted = true;
+              }
               pauseSnowBand(scene);
               continue;
             }
@@ -1903,6 +1917,7 @@
               continue;
             }
             render(scene, dt);
+            if (scene.name === 'winter') scene.winterPainted = true;
             drawn++;
           } catch (e) {
             warn('fx: render failed', e);
