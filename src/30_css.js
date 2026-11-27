@@ -2322,6 +2322,27 @@
     };
   };
 
+  /* Крышка, ленты, бант и звезда рисуются одной картинкой. Прозрачность
+     дальнего подарка запекается в картинку, чтобы DOM не создавал слой. */
+  function adventPaper(from, to, ink, middle, muted) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" preserveAspectRatio="none">' +
+      '<defs><linearGradient id="p" gradientUnits="userSpaceOnUse" x1="10" y1="-6" x2="190" y2="306"><stop stop-color="' + from + '"/>' +
+      (middle ? '<stop offset=".55" stop-color="' + middle + '"/>' : '') +
+      '<stop offset="1" stop-color="' + to + '"/></linearGradient></defs>' +
+      '<g' + (muted ? ' opacity=".63"' : '') + '><path fill="url(#p)" d="M0 0h200v300H0z"/>' +
+      '<path fill="white" fill-opacity=".13" d="M0 81h200v48H0z"/>' +
+      '<path stroke="black" stroke-opacity=".25" stroke-width="2.5" d="M0 130h200"/>' +
+      '<path fill="' + ink + '" fill-opacity=".34" d="M88 0h24v102h88v15h-88v183H88V117H0v-15h88z"/>' +
+      '<g transform="translate(56 63) scale(1.8333)" stroke="' + ink +
+      '" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M24 13C17 1 5 2 5 8c0 6 11 6 19 5Zm0 0C31 1 43 2 43 8c0 6-11 6-19 5ZM24 13l-9 10m9-10 9 10"/>' +
+      '<circle cx="24" cy="13" r="2" fill="' + ink + '" stroke="none"/></g>' +
+      (middle ? '<path transform="translate(83 21) scale(1.4167)" fill="' + ink +
+        '" d="M12 3.2l2.5 5.3 5.8.8-4.2 4.1 1 5.8L12 16.5l-5.1 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.2z"/>' : '') +
+      '</g></svg>';
+    return 'background-image:url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  }
+
   function buildParts() {
     var t = theme();
     /* Палитра читается на каждую сборку: смена темы и плотности подложек —
@@ -2450,24 +2471,39 @@
       'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
       'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
       'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
-    /* Адвент: обёртка, крышка и лента рисуются внутри .card__view.
-       Бирка и бант лежат поверх ленты, пустая карточка и дальние даты приглушены. */
-    css.push('.lumen-main .card .lumen-advent__cover{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;pointer-events:none}');
-    css.push('.lumen-main .card .lumen-advent__door{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;text-align:center;pointer-events:none;background:#2A333B;color:rgba(255,248,226,.74)}');
-    css.push('.lumen-main .card .lumen-advent__door--wrap-0{background:linear-gradient(150deg,#364F60,#182934);color:#C7D8E5}');
-    css.push('.lumen-main .card .lumen-advent__door--wrap-1{background:linear-gradient(150deg,#643847,#331B2A);color:#F3CED9}');
-    css.push('.lumen-main .card .lumen-advent__door--wrap-2{background:linear-gradient(150deg,#3E5B49,#193429);color:#CCE3CE}');
-    css.push('.lumen-main .card .lumen-advent__door--wrap-3{background:linear-gradient(150deg,#674A31,#362617);color:#F6D6A8}');
-    css.push('.lumen-main .card .lumen-advent__door::before{content:"";position:absolute;left:0;right:0;top:27%;height:16%;background:rgba(255,255,255,.13);border-bottom:.12em solid rgba(0,0,0,.25)}');
-    css.push('.lumen-main .card .lumen-advent__ribbon{position:absolute;top:0;bottom:0;left:44%;right:44%;background:currentColor;opacity:.34}');
-    css.push('.lumen-main .card .lumen-advent__ribbon::after{content:"";position:absolute;left:-367%;right:-367%;height:.66em;top:34%;background:currentColor}');
-    css.push('.lumen-main .card .lumen-advent__bow{position:absolute;top:21%;left:28%;width:44%;height:auto}');
-    css.push('.lumen-main .card .lumen-advent__num{position:absolute;top:46%;left:50%;width:1.55em;margin-left:-.775em;padding:.11em 0 .12em;border-radius:.12em;background:#17191C;color:#FFF;font-family:' + FB + ';font-weight:700;font-size:2.25em;line-height:1}');
-    css.push('.lumen-main .card .lumen-advent__star{position:absolute;left:50%;top:7%;width:1.5em;height:1.5em;margin-left:-.75em;color:#F1CF84}');
-    css.push('.lumen-main .card .lumen-advent__note{position:absolute;left:.5em;right:.5em;bottom:9%;padding:.14em .2em;border-radius:.2em;background:#241A19;font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:#F1CF84}');
-    css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__door{background:linear-gradient(150deg,#76354B,#412031 55%,#59361D);color:#F1CF84}');
+    /* У постоянного подарка одна поверхность и текстовые подписи.
+       Маска нужна только одной дверце во время анимации открытия. */
+    var gift = '.lumen-main .card ';
+    var door = '.lumen-advent__door';
+    var wraps = APPLE ? [
+      ['#28282A', '#1A1A1C', '#FFFFFF'], ['#2D2D2F', '#1C1C1E', '#FFFFFF'],
+      ['#323234', '#202022', '#FFFFFF'], ['#363638', '#242426', '#FFFFFF']
+    ] : [
+      ['#364F60', '#182934', '#C7D8E5'], ['#643847', '#331B2A', '#F3CED9'],
+      ['#3E5B49', '#193429', '#CCE3CE'], ['#674A31', '#362617', '#F6D6A8']
+    ];
+    css.push(gift + '.lumen-advent__cover{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;pointer-events:none}');
+    /* Вендор хранит фоновую активность без .lumen-main. Её подарки
+       тоже не нуждаются в штатном will-change у каждой карточки. */
+    css.push('.card.lumen-advent-card{will-change:auto}');
+    css.push('.lumen-main .lumen-advent-card .card__icons:empty{display:none}');
+    css.push(gift + door + '{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;text-align:center;pointer-events:none;-webkit-background-size:100% 100%;background-size:100% 100%;background-repeat:no-repeat}');
+    for (var wi = 0; wi < wraps.length; wi++) {
+      var wrap = wraps[wi];
+      var paper = door + '--wrap-' + wi;
+      css.push(gift + paper + '{' + adventPaper(wrap[0], wrap[1], wrap[2]) + '}');
+      css.push(gift + paper + door + '--far,.lumen-main .card.lumen-advent-card--empty ' + paper +
+        '{' + adventPaper(wrap[0], wrap[1], wrap[2], null, true) + '}');
+    }
+    css.push(gift + '.lumen-advent__num{position:absolute;top:46%;left:50%;width:1.55em;margin-left:-.775em;padding:.11em 0 .12em;border-radius:.12em;background:#17191C;color:#FFF;font-family:' + FB + ';font-weight:700;font-size:2.25em;line-height:1}');
+    css.push(gift + door + '--far .lumen-advent__num,.lumen-main .card.lumen-advent-card--empty .lumen-advent__num{background:rgba(23,25,28,.63);color:rgba(255,255,255,.83)}');
+    css.push(gift + '.lumen-advent__note{position:absolute;left:.5em;right:.5em;bottom:9%;padding:.14em .2em;border-radius:.2em;background:#241A19;font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:#F1CF84}');
+    var finalDoor = '.lumen-main .card.lumen-advent-card--final ' + door;
+    var finalPaper = APPLE ? ['#363638', '#303032', '#FFFFFF', '#1C1C1E'] : ['#76354B', '#59361D', '#F1CF84', '#412031'];
+    css.push(finalDoor + '{' + adventPaper(finalPaper[0], finalPaper[1], finalPaper[2], finalPaper[3]) + '}');
+    css.push('.lumen-main .card.lumen-advent-card--final.lumen-advent-card--empty ' + door +
+      '{' + adventPaper(finalPaper[0], finalPaper[1], finalPaper[2], finalPaper[3], true) + '}');
     css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__num{color:#F1CF84}');
-    css.push('.lumen-main .card .lumen-advent__door--far,.lumen-main .card.lumen-advent-card--empty .lumen-advent__door{opacity:.63}');
     css.push('.lumen-main .lumen-advent-card--today .card__view{outline:.13em solid ' + A + ';outline-offset:.08em}');
     /* 31-е открыто — «Ирония судьбы» в золотом контуре плитки 31-го. */
     css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#E8C170}');

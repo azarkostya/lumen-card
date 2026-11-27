@@ -1768,6 +1768,7 @@
        возврат на ту же карточку после закрытия заводит обычные 8 с. Под
        меню, настройками и шапкой главную видно — ролик играет дальше. */
     function onToggle() {
+      if (state && state.fxWinter && !state.parked && LC.fx && LC.fx.wake) LC.fx.wake();
       if (!state || !(state.trailerTimer || state.trailer)) return;
       setTimeout(function heroToggle() {
         if (!state) return;
@@ -1833,6 +1834,7 @@
        (предикат paused в applyFx ниже). */
     var FX_CALM_MS = 1500;
     var WINTER_SCROLL_MS = 360;
+    var WINTER_CALM_MS = 1800;
     /* Зона текста героя для слоя частиц (src/52_fx.js, safeZone). */
     var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
 
@@ -1928,16 +1930,39 @@
        анимаций сменили, и статичный кадр, цвет и пауза должны пересчитаться
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
+    /* Lampa ведёт ряды своим контроллером, даже если герой не сжимается.
+       Выход из ряда в шапку вновь разрешает движение после окна покоя.
+       Принудительные эффекты самотеста измеряются отдельно от праздника. */
+    function winterRowsFocused() {
+      if (benchPreset || state.hostClass !== MAIN_HOST) return false;
+      try {
+        var control = window.Lampa && Lampa.Controller && Lampa.Controller.enabled();
+        var name = control && control.name;
+        return name === 'items_line' || name === 'content';
+      } catch (e) {
+        return false;
+      }
+    }
+
     function fxPaused() {
       return !!(state && (state.trailer || state.compact || state.parked ||
-        (state.fxWinter ? state.fxScrolling : Date.now() - state.focusAt < FX_CALM_MS)));
+        (state.fxWinter ? state.fxCalmTimer !== null || winterRowsFocused() : Date.now() - state.focusAt < FX_CALM_MS)));
     }
 
     function pauseWinterScroll() {
+      var wasCalm = state.fxCalmTimer === null;
+      stopTimer('fxCalmTimer');
+      state.fxCalmTimer = setTimeout(function () {
+        if (!state) return;
+        state.fxCalmTimer = null;
+        if (LC.fx && LC.fx.wake) LC.fx.wake();
+      }, WINTER_CALM_MS);
+      if (wasCalm && LC.fx && LC.fx.wake) LC.fx.wake();
+
+      /* Возвращаем стоп-кадр после серии стрелок раньше, чем разрешаем движение. */
       if (!state.fxScrolling) {
         state.fxScrolling = true;
         state.node.addClass('lumen-winter-scroll');
-        if (LC.fx && LC.fx.wake) LC.fx.wake();
       }
       stopTimer('fxScrollTimer');
       state.fxScrollTimer = setTimeout(function () {
@@ -1945,7 +1970,6 @@
         state.fxScrollTimer = null;
         state.fxScrolling = false;
         state.node.removeClass('lumen-winter-scroll');
-        if (LC.fx && LC.fx.wake) LC.fx.wake();
       }, WINTER_SCROLL_MS);
     }
 
@@ -4670,6 +4694,7 @@
           fxKey: null,
           fxTimer: null,
           fxScrollTimer: null,
+          fxCalmTimer: null,
           fxFocusEl: null,
           fxInputBound: false,
           fxWinter: false,
@@ -4787,7 +4812,7 @@
       /* Волна «Логотипы сразу»: предзагрузка соседей уходит вместе с
          героем. */
       prefetch('stop');
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer', 'fxScrollTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer', 'fxScrollTimer', 'fxCalmTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -4910,6 +4935,7 @@
          вместе с ним, и resume поставит её заново (applyFx). */
       stopTimer('fxTimer');
       stopTimer('fxScrollTimer');
+      stopTimer('fxCalmTimer');
       state.fxScrolling = false;
       state.node.removeClass('lumen-winter-scroll');
       state.fxKey = null;

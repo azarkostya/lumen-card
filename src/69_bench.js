@@ -974,8 +974,8 @@
     }
 
     /* Экран таблицы — поверх всего, до «Назад» (свой контроллер Lampa:
-       кнопку «Назад» каждая платформа отдаёт Lampa по-своему, а
-       контроллер получает её одинаково). Стиль инлайном: экран живёт
+       Lampa передаёт контроллеру и кнопку, и переход назад по истории).
+       Стиль инлайном: экран живёт
        минуту, и правилам в общей таблице плагина делать нечего. */
     function show(result) {
       close();
@@ -996,6 +996,13 @@
           back: close, up: noop, down: noop, left: noop, right: noop, enter: noop
         });
         L.Controller.toggle('lumen_bench');
+        /* Activity передаёт popstate в back активного контроллера. При
+           пустой истории WebView на некоторых ТВ не посылает popstate.
+           Добавляем один шаг, сохраняя состояние и адрес текущей страницы. */
+        try {
+          var history = window.history;
+          if (history && history.length === 1) history.pushState(history.state, '');
+        } catch (e2) { }
       }
     }
 

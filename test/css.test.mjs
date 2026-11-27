@@ -453,7 +453,8 @@ test('Гирлянда анимирует прозрачность наклад�
 test('buildCss: все правила шапки ограничены допустимыми корнями', () => {
   const selectors = ruleSelectors(css);
   assert.ok(selectors.length > 20, 'подозрительно мало селекторов извлечено: ' + selectors.length);
-  const offenders = selectors.filter((sel) => !ALLOWED_ROOTS.some((root) => startsWithRoot(sel, root)));
+  const offenders = selectors.filter((sel) => sel !== '.card.lumen-advent-card' &&
+    !ALLOWED_ROOTS.some((root) => startsWithRoot(sel, root)));
   assert.deepEqual(offenders, []);
 });
 
@@ -2865,10 +2866,12 @@ test('Task 46: у обоих движущихся элементов свой с
 
   /* will-change ВЫДАЁТ слой ровно в одном месте — на слое перехода между
      экранами (.lumen-overlay__img): он живёт столько же, сколько сам узел
-     перехода, и постоянным слоем не становится. Второе правило (Task 48)
-     слой, наоборот, СНИМАЕТ — will-change:auto поверх .card Lampa. */
+     перехода, и постоянным слоем не становится. Остальные правила
+     снимают слои штатных карточек, включая подарки фоновой активности. */
   const willChange = ruleBodies(css).filter((r) => /will-change/.test(r.decl));
-  assert.deepEqual(willChange.map((r) => r.selectors.join(',')), ['.lumen-main .card', '.lumen-overlay .lumen-overlay__img'],
+  assert.deepEqual(willChange.map((r) => r.selectors.join(',')), [
+    '.card.lumen-advent-card', '.lumen-main .card', '.lumen-overlay .lumen-overlay__img'
+  ],
     'will-change расползся по новым правилам: ' + willChange.map((r) => r.selectors.join(',')).join(' | '));
   assert.ok(willChange.every((r) => r.selectors[0] === '.lumen-overlay .lumen-overlay__img' || /will-change:auto/.test(r.decl)),
     'кроме слоя перехода, will-change разрешён только со значением auto');
@@ -8187,7 +8190,14 @@ test('Task 73: сетка подборки и хаб — плитки без п�
 /* В плоском виде добавляются свои правила, а в кольцах картинок меняется
    цвет. Правила раскладки главной остаются общими для обоих стилей. */
 test('Task 73: плоский вид сохраняет общие правила и меняет цвет колец', () => {
-  const key = (r) => r.selectors.join(',') + '{' + r.decl + '}';
+  const key = (r) => {
+    const selectors = r.selectors.join(',');
+    // Графит и цветная бумага используют одну геометрию SVG и разные цвета.
+    const gift = selectors.startsWith('.lumen-main .card') && /lumen-advent__door/.test(selectors) &&
+      r.decl.startsWith('background-image:url("data:image/svg+xml,');
+    const decl = gift ? decodeURIComponent(r.decl).replace(/#[0-9a-f]{6}\b/gi, '#palette') : r.decl;
+    return selectors + '{' + decl + '}';
+  };
   const base = ruleBodies(css).map(key);
   const flatRules = ruleBodies(flatCss);
   const flat = flatRules.map(key);
@@ -8785,6 +8795,12 @@ test('holB: адвент — дверца поверх постера не ме�
   assert.ok(door, 'правило дверцы');
   const cover = findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__cover');
   assert.match(cover, /overflow:hidden/);
+  assert.doesNotMatch(cover, /border-radius/);
+  assert.doesNotMatch(door, /overflow:hidden/);
+  assert.equal(css.split('\n').filter((line) => /lumen-advent__(door|cover|ribbon|bow)(?:[^\s{]*)::?(before|after)/.test(line)).length, 0);
+  assert.match(css, /lumen-advent__door--wrap-0[^\n]+url\(/);
+  assert.equal(findDecl(css, (sel) => sel === '.card.lumen-advent-card'), 'will-change:auto',
+    'штатный слой подарка снимается и в фоновой активности Lampa');
   assert.ok(/(?:^|;)position:absolute(?:;|$)/.test(door) && /top:0/.test(door) && /bottom:0/.test(door), door);
   const lines = css.split('\n').filter((l) => l.indexOf('lumen-advent') !== -1);
   for (const l of lines) {
@@ -8804,7 +8820,8 @@ test('holB: адвент — дверца поверх постера не ме�
   const wraps = [0, 1, 2, 3].map((i) => findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__door--wrap-' + i));
   assert.ok(wraps.every(Boolean));
   assert.equal(new Set(wraps).size, 4);
-  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card.lumen-advent-card--final .lumen-advent__door'), 'особая плитка 31-го');
+  const final = findDecl(css, (sel) => sel === '.lumen-main .card.lumen-advent-card--final .lumen-advent__door');
+  assert.match(final, /%23F1CF84/, 'звезда и обёртка 31-го внутри картинки');
   const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today .card__view');
   assert.ok(ring && /outline:[^;]+solid/.test(ring), 'сегодняшнее окошко выделено контуром, не тенью: ' + ring);
 });

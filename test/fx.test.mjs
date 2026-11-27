@@ -1328,7 +1328,8 @@ test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и �
     const fx = freshFx({ motionMode: () => 'full' });
     fx._timers = fakeTimers().hook;
     const layer = fakeNode(960, 360);
-    let scroll = false;
+    let scroll = true;
+    let starts = 0;
     fx.mount(layer, 'winter', { paused: () => scroll });
     const canvas = layer.children[0];
     assert.deepEqual([canvas.width, canvas.height], [960, 360], 'запасной гирлянде нужен весь слой');
@@ -1341,6 +1342,7 @@ test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и �
       cancel() { this.playState = 'idle'; this.currentTime = null; }
     };
     canvas.animate = (keyframes, options) => {
+      starts++;
       assert.match(keyframes[0].transform, /-33\.333%/);
       assert.equal(options.duration, 7845);
       assert.equal(options.iterations, Infinity);
@@ -1352,7 +1354,13 @@ test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и �
     const canvasCtx = canvas.getContext('2d');
     assert.ok(canvas.width * canvas.height * 4 / 1024 ** 2 < 2, 'память слоя в пределах 2 МиБ');
     tick(40);
+    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'первый кадр сразу виден даже при паузе');
+    assert.equal(starts, 0, 'до выхода из ряда анимация не создаётся');
+    scroll = false;
+    fx.wake();
+    tick(40);
     assert.equal(animation.playState, 'running');
+    assert.equal(starts, 1);
     tick(40);
     assert.equal(fx.stats().frames, 0, 'композитор двигает слой без рисования JS-кадров');
     assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'атлас рисуется только при монтаже');
@@ -1375,6 +1383,7 @@ test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и �
     fx.wake();
     tick(40);
     assert.equal(animation.playState, 'running');
+    assert.equal(starts, 1, 'возврат оживляет то же движение вместо пересоздания');
     assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'возврат не перерисовывает атлас');
     animation.currentTime = 4200;
     fx.bulbs(layer, false);

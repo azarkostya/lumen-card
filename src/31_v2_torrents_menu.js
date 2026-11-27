@@ -174,6 +174,9 @@
          он наезжал на название и чипы, а размер уходил за край экрана). */
       r.push(s([row + ' .torrent-item__ffprobe']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
       r.push(s([row + ' .lumen-ep-range', row + ' .lumen-ep-verdict']) + '{display:block!important}');
+      /* Текстовые чипы не используют штатную пиктограмму Lampa. */
+      r.push(s([row + ' .torrent-item__ffprobe > .lumen-ep-range::before',
+        row + ' .torrent-item__ffprobe > .lumen-ep-verdict::before']) + '{content:none!important;display:none}');
       r.push(s([row + ' .lumen-ep-range + .m-general']) + '{display:none!important}');
       r.push(s([row + ' .torrent-item__ffprobe > .lumen-ep-verdict']) + '{font-size:1.01em;font-weight:600}');
       r.push(s([row + ' .torrent-item__ffprobe.hide']) + '{display:none}');
