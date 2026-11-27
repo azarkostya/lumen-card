@@ -165,6 +165,31 @@ for (const [name, storage] of Object.entries(STYLES)) {
     assert.equal(prop(eff(css, 'body .settings .settings__title'), 'font-weight'), '700', 'Light запрещён');
   });
 
+  test('v2, экран 41 (' + name + '): имя, значение и подсказки в строке Lumen не меняют размеры при фокусе', () => {
+    const row = 'body .settings .settings-param[data-name^="lumen_"]';
+    const title = eff(css, row + ' > .settings-param__name');
+    const value = eff(css, row + ' > .settings-param__value');
+    const descr = eff(css, row + ' > .settings-param__descr');
+
+    assert.equal(prop(title, 'flex'), '1 1 0%');
+    assert.equal(prop(value, 'max-width'), '42%');
+    assert.equal(prop(value, 'margin-left'), '0');
+    assert.equal(prop(value, 'box-sizing'), 'border-box');
+    assert.equal(prop(descr, 'flex'), '0 0 100%');
+    for (const cell of [title, value, descr]) {
+      assert.equal(prop(cell, 'min-width'), '0');
+      assert.equal(prop(cell, 'white-space'), 'normal');
+      assert.equal(prop(cell, 'word-wrap'), 'break-word');
+      assert.equal(prop(cell, 'overflow-wrap'), 'anywhere');
+    }
+    const focused = eff(css, row + '.focus > .settings-param__name');
+    assert.equal(prop(title, 'font-weight'), '500');
+    assert.equal(prop(focused, 'font-weight'), prop(title, 'font-weight'));
+    assert.equal(prop(focused, 'font-size'), prop(title, 'font-size'));
+    assert.equal(prop(eff(css, row + ' > .settings-param__descr:empty'), 'display'), 'none');
+    assert.equal(prop(eff(css, 'body .settings .settings-param-title'), 'grid-column'), null);
+  });
+
   test('v2, экран 42 (' + name + '): левое меню — заливка фокуса, без белой плашки и черт, ширина и сдвиг совпадают', () => {
     const fill = apple ? '#FFFFFF' : P.text;
     const focus = eff(css, 'body .menu .menu__item.focus');

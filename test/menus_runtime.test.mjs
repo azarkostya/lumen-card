@@ -48,7 +48,7 @@ function setup(opts) {
   globalThis.Lampa = Lampa;
   globalThis.window = { Lampa: Lampa, innerWidth: opts.width || 1920 };
 
-  const LC = {};
+  const LC = { assetUrl: () => 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@beta/' };
   loadInto(LC, '80_settings.js');
   loadInto(LC, '81_prefs.js');
   loadInto(LC, '90_runtime.js');
@@ -285,6 +285,10 @@ test('долг ревью (п.2): каждая настройка раздела
     /* 1.5: кнопки экранов по темам и повтор «Что нового» — тоже без
        значения. */
     lumen_look: [],
+    lumen_home_section: [],
+    lumen_film_section: [],
+    lumen_watch_section: [],
+    lumen_remote_section: [],
     lumen_weak: [],
     lumen_torrserver: [],
     lumen_whatsnew_show: [],

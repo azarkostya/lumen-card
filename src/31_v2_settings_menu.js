@@ -104,6 +104,17 @@
       css.push('body .settings .settings-param.focus .settings-param__descr,body .settings .settings-param[data-name^="lumen_"].focus .settings-param__descr{opacity:1;color:' + V2.sub + ' !important}');
       css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:' + P.bg + ';-webkit-filter:invert(1) !important;filter:invert(1) !important}');
 
+      /* У строк Lumen первая колонка занимает остаток после значения.
+         Нулевой flex-basis не даёт подписи вытолкнуть значение на другую
+         строку. Отступ значения входит в ограничение его ширины. Обычное
+         описание и пометка «Не действует» получают по отдельной строке. */
+      var OWN_ROW = 'body .settings .settings-param[data-name^="lumen_"]';
+      var FIT_TEXT = 'min-width:0;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere';
+      css.push(OWN_ROW + ' > .settings-param__name,' + OWN_ROW + '.focus > .settings-param__name{-webkit-flex:1 1 0%;flex:1 1 0%;font-weight:500;' + FIT_TEXT + '}');
+      css.push(OWN_ROW + ' > .settings-param__value{-webkit-flex:0 1 auto;flex:0 1 auto;max-width:42%;box-sizing:border-box;margin-left:0;padding-left:.77em;' + FIT_TEXT + '}');
+      css.push(OWN_ROW + ' > .settings-param__descr{-webkit-flex:0 0 100%;flex:0 0 100%;' + FIT_TEXT + '}');
+      css.push(OWN_ROW + ' > .settings-param__descr:empty{display:none}');
+
       /* ---------------- 42 · Левое меню ---------------- */
 
       /* Ширина 480 px вместо 342: подпись «Что посмотреть» 26 px с полем

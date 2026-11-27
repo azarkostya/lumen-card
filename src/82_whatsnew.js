@@ -336,13 +336,11 @@
       return 'ru';
     }
 
-    /* «Выключить это окно: Настройки → Lumen Card → Дополнительно… → Пульт
-       и окна → «Что нового после обновления»» — из тех же строк, что сам
-       раздел: переименуют группу или пункт — подсказка не разойдётся. */
+    /* Путь к общему выключателю берём из подписей раздела и группы. */
     function hintText() {
       var q = lang() === 'en' ? ['"', '"'] : ['«', '»'];
-      return LC.lang('lumen_whatsnew_off') + ' → ' + [LC.lang('lumen_card_title'), LC.lang('lumen_more_name'),
-        LC.lang('lumen_group_remote'), q[0] + LC.lang('lumen_whatsnew_name') + q[1]].join(' → ');
+      return LC.lang('lumen_whatsnew_off') + ' → ' + [LC.lang('lumen_card_title'), LC.lang('lumen_remote_section_name'),
+        LC.lang('lumen_group_windows'), q[0] + LC.lang('lumen_whatsnew_name') + q[1]].join(' → ');
     }
 
     /* Окно — штатный Lampa.Modal: «OK» — его кнопка (единственный .selector

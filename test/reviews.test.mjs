@@ -1461,7 +1461,7 @@ test('render: сбой запроса — строка состояния и п�
     assert.ok(html.indexOf('Кинопоиск') !== -1, status + ': источник в шапке');
     assert.ok(html.indexOf('· ' + state) !== -1, status + ': состояние в шапке — ' + html);
     assert.ok(html.indexOf('lumen-reviews__note') !== -1 && html.indexOf(note) !== -1, status + ': пояснение — ' + html);
-    assert.equal(html.indexOf('Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API') !== -1, path, status + ': путь до ключа только у неверного ключа');
+    assert.equal(html.indexOf('Настройки → Lumen Card → Карточка → Ключ Кинопоиска') !== -1, path, status + ': путь до ключа только у неверного ключа');
     assert.equal(html.indexOf('selector'), -1, status + ': навигация ряда не меняется');
     assert.equal(html.indexOf('lumen-review--sk'), -1, status + ': скелетон снят');
     assert.equal(t.d.row.hasClass('lumen-descr-row--reviews'), false, status + ': описание не поджато');

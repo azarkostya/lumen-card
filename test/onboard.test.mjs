@@ -102,7 +102,7 @@ test('onboard: schedule — окно поверх готовой главной;
   assert.equal(p.buttons_position, 'outside', 'кнопка в подвале, всегда на экране');
   const html = p.html.html;
   assert.ok(html.indexOf('Удерживайте OK') !== -1, html);
-  assert.ok(html.indexOf('Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API') !== -1, html);
+  assert.ok(html.indexOf('Настройки → Lumen Card → Карточка → Ключ Кинопоиска') !== -1, html);
   assert.ok(html.indexOf('Настройки → Lumen Card') !== -1);
   assert.ok(html.indexOf('lumen-whatsnew__item') !== -1, 'оформление — как у «Что нового»');
   assert.equal(env.api.shown(), true);

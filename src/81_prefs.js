@@ -108,189 +108,92 @@
       return platform && platform.weak ? 'frames' : 'trailer';
     }
 
-    /* Раздел «Lumen Card», версия 1.4 («Настройки и знакомство»). Аудит
-       1.3.1: около 60 строк на двух экранах, цвет настраивался в пяти
-       местах. Стало пять экранов:
+    /* LIST определяет только порядок и местоположение в меню Lampa.
+       Заголовки и кнопки экранов значения не хранят. Существующие имена,
+       значения и дефолты сохраняют связь с профилем и обработчиками.
+       Описание — короткий ответ, что меняется и на каком экране. */
 
-         главный (компонент PLUGIN) — 13 строк: выключатель, «Стиль», то,
-           что меняют чаще всего, и четыре кнопки на экраны по темам;
-         «Цвет и вид…» (section: 'look') — весь цвет одной группой, потом
-           шрифт, масштаб, плитки, метки, логотип, постеры;
-         «Слабый телевизор…» (section: 'weak') — всё, что меняют ради
-           скорости и памяти, включая бывшие пункты «Для разработчика»;
-         «TorrServer…» (section: 'torrserver') — оформление пути, очистка,
-           состояние сервера и запасной парсер;
-         «Дополнительно…» (section: 'more') — остальное; «Для
-           разработчика» — в самом низу.
-
-       Порядок LIST — порядок на экране: сначала главный раздел, потом
-       экраны в порядке их кнопок. Заголовок группы — штатный параметр
-       Lampa type:'title' (addParams, <div class="settings-param-title">),
-       он ничего не хранит и не имеет onChange. Кнопки экранов (type:
-       'button') своего значения в Storage не держат.
-
-       1.4, слиты дубли (ключи остаются в Storage и читаются как раньше):
-         «Логотип в карточке» (lumen_card_logo) → «Логотип названия»
-           (lumen_hero_logo): одна строка на оба места, старый ключ
-           получает значение нового при правке (MERGED ниже);
-         «Серия в «Досмотреть»» (lumen_next_ep_badge) → «Метки на
-           постерах» (lumen_badges): серия — это и есть метка; кто
-           выключал её прежде, сохраняет выбор (src/62_badges.js).
-       «Интервал смены кадров» (lumen_slide_interval) — не дубль: «Смена
-       кадров» его не задаёт, а кадр главной читает тот же интервал. Пункт
-       остался в «Дополнительно…» рядом со «Сменой кадров».
-
-       1.0.2, слиты (старые ключи остаются в Storage; LC.migratePrefs
-       переводит однозначные случаи, а места чтения дочитывают старый ключ
-       там, где выбор был частичным, — MERGED ниже):
-         «Фирменные шрифты» (lumen_card_fonts) → значение 'system' у
-           «Шрифта» (lumen_font);
-         «Автотрейлер в кадре главной» (lumen_hero_trailer) → значение
-           'frames' у «Что в кадре» (lumen_hero_media);
-         кнопка «Франшиза» + ряд «Смотреть по порядку» → «Франшизы»
-           (lumen_franchise);
-         «Мини-карта рядов» + «Быстрое листание» → «Ускорители пульта»
-           (lumen_remote_boost);
-         две кнопки готового стиля → select «Стиль» (lumen_style).
-       Убраны из раздела, но читаются как раньше: lumen_reviews_mode
-       (переключатель «Показывать текст» есть в самом ряду отзывов),
-       lumen_kp_hint (с 1.5 подсказки о ключе на карточке нет вовсе),
-       lumen_roulette_unseen (чип «Не смотрел» на экране рулетки).
-
-       У каждого пункта есть label и descr — ключи LC.STRINGS
-       (80_settings.js). Описание — одна-две короткие фразы для человека с
-       пультом: что будет, без внутренних терминов, не длиннее двух строк
-       (сторожит test/prefs.test.mjs). Настройки применяются сразу; где это
-       не так, описание говорит, когда. У select значения перечислены
-       ключами, подпись значения — vprefix + значение (или «значение +
-       vsuffix»: «14 с»).
-
-       Имена ключей НЕ переименовываются: профили пользователей живут с
-       ними. Отсюда и смесь префиксов — часть ключей с lumen_card_, часть
-       без; LC.followStorage разбирает их отдельными ветками. */
     var MAIN = [
       { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
-
-      { name: 'lumen_group_look', type: 'title', label: 'lumen_group_look' },
-      /* 1.0.2: готовый стиль — select вместо двух кнопок (Task 62b). Его
-         значение не врёт: пункты набора правятся и по одному, и тогда оно
-         само становится 'custom' («Свой»), а совпав с набором — его именем
-         (styleOf ниже, syncStyle в 80_settings.js). Выбор Lumen или Apple TV
-         пишет набор (applyPreset), «Свой» не пишет ничего. */
-      { name: 'lumen_style', type: 'select', values: ['lumen', 'appletv', 'custom'], vprefix: 'lumen_style_', 'default': 'lumen', label: 'lumen_style_name', descr: 'lumen_style_descr' },
-      /* 1.4: кнопка на экран «Цвет и вид…» (openSection, src/80_settings.js). */
       { name: 'lumen_look', type: 'button', label: 'lumen_look_name', descr: 'lumen_look_descr' },
-
-      { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
-      /* Размер кадра — первым: от него зависит, сколько экрана достанется
-         всему остальному (HERO_SIZES в src/30_css.js). */
-      { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
-      /* Кадры с автотрейлером (дефолт) или только кадры (heroMedia,
-         src/48_hero.js). 1.0.2: выключатель автотрейлера слит сюда. */
-      { name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': function () { return heroMediaDefault(LC.platformInfo()); }, label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
-      /* Кнопка-параметр: multi-select в SettingsApi нет, состав выбирается
-         на экране Lampa.Select с чекбоксами (openHomeRows,
-         src/80_settings.js). Значение — строка id через запятую в
-         lumen_home_rows, его читает план главной (src/47_homeplan.js). */
-      { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-      /* Решение пользователя 2026-09-26: по умолчанию 10 рядов (было 15);
-         сохранённое значение не трогается. */
-      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
-      /* 1.2: детский режим (LC.kids, src/41_kids.js). Не родительский
-         контроль. */
-      { name: 'lumen_kids', type: 'trigger', 'default': false, label: 'lumen_kids_name', descr: 'lumen_kids_descr' },
-
-      { name: 'lumen_group_card', type: 'title', label: 'lumen_group_card' },
-      /* 1.0.2: кнопка «Франшиза» (src/46_hub.js) и ряд «Смотреть по
-         порядку» (src/66_franchise.js) — одним выключателем. Выключенный
-         ряд коллекцию не запрашивает. */
-      { name: 'lumen_franchise', type: 'trigger', 'default': true, label: 'lumen_franchise_name', descr: 'lumen_franchise_descr' },
-      /* 1.4: кнопка на экран «TorrServer…». */
+      { name: 'lumen_home_section', type: 'button', label: 'lumen_home_section_name', descr: 'lumen_home_section_descr' },
+      { name: 'lumen_film_section', type: 'button', label: 'lumen_film_section_name', descr: 'lumen_film_section_descr' },
+      { name: 'lumen_watch_section', type: 'button', label: 'lumen_watch_section_name', descr: 'lumen_watch_section_descr' },
       { name: 'lumen_torrserver', type: 'button', label: 'lumen_torrserver_name', descr: 'lumen_torrserver_descr' },
-
-      { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
-      { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
-      /* 1.4: кнопка на экран «Слабый телевизор…». */
       { name: 'lumen_weak', type: 'button', label: 'lumen_weak_name', descr: 'lumen_weak_descr' },
-      /* 1.0.2: кнопка на экран «Дополнительно…» — последней строкой. */
-      { name: 'lumen_more', type: 'button', label: 'lumen_more_name', descr: 'lumen_more_descr' }
+      { name: 'lumen_remote_section', type: 'button', label: 'lumen_remote_section_name', descr: 'lumen_remote_section_descr' },
+      { name: 'lumen_more', type: 'button', label: 'lumen_more_name', descr: 'lumen_more_descr' },
+      { name: 'lumen_whatsnew_show', type: 'button', label: 'lumen_whatsnew_show_name', descr: 'lumen_whatsnew_show_descr' }
     ];
 
-    /* 1.4: «Цвет и вид…». Цвет до 1.4 настраивался в пяти местах двух
-       экранов — теперь одна группа: откуда цвет (кадр или «Акцентный
-       цвет»), докуда он доходит и тема фона. «Стиль» остаётся на главном
-       экране: он ставит весь набор разом. */
+    /* «Стиль» применяет набор параметров разом. Значение «Свой»
+       отображается при ручной правке набора (styleOf, syncStyle). */
+
     var LOOK = [
-      { name: 'lumen_group_color', type: 'title', label: 'lumen_group_color' },
-      /* Task 24/35: цвет фона от постера открытого фильма — перед
-         «Акцентным цветом»: выключенный, он оставляет именно его
-         (src/57_color.js). Включён по умолчанию. В стиле Apple TV (плоский
-         вид) не действует — пометка в строке (idleReason, 80_settings.js). */
-      { name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
-      /* Фаза 3: девять акцентов по цветовому кругу, графит последним
-         (палитра и замеры контраста — ACCENTS в src/30_css.js). */
-      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
-      /* Task 62a: докуда доходит цвет постера. 'veil' — только фон, подложка
-         фокуса нейтральна (так у Apple TV). Без «Цвета фона от кадра» не
-         действует (LC.accentScope ниже). */
-      { name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
-      /* Тема — цвет тёмного (тёплый или чёрный для OLED); плотность
-         подложек — вопрос железа, она в «Слабом телевизоре». */
-      { name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
-
       { name: 'lumen_group_style', type: 'title', label: 'lumen_group_style' },
-      /* Пять гарнитур с Google Fonts (CSP плагина другого источника не
-         пропустит), набор — FONT_SETS в src/30_css.js. 1.0.2: 'system' —
-         «Как в Lampa», бывший выключатель «Фирменные шрифты». Строка пункта
-         набрана выбранной гарнитурой (onRender, src/80_settings.js). */
-      { name: 'lumen_font', type: 'select', values: ['system', 'golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
-      /* Фаза 3: коэффициент на корнях экранов плагина (SCALES в
-         src/30_css.js). */
-      { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
-      /* Правка 2026-09-26: ширина постера ряда и колонки сетки (TILES,
-         GCARD_COLS_TILE в src/30_css.js); текст — за «Масштабом». */
-      { name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
-      /* Task 73: содержимое на фоне, а не в коробках — на всех экранах
-         разом (flatRules в src/30_css.js, экраны пути — src/65_torrents.js).
-         В стиле Apple TV включён. */
+      { name: 'lumen_style', type: 'select', values: ['lumen', 'appletv', 'custom'], vprefix: 'lumen_style_', 'default': 'lumen', label: 'lumen_style_name', descr: 'lumen_style_descr' },
       { name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
-      /* Task 62a: три вида метки; старое значение переключателя читается
-         как новое (badgesMode ниже, LC.migratePrefs). 1.4: сюда же слита
-         «Серия в «Досмотреть»» — серия вместо процента и есть метка. */
+      { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
+      { name: 'lumen_group_color', type: 'title', label: 'lumen_group_color' },
+      { name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
+      { name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
+      { name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
+      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
+      { name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
+      { name: 'lumen_group_text_tiles', type: 'title', label: 'lumen_group_text_tiles' },
+      { name: 'lumen_font', type: 'select', values: ['system', 'golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
+      { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
+      { name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
+      { name: 'lumen_group_posters', type: 'title', label: 'lumen_group_posters' },
+      { name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' },
       { name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
-      /* Логотип названия в кадре главной (logoAllowed, src/48_hero.js) и,
-         с 1.4, в шапке карточки (renderLogo, src/85_header.js читает
-         lumen_card_logo, которому правка этого пункта пишет то же значение
-         — MERGED ниже). */
       { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
-      /* Дефолт 'lampa' — ни одного лишнего запроса у того, кто пункт не
-         трогал (src/43_sources.js). */
-      { name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' }
+      { name: 'lumen_group_holidays', type: 'title', label: 'lumen_group_holidays' },
+      { name: 'lumen_fx', type: 'select', values: ['seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
+      { name: 'lumen_fx_snow', type: 'trigger', 'default': true, label: 'lumen_fx_snow_name', descr: 'lumen_fx_snow_descr' },
+      { name: 'lumen_fx_garland_apple', type: 'select', values: ['rosa', 'velvet', 'velvet2', 'velvet3', 'cold', 'cold2'], vprefix: 'lumen_fx_garland_', 'default': 'rosa', label: 'lumen_fx_garland_apple_name', descr: 'lumen_fx_garland_apple_descr' },
+      { name: 'lumen_fx_garland_static', type: 'trigger', 'default': false, label: 'lumen_fx_garland_static_name', descr: 'lumen_fx_garland_static_descr' },
+      { name: 'lumen_group_screensaver', type: 'title', label: 'lumen_group_screensaver' },
+      { name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+      { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
+      { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' }
     ];
 
-    /* 1.4: «Слабый телевизор…» — всё, что меняют ради скорости и памяти.
-       Четыре последних до 1.0.2 включались только из консоли, в 1.0.2 стояли
-       в «Для разработчика»; значения по умолчанию прежние, и читают их те
-       же места (src/58_rowmem.js, src/58_netmem.js, src/58_prefill.js) —
-       на каждом шаге, кроме lumen_netmem: его обёртки ставятся при
-       включении плагина, выключение действует со следующего запуска. */
-    var WEAK = [
-      /* «Без прозрачности» решает не вопрос вкуса, а вопрос железа: на
-         телевизоре, где полупрозрачность мылит, его включают один раз. */
-      { name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
-      /* Task 40: «украшения» — плавная смена кадров, наезд, зум заставки;
-         только при полных анимациях (LC.fxHeavy). Дефолт — ФУНКЦИЯ
-         платформы: addPrefParam (src/80_settings.js) зовёт её при
-         регистрации раздела, когда Lampa.Platform уже поднята. */
-      { name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
-      { name: 'lumen_rowmem', type: 'trigger', 'default': true, label: 'lumen_rowmem_name', descr: 'lumen_rowmem_descr' },
-      /* По умолчанию ВЫКЛЮЧЕНО до проверки на ТВ (bytesOn,
-         src/58_rowmem.js). */
-      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
-      /* Решение владельца: включено по умолчанию, а описание честно
-         говорит, что пункт подменяет пару внутренних функций Lampa. */
-      { name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'lumen_netmem_name', descr: 'lumen_netmem_descr' },
-      { name: 'lumen_prefill', type: 'trigger', 'default': true, label: 'lumen_prefill_name', descr: 'lumen_prefill_descr' }
+    var HOME = [
+      { name: 'lumen_group_hero', type: 'title', label: 'lumen_group_hero' },
+      { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+      { name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': function () { return heroMediaDefault(LC.platformInfo()); }, label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
+      { name: 'lumen_group_rows', type: 'title', label: 'lumen_group_rows' },
+      { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
+      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
+      { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
+      { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
+      { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
+      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      { name: 'lumen_kids', type: 'trigger', 'default': false, label: 'lumen_kids_name', descr: 'lumen_kids_descr' }
+    ];
+
+    var FILM = [
+      { name: 'lumen_group_film', type: 'title', label: 'lumen_group_film' },
+      { name: 'lumen_franchise', type: 'trigger', 'default': true, label: 'lumen_franchise_name', descr: 'lumen_franchise_descr' },
+      { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
+      { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
+      { name: 'lumen_hide_meta', type: 'trigger', 'default': false, label: 'lumen_hide_meta_name', descr: 'lumen_hide_meta_descr' },
+      { name: 'lumen_group_film_media', type: 'title', label: 'lumen_group_film_media' },
+      { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
+      { name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
+      { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' }
+    ];
+
+    var WATCH = [
+      { name: 'lumen_group_continue', type: 'title', label: 'lumen_group_continue' },
+      { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+      { name: 'lumen_cw_days', type: 'select', values: ['off', '14', '30', '90'], vprefix: 'lumen_cw_days_', 'default': '30', label: 'lumen_cw_days_name', descr: 'lumen_cw_days_descr' },
+      { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
+      { name: 'lumen_group_resume', type: 'title', label: 'lumen_group_resume' },
+      { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
+      { name: 'lumen_watch_ask', type: 'trigger', 'default': true, label: 'lumen_watch_ask_name', descr: 'lumen_watch_ask_descr' },
+      { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' }
     ];
 
     /* 1.4: «TorrServer…» — путь до плеера через TorrServer. */
@@ -321,114 +224,57 @@
       { name: 'lumen_ts_auto', type: 'trigger', 'default': false, label: 'lumen_ts_auto_name', descr: 'lumen_ts_auto_descr' }
     ];
 
-    var MORE = [
-      { name: 'lumen_group_film', type: 'title', label: 'lumen_group_film' },
-      { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
-      /* placeholder обязателен у type:'input': пустое поле Lampa показывает
-         им, а без него в разделе стояло слово «undefined» (addPrefParam).
-         1.4: без ключа ряда отзывов на карточке нет вовсе (src/60_reviews.js),
-         про ключ один раз говорит окно знакомства (src/82_onboard.js). */
-      { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
-      { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
-      { name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
-      { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
-      { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
-      /* A6: «Метаданные» и «Настроения» — блоки САМОЙ Lampa (данные от CUB,
-         только для фильма). Читает один dropMetaData (src/90_runtime.js) на
-         построении карточки — отсюда «со следующего открытия». По умолчанию
-         выключен: чужие данные молча не прячем; в стиле Apple TV включён. В
-         таблице стилей правила скрытия быть не должно (сторож в
-         test/css.test.mjs). */
-      { name: 'lumen_hide_meta', type: 'trigger', 'default': false, label: 'lumen_hide_meta_name', descr: 'lumen_hide_meta_descr' },
+    var WEAK = [
+      { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
+      { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+      { name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
+      { name: 'lumen_group_memory', type: 'title', label: 'lumen_group_memory' },
+      { name: 'lumen_rowmem', type: 'trigger', 'default': true, label: 'lumen_rowmem_name', descr: 'lumen_rowmem_descr' },
+      { name: 'lumen_rowmem_bytes', type: 'trigger', 'default': false, label: 'lumen_rowmem_bytes_name', descr: 'lumen_rowmem_bytes_descr' },
+      { name: 'lumen_netmem', type: 'trigger', 'default': true, label: 'lumen_netmem_name', descr: 'lumen_netmem_descr' },
+      { name: 'lumen_prefill', type: 'trigger', 'default': true, label: 'lumen_prefill_name', descr: 'lumen_prefill_descr' }
+    ];
 
-      { name: 'lumen_group_rows', type: 'title', label: 'lumen_group_rows' },
-      /* Волна 3: чипы на главной — только без кадра над рядами
-         (src/49_moods.js). */
-      { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
-      { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
-      { name: 'lumen_cw_days', type: 'select', values: ['off', '14', '30', '90'], vprefix: 'lumen_cw_days_', 'default': '30', label: 'lumen_cw_days_name', descr: 'lumen_cw_days_descr' },
-      /* Волна 4: первые ряды крутятся по эпохам (src/47_homeplan.js);
-         'history' — прежний порядок, личные ряды сверху. */
-      { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
-      /* Task 57: фильм из ряда выше в нижних не повторяется. */
-      { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
-      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
-
-      { name: 'lumen_group_resume', type: 'title', label: 'lumen_group_resume' },
-      /* 1.3: «Вернуться к просмотру» после перезапуска Lampa
-         (src/71_resume.js) — рядом с личными рядами («Досмотреть»), и срок,
-         дольше которого прерванный просмотр не предлагается. Оба читаются
-         при запуске и перед показом. */
-      { name: 'lumen_resume', type: 'trigger', 'default': true, label: 'lumen_resume_name', descr: 'lumen_resume_descr' },
-      { name: 'lumen_watch_ask', type: 'trigger', 'default': true, label: 'lumen_watch_ask_name', descr: 'lumen_watch_ask_descr' },
-      { name: 'lumen_resume_ttl', type: 'select', values: ['2', '6', '12', '24'], vsuffix: 'lumen_resume_ttl_suffix', 'default': '6', label: 'lumen_resume_ttl_name', descr: 'lumen_resume_ttl_descr' },
-
-      { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-      /* Раунд holB: частицы — только праздничные (автотемы по словам
-         выключены флагом LC.fxAutoThemes, src/53_themes.js), поэтому
-         прежние «Все» и «Только сезонные» различались лишь сценой
-         праздничного фильма вне праздника. 1.0.2: два значения; сохранённое
-         'all' LC.migratePrefs переводит в 'seasonal', а модуль тем по-прежнему
-         его понимает. */
-      { name: 'lumen_fx', type: 'select', values: ['seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
-      /* Снег главной — простой тумблер (владелец, 27.11: «снег нужно просто
-         включать или выключать»). Включён — идёт всегда; выключен — холстов
-         нет вовсе, гирлянда остаётся (src/48_hero.js, applyFx). */
-      { name: 'lumen_fx_snow', type: 'trigger', 'default': true, label: 'lumen_fx_snow_name', descr: 'lumen_fx_snow_descr' },
-      { name: 'lumen_fx_garland_static', type: 'trigger', 'default': false, label: 'lumen_fx_garland_static_name', descr: 'lumen_fx_garland_static_descr' },
-      /* Task 56: ВЫКЛЮЧЕНА по умолчанию — заставку Lampa (видео Aerial через
-         5 минут) без спроса не заменяем. Тумблер хранит строку, поэтому
-         включавшие и выключавшие смены дефолта не заметят. */
-      { name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
-      { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
-      { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
-
+    var REMOTE = [
       { name: 'lumen_group_remote', type: 'title', label: 'lumen_group_remote' },
-      /* Task 26: удержание OK — штатный жест Lampa, мы лишь дописываем в
-         её меню свои пункты. */
       { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
-      /* 1.0.2: мини-карта рядов и быстрое листание (src/64_nav.js) — одним
-         выключателем; обычное нажатие не меняет ни то, ни другое. */
       { name: 'lumen_remote_boost', type: 'trigger', 'default': true, label: 'lumen_remote_boost_name', descr: 'lumen_remote_boost_descr' },
-      { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
-      /* 1.2: окно «Что нового» один раз после обновления плагина
-         (src/82_whatsnew.js); 1.4 — и окно знакомства при первой установке
-         (src/82_onboard.js), выключатель у них общий. Читается при запуске
-         и перед показом — выключенный пункт гасит и уже ждущее окно. */
-      { name: 'lumen_whatsnew', type: 'trigger', 'default': true, label: 'lumen_whatsnew_name', descr: 'lumen_whatsnew_descr' },
-      /* 1.4: «Что нового» ещё раз — кнопка (onButtonFor). */
-      { name: 'lumen_whatsnew_show', type: 'button', label: 'lumen_whatsnew_show_name', descr: 'lumen_whatsnew_show_descr' },
-      /* 1.4: кнопка Shots (плагин CUB) и лишние значки шапки Lampa
-         (LC.headHide, src/85_header.js) — интерфейс самой Lampa, поэтому
-         оба ВЫКЛЮЧЕНЫ по умолчанию. Применяются сразу. */
+      { name: 'lumen_group_head', type: 'title', label: 'lumen_group_head' },
       { name: 'lumen_hide_shots', type: 'trigger', 'default': false, label: 'lumen_hide_shots_name', descr: 'lumen_hide_shots_descr' },
       { name: 'lumen_hide_head_icons', type: 'trigger', 'default': false, label: 'lumen_hide_head_icons_name', descr: 'lumen_hide_head_icons_descr' },
+      { name: 'lumen_group_windows', type: 'title', label: 'lumen_group_windows' },
+      { name: 'lumen_whatsnew', type: 'trigger', 'default': true, label: 'lumen_whatsnew_name', descr: 'lumen_whatsnew_descr' }
+    ];
 
-      /* «Для разработчика» — последней группой, в самом низу. */
+    var MORE = [
       { name: 'lumen_group_dev', type: 'title', label: 'lumen_group_dev' },
-      { name: 'lumen_fx_garland_apple', type: 'select', values: ['rosa', 'velvet', 'velvet2', 'velvet3', 'cold', 'cold2'], vprefix: 'lumen_fx_garland_', 'default': 'rosa', label: 'lumen_fx_garland_apple_name', descr: 'lumen_fx_garland_apple_descr' },
-      /* 1.4: проверка праздника на ТВ до его даты — LC.themes._now
-         (src/53_themes.js) подставляет день, время суток остаётся живым. */
       { name: 'lumen_dev_date', type: 'select', values: ['off', '1201', '1205', '1224', '1231', '0101'], vprefix: 'lumen_dev_date_', 'default': 'off', label: 'lumen_dev_date_name', descr: 'lumen_dev_date_descr' },
-      /* Экран «Контент ограничен» Lampa (src/66_regionblock.js). По
-         умолчанию выключен: поведение Lampa без спроса не меняем. */
-      { name: 'lumen_region_unblock', type: 'trigger', 'default': false, label: 'lumen_region_unblock_name', descr: 'lumen_region_unblock_descr' },
-      /* Task 31: строка замеров в углу экрана (src/69_hud.js). */
       { name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
-      /* Волна производительности: самотест (src/69_bench.js); кнопка. */
       { name: 'lumen_debug_bench', type: 'button', label: 'lumen_debug_bench_name', descr: 'lumen_debug_bench_descr' },
-      /* Пусто — LC.MANIFEST_URL (src/00_head.js). */
+      { name: 'lumen_region_unblock', type: 'trigger', 'default': false, label: 'lumen_region_unblock_name', descr: 'lumen_region_unblock_descr' },
       { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' }
     ];
 
-    /* Экраны по темам: section пункта — имя экрана (компонент PLUGIN + '_'
-       + section), кнопка на главном экране — его вход (SECTIONS). */
-    var SECTIONS = { look: 'lumen_look', weak: 'lumen_weak', torrserver: 'lumen_torrserver', more: 'lumen_more' };
+    /* Компонент экрана — PLUGIN + '_' + section. Стабильные имена
+       look, torrserver, weak и more продолжают открывать тот же компонент. */
+    var SECTIONS = {
+      look: 'lumen_look',
+      home: 'lumen_home_section',
+      film: 'lumen_film_section',
+      watch: 'lumen_watch_section',
+      torrserver: 'lumen_torrserver',
+      weak: 'lumen_weak',
+      remote: 'lumen_remote_section',
+      more: 'lumen_more'
+    };
+
     function mark(list, section) {
       for (var j = 0; j < list.length; j++) list[j].section = section;
       return list;
     }
-    var LIST = MAIN.concat(mark(LOOK, 'look'), mark(WEAK, 'weak'), mark(TS, 'torrserver'), mark(MORE, 'more'));
+
+    var LIST = MAIN.concat(mark(LOOK, 'look'), mark(HOME, 'home'), mark(FILM, 'film'),
+      mark(WATCH, 'watch'), mark(TS, 'torrserver'), mark(WEAK, 'weak'), mark(REMOTE, 'remote'), mark(MORE, 'more'));
 
     /* 1.0.2: слитые пункты — новый ключ и старые, которые он заменил.
        Старый ключ, сохранённый выключенным, дочитывается местом чтения

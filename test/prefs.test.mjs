@@ -123,14 +123,8 @@ test('boolOf: пусто/мусор -> значение по умолчанию'
   }
 });
 
-/* ====================================================================== */
-/* Таблица пунктов — версия 1.0.2.                                        */
-/*                                                                        */
-/* Автор 2026-09-27: «в настройках куча мусора; хочу шарить плагин другим */
-/* людям — привести к нормальному виду». Было 53 пункта в одиннадцати     */
-/* группах одного списка, стало два экрана: главный раздел (18 строк) и   */
-/* «Дополнительно…» — раскладку согласовал автор («Да, так»).             */
-/* ====================================================================== */
+/* Таблица пунктов. Сохранённые ключи нужны для совместимости профилей.
+   Входы в разделы и заголовки групп служат только для навигации. */
 
 const LIST = prefs.LIST;
 const names = LIST.filter((e) => e.type !== 'title').map((e) => e.name);
@@ -145,21 +139,17 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
 /* Полный набор ключей: имена не переименованы (профили пользователей живут
    с ними), слитые пункты получили новые ключи, а четыре бывших
    «консольных» выключателя теперь в разделе. */
-test('LIST: полный набор ключей 1.5 — старые имена не переименованы', () => {
+test('LIST: полный набор ключей — сохранённые имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
     'lumen_enabled',
-    /* главный экран */
+    'lumen_home_section', 'lumen_film_section', 'lumen_watch_section', 'lumen_remote_section',
     'lumen_style', 'lumen_look', 'lumen_hero_size', 'lumen_hero_media', 'lumen_home_rows', 'lumen_rows_limit',
     'lumen_kids', 'lumen_franchise', 'lumen_torrserver', 'lumen_motion', 'lumen_weak', 'lumen_more',
-    /* «Цвет и вид…» */
     'lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme', 'lumen_font', 'lumen_scale',
     'lumen_tile_size', 'lumen_flat', 'lumen_badges', 'lumen_hero_logo', 'lumen_posters',
-    /* «Слабый телевизор…» */
     'lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill',
-    /* «TorrServer…» */
     'lumen_pins_enabled', 'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health',
     'lumen_ts_auto', 'lumen_parser_fallback',
-    /* «Дополнительно…» */
     'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl', 'lumen_home_start',
     'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_fx_snow', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source',
@@ -208,7 +198,7 @@ test('фаза 3: значения по умолчанию сохраняют п
 /* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» → «Да,
    сделай»): отдельная настройка размера плиток рядов главной и сеток
    подборок — три ступени, по умолчанию «Обычные» (прежний вид). */
-test('правка 2026-09-26: «Размер плиток» — три ступени, по умолчанию «Обычные», в группе «Главная»', () => {
+test('«Размер постеров» — три ступени, по умолчанию обычный размер', () => {
   const e = prefs.find('lumen_tile_size');
   assert.ok(e, 'пункта нет в разделе');
   assert.equal(e.type, 'select');
@@ -224,40 +214,54 @@ test('фаза 3: масштаб — четыре ступени от «мель
   assert.equal(prefs.find('lumen_scale').vprefix, 'lumen_scale_');
 });
 
-/* 1.5: пять экранов. Тест закрепляет и состав групп, и их порядок, и то,
-   на каком экране стоит пункт: перестановка — решение, а не побочный
-   эффект правки соседней строки. Экран без заголовков групп — одна группа
-   с именем null. */
-const MAIN_GROUPS = [
-  ['lumen_group_look', ['lumen_style', 'lumen_look']],
-  ['lumen_group_home', ['lumen_hero_size', 'lumen_hero_media', 'lumen_home_rows', 'lumen_rows_limit', 'lumen_kids']],
-  ['lumen_group_card', ['lumen_franchise', 'lumen_torrserver']],
-  ['lumen_group_motion', ['lumen_motion', 'lumen_weak', 'lumen_more']]
-];
+/* Состав и порядок групп закрепляют место каждой настройки. */
+const SECTION_BUTTONS = {
+  look: 'lumen_look',
+  home: 'lumen_home_section',
+  film: 'lumen_film_section',
+  watch: 'lumen_watch_section',
+  torrserver: 'lumen_torrserver',
+  weak: 'lumen_weak',
+  remote: 'lumen_remote_section',
+  more: 'lumen_more'
+};
 const SECTION_GROUPS = {
-  /* Весь цвет — одной группой (до 1.5 — пять мест на двух экранах). */
   look: [
-    ['lumen_group_color', ['lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme']],
-    ['lumen_group_style', ['lumen_font', 'lumen_scale', 'lumen_tile_size', 'lumen_flat', 'lumen_badges',
-      'lumen_hero_logo', 'lumen_posters']]
+    ['lumen_group_style', ['lumen_style', 'lumen_flat', 'lumen_menus']],
+    ['lumen_group_color', ['lumen_theme', 'lumen_solid', 'lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope']],
+    ['lumen_group_text_tiles', ['lumen_font', 'lumen_scale', 'lumen_tile_size']],
+    ['lumen_group_posters', ['lumen_posters', 'lumen_badges', 'lumen_hero_logo']],
+    ['lumen_group_holidays', ['lumen_fx', 'lumen_fx_snow', 'lumen_fx_garland_apple', 'lumen_fx_garland_static']],
+    ['lumen_group_screensaver', ['lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']]
   ],
-  weak: [
-    [null, ['lumen_solid', 'lumen_fx_heavy', 'lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
+  home: [
+    ['lumen_group_hero', ['lumen_hero_size', 'lumen_hero_media']],
+    ['lumen_group_rows', ['lumen_home_rows', 'lumen_rows_limit', 'lumen_home_start', 'lumen_moods', 'lumen_rows_dedupe',
+      'lumen_hide_watched', 'lumen_kids']]
+  ],
+  film: [
+    ['lumen_group_film', ['lumen_franchise', 'lumen_reviews', 'lumen_kp_key', 'lumen_hide_meta']],
+    ['lumen_group_film_media', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']]
+  ],
+  watch: [
+    ['lumen_group_continue', ['lumen_personal_rows', 'lumen_cw_days', 'lumen_card_progress']],
+    ['lumen_group_resume', ['lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl']]
   ],
   torrserver: [
     ['lumen_group_ts_view', ['lumen_pins_enabled', 'lumen_torrents', 'lumen_ts_resume_focus', 'lumen_parser_fallback']],
     ['lumen_group_ts_server', ['lumen_tsclean', 'lumen_tsclean_days', 'lumen_tsclean_now', 'lumen_ts_health', 'lumen_ts_auto']]
   ],
+  weak: [
+    ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy']],
+    ['lumen_group_memory', ['lumen_rowmem', 'lumen_rowmem_bytes', 'lumen_netmem', 'lumen_prefill']]
+  ],
+  remote: [
+    ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost']],
+    ['lumen_group_head', ['lumen_hide_shots', 'lumen_hide_head_icons']],
+    ['lumen_group_windows', ['lumen_whatsnew']]
+  ],
   more: [
-    ['lumen_group_film', ['lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer',
-      'lumen_card_progress', 'lumen_hide_meta']],
-    ['lumen_group_rows', ['lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_home_start', 'lumen_rows_dedupe', 'lumen_hide_watched']],
-    ['lumen_group_resume', ['lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl']],
-    ['lumen_group_ambient', ['lumen_fx', 'lumen_fx_snow', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
-    ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew', 'lumen_whatsnew_show',
-      'lumen_hide_shots', 'lumen_hide_head_icons']],
-    /* «Для разработчика» — в самом низу. */
-    ['lumen_group_dev', ['lumen_fx_garland_apple', 'lumen_dev_date', 'lumen_region_unblock', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url']]
+    ['lumen_group_dev', ['lumen_dev_date', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_region_unblock', 'lumen_manifest_url']]
   ]
 };
 
@@ -276,58 +280,43 @@ function groupsOf(entries) {
   return groups;
 }
 
-/* 1.5 (аудит 1.3.1: «около 60 строк»): главный экран — 13 самых нужных
-   строк: выключатель, «Стиль», главная, франшизы, анимации и четыре
-   кнопки на экраны по темам; «Дополнительно…» — последней. */
-test('1.5: главный экран — 13 строк в заданном порядке, «Дополнительно…» последней', () => {
-  const main = LIST.filter((e) => !e.section);
-  assert.deepEqual(groupsOf(main.slice(1)), MAIN_GROUPS);
-  const rows = main.filter((e) => e.type !== 'title').map((e) => e.name);
-  assert.deepEqual(rows, ['lumen_enabled', 'lumen_style', 'lumen_look', 'lumen_hero_size', 'lumen_hero_media',
-    'lumen_home_rows', 'lumen_rows_limit', 'lumen_kids', 'lumen_franchise', 'lumen_torrserver', 'lumen_motion',
-    'lumen_weak', 'lumen_more']);
-  assert.ok(rows.length >= 12 && rows.length <= 13, 'строк на главном экране: ' + rows.length);
-  /* Главный экран — строго впереди, экраны по темам не перемешаны. */
-  const first = LIST.findIndex((e) => e.section);
-  assert.ok(LIST.slice(first).every((e) => e.section), 'пункт главного экрана оказался среди экранов по темам');
+test('главный экран ведёт к теме, последние строки — разработчик и «Что нового»', () => {
+  const main = LIST.filter((entry) => !entry.section);
+  assert.deepEqual(main.map((entry) => [entry.name, entry.type]), [
+    ['lumen_enabled', 'trigger'],
+    ...Object.values(SECTION_BUTTONS).map((name) => [name, 'button']),
+    ['lumen_whatsnew_show', 'button']
+  ]);
 });
 
-test('1.5: у каждого экрана по теме — своя кнопка на главном экране', () => {
-  assert.deepEqual(prefs.SECTIONS, { look: 'lumen_look', weak: 'lumen_weak', torrserver: 'lumen_torrserver', more: 'lumen_more' });
-  for (const section of Object.keys(prefs.SECTIONS)) {
-    const button = prefs.find(prefs.SECTIONS[section]);
+test('у каждого тематического экрана есть своя кнопка', () => {
+  assert.deepEqual(prefs.SECTIONS, SECTION_BUTTONS);
+  for (const [section, name] of Object.entries(SECTION_BUTTONS)) {
+    const button = prefs.find(name);
     assert.equal(button.type, 'button', section);
-    assert.equal(button.section, undefined, 'кнопка — на главном экране: ' + section);
+    assert.equal(button.section, undefined, 'кнопка на главном экране: ' + section);
+    assert.equal(button.default, undefined, 'кнопка не хранит значение: ' + section);
   }
 });
 
-test('1.5: экраны по темам — состав и порядок групп; «Для разработчика» в самом низу', () => {
+test('тематические экраны и группы идут в порядке своих кнопок, без перемешивания', () => {
   const order = [];
-  for (const e of LIST) if (e.section && order.indexOf(e.section) === -1) order.push(e.section);
-  assert.deepEqual(order, ['look', 'weak', 'torrserver', 'more'], 'экраны идут в порядке своих кнопок, каждый одним куском');
-  for (const section of order) {
-    assert.deepEqual(groupsOf(LIST.filter((e) => e.section === section)), SECTION_GROUPS[section], section);
+  let previous;
+  for (const entry of LIST) {
+    const section = entry.section || null;
+    if (section === previous) continue;
+    order.push(section);
+    previous = section;
   }
-  assert.equal(LIST[LIST.length - 1].name, 'lumen_manifest_url');
-});
-
-test('1.5: цвет настраивается в одном месте — все пункты цвета в группе «Цвет»', () => {
-  for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_accent_scope', 'lumen_theme']) {
-    assert.equal(prefs.find(key).section, 'look', key);
+  assert.deepEqual(order, [null, ...Object.keys(SECTION_BUTTONS)]);
+  for (const [section, groups] of Object.entries(SECTION_GROUPS)) {
+    assert.deepEqual(groupsOf(LIST.filter((entry) => entry.section === section)), groups, section);
   }
-  /* «Стиль» ставит набор разом и остаётся на главном экране. */
-  assert.equal(prefs.find('lumen_style').section, undefined);
 });
 
-test('1.5: ключ Кинопоиска — в «Дополнительно…»', () => {
-  assert.equal(prefs.find('lumen_kp_key').section, 'more');
-  assert.equal(prefs.find('lumen_reviews').section, 'more');
-});
-
-test('1.5: в группах не больше семи строк', () => {
-  for (const [title, items] of MAIN_GROUPS) assert.ok(items.length >= 1 && items.length <= 7, title + ': ' + items.length);
-  for (const section of Object.keys(SECTION_GROUPS)) {
-    for (const [title, items] of SECTION_GROUPS[section]) assert.ok(items.length >= 1 && items.length <= 7, section + '/' + title + ': ' + items.length);
+test('у каждой тематической группы не больше семи строк', () => {
+  for (const [section, groups] of Object.entries(SECTION_GROUPS)) {
+    for (const [title, items] of groups) assert.ok(items.length >= 1 && items.length <= 7, section + '/' + title + ': ' + items.length);
   }
 });
 
@@ -1620,5 +1609,5 @@ test('lumen_fx_snow: тумблер, по умолчанию включён, с�
   assert.equal(e.label, 'lumen_fx_snow_name');
   assert.equal(e.descr, 'lumen_fx_snow_descr');
   assert.equal(names.indexOf('lumen_fx_snow'), names.indexOf('lumen_fx') + 1);
-  assert.equal(names.indexOf('lumen_fx_garland_static'), names.indexOf('lumen_fx_snow') + 1);
+  assert.equal(names.indexOf('lumen_fx_garland_apple'), names.indexOf('lumen_fx_snow') + 1);
 });

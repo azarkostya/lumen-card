@@ -28,62 +28,88 @@
        возврате не шлют ни 'full', ни complite (находка ревью Task 8). */
     lumen_card_enabled_name: { ru: 'Включить Lumen Card', en: 'Enable Lumen Card', uk: 'Увімкнути Lumen Card' },
     lumen_card_enabled_descr: {
-      ru: 'Выключите — вернётся штатная карточка Lampa. Действует со следующего открытия.',
-      en: 'Turn off to get the stock Lampa card back. Takes effect on the next card you open.',
-      uk: 'Вимкніть — повернеться штатна картка Lampa. Діє з наступного відкриття.'
+      ru: 'Выключите, чтобы при следующем открытии вернулась штатная карточка Lampa.',
+      en: 'Turn off to restore the stock Lampa card next time you open it.',
+      uk: 'Вимкніть, щоб при наступному відкритті повернулася штатна картка Lampa.'
     },
-    /* Заголовки групп (штатный параметр Lampa type:'title'). 1.4: пять
-       экранов — главный (Внешний вид · Главная · Карточка фильма ·
-       Движение), «Цвет и вид…» (Цвет · Оформление), «Слабый телевизор…»,
-       «TorrServer…» и «Дополнительно…» (Карточка · Ряды главной · Праздники
-       и заставка · Пульт и окна · Для разработчика); раскладка —
-       LC.prefs.LIST (src/81_prefs.js). */
-    lumen_group_look: { ru: 'Внешний вид', en: 'Look', uk: 'Зовнішній вигляд' },
-    lumen_group_card: { ru: 'Карточка фильма', en: 'Film card', uk: 'Картка фільму' },
-    lumen_group_color: { ru: 'Цвет', en: 'Colour', uk: 'Колір' },
-    lumen_group_style: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
-    lumen_group_film: { ru: 'Карточка', en: 'Card', uk: 'Картка' },
-    lumen_group_rows: { ru: 'Ряды главной', en: 'Home rows', uk: 'Ряди головної' },
+    /* Заголовки групп SettingsApi. Порядок экранов задан в LC.prefs.LIST. */
+    lumen_group_color: { ru: 'Цвет и фон', en: 'Colour and background', uk: 'Колір і тло' },
+    lumen_group_style: { ru: 'Стиль', en: 'Style', uk: 'Стиль' },
+    lumen_group_film: { ru: 'На карточке', en: 'On the card', uk: 'На картці' },
+    lumen_group_rows: { ru: 'Подборки', en: 'Collections', uk: 'Добірки' },
     lumen_group_resume: { ru: 'Возврат к просмотру', en: 'Playback resume', uk: 'Повернення до перегляду' },
-    lumen_group_ambient: { ru: 'Праздники и заставка', en: 'Holidays and screensaver', uk: 'Свята й заставка' },
-    lumen_group_remote: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
-    lumen_group_dev: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
+    lumen_group_remote: { ru: 'Пульт', en: 'Remote', uk: 'Пульт' },
+    lumen_group_dev: { ru: 'Диагностика', en: 'Diagnostics', uk: 'Діагностика' },
+    lumen_group_hero: { ru: 'Верхний кадр', en: 'Top image', uk: 'Верхній кадр' },
+    lumen_group_text_tiles: { ru: 'Текст и размеры', en: 'Text and sizing', uk: 'Текст і розміри' },
+    lumen_group_posters: { ru: 'Обложки и подписи', en: 'Artwork and badges', uk: 'Обкладинки й підписи' },
+    lumen_group_holidays: { ru: 'Праздники', en: 'Holidays', uk: 'Свята' },
+    lumen_group_screensaver: { ru: 'Заставка', en: 'Screensaver', uk: 'Заставка' },
+    lumen_group_film_media: { ru: 'Кадры и трейлер', en: 'Images and trailer', uk: 'Кадри й трейлер' },
+    lumen_group_continue: { ru: 'История просмотра', en: 'Watch history', uk: 'Історія перегляду' },
+    lumen_group_memory: { ru: 'Память', en: 'Memory', uk: 'Пам’ять' },
+    lumen_group_head: { ru: 'Шапка Lampa', en: 'Lampa top bar', uk: 'Шапка Lampa' },
+    lumen_group_windows: { ru: 'Уведомления', en: 'Notifications', uk: 'Сповіщення' },
     lumen_group_ts_view: { ru: 'Раздачи', en: 'Torrents', uk: 'Роздачі' },
     lumen_group_ts_server: { ru: 'Сервер', en: 'Server', uk: 'Сервер' },
     /* 1.4: кнопки экранов по темам на главном экране раздела. */
-    lumen_look_name: { ru: 'Цвет и вид…', en: 'Colour and look…', uk: 'Колір і вигляд…' },
+    lumen_home_section_name: { ru: 'Главная', en: 'Home', uk: 'Головна' },
+    lumen_home_section_descr: {
+      ru: 'Верхний кадр и подборки на главной.',
+      en: 'Top image and collections on home.',
+      uk: 'Верхній кадр і добірки на головній.'
+    },
+    lumen_film_section_name: { ru: 'Карточка', en: 'Film card', uk: 'Картка' },
+    lumen_film_section_descr: {
+      ru: 'Кадры, трейлер, отзывы и франшизы.',
+      en: 'Images, trailer, reviews and franchises.',
+      uk: 'Кадри, трейлер, відгуки й франшизи.'
+    },
+    lumen_watch_section_name: { ru: 'Просмотр', en: 'Playback', uk: 'Перегляд' },
+    lumen_watch_section_descr: {
+      ru: 'Прогресс, ряд «Досмотреть» и продолжение после перезапуска.',
+      en: 'Progress, Continue Watching and resuming after restart.',
+      uk: 'Прогрес, ряд «Додивитися» та продовження після перезапуску.'
+    },
+    lumen_remote_section_name: { ru: 'Пульт и окна', en: 'Remote and dialogs', uk: 'Пульт і вікна' },
+    lumen_remote_section_descr: {
+      ru: 'Удержание кнопок, значки шапки и уведомления.',
+      en: 'Button holds, top bar icons and notifications.',
+      uk: 'Утримання кнопок, значки шапки й сповіщення.'
+    },
+    lumen_look_name: { ru: 'Дизайн', en: 'Design', uk: 'Дизайн' },
     lumen_look_descr: {
-      ru: 'Цвет фона и акцента, тема, шрифт, масштаб, плитки, метки, логотип.',
-      en: 'Background and accent colour, theme, font, scale, tiles, badges, logo.',
-      uk: 'Колір тла й акценту, тема, шрифт, масштаб, плитки, мітки, логотип.'
+      ru: 'Стиль, цвет, шрифт, постеры, праздник и заставка.',
+      en: 'Style, colour, fonts, posters, holiday decor and screensaver.',
+      uk: 'Стиль, колір, шрифт, постери, свята й заставка.'
     },
-    lumen_weak_name: { ru: 'Слабый телевизор…', en: 'Slow TV…', uk: 'Слабкий телевізор…' },
+    lumen_weak_name: { ru: 'Быстродействие', en: 'Performance', uk: 'Швидкодія' },
     lumen_weak_descr: {
-      ru: 'Прозрачность, плавные эффекты и память — если картинка тормозит.',
-      en: 'Transparency, smooth effects and memory — if the picture stutters.',
-      uk: 'Прозорість, плавні ефекти й пам’ять — якщо картинка гальмує.'
+      ru: 'Анимации и память. Полезно, если интерфейс тормозит.',
+      en: 'Animation and memory. Adjust these if the interface stutters.',
+      uk: 'Анімації та пам’ять. Корисно, якщо інтерфейс гальмує.'
     },
-    lumen_torrserver_name: { ru: 'TorrServer…', en: 'TorrServer…', uk: 'TorrServer…' },
+    lumen_torrserver_name: { ru: 'Раздачи и TorrServer', en: 'Torrents and TorrServer', uk: 'Роздачі й TorrServer' },
     lumen_torrserver_descr: {
-      ru: 'Оформление раздач, запасной парсер, автоочистка, состояние и автовыбор сервера.',
-      en: 'Torrent screens style, backup parser, auto-cleanup, server status and auto-select.',
-      uk: 'Оформлення роздач, запасний парсер, автоочищення, стан і автовибір сервера.'
+      ru: 'Экран раздач, запасной поиск и настройки сервера.',
+      en: 'Torrent screen, backup search and server settings.',
+      uk: 'Екран роздач, резервний пошук і налаштування сервера.'
     },
-    lumen_more_name: { ru: 'Дополнительно…', en: 'More…', uk: 'Додатково…' },
+    lumen_more_name: { ru: 'Для разработчика', en: 'For developers', uk: 'Для розробника' },
     lumen_more_descr: {
-      ru: 'Отзывы и ключ Кинопоиска, ряды главной, заставка, пульт и окна.',
-      en: 'Kinopoisk reviews and key, home rows, screensaver, remote and dialogs.',
-      uk: 'Відгуки й ключ Кінопошуку, ряди головної, заставка, пульт і вікна.'
+      ru: 'Пробная дата, замеры на ТВ и адрес каталога.',
+      en: 'Test date, TV performance checks and catalogue address.',
+      uk: 'Тестова дата, заміри на ТБ й адреса каталогу.'
     },
     /* 1.4: пометка пункта, который в текущем режиме ничего не меняет
        (LC.prefIdle, src/81_prefs.js): «Не действует: …» — первой строкой
        описания. */
     lumen_idle_prefix: { ru: 'Не действует', en: 'Has no effect', uk: 'Не діє' },
-    lumen_idle_need_auto: { ru: 'выключен «Цвет фона от кадра»', en: '"Background colour from the film" is off', uk: 'вимкнено «Колір тла від кадру»' },
-    lumen_idle_flat: { ru: 'в плоском виде (стиль Apple TV) фон нейтральный', en: 'flat look (Apple TV style) keeps the background neutral', uk: 'у пласкому вигляді (стиль Apple TV) тло нейтральне' },
+    lumen_idle_need_auto: { ru: 'выключен «Цвет из кадра»', en: '"Colour from artwork" is off', uk: 'вимкнено «Колір із кадру»' },
+    lumen_idle_flat: { ru: 'плоский вид сохраняет нейтральный фон', en: 'flat look keeps the background neutral', uk: 'плаский вигляд лишає тло нейтральним' },
     lumen_idle_motion_off: { ru: 'анимации выключены', en: 'animations are off', uk: 'анімації вимкнено' },
-    lumen_idle_need_full: { ru: 'нужны «Полные» анимации', en: 'needs "Full" animations', uk: 'потрібні «Повні» анімації' },
-    lumen_idle_need_torrents: { ru: 'выключено «Оформление торрентов»', en: '"Torrents style" is off', uk: 'вимкнено «Оформлення торентів»' },
+    lumen_idle_need_full: { ru: 'нужны «Полные» анимации', en: 'requires "Full" animations', uk: 'потрібні «Повні» анімації' },
+    lumen_idle_need_torrents: { ru: 'выключен «Вид экрана раздач»', en: '"Torrent screen style" is off', uk: 'вимкнено «Вигляд екрана роздач»' },
     lumen_idle_need_no_hero: { ru: 'включён «Кадр над рядами»', en: '"Hero over the rows" is on', uk: 'увімкнено «Кадр над рядами»' },
     lumen_idle_need_ts_two: { ru: 'в Lampa не задан второй адрес TorrServer', en: 'no second TorrServer address in Lampa', uk: 'у Lampa не задано другу адресу TorrServer' },
     /* Task 62b, 1.0.2: готовый стиль — select «Стиль» (lumen_style) вместо
@@ -104,9 +130,9 @@
        с трёх метров). Весь набор перечисляет уведомление после выбора
        (applyPreset) — названиями самих пунктов. */
     lumen_style_descr: {
-      ru: 'Lumen — тёплый, Apple TV — чёрный и плоский: тему, цвета, шрифт, метки. «Свой» — правили.',
-      en: 'Lumen is warm, Apple TV black and flat: theme, colours, font, badges. "Custom": hand-edited.',
-      uk: 'Lumen — теплий, Apple TV — чорний і плаский: тему, кольори, шрифт, мітки. «Свій»: правили.'
+      ru: 'Меняет тему, цвета, шрифт и метки. Apple TV — плоский. «Свой» — ручной набор.',
+      en: 'Changes theme, colours, font and badges. Apple TV is flat. "Custom" was edited by hand.',
+      uk: 'Змінює тему, кольори, шрифт і мітки. Apple TV — плаский. «Свій» — ручний набір.'
     },
     lumen_style_lumen: { ru: 'Lumen', en: 'Lumen', uk: 'Lumen' },
     lumen_style_appletv: { ru: 'Apple TV', en: 'Apple TV', uk: 'Apple TV' },
@@ -114,15 +140,15 @@
     lumen_preset_appletv_short: { ru: 'Стиль Apple TV', en: 'Apple TV style', uk: 'Стиль Apple TV' },
     lumen_preset_lumen_short: { ru: 'Стиль Lumen', en: 'Lumen style', uk: 'Стиль Lumen' },
     lumen_preset_same: { ru: 'уже применён', en: 'already applied', uk: 'вже застосовано' },
-    lumen_group_motion: { ru: 'Движение', en: 'Motion', uk: 'Рух' },
-    lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
+    lumen_group_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
+    lumen_card_accent: { ru: 'Акцент', en: 'Accent', uk: 'Акцент' },
     /* Task 30: описание было единственным, чего не хватало самому первому
        пункту группы. Цвет виден сразу, но не очевидно, ГДЕ именно он
        появляется и что настройка действует на лету. */
     lumen_card_accent_descr: {
-      ru: 'Цвет кнопок, фокуса и полос прогресса.',
-      en: 'The colour of buttons, focus and progress bars.',
-      uk: 'Колір кнопок, фокуса та смуг прогресу.'
+      ru: 'Цвет кнопок, выделения и полос прогресса.',
+      en: 'Colour of buttons, selection and progress bars.',
+      uk: 'Колір кнопок, виділення та смуг прогресу.'
     },
     lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
     lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
@@ -140,31 +166,23 @@
     /* 1.0.2: подпись — словами автора («Цвет фона от кадра»); описание
        говорит, откуда цвет на самом деле (постер, src/57_color.js), и что
        остаётся без него. */
-    lumen_accent_auto_name: {
-      ru: 'Цвет фона от кадра',
-      en: 'Background colour from the film',
-      uk: 'Колір тла від кадру'
-    },
+    lumen_accent_auto_name: { ru: 'Цвет из кадра', en: 'Colour from artwork', uk: 'Колір із кадру' },
     lumen_accent_auto_descr: {
-      ru: 'Фон главной и карточки — в цвет постера. Выключите — останется «Акцентный цвет».',
-      en: 'Home and card background take the poster colour. Off keeps the "Accent color".',
-      uk: 'Тло головної та картки — в колір постера. Вимкніть — лишиться «Акцентний колір».'
+      ru: 'Тонирует фон главной и карточки по фильму. Без него остаётся «Акцент».',
+      en: 'Tints home and card backgrounds from artwork. Turn off to keep the chosen accent.',
+      uk: 'Тонує тло головної та картки за фільмом. Без цього лишається «Акцент».'
     },
     /* Task 62a (фаза 5): докуда доходит цвет, взятый с постера. «Полная» —
        как было с Task 35. «Только фон» снимает единственное место, где
        подкраска заходит на управление, — подложку карточки под фокусом;
        сам фокус при этом никуда не девается, постер по-прежнему растёт. */
-    lumen_accent_scope_name: {
-      ru: 'Где виден цвет кадра',
-      en: 'Where the film colour shows',
-      uk: 'Де видно колір кадру'
-    },
+    lumen_accent_scope_name: { ru: 'Где применять цвет', en: 'Where to use the colour', uk: 'Де застосувати колір' },
     lumen_accent_scope_descr: {
-      ru: '«Только фон» — карточка в фокусе нейтральна. Нужен включённый «Цвет фона от кадра».',
-      en: '"Background only": focused card stays neutral. Needs "Background colour from the film".',
-      uk: '«Лише тло» — картка у фокусі нейтральна. Потрібен увімкнений «Колір тла від кадру».'
+      ru: 'Цвет из кадра влияет только на фон или также на выделение карточки.',
+      en: 'Use the artwork colour for the background alone or also for the selected card.',
+      uk: 'Колір із кадру впливає лише на тло або й на виділення картки.'
     },
-    lumen_accent_scope_full: { ru: 'Везде', en: 'Everywhere', uk: 'Скрізь' },
+    lumen_accent_scope_full: { ru: 'Фон и выделение', en: 'Background and selection', uk: 'Тло й виділення' },
     lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk: 'Лише тло' },
     /* Task 29 (фаза 3): уведомление автодетекта слабого ТВ. Строки
        «Перехода от постера» удалены вместе с переходом (волна 2, ТВ
@@ -177,15 +195,15 @@
        (forMovie, src/53_themes.js). */
     lumen_fx_garland_apple_name: { ru: 'Гирлянда Apple TV', en: 'Apple TV garland', uk: 'Гірлянда Apple TV' },
     lumen_fx_garland_apple_descr: {
-      ru: 'Вариант новогодней гирлянды для стиля Apple TV.',
-      en: 'New Year garland design for Apple TV style.',
-      uk: 'Варіант новорічної гірлянди для стилю Apple TV.'
+      ru: 'Выберите вид гирлянды для стиля Apple TV.',
+      en: 'Choose a garland for the Apple TV style.',
+      uk: 'Виберіть вигляд гірлянди для стилю Apple TV.'
     },
-    lumen_dev_date_name: { ru: 'Дата для праздников', en: 'Holiday date', uk: 'Дата для свят' },
+    lumen_dev_date_name: { ru: 'Пробная дата', en: 'Test date', uk: 'Тестова дата' },
     lumen_dev_date_descr: {
-      ru: 'Гирлянда, снег и адвент считают, что сегодня выбранный день. Для проверки.',
-      en: 'Garland, snow and advent act as if today were the chosen day. For testing.',
-      uk: 'Гірлянда, сніг і адвент вважають, що сьогодні обраний день. Для перевірки.'
+      ru: 'Показывает снег, гирлянду и адвент для выбранного дня.',
+      en: 'Shows snow, garlands and the advent calendar for the selected day.',
+      uk: 'Показує сніг, гірлянду й адвент для вибраного дня.'
     },
     lumen_dev_date_off: { ru: 'Настоящая', en: 'Real', uk: 'Справжня' },
     lumen_dev_date_1201: { ru: '1 декабря', en: '1 December', uk: '1 грудня' },
@@ -205,19 +223,19 @@
       en: 'Snowfall on the home screen during the holidays. The garland stays.',
       uk: 'Снігопад на головній у свята. Гірлянда лишається.'
     },
-    lumen_fx_garland_static_name: { ru: 'Гирлянда без анимаций', en: 'Garland without animations', uk: 'Гірлянда без анімацій' },
+    lumen_fx_garland_static_name: { ru: 'Гирлянда без анимации', en: 'Still garland', uk: 'Гірлянда без анімації' },
     lumen_fx_garland_static_descr: {
-      ru: 'Показывать неподвижную гирлянду, когда анимации выключены.',
-      en: 'Show a still garland when animations are off.',
-      uk: 'Показувати нерухому гірлянду, коли анімації вимкнено.'
+      ru: 'Оставляет гирлянду на экране при выключенных анимациях.',
+      en: 'Keeps the garland visible when animations are off.',
+      uk: 'Лишає гірлянду на екрані, коли анімації вимкнено.'
     },
     lumen_idle_garland_fx_off: { ru: 'праздничные эффекты выключены', en: 'holiday effects are off', uk: 'святкові ефекти вимкнено' },
     lumen_idle_garland_motion: { ru: 'анимации включены', en: 'animations are on', uk: 'анімації увімкнено' },
-    lumen_fx_name: { ru: 'Праздничные эффекты', en: 'Holiday effects', uk: 'Святкові ефекти' },
+    lumen_fx_name: { ru: 'Декор по датам', en: 'Seasonal decor', uk: 'Декор за датами' },
     lumen_fx_descr: {
-      ru: 'Новый год (1 декабря — 7 января): снег и гирлянда; неделя до Хэллоуина: угли и мыши.',
-      en: 'New Year (1 December – 7 January): snow and garland; before Halloween: embers and bats.',
-      uk: 'Новий рік (1 грудня — 7 січня): сніг і гірлянда; тиждень до Гелловіну: жаринки, кажани.'
+      ru: 'Снег и гирлянда на Новый год (1 декабря — 7 января). Хэллоуин — за неделю.',
+      en: 'Snow and garlands from Dec 1 to Jan 7. Halloween decor starts a week before the holiday.',
+      uk: 'Сніг і гірлянда з 1 грудня до 7 січня. Декор Гелловіну — за тиждень до свята.'
     },
     /* Task 22/56: заставка из кадров. Описание называет штатную заставку
        Lampa: человек, у которого пропало её видео, должен по нему понять,
@@ -228,27 +246,19 @@
       en: 'Film stills with the title and a clock instead of the Lampa screensaver, when it is off.',
       uk: 'Кадри з фільмів із назвою та годинником — замість заставки Lampa, якщо її вимкнено.'
     },
-    lumen_ambient_source_name: {
-      ru: 'Заставка: какие кадры',
-      en: 'Screensaver: which stills',
-      uk: 'Заставка: які кадри'
-    },
+    lumen_ambient_source_name: { ru: 'Кадры заставки', en: 'Screensaver images', uk: 'Кадри заставки' },
     lumen_ambient_source_descr: {
-      ru: '«Известные фильмы» — кадры из каталога плагина, иначе — кадры открытой карточки.',
-      en: '"Famous films": curated stills from the catalog; otherwise stills of the open card.',
-      uk: '«Відомі фільми» — кадри з каталогу плагіна, інакше — кадри відкритої картки.'
+      ru: 'Кадры из подборки известных фильмов или из открытой карточки.',
+      en: 'Use images from popular films or the currently open card.',
+      uk: 'Кадри з добірки відомих фільмів або з відкритої картки.'
     },
     lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
     lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
-    lumen_ambient_delay_name: {
-      ru: 'Заставка: через сколько',
-      en: 'Screensaver: start after',
-      uk: 'Заставка: через скільки'
-    },
+    lumen_ambient_delay_name: { ru: 'Пауза до заставки', en: 'Screensaver delay', uk: 'Пауза до заставки' },
     lumen_ambient_delay_descr: {
-      ru: 'Сколько пульт должен молчать, прежде чем включится заставка.',
-      en: 'How long the remote has to stay idle before the screensaver starts.',
-      uk: 'Скільки пульт має мовчати, перш ніж увімкнеться заставка.'
+      ru: 'Включает заставку через выбранное время без нажатий.',
+      en: 'Show the screensaver after this time without input.',
+      uk: 'Вмикає заставку через вибраний час без натискань.'
     },
     /* Суффикс значений select lumen_ambient_delay: «3 мин». */
     lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
@@ -322,20 +332,20 @@
       uk: 'Lumen Card: увімкнено легкі анімації — пристрій не встигає малювати повні'
     },
     /* Фаза 3: тема — цвет тёмного фона и подложек. */
-    lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
+    lumen_theme_name: { ru: 'Тема фона', en: 'Background theme', uk: 'Тема тла' },
     lumen_theme_descr: {
-      ru: 'Цвет тёмного фона. «Глубокая чёрная» — для OLED-экранов.',
-      en: 'The colour of the dark background. "Deep black" is for OLED screens.',
-      uk: 'Колір темного тла. «Глибока чорна» — для OLED-екранів.'
+      ru: 'Тёплый тёмный фон или глубокий чёрный для OLED.',
+      en: 'Warm dark background or deep black for OLED.',
+      uk: 'Тепле темне тло або глибокий чорний для OLED.'
     },
     lumen_theme_warm: { ru: 'Тёплая тёмная', en: 'Warm dark', uk: 'Тепла темна' },
     lumen_theme_black: { ru: 'Глубокая чёрная', en: 'Deep black', uk: 'Глибока чорна' },
     /* Фаза 3: плотность подложек — прозрачность и размытие карт. */
     lumen_solid_name: { ru: 'Без прозрачности', en: 'No transparency', uk: 'Без прозорості' },
     lumen_solid_descr: {
-      ru: 'Кнопки и подложки без просвечивания. Включите, если картинка мылит или тормозит.',
-      en: 'Buttons and panels without show-through. Turn on if the picture smears or stutters.',
-      uk: 'Кнопки й підкладки без просвічування. Увімкніть, якщо картинка мулиться або гальмує.'
+      ru: 'Убирает прозрачность кнопок и подложек. Может помочь при рывках.',
+      en: 'Makes buttons and panels opaque. May help with stutters.',
+      uk: 'Прибирає прозорість кнопок і підкладок. Може допомогти при ривках.'
     },
     /* Task 73 (фаза 6): плоский вид. A5: в сетке подборки и в хабе он
        снимает только подложки ПОД картинкой (сторож набора правил — в
@@ -344,9 +354,9 @@
        посмотреть». */
     lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
     lumen_flat_descr: {
-      ru: 'Без коробок и рамок: карточка, отзывы, серии, экраны торрентов. Фокус — подъём и тень.',
-      en: 'No boxes or frames on the card, reviews, episodes and torrent screens; focus lifts.',
-      uk: 'Без коробок і рамок: картка, відгуки, серії, екрани торентів. Фокус — підйом і тінь.'
+      ru: 'Без подложек и рамок: карточка, отзывы, серии, экраны торрентов.',
+      en: 'Removes backgrounds and frames from the card, reviews, episodes and torrent screens.',
+      uk: 'Без підкладок і рамок: картка, відгуки, серії, екрани торентів.'
     },
     /* Фаза 3: масштаб интерфейса плагина. Оговорка про потолок: ряд в
        фокусе обязан целиком помещаться под кадром (rowScaleCap в
@@ -356,22 +366,22 @@
        test/css.test.mjs), а не заставку — та на потолок не влияет. */
     lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
     lumen_scale_descr: {
-      ru: 'Размер текста и блоков плагина. При «Кадр над рядами» — «Крупный» ряды могут не расти.',
-      en: 'Size of plugin text and blocks. With "Hero over the rows" at "Large", rows may not grow.',
-      uk: 'Розмір тексту й блоків плагіна. При «Кадр над рядами» — «Великий» ряди можуть не рости.'
+      ru: 'Размер текста и блоков. При «Кадр над рядами» — «Крупный» ряды могут не расти.',
+      en: 'Text and UI size. Rows may stay the same when "Hero over the rows" is "Large".',
+      uk: 'Розмір тексту й блоків. При «Кадр над рядами» — «Великий» ряди можуть не рости.'
     },
     lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
     lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
     lumen_scale_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більше' },
     lumen_scale_huge: { ru: 'Ещё крупнее', en: 'Largest', uk: 'Ще більше' },
-    lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
+    lumen_card_progress_name: { ru: 'Прогресс на карточке', en: 'Progress on the card', uk: 'Прогрес на картці' },
     /* Task 30: одним переключателем гасятся три места сразу (строка прогресса
        в карточке, подпись кнопки «Смотреть» и надписи в карточках серий) —
        это и сказано, иначе выключатель выглядит уже, чем он есть. */
     lumen_card_progress_descr: {
-      ru: 'Полоса просмотра, «Продолжить S2 E3» на кнопке «Смотреть» и отметки у серий.',
-      en: 'The progress bar, "Continue S2 E3" on the Watch button and watched marks on episodes.',
-      uk: 'Смуга перегляду, «Продовжити S2 E3» на кнопці «Дивитися» та позначки в серій.'
+      ru: 'Полоса просмотра, кнопка «Продолжить» и отметки у серий.',
+      en: 'Shows playback progress, the Continue button and episode marks.',
+      uk: 'Показує смугу перегляду, кнопку «Продовжити» й мітки біля серій.'
     },
     /* Выбор гарнитуры. Имена шрифтов — собственные, но идут через
        LC.STRINGS, как все строки интерфейса. 1.0.2: «Как в Lampa»
@@ -380,9 +390,9 @@
        (LC.fontsState, src/30_css.js). */
     lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
     lumen_card_font_descr: {
-      ru: 'Шрифт экранов плагина, грузится из интернета; если не загрузился — вид не изменится.',
-      en: 'Loads from the internet (Google Fonts); if it fails to load, nothing changes.',
-      uk: 'Шрифт екранів плагіна, з інтернету; якщо не завантажився — вигляд не зміниться.'
+      ru: 'Шрифт загружается из интернета. Если не загрузился, вид не изменится.',
+      en: 'Loads from the internet. If it fails to load, nothing changes.',
+      uk: 'Шрифт з інтернету. Якщо не завантажився, вигляд не зміниться.'
     },
     lumen_card_font_system: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
     lumen_card_font_golos: { ru: 'Golos Text', en: 'Golos Text', uk: 'Golos Text' },
@@ -403,65 +413,53 @@
     /* Task 40 (фаза 4): «украшения» — плавная смена кадров, наезд на кадр
        и зум заставки (LC.fxHeavy). Название говорит, что человек увидит;
        сами кадры и трейлеры от пункта не зависят. */
-    lumen_fx_heavy_name: {
-      ru: 'Плавная смена кадров и наезд',
-      en: 'Smooth still changes and zoom',
-      uk: 'Плавна зміна кадрів і наїзд'
-    },
+    lumen_fx_heavy_name: { ru: 'Плавный кадр', en: 'Smooth images', uk: 'Плавний кадр' },
     lumen_fx_heavy_descr: {
-      ru: 'Плавная смена кадров и медленный наезд камеры. Только при полных анимациях.',
-      en: 'Smooth still changes and a slow camera zoom. Only with full animations.',
-      uk: 'Плавна зміна кадрів і повільний наїзд камери. Лише за повних анімацій.'
+      ru: 'Плавная смена кадров и приближение. Только с «Полными» анимациями.',
+      en: 'Smooth image transitions and slow zoom. Requires "Full" animations.',
+      uk: 'Плавна зміна кадрів і наближення. Потрібні «Повні» анімації.'
     },
     /* Task 31 (фаза 4): строка замеров в углу экрана (src/69_hud.js) — для
        проверки на телевизоре без adb. 1.0.2: пункт в группе «Для
        разработчика», поэтому слово «Отладка:» из названия ушло. */
-    lumen_debug_hud_name: { ru: 'Показать FPS', en: 'Show FPS', uk: 'Показати FPS' },
+    lumen_debug_hud_name: { ru: 'Частота кадров', en: 'Frame rate', uk: 'Частота кадрів' },
     lumen_debug_hud_descr: {
-      ru: 'Строка с частотой кадров и замерами в углу экрана — для проверки на телевизоре.',
-      en: 'A line with the frame rate and measurements in the screen corner — for testing on a TV.',
-      uk: 'Рядок із частотою кадрів і замірами в кутку екрана — для перевірки на телевізорі.'
+      ru: 'Выводит частоту кадров и замеры в углу экрана.',
+      en: 'Shows frame rate and timings in the corner of the screen.',
+      uk: 'Показує частоту кадрів і заміри в кутку екрана.'
     },
     /* Волна производительности: самотест на ТВ (src/69_bench.js). Строки
        экрана таблицы и отказа — здесь же: их видит только тот, кто нажал
        эту кнопку. Число стадий (STAGES) сверяет test/bench.test.mjs. */
-    lumen_debug_bench_name: { ru: 'Тест производительности', en: 'Performance test', uk: 'Тест продуктивності' },
+    lumen_debug_bench_name: { ru: 'Тест быстродействия', en: 'Performance test', uk: 'Тест швидкодії' },
     lumen_debug_bench_descr: {
-      ru: 'Гоняет главную по одиннадцати стадиям и показывает таблицу. Любая кнопка — стоп.',
-      en: 'Runs the home screen through eleven stages and shows a table. Any key stops.',
-      uk: 'Ганяє головну через одинадцять стадій і показує таблицю. Будь-яка кнопка — стоп.'
+      ru: 'Проверяет главную по одиннадцати стадиям. Любая кнопка останавливает тест.',
+      en: 'Checks Home in eleven stages. Press any key to stop.',
+      uk: 'Перевіряє головну за одинадцять стадій. Будь-яка кнопка зупиняє тест.'
     },
-    lumen_rowmem_name: { ru: 'Сон дальних рядов', en: 'Sleep for far rows', uk: 'Сон дальніх рядів' },
+    lumen_rowmem_name: { ru: 'Пауза дальних рядов', en: 'Pause distant rows', uk: 'Пауза далеких рядів' },
     lumen_rowmem_descr: {
-      ru: 'Дальние от фокуса ряды не рисуются — меньше памяти. Выключите, если видны пустые полосы.',
-      en: 'Rows far from focus are not drawn — less memory. Turn off if you see empty strips.',
-      uk: 'Далекі від фокуса ряди не малюються — менше пам’яті. Вимкніть, якщо видно порожні смуги.'
+      ru: 'Снижает расход памяти. Выключите, если появляются пустые полосы.',
+      en: 'Reduces memory use. Turn off if blank bands appear.',
+      uk: 'Зменшує витрати пам’яті. Вимкніть, якщо з’являються порожні смуги.'
     },
-    lumen_rowmem_bytes_name: {
-      ru: 'Отпускать постеры дальних рядов',
-      en: 'Release posters of far rows',
-      uk: 'Відпускати постери дальніх рядів'
-    },
+    lumen_rowmem_bytes_name: { ru: 'Выгружать постеры', en: 'Unload posters', uk: 'Вивантажувати постери' },
     lumen_rowmem_bytes_descr: {
-      ru: 'Спящие ряды выгружают постеры: меньше памяти, больше запросов.',
-      en: 'Sleeping rows unload posters: less memory, more requests. Only with "Sleep for far rows".',
-      uk: 'Сплячі ряди вивантажують постери: менше пам’яті, більше запитів. Зі «Сном дальніх рядів».'
+      ru: 'Дальние ряды занимают меньше памяти. Постеры при возврате загрузятся снова.',
+      en: 'Distant rows use less memory. Posters load again when you return.',
+      uk: 'Далекі ряди займають менше пам’яті. Постери при поверненні завантажаться знову.'
     },
-    lumen_netmem_name: {
-      ru: 'Отпускать запросы экранов',
-      en: 'Release screen requests',
-      uk: 'Відпускати запити екранів'
-    },
+    lumen_netmem_name: { ru: 'Память закрытых экранов', en: 'Closed screen memory', uk: 'Пам’ять закритих екранів' },
     lumen_netmem_descr: {
-      ru: 'Подменяет две функции Lampa: закрытые экраны не держатся в памяти. Со следующего запуска.',
-      en: 'Replaces two Lampa functions so closed screens leave memory. From the next start.',
-      uk: 'Підміняє дві функції Lampa: закриті екрани не тримаються в пам’яті. З наступного запуску.'
+      ru: 'Освобождает из памяти закрытые экраны Lampa. Действует после перезапуска.',
+      en: 'Frees closed Lampa screens from memory. Takes effect after restart.',
+      uk: 'Звільняє закриті екрани Lampa з пам’яті. Діє після перезапуску.'
     },
-    lumen_prefill_name: { ru: 'Достройка рядов', en: 'Build rows ahead', uk: 'Добудова рядів' },
+    lumen_prefill_name: { ru: 'Догрузка рядов', en: 'Load rows ahead', uk: 'Довантаження рядів' },
     lumen_prefill_descr: {
-      ru: 'Пока пульт молчит, ряды дорисовываются заранее — прокрутка не тормозит.',
-      en: 'While the remote is idle, row cards are built in advance so scrolling does not stutter.',
-      uk: 'Поки пульт мовчить, ряди домальовуються заздалегідь — гортання не гальмує.'
+      ru: 'Готовит следующие ряды в паузах, чтобы прокрутка шла плавнее.',
+      en: 'Prepares the next rows during pauses for smoother scrolling.',
+      uk: 'Готує наступні ряди в паузах для плавнішого гортання.'
     },
     lumen_bench_need_home: {
       ru: 'Тест производительности запускается с главной: откройте главную и нажмите кнопку снова',
@@ -537,43 +535,43 @@
     /* Task 30: описания фона карточки. Оба пункта до финала фазы 3 стояли без
        подсказок — название говорит, что это, но не что будет, если выключить. */
     lumen_card_slideshow_descr: {
-      ru: 'Кадры фильма за текстом карточки сменяют друг друга. Выключите — останется один.',
-      en: 'The film stills behind the card text replace one another. Turn it off to keep one.',
-      uk: 'Кадри фільму за текстом картки змінюють один одного. Вимкніть — лишиться один.'
+      ru: 'Меняет кадры за текстом карточки. Выключите, чтобы оставить один.',
+      en: 'Cycles images behind the card text. Turn off to keep one image.',
+      uk: 'Змінює кадри за текстом картки. Вимкніть, щоб лишити один.'
     },
-    lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
+    lumen_card_slide_interval: { ru: 'Время на кадр', en: 'Time per image', uk: 'Час на кадр' },
     lumen_card_slide_interval_descr: {
-      ru: 'Сколько секунд держится один кадр — в карточке и на главной.',
-      en: 'How many seconds one still stays — on the card and on the home screen.',
-      uk: 'Скільки секунд тримається один кадр — у картці та на головній.'
+      ru: 'Сколько держится кадр в карточке и на главной.',
+      en: 'How long each image stays on the card and on home.',
+      uk: 'Скільки тримається кадр у картці та на головній.'
     },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
-    lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
+    lumen_card_menus: { ru: 'Оформление меню', en: 'Menu style', uk: 'Оформлення меню' },
     /* Task 30: что именно попадает под каждое из трёх значений. Разметку и
        тексты самих окон плагин не трогает — только стиль (src/64_menus.js). */
     lumen_card_menus_descr: {
-      ru: '«Только путь до плеера» — озвучка, качество, серия, раздача; «Все меню и окна» — все.',
-      en: '"Player path only": voice-over, quality, episode, torrent; "All menus and dialogs": all.',
-      uk: '«Лише шлях до плеєра» — озвучення, якість, серія, роздача; «Усі меню і вікна» — усі.'
+      ru: 'Меняет все меню Lampa или только окна выбора озвучки, качества, серии и раздачи.',
+      en: 'Styles all Lampa menus or only audio, quality, episode and torrent selectors.',
+      uk: 'Змінює всі меню Lampa або лише вікна вибору озвучення, якості, серії та роздачі.'
     },
     lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
     lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
     lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
-    lumen_card_torrents_name: { ru: 'Оформление торрентов', en: 'Torrents style', uk: 'Оформлення торентів' },
+    lumen_card_torrents_name: { ru: 'Вид экрана раздач', en: 'Torrent screen style', uk: 'Вигляд екрана роздач' },
     lumen_card_torrents_descr: {
-      ru: 'Список раздач, окна подключения и ошибок, файлы и предзагрузка — в стиле карточки.',
-      en: 'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
-      uk: 'Список роздач, вікна підключення й помилок, файли та передзавантаження — у стилі картки.'
+      ru: 'Вид карточки для раздач, файлов, подключения, ошибок и предзагрузки.',
+      en: 'Matches the card style for torrents, files, connection, errors and preloading.',
+      uk: 'Вигляд картки для роздач, файлів, підключення, помилок і передзавантаження.'
     },
     /* 1.3: «Автоочистка TorrServer» (src/66_tsclean.js). */
     lumen_tsclean_name: { ru: 'Автоочистка TorrServer', en: 'TorrServer auto-cleanup', uk: 'Автоочищення TorrServer' },
     lumen_tsclean_descr: {
-      ru: 'Убирает из TorrServer раздачи, не открытые из Lampa дольше срока. Идущие не трогает.',
-      en: 'Removes TorrServer torrents not opened from Lampa within the term. Active ones are kept.',
-      uk: 'Прибирає з TorrServer роздачі, не відкриті з Lampa довше строку. Активні не чіпає.'
+      ru: 'Удаляет раздачи, давно не открытые из Lampa. Активные остаются.',
+      en: 'Removes torrents not opened in Lampa for a while. Active ones are kept.',
+      uk: 'Видаляє роздачі, давно не відкриті з Lampa. Активні лишаються.'
     },
     /* Срок автоочистки и «Очистить сейчас» (src/66_tsclean.js). */
-    lumen_tsclean_days_name: { ru: 'Срок хранения раздач', en: 'Keep torrents for', uk: 'Строк зберігання роздач' },
+    lumen_tsclean_days_name: { ru: 'Срок хранения', en: 'Retention', uk: 'Строк зберігання' },
     lumen_tsclean_days_descr: {
       ru: 'Сериалы из «Досмотреть» и недавно смотренные хранятся до 14 дней.',
       en: 'Series in Continue watching and recently watched ones are kept up to 14 days.',
@@ -584,9 +582,9 @@
     lumen_tsclean_days_7: { ru: '7 дней', en: '7 days', uk: '7 днів' },
     lumen_tsclean_now_name: { ru: 'Очистить сейчас', en: 'Clean up now', uk: 'Очистити зараз' },
     lumen_tsclean_now_descr: {
-      ru: 'Один проход автоочистки прямо сейчас — по сроку выше.',
-      en: 'Runs one auto-cleanup pass right now, using the term above.',
-      uk: 'Один прохід автоочищення просто зараз — за строком вище.'
+      ru: 'Очищает раздачи один раз по выбранному сроку хранения.',
+      en: 'Runs cleanup once using the selected retention period.',
+      uk: 'Очищає роздачі один раз за вибраним строком зберігання.'
     },
     lumen_tsclean_now_done: { ru: 'TorrServer: удалено раздач — {n}', en: 'TorrServer: torrents removed — {n}', uk: 'TorrServer: видалено роздач — {n}' },
     lumen_tsclean_now_seeded: {
@@ -600,11 +598,11 @@
       uk: 'TorrServer не відповів — очищення не виконано'
     },
     /* «Состояние TorrServer» на карточке (src/66_tshealth.js). */
-    lumen_ts_health_name: { ru: 'Состояние TorrServer', en: 'TorrServer status', uk: 'Стан TorrServer' },
+    lumen_ts_health_name: { ru: 'Проверка сервера', en: 'Server check', uk: 'Перевірка сервера' },
     lumen_ts_health_descr: {
-      ru: 'Красная точка на «Смотреть», если TorrServer не ответил при открытии карточки.',
-      en: 'A red dot on Watch if TorrServer did not respond when the card opened.',
-      uk: 'Червона крапка на «Дивитися», якщо TorrServer не відповів під час відкриття картки.'
+      ru: 'Красная точка у кнопки «Смотреть», если сервер не отвечает.',
+      en: 'Adds a red dot to Watch when the server does not respond.',
+      uk: 'Червона крапка біля кнопки «Дивитися», якщо сервер не відповідає.'
     },
     lumen_ts_health_noty: {
       ru: 'TorrServer не отвечает. Запасную ссылку можно выбрать: Настройки → TorrServer',
@@ -612,20 +610,20 @@
       uk: 'TorrServer не відповідає. Запасне посилання можна вибрати: Налаштування → TorrServer'
     },
     /* 1.4: «Автовыбор TorrServer» (src/66_tsauto.js). */
-    lumen_ts_auto_name: { ru: 'Автовыбор TorrServer', en: 'TorrServer auto-select', uk: 'Автовибір TorrServer' },
+    lumen_ts_auto_name: { ru: 'Запасной сервер', en: 'Backup server', uk: 'Резервний сервер' },
     lumen_ts_auto_descr: {
-      ru: 'Основной адрес не отвечает — Lampa берёт второй. Проверка при запуске и на карточке',
-      en: 'Main address down — Lampa uses the second one. Checked at start and on a card',
-      uk: 'Основна адреса не відповідає — Lampa бере другу. Перевірка під час запуску й на картці'
+      ru: 'Если основной адрес не отвечает, берёт второй. Проверяет при запуске и в карточке.',
+      en: 'Uses the backup if the main address fails. Checks on startup and when a card opens.',
+      uk: 'Якщо основна адреса недоступна, бере другу. Перевіряє при запуску й у картці.'
     },
     lumen_ts_auto_two: { ru: 'TorrServer: переключено на второй адрес', en: 'TorrServer: switched to the second address', uk: 'TorrServer: перемкнено на другу адресу' },
     lumen_ts_auto_one: { ru: 'TorrServer: переключено на основной', en: 'TorrServer: switched to the main address', uk: 'TorrServer: перемкнено на основну' },
     /* «Запасной парсер» (src/66_parserfb.js). */
-    lumen_parser_fallback_name: { ru: 'Запасной парсер', en: 'Backup parser', uk: 'Запасний парсер' },
+    lumen_parser_fallback_name: { ru: 'Запасной поиск', en: 'Backup search', uk: 'Резервний пошук' },
     lumen_parser_fallback_descr: {
-      ru: 'Основной Jackett молчит 8 с или пуст — поиск по второму адресу парсера Lampa.',
-      en: 'Main Jackett silent for 8 s or empty: search the second Lampa parser address.',
-      uk: 'Основний Jackett мовчить 8 с або порожній — пошук за другою адресою парсера Lampa.'
+      ru: 'Второй адрес Jackett, если основной не ответил за 8 с или не нашёл раздач.',
+      en: 'Uses the second Jackett address if the main one is silent for 8 s or finds nothing.',
+      uk: 'Друга адреса Jackett, якщо основна мовчить 8 с або не знайшла роздач.'
     },
     lumen_parser_fallback_noty: {
       ru: 'Основной парсер не ответил — раздачи с запасного',
@@ -634,11 +632,11 @@
     },
     /* 1.4: файлы сериала в TorrServer — фокус на серии, где остановились
        (src/65_torrents.js, resumeIndex). */
-    lumen_ts_resume_focus_name: { ru: 'Фокус на следующей серии', en: 'Focus on the next episode', uk: 'Фокус на наступній серії' },
+    lumen_ts_resume_focus_name: { ru: 'Следующая серия', en: 'Next episode', uk: 'Наступна серія' },
     lumen_ts_resume_focus_descr: {
-      ru: 'Lampa ставит курсор на последнюю серию с таймкодом; пункт — на следующую за досмотренной.',
-      en: 'Lampa puts the cursor on the last episode with a timecode; this moves it to the next one.',
-      uk: 'Lampa ставить курсор на останню серію з таймкодом; пункт — на наступну за переглянутою.'
+      ru: 'В списке файлов выделяет серию, следующую за досмотренной.',
+      en: 'In the file list, selects the episode after the last finished one.',
+      uk: 'У списку файлів виділяє серію, наступну за переглянутою.'
     },
     /* 1.4: метки раздачи в списке торрентов (src/65_torrents.js, addTags). */
     lumen_tt_dub: { ru: 'Дубляж', en: 'Dub', uk: 'Дубляж' },
@@ -651,9 +649,9 @@
        Android-приставке (src/55_trailer.js). */
     lumen_card_trailer: { ru: 'Трейлер в карточке', en: 'Trailer on the card', uk: 'Трейлер у картці' },
     lumen_card_trailer_descr: {
-      ru: 'Трейлер без звука через 3 секунды. «Авто» — выключен на Tizen, webOS и слабых приставках.',
-      en: 'A muted trailer 3 s after the card opens. "Auto" is off on Tizen, webOS and weak boxes.',
-      uk: 'Трейлер без звуку через 3 секунди. «Авто» — вимкнено на Tizen, webOS і слабких приставках.'
+      ru: 'Трейлер без звука через 3 с. «Авто» отключает его на Tizen, webOS и слабых приставках.',
+      en: 'Muted trailer after 3 s. "Auto" skips it on Tizen, webOS and slower boxes.',
+      uk: 'Трейлер без звуку через 3 с. «Авто» вимикає його на Tizen, webOS і слабких приставках.'
     },
     lumen_card_trailer_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
     lumen_card_trailer_on: { ru: 'Вкл', en: 'On', uk: 'Увімк' },
@@ -672,11 +670,11 @@
        text-transform, а в языках с иным регистром перевод сам решает. */
     lumen_card_reviews_name: { ru: 'Отзывы Кинопоиска', en: 'Kinopoisk reviews', uk: 'Відгуки Кінопошуку' },
     lumen_card_reviews_descr: {
-      ru: 'Отзывы зрителей в карточке фильма. Нужен ключ API — строка ниже.',
-      en: 'Viewer reviews on the film card. Needs the API key below.',
-      uk: 'Відгуки глядачів у картці фільму. Потрібен ключ API — рядок нижче.'
+      ru: 'Отзывы зрителей в карточке фильма. Для загрузки нужен ключ ниже.',
+      en: 'Shows viewer reviews on the film card. Enter the key below to load them.',
+      uk: 'Відгуки глядачів у картці фільму. Для завантаження потрібен ключ нижче.'
     },
-    lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+    lumen_card_kp_key: { ru: 'Ключ Кинопоиска', en: 'Kinopoisk key', uk: 'Ключ Кінопошуку' },
     /* Плейсхолдеры текстовых полей: пустое поле Lampa показывает именно их
        (см. addPrefParam ниже). «Не задан» — про ключ, «Каталог плагина» — про
        адрес каталога: пустая строка там означает адрес по умолчанию, и так это
@@ -686,9 +684,9 @@
     /* Экран 09: «нужен для отзывов и рейтинга КП» — с ключом плагин заполняет
        ещё и чип рейтинга Кинопоиска, если Lampa его не дала (Task 10). */
     lumen_card_kp_key_descr: {
-      ru: 'Для отзывов и рейтинга КП. Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
-      en: 'For reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 500 requests a day',
-      uk: 'Для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів/день'
+      ru: 'Для отзывов и рейтинга. Ключ на kinopoiskapiunofficial.tech.',
+      en: 'For reviews and ratings. Get the key at kinopoiskapiunofficial.tech.',
+      uk: 'Для відгуків і рейтингу. Ключ на kinopoiskapiunofficial.tech.'
     },
     lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
     /* Жалоба 2026-09-25 («вычурно, особенно цвет текста»): метка источника
@@ -715,11 +713,7 @@
     /* Путь до ключа: пояснение «ключ не принят» в ряду отзывов
        (src/60_reviews.js) и окно знакомства (src/82_onboard.js). 1.4: ключ
        — в «Дополнительно…»; без ключа ряда на карточке нет вовсе. */
-    lumen_card_reviews_nokey_path: {
-      ru: 'Настройки → Lumen Card → Дополнительно… → Ключ Kinopoisk API',
-      en: 'Settings → Lumen Card → More… → Kinopoisk API key',
-      uk: 'Налаштування → Lumen Card → Додатково… → Ключ Kinopoisk API'
-    },
+    lumen_card_reviews_nokey_path: { ru: 'Настройки → Lumen Card → Карточка → Ключ Кинопоиска', en: 'Settings → Lumen Card → Film card → Kinopoisk key', uk: 'Налаштування → Lumen Card → Картка → Ключ Кінопошуку' },
     /* Жалоба 2026-09-27: состояние ряда отзывов вместо тишины
        (src/60_reviews.js, STATES). Короткая строка встаёт в шапку ряда после
        «Кинопоиск ·», пояснение (_note) — под шапкой, только у сбоев. */
@@ -764,9 +758,9 @@
       uk: 'Свій каталог підбірок'
     },
     lumen_manifest_url_descr: {
-      ru: 'Адрес своего каталога подборок (JSON). Пусто — каталог плагина, без сети — встроенный.',
-      en: 'Your own collections catalog (JSON). Empty: the plugin catalog; offline: the built-in one.',
-      uk: 'Свій каталог підбірок (JSON). Порожньо — каталог плагіна; офлайн — вбудований.'
+      ru: 'Адрес каталога в JSON. Пусто — каталог Lumen, без сети — встроенный.',
+      en: 'JSON catalogue address. Empty uses Lumen’s catalogue with a built-in offline copy.',
+      uk: 'Адреса каталогу в JSON. Порожньо — каталог Lumen, без мережі — вбудований.'
     },
 
     /* A6 (волна A финального плана): «Метаданные» (Темп, Страх, Экшн…) и
@@ -783,15 +777,11 @@
        аккаунта CUB. Иначе выключатель читается как «выключить нашу
        функцию», и человек будет искать, почему она не вернулась на
        сериале или на английском языке — там её и не было. */
-    lumen_hide_meta_name: {
-      ru: 'Скрывать блоки анализа Lampa',
-      en: 'Hide the Lampa analysis blocks',
-      uk: 'Ховати блоки аналізу Lampa'
-    },
+    lumen_hide_meta_name: { ru: 'Скрыть анализ Lampa', en: 'Hide Lampa analysis', uk: 'Приховати аналіз Lampa' },
     lumen_hide_meta_descr: {
       ru: 'Скрывает блоки самой Lampa со следующего открытия карточки.',
-      en: 'Hides "Metadata" and "Moods", Lampa own blocks, from the next time you open a card.',
-      uk: 'Ховає «Метадані» й «Настрої» — блоки самої Lampa — з наступного відкриття картки.'
+      en: 'Hides Lampa own blocks the next time you open a card.',
+      uk: 'Приховує блоки самої Lampa з наступного відкриття картки.'
     },
     /* «Без региональной блокировки» (src/66_regionblock.js). */
     lumen_region_unblock_name: {
@@ -812,41 +802,28 @@
       en: 'Removes the Shots button from the card and its icon from the top bar.',
       uk: 'Прибирає кнопку Shots з картки та її значок із шапки.'
     },
-    lumen_hide_head_icons_name: { ru: 'Скрыть лишние значки шапки', en: 'Hide extra top bar icons', uk: 'Сховати зайві значки шапки' },
+    lumen_hide_head_icons_name: { ru: 'Скрыть лишние значки', en: 'Hide extra top bar icons', uk: 'Приховати зайві значки' },
     lumen_hide_head_icons_descr: {
-      ru: 'В шапке остаются только поиск, настройки, профиль и полноэкранный режим.',
-      en: 'Only search, settings, profile and full screen stay in the top bar.',
-      uk: 'У шапці лишаються тільки пошук, налаштування, профіль і повноекранний режим.'
+      ru: 'В шапке остаются поиск, настройки, профиль и полноэкранный режим.',
+      en: 'Keeps search, settings, profile and full screen in the top bar.',
+      uk: 'У шапці лишаються пошук, налаштування, профіль і повноекранний режим.'
     },
 
-    /* Task 15/20 (фаза 2): группа настроек главной. 1.0.2: в главном
-       разделе — кадр, плитки и ряды; раскладка главной (чипы, личные ряды,
-       начало, повторы, досмотренное) — во втором экране, в «Карточке и
-       главной». */
-    lumen_group_home: {
-      ru: 'Главная',
-      en: 'Home screen',
-      uk: 'Головна'
-    },
     /* Task 19/20: чипы профилей настроения на главной (с волны 3 — только без кадра над рядами). */
-    lumen_moods_name: { ru: 'Чипы настроения', en: 'Mood chips', uk: 'Чипи настрою' },
+    lumen_moods_name: { ru: 'Подборки по настроению', en: 'Mood collections', uk: 'Добірки за настроєм' },
     /* Волна 3 (ТВ 2026-09-24): чипы на главной — только при выключенном
        кадре (src/49_moods.js), и описание называет это условие. */
     lumen_moods_descr: {
-      ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен.',
-      en: 'A row of quick picks above the home rows when "Hero over the rows" is off.',
-      uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено.'
+      ru: 'Быстрый выбор подборок на главной, когда «Кадр над рядами» выключен.',
+      en: 'Quick picks on home when "Hero over the rows" is off.',
+      uk: 'Швидкий вибір добірок на головній, коли «Кадр над рядами» вимкнено.'
     },
     /* Task 20: кнопка-параметр — экран выбора подборок для главной. */
-    lumen_home_rows_name: {
-      ru: 'Какие подборки показывать',
-      en: 'Which collections to show',
-      uk: 'Які підбірки показувати'
-    },
+    lumen_home_rows_name: { ru: 'Выбрать подборки', en: 'Choose collections', uk: 'Вибрати добірки' },
     lumen_home_rows_descr: {
-      ru: 'Подборки для главной. Ничего не отмечено — набор по умолчанию.',
-      en: 'Tick the collections for the home screen. With nothing ticked the default set is shown.',
-      uk: 'Підбірки для головної. Нічого не позначено — набір за замовчуванням.'
+      ru: 'Отметьте нужные ряды. Пустой выбор возвращает обычный набор.',
+      en: 'Pick the rows you want. An empty selection restores the default set.',
+      uk: 'Позначте потрібні ряди. Порожній вибір повертає звичайний набір.'
     },
     /* Заголовок экрана выбора рядов (Lampa.Select). */
     lumen_home_rows_select: {
@@ -861,9 +838,9 @@
        говорит, чего режим НЕ делает (план 1.2, раздел рисков). */
     lumen_kids_name: { ru: 'Детский режим', en: 'Kids mode', uk: 'Дитячий режим' },
     lumen_kids_descr: {
-      ru: 'Только мультфильмы и семейное кино в плагине. Это не родительский контроль.',
-      en: 'Home, collections and roulette show only animation and family films. Not parental control.',
-      uk: 'Головна, підбірки й рулетка — лише мультфільми та сімейне кіно. Не батьківський контроль.'
+      ru: 'Оставляет мультфильмы и семейное кино на экранах плагина.',
+      en: 'Keeps cartoons and family films on the plugin’s screens.',
+      uk: 'Лишає мультфільми й сімейне кіно на екранах плагіна.'
     },
     /* 1.0.2: кнопка «Франшиза» и ряд «Смотреть по порядку» — одним
        выключателем (lumen_franchise). */
@@ -873,27 +850,19 @@
       en: 'The "Franchise" button and the "Watch in order" row, which replaces "Collection".',
       uk: 'Кнопка «Франшиза» і ряд «Дивитися по порядку» — він замінює штатну «Колекцію».'
     },
-    lumen_hide_watched_name: {
-      ru: 'Скрывать досмотренное',
-      en: 'Hide watched',
-      uk: 'Приховувати переглянуте'
-    },
+    lumen_hide_watched_name: { ru: 'Скрыть досмотренное', en: 'Hide finished titles', uk: 'Приховати переглянуте' },
     lumen_hide_watched_descr: {
-      ru: 'Убирает из рядов подборок фильмы и сериалы, которые вы уже смотрели.',
-      en: 'Removes already-watched movies and shows from collection rows.',
-      uk: 'Забирає з рядів підбірок фільми та серіали, які ви вже переглянули.'
+      ru: 'Убирает просмотренные фильмы и сериалы из подборок.',
+      en: 'Removes finished films and series from collections.',
+      uk: 'Прибирає переглянуті фільми та серіали з добірок.'
     },
-    lumen_rows_limit_name: {
-      ru: 'Сколько рядов подборок',
-      en: 'How many collection rows',
-      uk: 'Скільки рядів підбірок'
-    },
+    lumen_rows_limit_name: { ru: 'Число рядов', en: 'Number of rows', uk: 'Кількість рядів' },
     /* Task 30: каждый ряд — отдельный запрос к каталогу при построении
        главной, и на слабом телевизоре это заметно (src/44_rows.js). */
     lumen_rows_limit_descr: {
-      ru: 'Меньше рядов — главная открывается быстрее. Персональные ряды не в счёт.',
-      en: 'Fewer rows — the home screen opens faster. Personal rows are not counted.',
-      uk: 'Менше рядів — головна відкривається швидше. Персональні ряди не враховуються.'
+      ru: 'Лимит рядов подборок на главной. Личные ряды в него не входят.',
+      en: 'Limit collection rows on home. Personal rows are counted separately.',
+      uk: 'Ліміт рядів добірок на головній. Особисті ряди рахуються окремо.'
     },
     /* Суффикс для значений select lumen_rows_limit: '10 рядов', '15 рядов', '25 рядов'. */
     lumen_rows_limit_suffix: {
@@ -902,11 +871,11 @@
       uk: 'рядів'
     },
     /* Task 57 (фаза 5): дедупликация фильмов между рядами главной. */
-    lumen_rows_dedupe_name: { ru: 'Не повторять фильмы', en: 'No repeated films', uk: 'Не повторювати фільми' },
+    lumen_rows_dedupe_name: { ru: 'Без повторов', en: 'No duplicates', uk: 'Без повторів' },
     lumen_rows_dedupe_descr: {
-      ru: 'Фильм — только в первом ряду, где встретился. Опустевший ряд скрывается, кроме ваших.',
-      en: 'A film shows only in its first row. A row this empties is hidden, except your own.',
-      uk: 'Фільм — лише в першому ряду, де трапився. Спорожнілий ряд ховається, крім ваших.'
+      ru: 'Фильм остаётся в первом ряду с ним. Пустые ряды, кроме выбранных вами, скрываются.',
+      en: 'Keep a film in its first row. Hide empty rows unless you selected them.',
+      uk: 'Фільм лишається в першому ряду з ним. Порожні ряди, крім вибраних вами, ховаються.'
     },
 
     /* Task 16 (фаза 2): персональные ряды на главной. */
@@ -979,9 +948,9 @@
        экран, над ними чипы настроения (src/49_moods.js). */
     lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
     lumen_hero_size_descr: {
-      ru: 'Доля экрана под кадр фильма. «Выключен» — ряды на весь экран, над ними чипы.',
-      en: 'How much screen the hero takes. "Off" gives the rows the whole screen, mood chips above.',
-      uk: 'Частка екрана під кадр фільму. «Вимкнено» — ряди на весь екран, над ними чипи.'
+      ru: 'Размер верхнего кадра. «Выключен» отдаёт весь экран рядам подборок.',
+      en: 'Sets the top image size. "Off" gives the rows the whole screen.',
+      uk: 'Розмір верхнього кадру. «Вимкнено» віддає весь екран рядам добірок.'
     },
     lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
     lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
@@ -997,9 +966,9 @@
     lumen_hero_media_trailer: { ru: 'Кадры и трейлер', en: 'Stills and trailer', uk: 'Кадри і трейлер' },
     lumen_hero_media_frames: { ru: 'Только кадры', en: 'Stills only', uk: 'Лише кадри' },
     lumen_hero_media_descr: {
-      ru: 'Через 8 с в фокусе — трейлер без звука. «Только кадры» — без трейлера.',
-      en: 'Stills rotate; after 8 s on a card a muted trailer starts. "Stills only": no trailer.',
-      uk: 'Через 8 с у фокусі — трейлер без звуку. «Лише кадри» — без трейлера.'
+      ru: 'Через 8 с на карточке — трейлер без звука. «Только кадры» выключает его.',
+      en: 'After 8 s on a card, play a muted trailer. "Stills only" turns it off.',
+      uk: 'Через 8 с на картці — трейлер без звуку. «Лише кадри» вимикає його.'
     },
     /* Task 71 (фаза 6): логотип названия в кадре главной. Название пункта
        не «логотип фильма», а «логотип названия»: с дивана человек видит
@@ -1011,22 +980,22 @@
        карточки (бывший «Логотип в карточке», lumen_card_logo, слит сюда:
        LC.prefs.MERGED). Описание называет и цену — английский логотип
        вместо русского названия. */
-    lumen_hero_logo_name: { ru: 'Логотип названия', en: 'Title logo', uk: 'Логотип назви' },
+    lumen_hero_logo_name: { ru: 'Логотип фильма', en: 'Title logo', uk: 'Логотип фільму' },
     lumen_hero_logo_descr: {
-      ru: 'Название в кадре и в карточке — логотипом. Нет на вашем языке — английский.',
-      en: 'The title in the hero and on the card as a logo; English if none in your language.',
-      uk: 'Назва в кадрі та в картці — логотипом. Немає вашою мовою — англійський.'
+      ru: 'Фирменное название на главной и в карточке. Без перевода — английский логотип.',
+      en: 'Uses the film logo on home and the card. If unavailable locally, it uses English.',
+      uk: 'Фірмова назва на головній та в картці. Без перекладу — англійський логотип.'
     },
     /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок. Что
        обещает описание, держит тест «Размер плиток в рядах…»
        (test/css.test.mjs): с крупным кадром на «обычном» и «крупнее»
        размере интерфейса Lampa плитки уже самые крупные из помещающихся, и
        «Крупнее» их не меняет. */
-    lumen_tile_size_name: { ru: 'Размер плиток', en: 'Tile size', uk: 'Розмір плиток' },
+    lumen_tile_size_name: { ru: 'Размер постеров', en: 'Poster size', uk: 'Розмір постерів' },
     lumen_tile_size_descr: {
-      ru: 'Размер постеров в рядах и подборках. С крупным кадром «Крупнее» может не помочь.',
-      en: 'Poster size in rows and collections. With a large hero, "Larger" may change nothing.',
-      uk: 'Розмір постерів у рядах і підбірках. З великим кадром «Більші» можуть нічого не змінити.'
+      ru: 'Ширина постеров в рядах и сетке. Крупный кадр может ограничить размер.',
+      en: 'Poster width in rows and grids. A large hero can limit the size.',
+      uk: 'Ширина постерів у рядах і сітці. Великий кадр може обмежити розмір.'
     },
     lumen_tile_size_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніші' },
     lumen_tile_size_normal: { ru: 'Обычные', en: 'Normal', uk: 'Звичайні' },
@@ -1035,14 +1004,14 @@
        настройка про то же самое, — а описание теперь объясняет выбор между
        плашкой и подписью: с дивана «На постере / В подписи» без пояснения
        читается как загадка. */
-    lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
+    lumen_badges_name: { ru: 'Метки карточек', en: 'Card badges', uk: 'Мітки карток' },
     /* Финальная проверка, B9: в виде «В подписи» рейтинг у карточки с
        меткой в ряду главной не дописывается (src/62_badges.js, decorate), и
        описание рядом с годом его не обещает. */
     lumen_badges_descr: {
-      ru: '«Скоро», «Новинка», процент просмотра, новые серии — на постере или строкой под ним.',
-      en: '"Soon", "New", watched percentage, new episodes — on the poster or as a caption line.',
-      uk: '«Скоро», «Новинка», відсоток перегляду, нові серії — на постері або рядком під ним.'
+      ru: 'Новинки, серии и прогресс можно вывести на постере или в подписи.',
+      en: 'Show new releases, episodes and progress on the poster or in its caption.',
+      uk: 'Новинки, серії та прогрес можна показати на постері або в підписі.'
     },
     /* Постеры карточек (lumen_posters). Описание обязано назвать цену до
        выбора: «Без надписей» — запрос на каждую карточку (живые замеры
@@ -1052,10 +1021,10 @@
        «Кэширование запросов» (request_caching). Ф3: режим 'original'
        подписан «Английские» — он даёт английскую обложку, а не обложку на
        языке оригинала; ключ значения прежний. */
-    lumen_posters_name: { ru: 'Постеры карточек', en: 'Card posters', uk: 'Постери карток' },
+    lumen_posters_name: { ru: 'Обложки', en: 'Cover artwork', uk: 'Обкладинки' },
     lumen_posters_descr: {
       ru: '«Английские» и «Без надписей» — по запросу на карточку; кэш — «Кэширование запросов».',
-      en: '"English" and "No lettering" cost once per card; cached with Lampa "Request caching".',
+      en: '"English" and "No lettering" load once per card; cache via Lampa "Request caching".',
       uk: '«Англійські» й «Без написів» — по запиту на картку; кеш — «Кешування запитів» Lampa.'
     },
     lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
@@ -1068,24 +1037,20 @@
        Настройка — не про вид, а про удобство, поэтому включена по
        умолчанию: сам факт удержания OK — штатный жест Lampa, мы лишь
        дописываем в её меню свои пункты. */
-    lumen_context_menu_name: {
-      ru: 'Меню по удержанию OK',
-      en: 'Menu on holding OK',
-      uk: 'Меню за утриманням OK'
-    },
+    lumen_context_menu_name: { ru: 'Меню по удержанию OK', en: 'Hold OK menu', uk: 'Меню при утриманні OK' },
     lumen_context_menu_descr: {
-      ru: 'Удержание OK на постере — меню: трейлер, похожие, франшиза, «Скрыть».',
-      en: 'Hold OK on a poster for a menu: trailer, similar, franchise, watched mark, "Hide".',
-      uk: 'Утримання OK на постері відкриває меню: трейлер, схожі, франшиза, позначка, «Сховати».'
+      ru: 'Удержите OK на постере, чтобы открыть трейлер, похожие фильмы или франшизу.',
+      en: 'Hold OK on a poster for the trailer, similar films or the franchise.',
+      uk: 'Утримуйте OK на постері, щоб відкрити трейлер, схожі фільми чи франшизу.'
     },
     /* Task 27 (фаза 3), 1.0.2: мини-карта рядов и быстрое листание — одним
        выключателем (lumen_remote_boost). Кратность листания в описании —
        от FAST_EXTRA в src/64_nav.js (сторож в test/prefs.test.mjs). */
-    lumen_remote_boost_name: { ru: 'Ускорители пульта', en: 'Remote shortcuts', uk: 'Прискорювачі пульта' },
+    lumen_remote_boost_name: { ru: 'Быстрое листание', en: 'Fast scrolling', uk: 'Швидке гортання' },
     lumen_remote_boost_descr: {
-      ru: 'Держите вверх/вниз — список рядов, влево/вправо — вдвое быстрее, каналы — 10 карточек.',
-      en: 'Hold up/down for the row list, left/right scrolls twice as fast, channels jump 10 cards.',
-      uk: 'Утримання вгору/вниз — список рядів, вліво/вправо — удвічі швидше, канали — на 10 карток.'
+      ru: 'Держите ↑/↓ — список рядов, ←/→ — вдвое быстрее, каналы — по 10 карточек.',
+      en: 'Hold ↑/↓ for rows, ←/→ to scroll twice as fast. Channel keys skip 10 cards.',
+      uk: 'Тримайте ↑/↓ — список рядів, ←/→ — удвічі швидше, канали — по 10 карток.'
     },
     /* Шапка панели мини-карты: «РЯДЫ · 3 ИЗ 9» (design-spec-main §0.16). */
     lumen_minimap_rows: { ru: 'РЯДЫ', en: 'ROWS', uk: 'РЯДИ' },
@@ -1172,23 +1137,19 @@
       en: 'Returned to recommendations',
       uk: 'Повернено в рекомендації'
     },
-    lumen_personal_rows_name: {
-      ru: 'Персональные ряды',
-      en: 'Personal rows',
-      uk: 'Персональні ряди'
-    },
+    lumen_personal_rows_name: { ru: 'Личные ряды', en: 'Personal rows', uk: 'Особисті ряди' },
     lumen_personal_rows_descr: {
-      ru: 'Ряды «Досмотреть», «Потому что вы смотрели», новые серии и релизы.',
-      en: '"Continue watching", "Because you watched", "New episodes", "Coming soon", "New on digital"',
-      uk: '«Додивитися», «Тому що ви дивилися», «Нові серії», «Незабаром», «Вийшло в цифрі».'
+      ru: '«Досмотреть», рекомендации по истории, новые серии и релизы.',
+      en: 'Continue Watching, recommendations from history, new episodes and releases.',
+      uk: '«Додивитися», поради за історією, нові серії та релізи.'
     },
     /* Волна 4 (ТВ 2026-09-24): начало главной — ротация рядов по эпохам
        (src/47_homeplan.js) или прежняя история сверху. */
-    lumen_cw_days_name: { ru: 'Убирать из «Досмотреть»', en: 'Remove from Continue Watching', uk: 'Прибирати з «Додивитися»' },
+    lumen_cw_days_name: { ru: 'Срок в «Досмотреть»', en: 'Keep in Continue Watching', uk: 'Строк у «Додивитися»' },
     lumen_cw_days_descr: {
-      ru: 'Скрывает давно не открывавшиеся фильмы и сериалы. История и прогресс сохраняются.',
-      en: 'Hides films and shows you have not played recently. Keeps your history and progress.',
-      uk: 'Приховує давно не відкривані фільми та серіали. Історія та прогрес зберігаються.'
+      ru: 'Старые записи уходят из ряда. История и прогресс сохраняются.',
+      en: 'Older items leave the row. History and playback progress are kept.',
+      uk: 'Старі записи зникають із ряду. Історія й прогрес зберігаються.'
     },
     lumen_cw_days_off: { ru: 'Выкл', en: 'Off', uk: 'Вимк.' },
     lumen_cw_days_14: { ru: 'Через 14 дней', en: 'After 14 days', uk: 'Через 14 днів' },
@@ -1284,18 +1245,18 @@
        номером версии, подсказка внизу окна собирается из строк раздела
        (lumen_whatsnew_off + путь). Заголовок уходит в шаблон Lampa
        строкой — без «<&${» (сторож в test/whatsnew.test.mjs). */
-    lumen_whatsnew_name: { ru: 'Что нового после обновления', en: 'What\'s new after an update', uk: 'Що нового після оновлення' },
+    lumen_whatsnew_name: { ru: 'Уведомления о версии', en: 'Version notices', uk: 'Сповіщення про версію' },
     lumen_whatsnew_descr: {
-      ru: 'Окно об изменениях после обновления и окно знакомства при первой установке.',
-      en: 'The changes window after an update and the welcome window on first install.',
-      uk: 'Вікно змін після оновлення й вікно знайомства під час першого встановлення.'
+      ru: 'Показывает знакомство при установке и список изменений после обновления.',
+      en: 'Shows an introduction after install and release notes after updates.',
+      uk: 'Показує знайомство при встановленні й список змін після оновлення.'
     },
     /* 1.4: «Что нового» ещё раз — кнопка в «Пульте и окнах». */
-    lumen_whatsnew_show_name: { ru: 'Показать «Что нового»', en: 'Show "What\'s new"', uk: 'Показати «Що нового»' },
+    lumen_whatsnew_show_name: { ru: 'Что нового', en: 'What\'s new', uk: 'Що нового' },
     lumen_whatsnew_show_descr: {
-      ru: 'Ещё раз открыть окно с изменениями этой версии.',
-      en: 'Open the window with this version\'s changes again.',
-      uk: 'Ще раз відкрити вікно зі змінами цієї версії.'
+      ru: 'Открывает список изменений текущей версии.',
+      en: 'Opens the release notes for the current version.',
+      uk: 'Відкриває список змін поточної версії.'
     },
     /* 1.4: окно знакомства при первой установке (src/82_onboard.js). Пункты
        — строками, без разметки; путь до настроек окно собирает из строк
@@ -1342,19 +1303,19 @@
     },
     lumen_watch_ask_name: { ru: 'Досмотрели фильм?', en: 'Did you finish the movie?', uk: 'Додивилися фільм?' },
     lumen_watch_ask_descr: {
-      ru: 'Предложить отметить фильм после долгого просмотра во внешнем плеере.',
-      en: 'Offer to mark a movie watched after a long session in an external player.',
-      uk: 'Запропонувати позначити фільм після тривалого перегляду в зовнішньому плеєрі.'
+      ru: 'Предлагает отметить фильм после долгого просмотра во внешнем плеере.',
+      en: 'Offers to mark the film watched after a long session in an external player.',
+      uk: 'Пропонує позначити фільм після тривалого перегляду в зовнішньому плеєрі.'
     },
     lumen_watch_ask_title: { ru: 'Досмотрели «{title}»?', en: 'Did you finish “{title}”?', uk: 'Додивилися «{title}»?' },
     lumen_watch_ask_yes: { ru: 'Да, отметить', en: 'Yes, mark watched', uk: 'Так, позначити' },
     lumen_watch_ask_no: { ru: 'Нет', en: 'No', uk: 'Ні' },
     lumen_watch_ask_mark: { ru: 'Досмотрел — отметить', en: 'Mark as watched', uk: 'Додивився — позначити' },
-    lumen_resume_ttl_name: { ru: 'Сколько помнить место', en: 'Remember the spot for', uk: 'Скільки пам’ятати місце' },
+    lumen_resume_ttl_name: { ru: 'Срок напоминания', en: 'Reminder window', uk: 'Строк нагадування' },
     lumen_resume_ttl_descr: {
-      ru: 'Позже этого срока окно не появится — фильм останется в «Досмотреть».',
-      en: 'After this time the window will not appear — the title stays in "Continue watching".',
-      uk: 'Пізніше за цей строк вікно не з’явиться — фільм залишиться в «Додивитися».'
+      ru: 'После этого срока фильм остаётся в «Досмотреть», но окно не появится.',
+      en: 'After this time the film stays in Continue Watching and the reminder expires.',
+      uk: 'Після цього строку фільм лишається в «Додивитися», а нагадування зникає.'
     },
     lumen_resume_ttl_suffix: { ru: 'ч', en: 'h', uk: 'год' },
     lumen_resume_title: { ru: 'Вернуться к просмотру?', en: 'Resume watching?', uk: 'Повернутися до перегляду?' },
@@ -2033,16 +1994,15 @@
     }
   }
 
-  /* 1.0.2: строка «Шрифт» набрана выбранной гарнитурой — превью прямо в
-     разделе (onRender у addParam, app.min.js addParams). Стек отдаёт
-     LC.fontStack (src/30_css.js): пусто при «Как в Lampa» и у выключенного
-     плагина — строка наследует шрифт Lampa. Грузится одна выбранная
-     гарнитура, поэтому превью — у строки, а не у каждого варианта в окне
-     выбора. */
+  /* Гарнитуру показывает значение справа. Название настройки и подпись
+     наследуют шрифт меню Lampa, чтобы сохранять привычные размеры. */
   function fontPreview(item) {
     try {
-      if (!item || typeof item.css !== 'function') return;
-      item.css('font-family', typeof LC.fontStack === 'function' ? LC.fontStack() : '');
+      if (!item || typeof item.find !== 'function') return;
+      var value = item.find('.settings-param__value');
+      if (value && typeof value.css === 'function') {
+        value.css('font-family', typeof LC.fontStack === 'function' ? LC.fontStack() : '');
+      }
     } catch (e) {
       warn('font preview failed', e);
     }
@@ -2163,8 +2123,7 @@
   }
 
   /* -------------------------------------------------------------------- */
-  /* Экраны раздела по темам: «Цвет и вид…», «Слабый телевизор…»,           */
-  /* «TorrServer…» (1.4) и «Дополнительно…» (1.0.2).                        */
+  /* Тематические экраны раздела «Lumen Card».                           */
   /*                                                                        */
   /* Каждый — такой же экран параметров Lampa (Component$2), как «Lumen     */
   /* Card», только без своей папки в списке настроек: addComponent мы для   */
@@ -2185,6 +2144,18 @@
      00_head.js, где PLUGIN не определён. */
   function sectionComponent(section) {
     return PLUGIN + '_' + section;
+  }
+
+  /* Настройки для проверки сборки видны на beta и локальном стенде.
+     Pages, теги выпуска и запасной адрес загрузчика ведут в обычное меню. */
+  function showDiagnostics() {
+    var base = typeof LC.assetUrl === 'function' ? LC.assetUrl('') : '';
+    return /^https:\/\/cdn\.jsdelivr\.net\/gh\/azarkostya\/lumen-card@beta\/$/i.test(base) ||
+      /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i.test(base);
+  }
+
+  function diagnosticEntry(entry) {
+    return entry.section === 'more' || entry.name === LC.prefs.SECTIONS.more;
   }
 
   /* Экран, который открывает кнопка name, или ''. */
@@ -2209,9 +2180,10 @@
      строками не считаются). */
   function buttonIndex(button) {
     var at = 0;
+    var diagnostics = showDiagnostics();
     for (var i = 0; i < LC.prefs.LIST.length; i++) {
       var e = LC.prefs.LIST[i];
-      if (e.section) continue;
+      if (e.section || (!diagnostics && diagnosticEntry(e))) continue;
       if (e.name === button) return at;
       if (e.type !== 'title') at++;
     }
@@ -2243,6 +2215,7 @@
   function openSection(section) {
     try {
       if (!window.Lampa || !Lampa.Settings || typeof Lampa.Settings.create !== 'function') return;
+      if (section === 'more' && !showDiagnostics()) return;
       Lampa.Settings.create(sectionComponent(section), { onBack: backFor(section) });
     } catch (err) {
       warn('settings section failed', err);
@@ -2436,8 +2409,10 @@
       /* Экраны по темам — без папок в списке настроек (см. openSection).
          Свой try: без шаблона не откроется только этот экран, главный
          раздел — да. */
+      var diagnostics = showDiagnostics();
       for (var section in LC.prefs.SECTIONS) {
         if (!Object.prototype.hasOwnProperty.call(LC.prefs.SECTIONS, section)) continue;
+        if (section === 'more' && !diagnostics) continue;
         try {
           if (Lampa.Template && typeof Lampa.Template.add === 'function') Lampa.Template.add('settings_' + sectionComponent(section), '<div></div>');
         } catch (eTpl) {
@@ -2446,7 +2421,10 @@
       }
 
       /* Порядок пунктов, группы и экраны — LC.prefs.LIST (src/81_prefs.js). */
-      for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
+      for (var i = 0; i < LC.prefs.LIST.length; i++) {
+        var entry = LC.prefs.LIST[i];
+        if (diagnostics || !diagnosticEntry(entry)) addPrefParam(entry);
+      }
       LC.settingsAdded = true;
       /* Сохранённый «Стиль» мог устареть (миграция 1.0.2 перевела шрифт,
          пункты правили в прежних версиях) — сверяем один раз при старте. */

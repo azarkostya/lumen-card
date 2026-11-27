@@ -196,8 +196,8 @@
     /* «Выключить это окно: …» — как у «Что нового»: выключатель общий. */
     function hintText() {
       var q = lang() === 'en' ? ['"', '"'] : ['«', '»'];
-      return LC.lang('lumen_whatsnew_off') + ' → ' + [LC.lang('lumen_card_title'), LC.lang('lumen_more_name'),
-        LC.lang('lumen_group_remote'), q[0] + LC.lang('lumen_whatsnew_name') + q[1]].join(' → ');
+      return LC.lang('lumen_whatsnew_off') + ' → ' + [LC.lang('lumen_card_title'), LC.lang('lumen_remote_section_name'),
+        LC.lang('lumen_group_windows'), q[0] + LC.lang('lumen_whatsnew_name') + q[1]].join(' → ');
     }
 
     /* Окно — штатный Lampa.Modal, разметка и оформление — те же, что у
