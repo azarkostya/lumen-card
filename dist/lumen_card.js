@@ -3603,7 +3603,7 @@ css.push('body .settings .settings-param.focus .settings-param__descr,body .sett
 css.push('body .settings .settings-folder.focus .settings-folder__icon,body .settings .settings-param.focus .settings-folder__icon{color:'+P.bg+';-webkit-filter:invert(1) !important;filter:invert(1) !important}');
 var OWN_ROW='body .settings .settings-param[data-name^="lumen_"]';
 var FIT_TEXT='min-width:0;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere';
-css.push(OWN_ROW+' > .settings-param__name,'+OWN_ROW+'.focus > .settings-param__name{-webkit-flex:1 1 0%;flex:1 1 0%;font-weight:500;'+FIT_TEXT+'}');
+css.push(OWN_ROW+' > .settings-param__name,'+OWN_ROW+'.focus > .settings-param__name{-webkit-flex:1 1 0%;flex:1 1 0%;font-weight:500;'+FIT_TEXT+';min-width:30%}');
 css.push(OWN_ROW+' > .settings-param__value{-webkit-flex:0 1 auto;flex:0 1 auto;max-width:42%;box-sizing:border-box;margin-left:0;padding-left:.77em;'+FIT_TEXT+'}');
 css.push(OWN_ROW+' > .settings-param__descr{-webkit-flex:0 0 100%;flex:0 0 100%;'+FIT_TEXT+'}');
 css.push(OWN_ROW+' > .settings-param__descr:empty{display:none}');
