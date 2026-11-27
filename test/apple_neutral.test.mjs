@@ -76,8 +76,8 @@ const LUMEN_SAMPLES = {
    Настройки Lumen: две устойчивые колонки, перенос длинного текста и высота строки без скачка фокуса.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '853653c089e8ae512a0c9c92b692c02e663889117bb184ac948329e7f275da17',
-  black_solid: '4527a99ab6f27f7c040b82ab701a47e34103781211fbdd2c71aa0d16ee76b679'
+  warm: '1d39d7c15bc9616bff14462d0addaaded6ae16262c883b2f26a9d678e37d4445',
+  black_solid: '937e8edac2af99b1f67cd0bce60c292e5d082b40a774ace601e3c7e72ae7a3c3'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

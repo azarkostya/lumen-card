@@ -107,10 +107,15 @@
       /* У строк Lumen первая колонка занимает остаток после значения.
          Нулевой flex-basis не даёт подписи вытолкнуть значение на другую
          строку. Отступ значения входит в ограничение его ширины. Обычное
-         описание и пометка «Не действует» получают по отдельной строке. */
+         описание и пометка «Не действует» получают по отдельной строке.
+         Имя не уже трети строки: у кнопки-раздела значения нет, и при
+         нулевой ширине имя с описанием (100 %) ровно умещались в одну
+         строку — имя сжималось в 0 px, буквы вставали столбиком (ТВ,
+         раунд 4). Значение не шире 42 %, так что строке имени это место
+         не мешает. */
       var OWN_ROW = 'body .settings .settings-param[data-name^="lumen_"]';
       var FIT_TEXT = 'min-width:0;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere';
-      css.push(OWN_ROW + ' > .settings-param__name,' + OWN_ROW + '.focus > .settings-param__name{-webkit-flex:1 1 0%;flex:1 1 0%;font-weight:500;' + FIT_TEXT + '}');
+      css.push(OWN_ROW + ' > .settings-param__name,' + OWN_ROW + '.focus > .settings-param__name{-webkit-flex:1 1 0%;flex:1 1 0%;font-weight:500;' + FIT_TEXT + ';min-width:30%}');
       css.push(OWN_ROW + ' > .settings-param__value{-webkit-flex:0 1 auto;flex:0 1 auto;max-width:42%;box-sizing:border-box;margin-left:0;padding-left:.77em;' + FIT_TEXT + '}');
       css.push(OWN_ROW + ' > .settings-param__descr{-webkit-flex:0 0 100%;flex:0 0 100%;' + FIT_TEXT + '}');
       css.push(OWN_ROW + ' > .settings-param__descr:empty{display:none}');

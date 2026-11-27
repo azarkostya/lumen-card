@@ -176,8 +176,15 @@ for (const [name, storage] of Object.entries(STYLES)) {
     assert.equal(prop(value, 'margin-left'), '0');
     assert.equal(prop(value, 'box-sizing'), 'border-box');
     assert.equal(prop(descr, 'flex'), '0 0 100%');
-    for (const cell of [title, value, descr]) {
+    /* Описание во всю строку всегда уходит под имя: у кнопки-раздела
+       значения нет, и при нулевой минимальной ширине имя сжималось в 0 px
+       (ТВ, раунд 4). Место под значение при этом остаётся. */
+    assert.equal(prop(title, 'min-width'), '30%');
+    assert.ok(parseFloat(prop(title, 'min-width')) + parseFloat(prop(value, 'max-width')) < 100, 'имя и значение умещаются в одну строку');
+    for (const cell of [value, descr]) {
       assert.equal(prop(cell, 'min-width'), '0');
+    }
+    for (const cell of [title, value, descr]) {
       assert.equal(prop(cell, 'white-space'), 'normal');
       assert.equal(prop(cell, 'word-wrap'), 'break-word');
       assert.equal(prop(cell, 'overflow-wrap'), 'anywhere');
