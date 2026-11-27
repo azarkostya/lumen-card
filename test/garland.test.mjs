@@ -116,7 +116,7 @@ test('Вне сезона и при выключенных эффектах за
   f.settings.lumen_flat = true;
   f.garland.mount(f.host);
   assert.equal(f.requests.length, 1);
-  assert.match(f.requests[0].url, /garland-velvet-still\.webp$/);
+  assert.match(f.requests[0].url, /garland-rosa-still\.webp$/);
   f.finish(0);
   assert.equal(f.host.firstChild.children.length, 1);
 });
@@ -235,9 +235,9 @@ test('Струна заменяет Подвесы в Apple TV и оставля
   assert.match(f.requests[2].url, /garland-warm-still\.webp$/);
 });
 
-test('Палитры Apple TV подставляют свои полосы и накладки, незнакомое значение берёт Бархат', () => {
+test('Палитры Apple TV подставляют свои полосы и накладки, незнакомое значение берёт Росу', () => {
   for (const [pref, palette] of [
-    ['velvet', 'velvet'], ['velvet2', 'velvet2'], ['velvet3', 'velvet3'], ['unknown', 'velvet']
+    ['rosa', 'rosa'], ['velvet', 'velvet'], ['velvet2', 'velvet2'], ['velvet3', 'velvet3'], ['unknown', 'rosa']
   ]) {
     const f = fixture();
     f.settings.lumen_flat = true;

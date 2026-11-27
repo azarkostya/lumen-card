@@ -1604,9 +1604,9 @@ test('v1.4: на слабой приставке «Что в кадре» — «
   });
 });
 
-test('Гирлянда Apple TV: Бархат по умолчанию, остальные палитры и старые варианты доступны', () => {
+test('Гирлянда Apple TV: Роса по умолчанию, палитры Бархата и старые варианты доступны', () => {
   const e = prefs.find('lumen_fx_garland_apple');
-  assert.equal(e['default'], 'velvet');
-  assert.deepEqual(e.values, ['velvet', 'velvet2', 'velvet3', 'cold', 'cold2']);
+  assert.equal(e['default'], 'rosa');
+  assert.deepEqual(e.values, ['rosa', 'velvet', 'velvet2', 'velvet3', 'cold', 'cold2']);
   assert.equal(e.vprefix, 'lumen_fx_garland_');
 });

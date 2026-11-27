@@ -193,6 +193,7 @@
     lumen_dev_date_1224: { ru: '24 декабря', en: '24 December', uk: '24 грудня' },
     lumen_dev_date_1231: { ru: '31 декабря', en: '31 December', uk: '31 грудня' },
     lumen_dev_date_0101: { ru: '1 января', en: '1 January', uk: '1 січня' },
+    lumen_fx_garland_rosa: { ru: 'Роса', en: 'Dew', uk: 'Роса' },
     lumen_fx_garland_velvet: { ru: 'Бархат', en: 'Velvet', uk: 'Оксамит' },
     lumen_fx_garland_velvet2: { ru: 'Ёлка', en: 'Christmas tree', uk: 'Ялинка' },
     lumen_fx_garland_velvet3: { ru: 'Пастель', en: 'Pastel', uk: 'Пастель' },

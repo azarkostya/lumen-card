@@ -59,7 +59,7 @@
       /* 1.5.0 — все изменения для зрителя с 1.3.1. */
       '1.5.0': {
         ru: [
-          'Новый год. Снежинки и гирлянда появляются при открытии, Apple TV получил цветной бархат, а в адвенте каждый день ждёт фильм-подарок.',
+          'Новый год. Снежинки и гирлянда появляются при открытии, в Apple TV — бархатные шары на провисающей нити с огоньками, а в адвенте каждый день ждёт фильм-подарок.',
           'Досмотреть. Остаток времени под постером, давние недосмотры скрываются, досмотренное исчезает сразу.',
           'Досмотрели фильм? После внешнего плеера Lampa может предложить отметить фильм просмотренным.',
           'Моя раздача. Удерживайте OK на раздаче, чтобы закрепить её и потом открыть прямо из карточки.',
@@ -69,7 +69,7 @@
           'Настройки. Пункты собраны по разделам, можно скрыть Shots и лишние значки шапки, а «Что нового» открыть повторно.'
         ],
         en: [
-          'New Year. Snowflakes and garlands appear as you open the screen, Apple TV has coloured velvet ornaments, and Advent reveals a film each day.',
+          'New Year. Snow and garlands appear at once, Apple TV gets velvet baubles on a draped string of lights, and Advent reveals a film each day.',
           'Continue Watching. See time left under the poster, hide older entries and clear finished titles right away.',
           'Did you finish the movie? After an external player closes, Lampa may offer to mark the film as watched.',
           'My pinned torrent. Hold OK on a torrent to pin it, then open it directly from the title page.',
@@ -79,7 +79,7 @@
           'Settings. Options are grouped by topic, with controls for hiding Shots and extra icons or reopening What’s New.'
         ],
         uk: [
-          'Новий рік. Сніжинки й гірлянда з’являються одразу, Apple TV отримав кольоровий оксамит, а в адвенті щодня відкривається фільм-подарунок.',
+          'Новий рік. Сніжинки й гірлянда з’являються одразу, в Apple TV — оксамитові кулі на провислій нитці з вогниками, а в адвенті щодня відкривається фільм-подарунок.',
           'Додивитися. Залишок часу під постером, давні записи приховуються, а переглянуте зникає одразу.',
           'Додивилися фільм? Після зовнішнього плеєра Lampa може запропонувати позначити фільм як переглянутий.',
           'Моя роздача. Утримуйте OK на роздачі, щоб закріпити її та потім відкривати прямо з картки.',

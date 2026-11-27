@@ -402,7 +402,7 @@
 
       /* «Для разработчика» — последней группой, в самом низу. */
       { name: 'lumen_group_dev', type: 'title', label: 'lumen_group_dev' },
-      { name: 'lumen_fx_garland_apple', type: 'select', values: ['velvet', 'velvet2', 'velvet3', 'cold', 'cold2'], vprefix: 'lumen_fx_garland_', 'default': 'velvet', label: 'lumen_fx_garland_apple_name', descr: 'lumen_fx_garland_apple_descr' },
+      { name: 'lumen_fx_garland_apple', type: 'select', values: ['rosa', 'velvet', 'velvet2', 'velvet3', 'cold', 'cold2'], vprefix: 'lumen_fx_garland_', 'default': 'rosa', label: 'lumen_fx_garland_apple_name', descr: 'lumen_fx_garland_apple_descr' },
       /* 1.4: проверка праздника на ТВ до его даты — LC.themes._now
          (src/53_themes.js) подставляет день, время суток остаётся живым. */
       { name: 'lumen_dev_date', type: 'select', values: ['off', '1201', '1205', '1224', '1231', '0101'], vprefix: 'lumen_dev_date_', 'default': 'off', label: 'lumen_dev_date_name', descr: 'lumen_dev_date_descr' },
