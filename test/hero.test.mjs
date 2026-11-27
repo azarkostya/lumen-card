@@ -8148,15 +8148,15 @@ test('Новогодний слой доступен на первом фоку�
   env.advance(1);
   assert.equal(node.hasClass('lumen-winter-scroll'), false, 'стоп-кадр снова виден через 360 мс');
   assert.equal(paused(), true);
-  env.advance(1439);
-  assert.equal(paused(), true);
+  env.advance(2639);
+  assert.equal(paused(), true, 'снег стоит 3 с после стрелки: шаг пульта на ТВ ~1,75 с');
   env.advance(2);
-  assert.equal(paused(), false);
+  assert.equal(paused(), false, 'в покое снег едет и при фокусе в ряду');
   assert.equal(node.hasClass('lumen-winter-scroll'), false);
   assert.equal(env.fx.mounts.length, 1);
 });
 
-test('Снег стоит в ряду между редкими стрелками и едет после 1,8 с покоя в шапке', () => {
+test('Снег стоит между редкими стрелками и едет после 3 с покоя — в ряду и в шапке', () => {
   const env = nyEnv();
   const main = makeMain();
   const handlers = new Map();
@@ -8177,7 +8177,7 @@ test('Снег стоит в ряду между редкими стрелкам
   const arrow = { keyCode: 39, target: { tagName: 'BODY' } };
   const keydown = handlers.get('keydown');
   assert.equal(typeof keydown, 'function');
-  assert.equal(paused(), true, 'первый кадр снега стоит, если Lampa сразу вернула фокус ряду');
+  assert.equal(paused(), false, 'до первой стрелки снег едет и при фокусе в ряду');
   controller = 'head';
   keydown({ keyCode: 39, target: { tagName: 'INPUT' } });
   keydown({ keyCode: 13, target: arrow.target });
@@ -8192,12 +8192,17 @@ test('Снег стоит в ряду между редкими стрелкам
     keydown(arrow);
   }
   keydown({ keyCode: 38, target: arrow.target });
-  controller = 'head';
-  env.hero.onToggle();
-  env.advance(1799);
+  env.advance(2999);
   assert.equal(paused(), true);
   env.advance(2);
-  assert.equal(paused(), false, 'покой вне рядов возвращает движение');
+  assert.equal(paused(), false, 'покой в ряду возвращает движение');
+  keydown(arrow);
+  controller = 'head';
+  env.hero.onToggle();
+  env.advance(2999);
+  assert.equal(paused(), true);
+  env.advance(2);
+  assert.equal(paused(), false, 'покой в шапке тоже');
   env.hero.unmount();
   assert.equal(handlers.size, 0);
 });

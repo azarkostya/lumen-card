@@ -2486,7 +2486,6 @@
     /* Вендор хранит фоновую активность без .lumen-main. Её подарки
        тоже не нуждаются в штатном will-change у каждой карточки. */
     css.push('.card.lumen-advent-card{will-change:auto}');
-    css.push('.lumen-main .lumen-advent-card .card__icons:empty{display:none}');
     css.push(gift + door + '{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;text-align:center;pointer-events:none;-webkit-background-size:100% 100%;background-size:100% 100%;background-repeat:no-repeat}');
     for (var wi = 0; wi < wraps.length; wi++) {
       var wrap = wraps[wi];

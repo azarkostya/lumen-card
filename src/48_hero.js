@@ -1834,7 +1834,12 @@
        (предикат paused в applyFx ниже). */
     var FX_CALM_MS = 1500;
     var WINTER_SCROLL_MS = 360;
-    var WINTER_CALM_MS = 1800;
+    /* Раунд 3 (ТВ, 27.11): снег на Web Animations держал вывод кадров
+       включённым (~4950 кадров за листание против ~1400), потому что
+       трогался между шагами пульта (шаг на ТВ ~1,75 с). Едет только после
+       WINTER_CALM_MS без стрелок — с запасом к шагу, но праздник в покое
+       живой и при фокусе в рядах. */
+    var WINTER_CALM_MS = 3000;
     /* Зона текста героя для слоя частиц (src/52_fx.js, safeZone). */
     var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
 
@@ -1930,23 +1935,9 @@
        анимаций сменили, и статичный кадр, цвет и пауза должны пересчитаться
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
-    /* Lampa ведёт ряды своим контроллером, даже если герой не сжимается.
-       Выход из ряда в шапку вновь разрешает движение после окна покоя.
-       Принудительные эффекты самотеста измеряются отдельно от праздника. */
-    function winterRowsFocused() {
-      if (benchPreset || state.hostClass !== MAIN_HOST) return false;
-      try {
-        var control = window.Lampa && Lampa.Controller && Lampa.Controller.enabled();
-        var name = control && control.name;
-        return name === 'items_line' || name === 'content';
-      } catch (e) {
-        return false;
-      }
-    }
-
     function fxPaused() {
       return !!(state && (state.trailer || state.compact || state.parked ||
-        (state.fxWinter ? state.fxCalmTimer !== null || winterRowsFocused() : Date.now() - state.focusAt < FX_CALM_MS)));
+        (state.fxWinter ? state.fxCalmTimer !== null : Date.now() - state.focusAt < FX_CALM_MS)));
     }
 
     function pauseWinterScroll() {
