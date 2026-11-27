@@ -2323,7 +2323,8 @@
     /* Монтирует слой частиц в узел. opts:
          color  — цвет частиц (акцент темы), по умолчанию белый;
          paused — функция «сейчас не рисовать» (трейлер играет);
-         ownScroll — главная сама управляет паузой зимы при листании;
+         ownScroll — зима на главной: без паузы CALM_MS после клавиш (снег
+                  там идёт всегда, src/48_hero.js, fxPaused);
          count  — сколько частиц вместо count пресета;
          width/height — размер слоя, когда его нельзя спросить у узла.
          safe   — зона текста {left, top, right, bottom, floor, feather}
@@ -2478,14 +2479,16 @@
       wake();
     }
 
-    function unmount(layer) {
+    function unmount(layer, now) {
       var node = nodeOf(layer);
       if (!node) return;
       var inst = find(node);
       if (!inst) return;
       /* Раунд holB: праздничная сцена (keep) не снимается, а замирает — до
-         повторного монтажа или LINGER_MS (разбор у lingerOk). */
-      if (inst.ctx && lingerOk(inst)) {
+         повторного монтажа или LINGER_MS (разбор у lingerOk).
+         now — снять сразу, без удержания: снег выключили тумблером, и
+         замерший холст не должен ни висеть в кадре, ни держать память. */
+      if (!now && inst.ctx && lingerOk(inst)) {
         if (!inst.leaving) inst.leaving = nowMs();
         pauseSnowBand(inst);
         return;

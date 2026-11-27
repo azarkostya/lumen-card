@@ -162,7 +162,7 @@ test('LIST: полный набор ключей 1.5 — старые имена
     /* «Дополнительно…» */
     'lumen_reviews', 'lumen_kp_key', 'lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer', 'lumen_card_progress',
     'lumen_hide_meta', 'lumen_region_unblock', 'lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl', 'lumen_home_start',
-    'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source',
+    'lumen_rows_dedupe', 'lumen_hide_watched', 'lumen_fx', 'lumen_fx_snow', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source',
     'lumen_ambient_delay', 'lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew',
     'lumen_whatsnew_show', 'lumen_hide_shots', 'lumen_hide_head_icons', 'lumen_fx_garland_apple', 'lumen_dev_date', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_manifest_url'
   ].sort());
@@ -253,7 +253,7 @@ const SECTION_GROUPS = {
       'lumen_card_progress', 'lumen_hide_meta']],
     ['lumen_group_rows', ['lumen_moods', 'lumen_personal_rows', 'lumen_cw_days', 'lumen_home_start', 'lumen_rows_dedupe', 'lumen_hide_watched']],
     ['lumen_group_resume', ['lumen_resume', 'lumen_watch_ask', 'lumen_resume_ttl']],
-    ['lumen_group_ambient', ['lumen_fx', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
+    ['lumen_group_ambient', ['lumen_fx', 'lumen_fx_snow', 'lumen_fx_garland_static', 'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
     ['lumen_group_remote', ['lumen_context_menu', 'lumen_remote_boost', 'lumen_menus', 'lumen_whatsnew', 'lumen_whatsnew_show',
       'lumen_hide_shots', 'lumen_hide_head_icons']],
     /* «Для разработчика» — в самом низу. */
@@ -1609,4 +1609,16 @@ test('Гирлянда Apple TV: Роса по умолчанию, палитр�
   assert.equal(e['default'], 'rosa');
   assert.deepEqual(e.values, ['rosa', 'velvet', 'velvet2', 'velvet3', 'cold', 'cold2']);
   assert.equal(e.vprefix, 'lumen_fx_garland_');
+});
+
+/* Владелец, 27.11: «снег нужно просто включать или выключать». */
+test('lumen_fx_snow: тумблер, по умолчанию включён, стоит сразу за lumen_fx', () => {
+  const e = prefs.find('lumen_fx_snow');
+  assert.ok(e, 'настройки «Снег» нет');
+  assert.equal(e.type, 'trigger');
+  assert.equal(e['default'], true);
+  assert.equal(e.label, 'lumen_fx_snow_name');
+  assert.equal(e.descr, 'lumen_fx_snow_descr');
+  assert.equal(names.indexOf('lumen_fx_snow'), names.indexOf('lumen_fx') + 1);
+  assert.equal(names.indexOf('lumen_fx_garland_static'), names.indexOf('lumen_fx_snow') + 1);
 });

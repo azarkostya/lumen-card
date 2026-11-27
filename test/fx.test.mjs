@@ -1353,7 +1353,7 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     tick(40);
     assert.equal(layer.children.length, 2, 'первый кадр обоих слоёв виден сразу, даже под паузой');
     const near = layer.children[1];
-    assert.match(near.className, /lumen-fx__canvas--winter.*lumen-fx__canvas--near/, 'ближний слой прячется вместе с дальним при листании');
+    assert.match(near.className, /lumen-fx__canvas--winter.*lumen-fx__canvas--near/, 'ближний слой носит класс зимы, как и дальний');
     assert.deepEqual([near.width, near.height], [1440, 1080], 'ближний слой — в DPR слоя (до 1,5), чтобы не мылило');
     assert.ok((far.width * far.height + near.width * near.height) * 4 / 1024 ** 2 < 9, 'память двух слоёв до 9 МиБ');
     const farCtx = all.find((c) => c.canvas === far);
@@ -1404,6 +1404,71 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     assert.equal(motions[2].currentTime, 4200, 'пересборка подхватывает фазу снега');
     fx.unmountAll();
     assert.equal(layer.children.length, 0, 'снятие слоя убирает оба холста');
+  });
+});
+
+/* «Снег идёт всегда» (владелец, 27.11): зима главной (ownScroll) на клавиши
+   не отвечает — ни паузы CALM_MS, ни пересоздания движения; предикат героя
+   молчит, и оба холста едут без остановки. */
+test('Снег главной: клавиши не ставят движение на паузу и не пересоздают его', () => {
+  richEnv(({ tick, doc }) => {
+    const motions = [];
+    const keys = [];
+    const create = doc.createElement;
+    doc.createElement = (tag) => {
+      const el = create(tag);
+      el.animate = (keyframes, options) => {
+        const animation = {
+          el, keyframes, options, playState: 'running', currentTime: 0, pauses: 0,
+          pause() { this.playState = 'paused'; this.pauses++; },
+          play() { this.playState = 'running'; },
+          cancel() { this.playState = 'idle'; this.currentTime = null; }
+        };
+        motions.push(animation);
+        return animation;
+      };
+      return el;
+    };
+    doc.addEventListener = (type, fn) => { if (type === 'keydown') keys.push(fn); };
+    const fx = freshFx({ motionMode: () => 'full' });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 360);
+    fx.mount(layer, 'winter', { paused: () => false, ownScroll: true });
+    fx.bulbs(layer, true);
+    tick(40);
+    assert.equal(motions.length, 2, 'оба слоя едут с первого кадра');
+    assert.equal(keys.length, 0, 'зима главной не слушает клавиши');
+    for (let i = 0; i < 30; i++) {
+      fx.wake();
+      tick(33);
+      assert.deepEqual(motions.map((m) => m.playState), ['running', 'running'], 'кадр ' + i + ': снег встал');
+    }
+    assert.equal(motions.length, 2, 'движение пересоздано');
+    assert.deepEqual(motions.map((m) => m.pauses), [0, 0], 'пауза не вызывалась ни разу');
+    assert.deepEqual(layer.children.map((c) => /lumen-fx__canvas--winter/.test(c.className)), [true, true]);
+    fx.unmountAll();
+  });
+});
+
+/* Тумблер «Снег»: unmount(layer, true) снимает праздничную сцену сразу —
+   без удержания LINGER_MS, холст из DOM и буфер в ноль. */
+test('Снег: unmount с now снимает холсты сразу, без удержания', () => {
+  richEnv(({ tick }) => {
+    const fx = freshFx({ motionMode: () => 'full' });
+    fx._timers = fakeTimers().hook;
+    const layer = fakeNode(960, 360);
+    fx.mount(layer, 'winter', { paused: () => false, ownScroll: true });
+    tick(40);
+    const canvas = layer.children[0];
+    fx.unmount(layer);
+    assert.equal(fx.active(), 1, 'предусловие: обычное снятие удерживает сцену');
+    assert.equal(fx.live(layer), '');
+    fx.mount(layer, 'winter', { paused: () => false, ownScroll: true });
+    assert.equal(fx.live(layer), 'winter', 'предусловие: сцена ожила');
+    fx.unmount(layer, true);
+    assert.equal(fx.active(), 0, 'сцена удержана');
+    assert.equal(layer.children.length, 0, 'холст остался в слое');
+    assert.deepEqual([canvas.width, canvas.height], [0, 0], 'буфер холста не освобождён');
   });
 });
 

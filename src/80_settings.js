@@ -199,6 +199,12 @@
     lumen_fx_garland_velvet3: { ru: 'Пастель', en: 'Pastel', uk: 'Пастель' },
     lumen_fx_garland_cold: { ru: 'Подвесы', en: 'Pendants', uk: 'Підвіси' },
     lumen_fx_garland_cold2: { ru: 'Струна', en: 'String', uk: 'Струна' },
+    lumen_fx_snow_name: { ru: 'Снег', en: 'Snow', uk: 'Сніг' },
+    lumen_fx_snow_descr: {
+      ru: 'Снегопад на главной в праздники. Гирлянда остаётся.',
+      en: 'Snowfall on the home screen during the holidays. The garland stays.',
+      uk: 'Снігопад на головній у свята. Гірлянда лишається.'
+    },
     lumen_fx_garland_static_name: { ru: 'Гирлянда без анимаций', en: 'Garland without animations', uk: 'Гірлянда без анімацій' },
     lumen_fx_garland_static_descr: {
       ru: 'Показывать неподвижную гирлянду, когда анимации выключены.',
@@ -1770,7 +1776,7 @@
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным
        того, что открыто сейчас. */
-    if (name === 'lumen_fx' || name === 'lumen_fx_garland_static' || name === 'lumen_fx_garland_apple' || name === 'lumen_dev_date') {
+    if (name === 'lumen_fx' || name === 'lumen_fx_snow' || name === 'lumen_fx_garland_static' || name === 'lumen_fx_garland_apple' || name === 'lumen_dev_date') {
       try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
       return true;
     }

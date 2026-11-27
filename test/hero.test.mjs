@@ -8093,7 +8093,7 @@ function nyEnv(o) {
   };
   fx.sweep = () => { fx.name = ''; };
   const state = { mode: (o && o.mode) || 'seasonal', day: o && 'day' in o ? o.day : NY, film: (o && o.film) || null };
-  const env = makeEnv({
+  const env = makeEnv(Object.assign({
     heroVh: () => 66.67,
     themes: {
       forHome: () => (state.mode === 'off' ? null : state.day),
@@ -8102,7 +8102,7 @@ function nyEnv(o) {
       classNames: () => 'lumen-theme--newyear lumen-theme--snow'
     },
     fx: fx.api
-  });
+  }, (o && o.extra) || {}));
   globalThis.window.innerHeight = 1080;
   env.fx = fx;
   env.themeState = state;
@@ -8130,100 +8130,264 @@ test('шаг 1: в декабре сцена праздника ставится
   assert.deepEqual(warnLog, []);
 });
 
-test('Снег: одиночный шаг его не трогает, серия прячет его на 360 мс и держит до 1 с покоя', () => {
-  const env = nyEnv();
+/* «Снег идёт всегда» (владелец, 27.11: «зачем ты связал снег с карточкой,
+   пусть идёт всегда»). Предикат paused, который герой отдаёт слою снега и
+   гирлянде, от ввода не зависит: ни стрелки, ни мышь, ни колесо, ни ряд,
+   ни ролик его не поднимают, холсты не прячутся (класса lumen-winter-scroll
+   больше нет). Пауза одна — главная под другим экраном. */
+function snowEnv(extra, o) {
+  const handlers = [];
+  const garland = [];
+  const env = nyEnv(Object.assign({
+    extra: Object.assign({
+      garland: { mount: (host, opts) => { garland.push(opts); return true; }, unmount() {} }
+    }, extra || {})
+  }, o || {}));
+  document.addEventListener = (type, handler) => { handlers.push({ type: type, handler: handler }); };
+  document.removeEventListener = () => {};
   const main = makeMain();
   env.hero.mount(main.activity);
   env.advance(0);
+  assert.equal(env.fx.mounts.length, 1, 'предусловие: сцена праздника стоит');
   const node = heroOf(main.activity);
   const paused = env.fx.mounts[0].opts.paused;
-  focusOn(main, main.card1);
-  assert.equal(paused(), false, 'первый фокус не задерживает снег');
-  env.advance(1500);
-  main.card1.removeClass('focus');
-  focusOn(main, main.card2);
-  assert.equal(paused(), false, 'одиночный шаг снег не останавливает (владелец, 27.11)');
-  assert.equal(node.hasClass('lumen-winter-scroll'), false, 'и не прячет');
-  env.advance(300);
-  main.card2.removeClass('focus');
-  focusOn(main, main.card1);
-  assert.equal(paused(), true, 'второй шаг за 300 мс — серия');
-  assert.equal(node.hasClass('lumen-winter-scroll'), true);
-  env.advance(359);
-  assert.equal(node.hasClass('lumen-winter-scroll'), true);
-  env.advance(1);
-  assert.equal(node.hasClass('lumen-winter-scroll'), false, 'стоп-кадр снова виден через 360 мс');
-  assert.equal(paused(), true);
-  env.advance(639);
-  assert.equal(paused(), true, 'после серии снег стоит 1 с');
-  env.advance(1);
-  assert.equal(paused(), false, 'в покое снег едет и при фокусе в ряду');
-  assert.equal(node.hasClass('lumen-winter-scroll'), false);
-  assert.equal(env.fx.mounts.length, 1);
+  const bulbs = garland[garland.length - 1].paused;
+  /* Снег идёт и виден: оба предиката молчат, класса скрытия нет, сцену не
+     перемонтировали. */
+  const snowing = (why) => {
+    assert.equal(paused(), false, why + ': снег встал');
+    assert.equal(bulbs(), false, why + ': гирлянда перестала мерцать');
+    assert.equal(node.hasClass('lumen-winter-scroll'), false, why + ': холсты спрятаны');
+    assert.equal(env.fx.mounts.length, 1, why + ': сцена смонтирована заново');
+    assert.equal(env.fx.name, 'winter', why + ': сцена снята');
+  };
+  return { env: env, main: main, node: node, snowing: snowing, handlers: handlers, paused: paused, bulbs: bulbs };
+}
+
+function stepTo(s, from, to, hover) {
+  from.removeClass('focus');
+  to.addClass('focus');
+  if (hover) fireHover(s.main.activity, to);
+  else fireFocus(s.main.activity, to);
+}
+
+test('Снег идёт всегда: одиночная стрелка', () => {
+  const s = snowEnv();
+  focusOn(s.main, s.main.card1);
+  s.snowing('первый фокус');
+  s.env.advance(1500);
+  stepTo(s, s.main.card1, s.main.card2);
+  s.snowing('шаг после покоя');
+  for (const ms of [1, 79, 280, 640, 2000]) { s.env.advance(ms); s.snowing('после шага, +' + ms + ' мс'); }
+  assert.deepEqual(warnLog, []);
 });
 
-test('Снег: редкие стрелки его не трогают, серия держит до 1 с покоя — в ряду и в шапке', () => {
-  const env = nyEnv();
+test('Снег идёт всегда: стрелки каждые 300–600 мс (серия)', () => {
+  const s = snowEnv();
+  focusOn(s.main, s.main.card1);
+  s.env.advance(1500);
+  let at = s.main.card1;
+  for (const gap of [300, 450, 600, 300, 600, 450]) {
+    const to = at === s.main.card1 ? s.main.card2 : s.main.card1;
+    stepTo(s, at, to);
+    at = to;
+    s.snowing('шаг серии');
+    s.env.advance(gap / 2);
+    s.snowing('между шагами серии');
+    s.env.advance(gap / 2);
+  }
+  for (let i = 0; i < 20; i++) { s.env.advance(100); s.snowing('после серии, +' + (i + 1) * 100 + ' мс'); }
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег идёт всегда: зажатая стрелка (автоповтор 33 мс)', () => {
+  const s = snowEnv();
+  focusOn(s.main, s.main.card1);
+  s.env.advance(1500);
+  let at = s.main.card1;
+  for (let i = 0; i < 45; i++) {
+    const to = at === s.main.card1 ? s.main.card2 : s.main.card1;
+    stepTo(s, at, to);
+    at = to;
+    s.snowing('автоповтор, шаг ' + i);
+    s.env.advance(33);
+  }
+  s.snowing('клавишу отпустили');
+  s.env.advance(300);
+  s.snowing('300 мс после автоповтора');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег идёт всегда: наведение мышью на соседние карточки', () => {
+  const s = snowEnv();
+  focusOn(s.main, s.main.card1);
+  s.env.advance(1500);
+  let at = s.main.card1;
+  for (let i = 0; i < 8; i++) {
+    const to = at === s.main.card1 ? s.main.card2 : s.main.card1;
+    stepTo(s, at, to, true);
+    at = to;
+    s.snowing('мышь, карточка ' + i);
+    s.env.advance(i % 2 ? 400 : 120);
+    s.snowing('мышь стоит на карточке ' + i);
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег идёт всегда: герой не слушает ни клавиши, ни колесо', () => {
+  const s = snowEnv();
+  assert.deepEqual(s.handlers.filter((h) => h.type === 'keydown' || h.type === 'wheel'), [],
+    'слушатель ввода ради снега снова на document');
+  s.snowing('покой');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег идёт всегда: переход вниз в другой ряд и обратно — и в сжатом состоянии героя', () => {
+  for (const heroCompact of [false, true]) {
+    const s = snowEnv({ heroCompact: heroCompact });
+    /* card2 лежит во втором ряду (makeMain): при флаге сжатия герой
+       сжимается (updateCompact), без флага остаётся в покое. */
+    const lower = s.main.card2;
+    focusOn(s.main, s.main.card1);
+    s.env.advance(1500);
+    stepTo(s, s.main.card1, lower);
+    assert.equal(s.env.hero.compact(), heroCompact, 'предусловие: сжатие героя по флагу');
+    s.snowing('фокус в нижнем ряду (сжатие ' + heroCompact + ')');
+    s.env.advance(2000);
+    s.snowing('стоим в нижнем ряду');
+    stepTo(s, lower, s.main.card1);
+    s.snowing('вернулись в первый ряд');
+    s.env.advance(300);
+    s.snowing('300 мс после возврата');
+    assert.deepEqual(warnLog, []);
+  }
+});
+
+test('Снег идёт всегда: старт и игра трейлера героя', () => {
+  const players = [];
+  const s = snowEnv({
+    trailer: {
+      mode: () => 'on',
+      pickTrailer: (list) => (list && list[0] && list[0].key ? list[0] : null),
+      player: (host, key, onStart, onEnd, onPlaying) => {
+        const p = { host: host, key: key, onStart: onStart, onEnd: onEnd, onPlaying: onPlaying };
+        players.push(p);
+        p.destroy = () => { p.onEnd(); };
+        return p;
+      }
+    }
+  });
+  focusOn(s.main, s.main.card1);
+  s.env.advance(400);
+  s.env.advance(8200);
+  s.snowing('отсчёт ролика вышел');
+  lastVideos(s.env).ok(VIDEOS_RU);
+  assert.equal(players.length, 1, 'предусловие: плеер ролика создан');
+  s.snowing('плеер создан');
+  players[0].onStart();
+  assert.equal(s.node.hasClass('lumen-hero--trailer'), true, 'предусловие: ролик играет');
+  s.snowing('ролик стартовал');
+  s.env.advance(5000);
+  s.snowing('ролик играет');
+  stepTo(s, s.main.card1, s.main.card2);
+  s.snowing('шаг снял ролик');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег: единственная пауза от героя — главная под другим экраном', () => {
+  const s = snowEnv();
+  focusOn(s.main, s.main.card1);
+  s.env.advance(1500);
+  const other = makeMain();
+  s.env.hero.detach(other.activity);
+  assert.equal(s.env.hero.parked(), true);
+  assert.equal(s.paused(), true, 'главная под карточкой — снег обязан стоять');
+  assert.equal(s.bulbs(), true, 'и гирлянда');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Темы фильмов (не праздник) — прежние правила: под роликом и FX_CALM_MS
+   после шага фокуса частицы стоят. */
+test('вне праздника пауза частиц темы фильма осталась: FX_CALM_MS после шага', () => {
+  const env = nyEnv({ day: null, film: SNOW });
   const main = makeMain();
-  const handlers = new Map();
-  let controller = 'items_line';
-  env.Lampa.Controller = { enabled: () => ({ name: controller }) };
-  document.addEventListener = (type, handler, capture) => {
-    assert.equal(capture, true);
-    handlers.set(type, handler);
-  };
-  document.removeEventListener = (type, handler, capture) => {
-    assert.equal(handlers.get(type), handler);
-    assert.equal(capture, true);
-    handlers.delete(type);
-  };
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+  assert.equal(env.fx.mounts.length, 1, 'предусловие: тема фильма стоит');
+  const paused = env.fx.mounts[0].opts.paused;
+  assert.equal(paused(), true, '0,4 с после шага — частицы темы фильма стоят');
+  env.advance(1100);
+  assert.equal(paused(), false, '1,5 с покоя — пошли');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Тумблер «Снег» (lumen_fx_snow; владелец, 27.11: «снег нужно просто
+   включать или выключать»). Выключен — холсты снега не создаются, гирлянда
+   и класс темы на месте; смена на лету — applyFx с пересборкой. */
+function snowPrefEnv(start) {
+  const pref = { lumen_fx_snow: start };
+  const garland = { mounts: 0, unmounts: 0, on: false };
+  const env = nyEnv({
+    extra: {
+      pref: (name, def) => (name in pref ? pref[name] : def),
+      garland: {
+        mount: () => { garland.mounts++; garland.on = true; return true; },
+        unmount: () => { garland.unmounts++; garland.on = false; }
+      }
+    }
+  });
+  const unmount = env.fx.api.unmount;
+  env.fx.nows = [];
+  env.fx.api.unmount = (host, now) => { env.fx.nows.push(now); unmount(host); };
+  const main = makeMain();
   env.hero.mount(main.activity);
   env.advance(0);
-  const paused = env.fx.mounts[0].opts.paused;
-  const arrow = { keyCode: 39, target: { tagName: 'BODY' } };
-  const keydown = handlers.get('keydown');
-  assert.equal(typeof keydown, 'function');
-  assert.equal(paused(), false, 'до первой стрелки снег едет и при фокусе в ряду');
-  controller = 'head';
-  keydown({ keyCode: 39, target: { tagName: 'INPUT' } });
-  keydown({ keyCode: 13, target: arrow.target });
-  keydown(arrow);
-  assert.equal(paused(), false, 'одиночная стрелка снег не останавливает');
-  controller = 'items_line';
-  env.hero.onToggle();
-  for (let step = 0; step < 3; step++) {
-    env.advance(800);
-    keydown(arrow);
-    assert.equal(paused(), false, 'шаги реже 700 мс идут по одному — снег едет');
-  }
-  env.advance(40);
-  keydown(arrow);
-  assert.equal(paused(), false, 'второе событие того же шага — не серия');
-  env.advance(300);
-  keydown(arrow);
-  assert.equal(paused(), true, 'стрелка через 300 мс — серия');
-  for (let step = 0; step < 3; step++) {
-    env.advance(900);
-    keydown({ keyCode: 38, target: arrow.target });
-    assert.equal(paused(), true, 'серия длится, пока стрелки чаще раза в секунду');
-  }
-  env.advance(999);
-  assert.equal(paused(), true);
-  env.advance(2);
-  assert.equal(paused(), false, 'покой в ряду возвращает движение');
-  keydown(arrow);
-  assert.equal(paused(), false, 'первая стрелка после покоя — снова одиночный шаг');
-  env.advance(200);
-  keydown(arrow);
-  controller = 'head';
-  env.hero.onToggle();
-  assert.equal(paused(), true);
-  env.advance(999);
-  assert.equal(paused(), true);
-  env.advance(2);
-  assert.equal(paused(), false, 'покой в шапке тоже');
-  env.hero.unmount();
-  assert.equal(handlers.size, 0);
+  return { env: env, main: main, pref: pref, garland: garland, node: heroOf(main.activity) };
+}
+
+test('Снег, тумблер: по умолчанию включён — холсты ставятся вместе с гирляндой', () => {
+  const s = snowPrefEnv(true);
+  assert.equal(s.env.fx.mounts.length, 1);
+  assert.equal(s.env.fx.name, 'winter');
+  assert.equal(s.garland.on, true);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег, тумблер: выключен — холстов нет, гирлянда и тема на месте, листание ничего не ставит', () => {
+  const s = snowPrefEnv(false);
+  assert.equal(s.env.fx.mounts.length, 0, 'холсты снега созданы при выключенном тумблере');
+  assert.equal(s.garland.on, true, 'гирлянда пропала вместе со снегом');
+  assert.equal(s.node.hasClass('lumen-theme--newyear'), true, 'класс темы праздника снят');
+  const garlandUnmounts = s.garland.unmounts;
+  focusOn(s.main, s.main.card1);
+  s.env.advance(400);
+  detailsOf(s.env, 11).ok({ id: 11, overview: 'о первом' });
+  s.env.advance(2000);
+  assert.equal(s.env.fx.mounts.length, 0, 'показ фильма поставил снег');
+  assert.equal(s.garland.unmounts, garlandUnmounts, 'показ фильма снял гирлянду');
+  assert.equal(s.garland.on, true);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Снег, тумблер на лету: выключение снимает холсты сразу и оставляет гирлянду, включение возвращает снег', () => {
+  const s = snowPrefEnv(true);
+  assert.equal(s.env.fx.name, 'winter', 'предусловие: снег идёт');
+  s.pref.lumen_fx_snow = false;
+  s.env.hero.applyFx();
+  assert.equal(s.env.fx.name, '', 'холсты снега остались после выключения');
+  assert.equal(s.env.fx.nows[s.env.fx.nows.length - 1], true, 'холсты сняты с удержанием (LINGER_MS), а не сразу');
+  assert.equal(s.env.fx.mounts.length, 1, 'снег поставлен заново при выключенном тумблере');
+  assert.equal(s.garland.on, true, 'гирлянда пропала вместе со снегом');
+  assert.equal(s.node.hasClass('lumen-theme--newyear'), true);
+  s.pref.lumen_fx_snow = true;
+  s.env.hero.applyFx();
+  assert.equal(s.env.fx.mounts.length, 2, 'включение не вернуло снег');
+  assert.equal(s.env.fx.name, 'winter');
+  assert.equal(s.env.fx.mounts[1].opts.paused(), false, 'вернувшийся снег идёт сразу');
+  assert.equal(s.garland.on, true);
+  assert.deepEqual(warnLog, []);
 });
 
 test('шаг 1: листание — смена фильма и приход деталей не снимают и не перезапускают сцену праздника', () => {

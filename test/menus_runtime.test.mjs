@@ -256,6 +256,7 @@ test('долг ревью (п.2): каждая настройка раздела
        пересобирает слой частиц открытого экрана, не трогая ни CSS, ни
        шаблон карточки). */
     lumen_fx: [],
+    lumen_fx_snow: [],
     lumen_fx_garland_static: [],
     lumen_fx_garland_apple: [],
     lumen_dev_date: [],

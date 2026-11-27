@@ -1833,17 +1833,6 @@
     /* Волна производительности: сколько частицы стоят после нажатия
        (предикат paused в applyFx ниже). */
     var FX_CALM_MS = 1500;
-    var WINTER_SCROLL_MS = 360;
-    /* Раунд 3 (ТВ, 27.11): снег на Web Animations держал вывод кадров
-       включённым (~4950 кадров за листание против ~1400). Тогда снег вставал
-       на каждой стрелке и трогался через 3 с покоя — владелец (27.11): «снег
-       начинает идти только через 3 секунды после перехода на след
-       карточку». Теперь одиночный шаг снег не трогает; стоит он только в
-       серии стрелок (шаг короче BURST_GAP) и едет через WINTER_CALM_MS
-       после последней. Стрелка и событие фокуса одного шага приходят почти
-       разом — моложе WINTER_SAME_STEP_MS это тот же шаг. */
-    var WINTER_CALM_MS = 1000;
-    var WINTER_SAME_STEP_MS = 80;
     /* Зона текста героя для слоя частиц (src/52_fx.js, safeZone). */
     var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
 
@@ -1909,14 +1898,28 @@
       return null;
     }
 
+    /* Тумблер «Снег» (lumen_fx_snow, владелец, 27.11: «снег нужно просто
+       включать или выключать»): выключен — зимняя сцена праздника без
+       холстов снега, гирлянда и класс темы остаются. Тесты с урезанным LC
+       живут без LC.pref — там снег включён. */
+    function snowOff(theme) {
+      if (!theme || !theme.holiday || theme.preset !== 'winter') return false;
+      try {
+        return typeof LC.pref === 'function' && !LC.pref('lumen_fx_snow', true);
+      } catch (e) {
+        return false;
+      }
+    }
+
     /* Снимает частицы и класс темы. Идемпотентна: на снятом герое и на
-       слое без канваса не делает ничего. */
-    function clearFx() {
+       слое без канваса не делает ничего. now — снять холсты сразу, без
+       удержания LINGER_MS (src/52_fx.js): снег выключен. */
+    function clearFx(now) {
       if (state) { state.fxKey = null; state.fxWinter = false; }
       var host = fxHost();
       if (host) {
         try { if (LC.garland) LC.garland.unmount(host); } catch (eGarland) { warn('hero: garland unmount failed', eGarland); }
-        try { if (LC.fx) LC.fx.unmount(host); } catch (e) { warn('hero: fx unmount failed', e); }
+        try { if (LC.fx) LC.fx.unmount(host, now === true); } catch (e) { warn('hero: fx unmount failed', e); }
       }
       /* LC.themes может не быть только в тестах, где 48_hero.js грузится в
          одиночку: в бандле 53 идёт раньше 48 и модуль есть всегда. */
@@ -1939,59 +1942,24 @@
        анимаций сменили, и статичный кадр, цвет и пауза должны пересчитаться
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
+    /* Пауза слоя атмосферы героя (предикат paused у LC.fx и LC.garland).
+       Праздник (зима) от ввода не зависит вовсе — владелец, 27.11: «зачем ты
+       связал снег с карточкой, пусть идёт всегда». Раньше снег вставал на
+       каждой стрелке, потом — в серии стрелок, при обходе карточек мышью и
+       на колесе (холсты прятались на 360 мс и стояли ещё секунду после
+       последнего ввода), и стоял в сжатом состоянии и под роликом. Теперь у
+       него одна причина паузы отсюда: главная под другим экраном (parked).
+       Скрытую вкладку, заставку поверх экрана и открытый плеер Lampa слой
+       частиц проверяет сам (paused в src/52_fx.js), гирлянда — первые две
+       (src/52_garland.js). Снег — два холста, которые двигает композитор
+       (Web Animations), перерисовки на шаге фокуса он не просит.
+       Темы фильмов живут по-прежнему: стоят в сжатом состоянии, под роликом
+       и FX_CALM_MS после каждого шага фокуса. */
     function fxPaused() {
       if (!state) return false;
-      if (state.compact || state.parked) return true;
-      /* Праздник идёт и под роликом (владелец, 27.11): снег и огоньки
-         гирлянды не замирают, пока играет трейлер. */
-      if (state.fxWinter) return state.fxCalmTimer !== null;
-      return !!(state.trailer || Date.now() - state.focusAt < FX_CALM_MS);
-    }
-
-    function pauseWinterScroll() {
-      var now = Date.now();
-      var gap = now - (state.fxArrowAt || 0);
-      state.fxArrowAt = now;
-      /* Одиночный шаг (и второе событие того же шага) снег не трогает. */
-      if (state.fxCalmTimer === null && (gap < WINTER_SAME_STEP_MS || gap >= BURST_GAP)) return;
-      var wasCalm = state.fxCalmTimer === null;
-      stopTimer('fxCalmTimer');
-      state.fxCalmTimer = setTimeout(function () {
-        if (!state) return;
-        state.fxCalmTimer = null;
-        if (LC.fx && LC.fx.wake) LC.fx.wake();
-      }, WINTER_CALM_MS);
-      if (wasCalm && LC.fx && LC.fx.wake) LC.fx.wake();
-
-      /* Возвращаем стоп-кадр после серии стрелок раньше, чем разрешаем движение. */
-      if (!state.fxScrolling) {
-        state.fxScrolling = true;
-        state.node.addClass('lumen-winter-scroll');
-      }
-      stopTimer('fxScrollTimer');
-      state.fxScrollTimer = setTimeout(function () {
-        if (!state) return;
-        state.fxScrollTimer = null;
-        state.fxScrolling = false;
-        state.node.removeClass('lumen-winter-scroll');
-      }, WINTER_SCROLL_MS);
-    }
-
-    /* Стрелка приходит до пересборки рядов. В адвенте есть цели фокуса
-       без фильма, поэтому ловим движение независимо от метаданных. */
-    function onWinterScroll(e) {
-      if (!state || !state.fxWinter || state.parked || !e) return;
-      var target = e.target;
-      var tag = target && target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
-          (target && target.isContentEditable)) return;
-      if (e.type === 'wheel') {
-        if (!state.root[0].contains(target)) return;
-      } else {
-        var code = e.keyCode || e.which;
-        if (code < 37 || code > 40 || !code) return;
-      }
-      pauseWinterScroll();
+      if (state.parked) return true;
+      if (state.fxWinter) return false;
+      return !!(state.compact || state.trailer || Date.now() - state.focusAt < FX_CALM_MS);
     }
 
     function applyFx(force, box) {
@@ -2008,10 +1976,13 @@
         }
       }
       var key = theme && theme.holiday ? fxKeyOf(theme) : null;
+      var noSnow = snowOff(theme);
       if (!force && key && state.fxKey === key) {
         var live = fxHost();
-        if (live && (fxLive(live, theme.preset) ||
-          (theme.id === 'newyear' && LC.garland && LC.motionMode() === 'off'))) {
+        /* Без снега (тумблер или «Выкл» анимаций) сцену держит одна
+           гирлянда; при выключенном тумблере живого холста быть не должно. */
+        if (live && (noSnow ? (theme.id === 'newyear' && LC.garland && !fxLive(live, theme.preset)) :
+          (fxLive(live, theme.preset) || (theme.id === 'newyear' && LC.garland && LC.motionMode() === 'off')))) {
           if (theme.id === 'newyear' && LC.garland) LC.garland.mount(live, { paused: fxPaused });
           return;
         }
@@ -2025,7 +1996,7 @@
          монтажи: частицы, снятые уборкой, продолжаются на возврате (CARRY_MS,
          src/52_fx.js, сравнивает размер слоя). */
       if (!box && key) box = fxBox();
-      clearFx();
+      clearFx(noSnow);
       if (!theme) return;
       state.fxWinter = theme.preset === 'winter';
       if (theme.id) {
@@ -2034,7 +2005,7 @@
       var host = fxHost();
       if (!host) return;
       try {
-        var made = LC.fx.mount(host, theme.preset, {
+        var made = noSnow ? null : LC.fx.mount(host, theme.preset, {
           width: box ? box.width : 0,
           height: box ? box.height : 0,
           color: theme.id && LC.themes ? LC.themes.particleColor(theme) : '#FFFFFF',
@@ -4328,12 +4299,6 @@
       try {
         var el = e && e.target;
         if (!el || !el.classList || !el.classList.contains('card')) return;
-        if (state.fxWinter && el !== state.fxFocusEl) {
-          if ((state.fxFocusEl || state.focusEl) && (!state.fxScrolling || !LC.focus.remote(e))) {
-            pauseWinterScroll();
-          }
-          state.fxFocusEl = el;
-        }
         onFocus(el);
       } catch (err) {
         warn('hero: focus listener failed', err);
@@ -4384,11 +4349,6 @@
         if (!node) return;
         state.focusHandler = onFocusEvent;
         if (!LC.focus.capture(node, state.focusHandler)) state.focusHandler = null;
-        if (state.hostClass === MAIN_HOST && typeof document.addEventListener === 'function') {
-          document.addEventListener('keydown', onWinterScroll, true);
-          document.addEventListener('wheel', onWinterScroll, true);
-          state.fxInputBound = true;
-        }
       } catch (e) {
         warn('hero: listen failed', e);
       }
@@ -4400,10 +4360,6 @@
     function unlistenFocus(s) {
       if (!s) return;
       try {
-        if (s.fxInputBound) {
-          document.removeEventListener('keydown', onWinterScroll, true);
-          document.removeEventListener('wheel', onWinterScroll, true);
-        }
         if (s.focusHandler) LC.focus.release(s.root && s.root[0], s.focusHandler);
       } catch (e) {
         warn('hero: unlisten failed', e);
@@ -4697,12 +4653,7 @@
              (fxKeyOf) и отложенная на тик постановка её при сборке (fxTick). */
           fxKey: null,
           fxTimer: null,
-          fxScrollTimer: null,
-          fxCalmTimer: null,
-          fxFocusEl: null,
-          fxInputBound: false,
-          fxWinter: false,
-          fxScrolling: false
+          fxWinter: false
         };
         if (opts.compact) setCompact(true);
         /* Task 49: метка — только под нашей главной, и это не формальность.
@@ -4816,7 +4767,7 @@
       /* Волна «Логотипы сразу»: предзагрузка соседей уходит вместе с
          героем. */
       prefetch('stop');
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer', 'fxScrollTimer', 'fxCalmTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer', 'fxTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -4938,10 +4889,6 @@
          LC.fx.sweep() следом за парковкой — отметка «сцена стоит» уходит
          вместе с ним, и resume поставит её заново (applyFx). */
       stopTimer('fxTimer');
-      stopTimer('fxScrollTimer');
-      stopTimer('fxCalmTimer');
-      state.fxScrolling = false;
-      state.node.removeClass('lumen-winter-scroll');
       state.fxKey = null;
       /* Раунд «Листание», F2: серия кончилась уходом с главной — метка
          серии снимается вместе с её таймером. */

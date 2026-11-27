@@ -396,6 +396,7 @@ test('каждая настройка применяется ровно один
     /* Task 21 (фаза 3): атмосферы — своя точка применения: выключение
        снимает слой частиц с открытого экрана, включение считает тему заново. */
     lumen_fx: ['fx'],
+    lumen_fx_snow: ['fx'],
     lumen_fx_garland_static: ['fx'],
     lumen_fx_garland_apple: ['fx'],
     lumen_dev_date: ['fx'],
@@ -1435,6 +1436,8 @@ test('1.5: LC.prefIdle — причины ровно по местам чтен�
     [{}, 'lumen_accent_auto', ''],
     [{ lumen_flat: 'true' }, 'lumen_accent_auto', 'lumen_idle_flat'],
     [{ lumen_motion: 'off' }, 'lumen_accent_auto', 'lumen_idle_motion_off'],
+    [{}, 'lumen_fx_snow', ''],
+    [{ lumen_fx: 'off' }, 'lumen_fx_snow', 'lumen_idle_garland_fx_off'],
     [{}, 'lumen_fx_heavy', ''],
     [{ lumen_motion: 'lite' }, 'lumen_fx_heavy', 'lumen_idle_need_full'],
     [{ lumen_motion: 'off' }, 'lumen_fx_heavy', 'lumen_idle_need_full'],

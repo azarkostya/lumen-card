@@ -9478,3 +9478,20 @@ test('QA main: значки состояния на постере главно�
   /* Левый верхний угол — наша метка: не пересекаются. */
   assert.ok(/(^|;)left:\.24em/.test(findDecl(css, (s) => s === '.lumen-main .lumen-badge')));
 });
+
+/* «Снег идёт всегда» (владелец, 27.11): ни одно правило не прячет холсты
+   снега, статичный кадр и огоньки гирлянды — ни при листании (класса
+   lumen-winter-scroll больше нет), ни в сжатом состоянии героя. */
+test('Снег идёт всегда: таблица не прячет холсты снега и огоньки гирлянды', () => {
+  const css = withCompact({}, (LC) => LC.buildCss());
+  assert.equal(css.indexOf('lumen-winter-scroll'), -1, 'класс скрытия при листании вернулся');
+  for (const rule of ruleBodies(css)) {
+    for (const sel of rule.selectors) {
+      if (!/lumen-fx__canvas--winter|lumen-fx__still|lumen-fx canvas|lumen-garland__[ab]/.test(sel)) continue;
+      if (/visibility:hidden|display:none/.test(rule.decl)) assert.fail('правило прячет праздник: ' + sel + '{' + rule.decl + '}');
+      if (/compact/.test(sel) && /opacity:0/.test(rule.decl)) assert.fail('сжатое состояние гасит праздник: ' + sel + '{' + rule.decl + '}');
+    }
+  }
+  const fx = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx');
+  assert.equal(fx, 'opacity:1', 'слой праздника в сжатом состоянии виден: ' + fx);
+});

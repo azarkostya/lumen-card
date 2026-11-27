@@ -2435,9 +2435,6 @@
     css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
     css.push('.lumen-hero.lumen-theme--newyear .lumen-fx,.lumen-backdrop.lumen-theme--christmas .lumen-fx{contain:paint}');
     css.push('.lumen-backdrop .lumen-fx__still,.lumen-hero .lumen-fx__still{position:absolute;top:0;left:0;width:100%;height:100%}');
-    css.push('.lumen-hero.lumen-winter-scroll .lumen-fx__canvas--winter,.lumen-hero.lumen-winter-scroll .lumen-fx__still,' +
-      '.lumen-hero.lumen-hero--compact .lumen-fx__still,.lumen-hero.lumen-winter-scroll .lumen-garland__a,' +
-      '.lumen-hero.lumen-winter-scroll .lumen-garland__b{visibility:hidden;-webkit-transition:none;transition:none}');
     /* Оверлеи тем — чистый CSS поверх частиц, без SVG-фильтров: на ТВ
        фильтр стоит отдельного прохода композитора, а градиент растеризуется
        один раз (поправки контроллера к Task 21). Класс темы ставится только
@@ -4833,8 +4830,10 @@
        канвас не перерисовывается — кадровый цикл останавливает предикат
        paused в src/48_hero.js (src/52_fx.js, schedule/IDLE_MS). */
     css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
+    /* Праздник в сжатом состоянии не гаснет: кадр героя там виден (Task 70),
+       и снег с гирляндой идут поверх него, как в покое (владелец, 27.11:
+       «пусть идёт всегда»). Прежде холсты снега здесь прятались. */
     css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx{opacity:1}');
-    css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx canvas{opacity:0}');
     /* Компенсируем ход героя с той же кривой, чтобы полоса не заезжала в шапку. */
     var garlandScale = heroSize === 'large' ? '' : ' scale(.75)';
     if (garlandScale) {

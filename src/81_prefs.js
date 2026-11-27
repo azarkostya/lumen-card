@@ -371,6 +371,10 @@
          'all' LC.migratePrefs переводит в 'seasonal', а модуль тем по-прежнему
          его понимает. */
       { name: 'lumen_fx', type: 'select', values: ['seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
+      /* Снег главной — простой тумблер (владелец, 27.11: «снег нужно просто
+         включать или выключать»). Включён — идёт всегда; выключен — холстов
+         нет вовсе, гирлянда остаётся (src/48_hero.js, applyFx). */
+      { name: 'lumen_fx_snow', type: 'trigger', 'default': true, label: 'lumen_fx_snow_name', descr: 'lumen_fx_snow_descr' },
       { name: 'lumen_fx_garland_static', type: 'trigger', 'default': false, label: 'lumen_fx_garland_static_name', descr: 'lumen_fx_garland_static_descr' },
       /* Task 56: ВЫКЛЮЧЕНА по умолчанию — заставку Lampa (видео Aerial через
          5 минут) без спроса не заменяем. Тумблер хранит строку, поэтому
@@ -914,6 +918,7 @@
         if (LC.pref('lumen_fx', 'seasonal') === 'off') return 'lumen_idle_garland_fx_off';
         return LC.motionMode() === 'off' ? '' : 'lumen_idle_garland_motion';
       }
+      if (name === 'lumen_fx_snow') return LC.pref('lumen_fx', 'seasonal') === 'off' ? 'lumen_idle_garland_fx_off' : '';
       if (name === 'lumen_fx_heavy') return LC.motionMode() === 'full' ? '' : 'lumen_idle_need_full';
       if (name === 'lumen_moods') return LC.pref('lumen_hero_size', 'large') === 'off' ? '' : 'lumen_idle_need_no_hero';
     } catch (e) { }
@@ -928,7 +933,7 @@
     lumen_torrents: ['lumen_ts_resume_focus'],
     lumen_style: ['lumen_accent_auto', 'lumen_accent_scope'],
     lumen_motion: ['lumen_accent_auto', 'lumen_fx_heavy', 'lumen_fx_garland_static'],
-    lumen_fx: ['lumen_fx_garland_static'],
+    lumen_fx: ['lumen_fx_snow', 'lumen_fx_garland_static'],
     lumen_hero_size: ['lumen_moods'],
     /* Адрес Lampa, не наш пункт: правку им мы не слышим — пометка
        обновляется при следующем открытии экрана. Строка здесь, чтобы у
