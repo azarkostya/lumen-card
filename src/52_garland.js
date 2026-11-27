@@ -129,7 +129,8 @@
       var node = view.node;
       if (!node) {
         node = document.createElement('div');
-        node.className = 'lumen-garland lumen-garland--' + (pack.style === 'warm' ? 'warm' : 'cold');
+        node.className = 'lumen-garland lumen-garland--' + (pack.style === 'warm' ? 'warm' : 'cold') +
+          (pack.style === 'rosa' ? ' lumen-garland--rosa' : '');
         node.setAttribute('aria-hidden', 'true');
         pack.strip.img.className = 'lumen-garland__strip';
         node.appendChild(pack.strip.img);

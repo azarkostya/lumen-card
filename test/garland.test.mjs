@@ -252,6 +252,8 @@ test('Палитры Apple TV подставляют свои полосы и н
     assert.deepEqual(paths(), ['garland-' + palette + '-still.webp',
       'half/garland-' + palette + '-a.webp', 'half/garland-' + palette + '-b.webp']);
     assert.match(f.host.firstChild.className, /lumen-garland--cold/);
+    /* Только «Роса» горит без приглушения .6 (src/30_css.js). */
+    assert.equal(/lumen-garland--rosa/.test(f.host.firstChild.className), palette === 'rosa');
   }
 });
 

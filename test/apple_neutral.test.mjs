@@ -73,8 +73,8 @@ const LUMEN_SAMPLES = {
    Раунд 3: цельный фон обёртки адвента и текстовые чипы раздач без пустого места под иконку.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '10bdf407b23b5ea43c772341d13b28fd16b163857236c6fc7746330c2e87da0f',
-  black_solid: 'cb3351ae745c02fc883e837205bac16737424de792cba5e54d82b1d49e7463dc'
+  warm: '4911f3997dc3f92e6475593439a6b17b3999549141f865db266d33a0f9665e4d',
+  black_solid: 'b0b7500e24b9e13e7c621e9a1e6edb9a60565ea7a3867cb78c445d7704a1d3de'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

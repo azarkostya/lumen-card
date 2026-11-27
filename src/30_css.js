@@ -2429,6 +2429,9 @@
     css.push('.lumen-hero .lumen-garland__a,.lumen-backdrop .lumen-garland__a,.lumen-hero .lumen-garland__b,.lumen-backdrop .lumen-garland__b{position:absolute;top:0;left:0;width:100%;height:auto;opacity:0;-webkit-transition:opacity .8s ease-in-out;transition:opacity .8s ease-in-out}');
     css.push('.lumen-hero .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland.is-b .lumen-garland__b{opacity:1}');
     css.push('.lumen-hero .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland--cold.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland--cold.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland--cold.is-b .lumen-garland__b{opacity:.6}');
+    /* «Роса» горит в полную силу (владелец, 27.11: «совсем не горит» рядом
+       с гирляндой Lumen): её огоньки — только в слоях a/b, приглушать нечего. */
+    css.push('.lumen-hero .lumen-garland--cold.lumen-garland--rosa.has-glow:not(.is-b) .lumen-garland__a,.lumen-backdrop .lumen-garland--cold.lumen-garland--rosa.has-glow:not(.is-b) .lumen-garland__a,.lumen-hero .lumen-garland--cold.lumen-garland--rosa.is-b .lumen-garland__b,.lumen-backdrop .lumen-garland--cold.lumen-garland--rosa.is-b .lumen-garland__b{opacity:1}');
     css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
     css.push('.lumen-hero.lumen-theme--newyear .lumen-fx,.lumen-backdrop.lumen-theme--christmas .lumen-fx{contain:paint}');
     css.push('.lumen-backdrop .lumen-fx__still,.lumen-hero .lumen-fx__still{position:absolute;top:0;left:0;width:100%;height:100%}');
@@ -4837,6 +4840,10 @@
     if (garlandScale) {
       css.push('.lumen-hero .lumen-fx .lumen-garland{top:1.2vw;-webkit-transform:translateY(0)' + garlandScale + ';transform:translateY(0)' + garlandScale + ';-webkit-transform-origin:top center;transform-origin:top center}');
     }
+    /* «Роса» висит от верхнего края (владелец, 27.11: «поднять выше
+       сильнее»): над креплениями в полосе 84 px из 1920 пустого места —
+       убираем почти всё, крепления остаются ~0,3vw от края. */
+    css.push('.lumen-hero .lumen-fx .lumen-garland--rosa{top:' + (garlandScale ? '-3vw' : '-4.05vw') + '}');
     var garlandShift = 'translateY(' + heroShift + 'vh)' + garlandScale;
     css.push('.lumen-hero.lumen-hero--compact .lumen-fx .lumen-garland{-webkit-transform:' + garlandShift + ';transform:' + garlandShift + '}');
     css.push('.lumen-hero.lumen-motion-full .lumen-fx .lumen-garland{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
