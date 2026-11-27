@@ -4839,10 +4839,13 @@
     if (garlandScale) {
       css.push('.lumen-hero .lumen-fx .lumen-garland{top:1.2vw;-webkit-transform:translateY(0)' + garlandScale + ';transform:translateY(0)' + garlandScale + ';-webkit-transform-origin:top center;transform-origin:top center}');
     }
-    /* «Роса» висит от верхнего края (владелец, 27.11: «поднять выше
-       сильнее»): над креплениями в полосе 84 px из 1920 пустого места —
-       убираем почти всё, крепления остаются ~0,3vw от края. */
-    css.push('.lumen-hero .lumen-fx .lumen-garland--rosa{top:' + (garlandScale ? '-3vw' : '-4.05vw') + '}');
+    /* Гирлянда главной висит от верхнего края (владелец, 27.11: «поднять
+       выше сильнее» — сначала про «Росу», потом «а почему тут не поднял» про
+       Lumen). Над нитью в полосах 1920×288 пусто 84–97 px (Роса 84, тёплая
+       Lumen 92, палитры Apple TV 93–97) — убираем почти всё: верх креплений
+       и бантов остаётся в 0,3–0,7vw от края. Шары тёплой (__orn) живут
+       внутри той же .lumen-garland и поднимаются вместе с нитью. */
+    css.push('.lumen-hero .lumen-fx .lumen-garland{top:' + (garlandScale ? '-3vw' : '-4.05vw') + '}');
     var garlandShift = 'translateY(' + heroShift + 'vh)' + garlandScale;
     css.push('.lumen-hero.lumen-hero--compact .lumen-fx .lumen-garland{-webkit-transform:' + garlandShift + ';transform:' + garlandShift + '}');
     css.push('.lumen-hero.lumen-motion-full .lumen-fx .lumen-garland{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');

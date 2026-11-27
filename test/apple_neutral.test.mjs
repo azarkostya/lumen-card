@@ -74,8 +74,8 @@ const LUMEN_SAMPLES = {
    «Снег идёт всегда» (27.11.2026): сняты правила скрытия холстов снега при листании и в сжатом герое.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '6e509f80fd6aec72c3eca0426b24767e969d958922fa4eb6d4100b8188991f74',
-  black_solid: '3b1e7c237d059aca06e59322351f97236a272e73ae7fbad0236c30ee01b606df'
+  warm: '3a9134c49f409174f66ac7bd1db0948837300cc89a50de4b7eabfd2184f16d2c',
+  black_solid: '41867211af915c29797977e41d2a4d0e78a844882fcdd9e62db858822d848d93'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
