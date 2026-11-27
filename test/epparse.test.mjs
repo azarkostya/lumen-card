@@ -50,19 +50,17 @@ test('сквозной диапазон раздачи «Медленные ло
   assert.equal(api.verdict(parsed, { season: 6, episode: 36 }), 'unknown');
 });
 
-test('полный набор из нескольких сезонов подтверждает серию каждого сезона', () => {
+test('«(1-6 сезоны: 1-36 серии из 36)»: полный набор сезонов ручается за любую серию, неполный — нет', () => {
   const api = epparse();
-  const { title, expected } = data.acceptance[1];
-  const parsed = api.parse(title);
-  assert.deepEqual(exact(parsed), expected);
-  for (const season of [1, 3, 6]) {
-    assert.equal(api.verdict(parsed, { season, episode: 5 }), 'has');
-    assert.equal(api.verdict(parsed, { season, episode: 36 }), 'has');
-  }
-  assert.equal(api.verdict(parsed, { season: 7, episode: 5 }), 'other_season');
-  assert.equal(api.verdict(parsed, { season: 3, episode: 37 }), 'upto');
-  const partial = api.parse(title.replace('1-36', '1-35'));
-  assert.equal(partial.known, true);
-  assert.equal(api.verdict(partial, { season: 3, episode: 5 }), 'unknown');
-  assert.equal(api.verdict(api.parse(title.replace('1-36', '2-36')), { season: 3, episode: 5 }), 'unknown');
+  const [, full, partial] = data.acceptance;
+  const parsedFull = api.parse(full.title);
+  assert.deepEqual(exact(parsedFull), full.expected);
+  assert.equal(api.verdict(parsedFull, { season: 3, episode: 5 }), 'has');
+  assert.equal(api.verdict(parsedFull, { season: 6, episode: 6 }), 'has');
+  assert.equal(api.verdict(parsedFull, { season: 7, episode: 1 }), 'other_season');
+  const parsedPartial = api.parse(partial.title);
+  assert.deepEqual(exact(parsedPartial), partial.expected);
+  assert.equal(api.verdict(parsedPartial, { season: 3, episode: 5 }), 'unknown');
+  /* Сквозная запись цифрами с полным набором — то же правило. */
+  assert.equal(api.verdict(api.parse('Сериал [01-03x01-30 из 30]'), { season: 2, episode: 4 }), 'has');
 });

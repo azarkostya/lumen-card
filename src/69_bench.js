@@ -974,8 +974,8 @@
     }
 
     /* Экран таблицы — поверх всего, до «Назад» (свой контроллер Lampa:
-       Lampa передаёт контроллеру и кнопку, и переход назад по истории).
-       Стиль инлайном: экран живёт
+       кнопку «Назад» каждая платформа отдаёт Lampa по-своему, а
+       контроллер получает её одинаково). Стиль инлайном: экран живёт
        минуту, и правилам в общей таблице плагина делать нечего. */
     function show(result) {
       close();
@@ -988,6 +988,17 @@
       node.onclick = close;
       document.body.appendChild(node);
       screen = node;
+      /* Приёмка 1.5.0 на ТВ: «Назад» на Android TV приходит в страницу
+         только как popstate и только когда истории есть куда отступить;
+         без этого окно не закрывалось ничем, кроме мыши. Своя запись в
+         истории гарантирует popstate, а свой слушатель закрывает окно,
+         даже если обратный вызов Activity.call уже переставил кто-то
+         другой (toggle чужого контроллера). Лишняя запись после закрытия
+         кликом безвредна: следующий «Назад» отработает как обычно. */
+      try {
+        if (window.history && typeof window.history.pushState === 'function') window.history.pushState(null, '', window.location ? window.location.href : null);
+      } catch (eH) { }
+      try { window.addEventListener('popstate', close); } catch (eP) { }
       var L = lampa();
       if (L && L.Controller) {
         var noop = function () { };
@@ -996,13 +1007,6 @@
           back: close, up: noop, down: noop, left: noop, right: noop, enter: noop
         });
         L.Controller.toggle('lumen_bench');
-        /* Activity передаёт popstate в back активного контроллера. При
-           пустой истории WebView на некоторых ТВ не посылает popstate.
-           Добавляем один шаг, сохраняя состояние и адрес текущей страницы. */
-        try {
-          var history = window.history;
-          if (history && history.length === 1) history.pushState(history.state, '');
-        } catch (e2) { }
       }
     }
 
@@ -1010,6 +1014,7 @@
       if (!screen) return;
       var node = screen;
       screen = null;
+      try { window.removeEventListener('popstate', close); } catch (eP) { }
       try { if (node.parentNode) node.parentNode.removeChild(node); } catch (e) { }
       try { lampa().Controller.toggle('content'); } catch (e2) { }
     }

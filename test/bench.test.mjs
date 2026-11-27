@@ -298,6 +298,7 @@ function makeEnv(opts) {
   const frames = [];
   let nextRaf = 1;
   const winListeners = {};
+  const historyPushes = [];
   const docListeners = {};
   const activity = [];
   const toggles = [];
@@ -372,7 +373,9 @@ function makeEnv(opts) {
     requestAnimationFrame: (fn) => { const id = nextRaf++; frames.push({ id, fn }); return id; },
     cancelAnimationFrame: (id) => { const i = frames.findIndex((f) => f.id === id); if (i !== -1) frames.splice(i, 1); },
     addEventListener: (t, fn, cap) => { (winListeners[t] = winListeners[t] || []).push({ fn, cap }); },
-    removeEventListener: (t, fn) => { winListeners[t] = (winListeners[t] || []).filter((l) => l.fn !== fn); }
+    removeEventListener: (t, fn) => { winListeners[t] = (winListeners[t] || []).filter((l) => l.fn !== fn); },
+    history: { pushState: (st, title, url) => historyPushes.push(url) },
+    location: { href: 'http://tv/lampa/' }
   };
   /* Полоса gc3: FinalizationRegistry в заглушке. Минорная сборка (gc
      'minor') собирает только пробы датчика (held > 0 — объекты без ссылок,
@@ -458,6 +461,9 @@ function makeEnv(opts) {
     key: () => { const ls = (winListeners.keydown || []).slice(); let stopped = false; for (const l of ls) l.fn({ keyCode: 39, stopPropagation: () => { stopped = true; }, preventDefault() {} }); return { listeners: ls.length, stopped, capture: ls.every((l) => l.cap === true) }; },
     hide: () => { doc.hidden = true; (docListeners.visibilitychange || []).slice().forEach((fn) => fn({})); },
     activityStart: () => activity.slice().forEach((fn) => fn({ type: 'start', component: 'full' })),
+    pushes: historyPushes,
+    popListeners: () => (winListeners.popstate || []).length,
+    popstate: () => { for (const l of (winListeners.popstate || []).slice()) l.fn({}); },
     listeners: () => ({ key: (winListeners.keydown || []).length, vis: (docListeners.visibilitychange || []).length, act: activity.length, toggle: (Lampa.Controller.listener._t || []).length }),
     focusIdx: () => focusIdx,
     loaf: (entries) => win._loafCb({ getEntries: () => entries })
@@ -604,38 +610,26 @@ test('bench: полный прогон — одиннадцать стадий, 
   e.controllers.lumen_bench.back();
   assert.equal(e.body.filter((n) => n.className === 'lumen-bench').length, 0, 'экран таблицы снят');
   assert.equal(e.toggles[e.toggles.length - 1], 'content');
+  assert.equal(e.popListeners(), 0, 'слушатель popstate снят вместе с экраном');
 });
 
-test('bench: «Назад» через popstate закрывает таблицу даже при пустой истории', () => {
+test('bench: на ТВ таблицу закрывает popstate — запись в истории своя, контроллер не нужен', () => {
   const e = makeEnv();
-  const state = { route: 'main' };
-  const pushes = [];
-  const controller = e.win.Lampa.Controller;
-  e.win.history = {
-    length: 1,
-    state,
-    pushState(...args) { pushes.push(args); this.length++; },
-    back() {
-      if (this.length < 2) return;
-      // Activity обрабатывает popstate и передаёт «Назад» текущему контроллеру.
-      e.controllers[controller.enabled().name].back();
-    }
-  };
-  const showResult = () => {
-    e.api.start();
-    e.advance(LEAVE + 10);
-    e.api.stop();
-    assert.equal(controller.enabled().name, 'lumen_bench');
-  };
-  showResult();
-  assert.deepEqual(pushes, [[state, '']], 'запасная запись сохраняет текущее состояние и URL');
-  e.win.history.back();
-  assert.equal(e.body.some((node) => node.className === 'lumen-bench'), false);
-  assert.equal(controller.enabled().name, 'content');
-  showResult();
-  assert.equal(pushes.length, 1, 'история уже есть, повторный запуск не накапливает записи');
-  e.body.find((node) => node.className === 'lumen-bench').onclick();
-  assert.equal(controller.enabled().name, 'content');
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(RUN + 100);
+  assert.equal(e.body.filter((n) => n.className === 'lumen-bench').length, 1, 'таблица на экране');
+  assert.equal(e.pushes.length, 1, 'одна своя запись в истории: «Назад» на Android TV станет popstate');
+  assert.equal(e.popListeners(), 1);
+  /* Обратный вызов Activity.call переставил чужой контроллер — окно всё
+     равно закрывается своим слушателем. */
+  e.win.Lampa.Controller.toggle('menu');
+  e.popstate();
+  assert.equal(e.body.filter((n) => n.className === 'lumen-bench').length, 0, 'popstate снял экран таблицы');
+  assert.equal(e.popListeners(), 0);
+  const toggles = e.toggles.length;
+  e.popstate();
+  assert.equal(e.toggles.length, toggles, 'повторный popstate тест не трогает');
 });
 
 test('bench: любая клавиша прерывает — клавиша проглочена, набранное показано, уборка та же', () => {
