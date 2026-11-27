@@ -8130,7 +8130,7 @@ test('шаг 1: в декабре сцена праздника ставится
   assert.deepEqual(warnLog, []);
 });
 
-test('Новогодний слой доступен на первом фокусе и скрывается при смене карточек', () => {
+test('Снег: одиночный шаг его не трогает, серия прячет его на 360 мс и держит до 1 с покоя', () => {
   const env = nyEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -8139,24 +8139,30 @@ test('Новогодний слой доступен на первом фоку�
   const paused = env.fx.mounts[0].opts.paused;
   focusOn(main, main.card1);
   assert.equal(paused(), false, 'первый фокус не задерживает снег');
+  env.advance(1500);
   main.card1.removeClass('focus');
   focusOn(main, main.card2);
-  assert.equal(paused(), true);
+  assert.equal(paused(), false, 'одиночный шаг снег не останавливает (владелец, 27.11)');
+  assert.equal(node.hasClass('lumen-winter-scroll'), false, 'и не прячет');
+  env.advance(300);
+  main.card2.removeClass('focus');
+  focusOn(main, main.card1);
+  assert.equal(paused(), true, 'второй шаг за 300 мс — серия');
   assert.equal(node.hasClass('lumen-winter-scroll'), true);
   env.advance(359);
   assert.equal(node.hasClass('lumen-winter-scroll'), true);
   env.advance(1);
   assert.equal(node.hasClass('lumen-winter-scroll'), false, 'стоп-кадр снова виден через 360 мс');
   assert.equal(paused(), true);
-  env.advance(2639);
-  assert.equal(paused(), true, 'снег стоит 3 с после стрелки: шаг пульта на ТВ ~1,75 с');
-  env.advance(2);
+  env.advance(639);
+  assert.equal(paused(), true, 'после серии снег стоит 1 с');
+  env.advance(1);
   assert.equal(paused(), false, 'в покое снег едет и при фокусе в ряду');
   assert.equal(node.hasClass('lumen-winter-scroll'), false);
   assert.equal(env.fx.mounts.length, 1);
 });
 
-test('Снег стоит между редкими стрелками и едет после 3 с покоя — в ряду и в шапке', () => {
+test('Снег: редкие стрелки его не трогают, серия держит до 1 с покоя — в ряду и в шапке', () => {
   const env = nyEnv();
   const main = makeMain();
   const handlers = new Map();
@@ -8181,25 +8187,38 @@ test('Снег стоит между редкими стрелками и еде
   controller = 'head';
   keydown({ keyCode: 39, target: { tagName: 'INPUT' } });
   keydown({ keyCode: 13, target: arrow.target });
-  assert.equal(paused(), false);
   keydown(arrow);
-  assert.equal(paused(), true);
+  assert.equal(paused(), false, 'одиночная стрелка снег не останавливает');
   controller = 'items_line';
   env.hero.onToggle();
   for (let step = 0; step < 3; step++) {
-    env.advance(2100);
-    assert.equal(paused(), true, 'движение не возобновляется между шагами даже у подарка без фильма');
+    env.advance(800);
     keydown(arrow);
+    assert.equal(paused(), false, 'шаги реже 700 мс идут по одному — снег едет');
   }
-  keydown({ keyCode: 38, target: arrow.target });
-  env.advance(2999);
+  env.advance(40);
+  keydown(arrow);
+  assert.equal(paused(), false, 'второе событие того же шага — не серия');
+  env.advance(300);
+  keydown(arrow);
+  assert.equal(paused(), true, 'стрелка через 300 мс — серия');
+  for (let step = 0; step < 3; step++) {
+    env.advance(900);
+    keydown({ keyCode: 38, target: arrow.target });
+    assert.equal(paused(), true, 'серия длится, пока стрелки чаще раза в секунду');
+  }
+  env.advance(999);
   assert.equal(paused(), true);
   env.advance(2);
   assert.equal(paused(), false, 'покой в ряду возвращает движение');
   keydown(arrow);
+  assert.equal(paused(), false, 'первая стрелка после покоя — снова одиночный шаг');
+  env.advance(200);
+  keydown(arrow);
   controller = 'head';
   env.hero.onToggle();
-  env.advance(2999);
+  assert.equal(paused(), true);
+  env.advance(999);
   assert.equal(paused(), true);
   env.advance(2);
   assert.equal(paused(), false, 'покой в шапке тоже');

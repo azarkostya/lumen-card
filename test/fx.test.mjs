@@ -1366,6 +1366,10 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     assert.ok(farCtx.calls.filter((c) => c === 'createRadialGradient').length > 3 * nearCtx.calls.filter((c) => c === 'createRadialGradient').length,
       'дальних точек намного больше, чем ближних хлопьев');
     assert.ok(nearCtx.calls.indexOf('stroke') !== -1 && farCtx.calls.indexOf('stroke') === -1, 'кристаллы — только на переднем плане');
+    /* Три формы кристаллов по кругу (владелец, 27.11; звезды-искры нет): у
+       пластинки есть заливка контура — closePath, у классической и ветвистой — нет. */
+    assert.equal(nearCtx.calls.filter((c) => c === 'stroke').length, 3 * 10, 'десять кристаллов с лучами, по три копии');
+    assert.equal(nearCtx.calls.filter((c) => c === 'closePath').length, 3 * 3, 'пластинка — каждый третий кристалл');
     assert.equal(motions.length, 0, 'под паузой анимация не создаётся');
     scroll = false;
     fx.wake();

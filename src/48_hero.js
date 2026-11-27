@@ -1835,11 +1835,15 @@
     var FX_CALM_MS = 1500;
     var WINTER_SCROLL_MS = 360;
     /* Раунд 3 (ТВ, 27.11): снег на Web Animations держал вывод кадров
-       включённым (~4950 кадров за листание против ~1400), потому что
-       трогался между шагами пульта (шаг на ТВ ~1,75 с). Едет только после
-       WINTER_CALM_MS без стрелок — с запасом к шагу, но праздник в покое
-       живой и при фокусе в рядах. */
-    var WINTER_CALM_MS = 3000;
+       включённым (~4950 кадров за листание против ~1400). Тогда снег вставал
+       на каждой стрелке и трогался через 3 с покоя — владелец (27.11): «снег
+       начинает идти только через 3 секунды после перехода на след
+       карточку». Теперь одиночный шаг снег не трогает; стоит он только в
+       серии стрелок (шаг короче BURST_GAP) и едет через WINTER_CALM_MS
+       после последней. Стрелка и событие фокуса одного шага приходят почти
+       разом — моложе WINTER_SAME_STEP_MS это тот же шаг. */
+    var WINTER_CALM_MS = 1000;
+    var WINTER_SAME_STEP_MS = 80;
     /* Зона текста героя для слоя частиц (src/52_fx.js, safeZone). */
     var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
 
@@ -1936,11 +1940,20 @@
        (LC.fx.mount оживит удержанный слой с новыми условиями, revive).
        box — размер слоя {width, height}, когда читать узел нельзя (fxBox). */
     function fxPaused() {
-      return !!(state && (state.trailer || state.compact || state.parked ||
-        (state.fxWinter ? state.fxCalmTimer !== null : Date.now() - state.focusAt < FX_CALM_MS)));
+      if (!state) return false;
+      if (state.compact || state.parked) return true;
+      /* Праздник идёт и под роликом (владелец, 27.11): снег и огоньки
+         гирлянды не замирают, пока играет трейлер. */
+      if (state.fxWinter) return state.fxCalmTimer !== null;
+      return !!(state.trailer || Date.now() - state.focusAt < FX_CALM_MS);
     }
 
     function pauseWinterScroll() {
+      var now = Date.now();
+      var gap = now - (state.fxArrowAt || 0);
+      state.fxArrowAt = now;
+      /* Одиночный шаг (и второе событие того же шага) снег не трогает. */
+      if (state.fxCalmTimer === null && (gap < WINTER_SAME_STEP_MS || gap >= BURST_GAP)) return;
       var wasCalm = state.fxCalmTimer === null;
       stopTimer('fxCalmTimer');
       state.fxCalmTimer = setTimeout(function () {

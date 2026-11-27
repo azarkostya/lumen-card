@@ -497,9 +497,51 @@
        снежинки ехали одним куском. Теперь дальний слой — много мелких
        мягких точек, медленно; ближний — крупные размытые хлопья и редкие
        кристаллы, быстрее и с раскачкой (параллакс). Оба рисуются один раз
-       прямо в размер слоя: дальний в DPR 1, ближний в dpr() (до DPR_MAX). */
+       прямо в размер слоя: дальний в DPR 1, ближний в nearDpr() (до
+       DPR_MAX и на Android). */
     var SNOW_FAR = { count: 110, r0: 1.1, r1: 2.3, a0: 0.45, a1: 0.85, crystals: 0 };
-    var SNOW_NEAR = { count: 22, r0: 3.2, r1: 6, a0: 0.55, a1: 0.9, crystals: 4 };
+    var SNOW_NEAR = { count: 22, r0: 3.2, r1: 6, a0: 0.55, a1: 0.9, crystals: 10 };
+
+    /* Кристаллы ближнего слоя (27.11, владелец: «больше вариантов
+       снежинок», звезду-искру — убрать): классическая, ветвистая и
+       пластинка. Координаты —
+       в радиусе 10; лучи — поворот одного луча, веточки под 60° к нему. */
+    function crystalRays(len, twigs) {
+      var segs = [];
+      for (var s = 0; s < 6; s++) {
+        var a = s * 1.0472 - 1.5708;
+        var c = Math.cos(a);
+        var n = Math.sin(a);
+        segs.push([0, 0, c * len, n * len]);
+        for (var t = 0; t < twigs.length; t++) {
+          var bx = c * twigs[t][0];
+          var by = n * twigs[t][0];
+          for (var side = -1; side <= 1; side += 2) {
+            var b = a + side * 1.0472;
+            segs.push([bx, by, bx + Math.cos(b) * twigs[t][1], by + Math.sin(b) * twigs[t][1]]);
+          }
+        }
+      }
+      return segs;
+    }
+
+    function plateRays() {
+      var segs = [];
+      for (var s = 0; s < 6; s++) {
+        var a = s * 1.0472 - 1.5708;
+        var c = Math.cos(a);
+        var n = Math.sin(a);
+        segs.push([c * 4, n * 4, c * 9.6, n * 9.6]);
+        segs.push([c * 7.4 - n * 2, n * 7.4 + c * 2, c * 7.4 + n * 2, n * 7.4 - c * 2]);
+      }
+      return segs;
+    }
+
+    var CRYSTALS = [
+      { lines: crystalRays(10, [[4.6, 3], [7.2, 2.2]]), width: 1.15 },
+      { lines: crystalRays(10, [[2.8, 2.2], [4.8, 3.2], [6.8, 2.6], [8.6, 1.5]]), width: 0.85 },
+      { lines: plateRays(), plate: 4.6, width: 1.1 }
+    ];
 
     function rgbaOf(hex, alpha) {
       var n = parseInt(hex.slice(1), 16);
@@ -524,21 +566,43 @@
       }
     }
 
-    function snowCrystal(ctx, x, y, r, alpha, color) {
+    function snowCrystal(ctx, x, y, r, alpha, color, kind, turn) {
       if (typeof ctx.moveTo !== 'function') return;
-      var flake = FLAKES[2];
+      var shape = CRYSTALS[kind % CRYSTALS.length];
       var k = r / 10;
+      var cs = Math.cos(turn) * k;
+      var sn = Math.sin(turn) * k;
+      var j;
+      /* Мягкий ореол под кристаллом — без shadowBlur. */
+      snowDisc(ctx, x, y, r * 0.95, alpha * 0.22, color);
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = color;
-      ctx.lineWidth = 0.8;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      for (var j = 0; j < flake.length; j++) {
-        var q = flake[j];
-        ctx.moveTo(x + q[0] * k, y + q[1] * k);
-        ctx.lineTo(x + q[2] * k, y + q[3] * k);
+      ctx.fillStyle = color;
+      if (shape.plate) {
+        ctx.beginPath();
+        for (j = 0; j < 6; j++) {
+          var a = j * 1.0472 - 1.5708;
+          var qx = Math.cos(a) * shape.plate;
+          var qy = Math.sin(a) * shape.plate;
+          var px = x + qx * cs - qy * sn;
+          var py = y + qx * sn + qy * cs;
+          if (j) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+        }
+        if (typeof ctx.closePath === 'function') ctx.closePath();
+        ctx['fill']();
       }
-      ctx.stroke();
+      if (shape.lines) {
+        ctx.lineWidth = Math.max(0.6, shape.width * k);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (j = 0; j < shape.lines.length; j++) {
+          var q = shape.lines[j];
+          ctx.moveTo(x + q[0] * cs - q[1] * sn, y + q[0] * sn + q[1] * cs);
+          ctx.lineTo(x + q[2] * cs - q[3] * sn, y + q[2] * sn + q[3] * cs);
+        }
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -553,10 +617,11 @@
         var crystal = i >= spec.count;
         var x = snowX(i, crystal ? spec.crystals : spec.count, w, rnd);
         var y = rnd() * tile;
-        var r = crystal ? rand(rnd, 6, 9) : rand(rnd, spec.r0, spec.r1);
-        var alpha = crystal ? rand(rnd, 0.55, 0.75) : rand(rnd, spec.a0, spec.a1);
+        var r = crystal ? rand(rnd, 6.5, 12) : rand(rnd, spec.r0, spec.r1);
+        var alpha = crystal ? rand(rnd, 0.6, 0.85) : rand(rnd, spec.a0, spec.a1);
+        var turn = crystal ? rnd() * 1.0472 : 0;
         for (var k = 0; k < 3; k++) {
-          if (crystal) snowCrystal(ctx, x, y + k * tile, r, alpha, color);
+          if (crystal) snowCrystal(ctx, x, y + k * tile, r, alpha, color, i - spec.count, turn);
           else snowDisc(ctx, x, y + k * tile, r, alpha, color);
         }
       }
@@ -635,7 +700,7 @@
       }
       var near = nearCanvas(inst);
       if (!near) return;
-      inst.nearRes = dpr();
+      inst.nearRes = nearDpr();
       var nw = Math.max(1, Math.round(inst.bandW * inst.S * inst.nearRes));
       var nh = Math.max(1, Math.round(inst.bandH * inst.S * inst.nearRes));
       if (near.width !== nw || near.height !== nh) {
@@ -1625,6 +1690,18 @@
       } catch (e) {
         return false;
       }
+    }
+
+    /* Ближний слой — крупные хлопья и кристаллы: в DPR 1 их ветки на ТВ
+       сливаются (слой растянут вдвое). Ему потолок DPR_MAX и на Android:
+       рисуется один раз, это ~2,5 МиБ памяти сверх DPR 1. */
+    function nearDpr() {
+      var value = 1;
+      try {
+        value = Number(window.devicePixelRatio) || 1;
+      } catch (e) { }
+      if (!(value > 0)) value = 1;
+      return value > DPR_MAX ? DPR_MAX : value;
     }
 
     function dpr() {
