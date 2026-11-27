@@ -1322,78 +1322,83 @@ test('Раунд 2: в Lite зимняя сцена ставит одно SVG-и
   });
 });
 
-test('Раунд 2: зимний canvas при DPR 2 остаётся DPR 1 и снег рисуется атласом', () => {
-  richEnv(({ tick, win }) => {
+test('Снег в два слоя: дальний в DPR 1, ближний в DPR слоя, оба на композиторе, пауза держит оба', () => {
+  richEnv(({ tick, win, all, doc }) => {
     win.devicePixelRatio = 2;
+    const motions = [];
+    const create = doc.createElement;
+    doc.createElement = (tag) => {
+      const el = create(tag);
+      el.animate = (keyframes, options) => {
+        const animation = {
+          el, keyframes, options, playState: 'running', currentTime: 0,
+          pause() { this.playState = 'paused'; },
+          play() { this.playState = 'running'; },
+          cancel() { this.playState = 'idle'; this.currentTime = null; }
+        };
+        motions.push(animation);
+        return animation;
+      };
+      return el;
+    };
     const fx = freshFx({ motionMode: () => 'full' });
     fx._timers = fakeTimers().hook;
     const layer = fakeNode(960, 360);
     let scroll = true;
-    let starts = 0;
     fx.mount(layer, 'winter', { paused: () => scroll });
-    const canvas = layer.children[0];
-    assert.deepEqual([canvas.width, canvas.height], [960, 360], 'запасной гирлянде нужен весь слой');
-    canvas.style = {};
-    const animation = {
-      playState: 'running',
-      currentTime: 0,
-      pause() { this.playState = 'paused'; },
-      play() { this.playState = 'running'; },
-      cancel() { this.playState = 'idle'; this.currentTime = null; }
-    };
-    canvas.animate = (keyframes, options) => {
-      starts++;
-      assert.match(keyframes[0].transform, /-33\.333%/);
-      assert.equal(options.duration, 7845);
-      assert.equal(options.iterations, Infinity);
-      animation.playState = 'running';
-      return animation;
-    };
+    const far = layer.children[0];
+    assert.deepEqual([far.width, far.height], [960, 360], 'запасной гирлянде нужен весь слой');
     fx.bulbs(layer, true);
-    assert.deepEqual([canvas.width, canvas.height], [960, 540], 'три короткие полноширинные плитки в одном canvas DPR 1');
-    const canvasCtx = canvas.getContext('2d');
-    assert.ok(canvas.width * canvas.height * 4 / 1024 ** 2 < 2, 'память слоя в пределах 2 МиБ');
+    assert.deepEqual([far.width, far.height], [960, 540], 'дальний слой — три плитки в DPR 1');
     tick(40);
-    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'первый кадр сразу виден даже при паузе');
-    assert.equal(starts, 0, 'до выхода из ряда анимация не создаётся');
+    assert.equal(layer.children.length, 2, 'первый кадр обоих слоёв виден сразу, даже под паузой');
+    const near = layer.children[1];
+    assert.match(near.className, /lumen-fx__canvas--winter.*lumen-fx__canvas--near/, 'ближний слой прячется вместе с дальним при листании');
+    assert.deepEqual([near.width, near.height], [1440, 810], 'ближний слой — в DPR слоя (до 1,5), чтобы не мылило');
+    assert.ok((far.width * far.height + near.width * near.height) * 4 / 1024 ** 2 < 7, 'память двух слоёв до 7 МиБ');
+    const farCtx = all.find((c) => c.canvas === far);
+    const nearCtx = all.find((c) => c.canvas === near);
+    for (const ctx of [farCtx, nearCtx]) {
+      assert.equal(ctx.calls.filter((c) => c === 'drawImage').length, 0, 'без растянутого атласа');
+      assert.ok(ctx.calls.filter((c) => c === 'createRadialGradient').length > 0, 'мягкие хлопья градиентом');
+      assert.deepEqual(ctx.banned, [], 'без shadowBlur и filter');
+    }
+    assert.ok(farCtx.calls.filter((c) => c === 'createRadialGradient').length > 3 * nearCtx.calls.filter((c) => c === 'createRadialGradient').length,
+      'дальних точек намного больше, чем ближних хлопьев');
+    assert.ok(nearCtx.calls.indexOf('stroke') !== -1 && farCtx.calls.indexOf('stroke') === -1, 'кристаллы — только на переднем плане');
+    assert.equal(motions.length, 0, 'под паузой анимация не создаётся');
     scroll = false;
     fx.wake();
     tick(40);
-    assert.equal(animation.playState, 'running');
-    assert.equal(starts, 1);
+    assert.equal(motions.length, 2);
+    const [farMotion, nearMotion] = motions;
+    assert.equal(farMotion.el, far);
+    assert.equal(nearMotion.el, near);
+    assert.ok(farMotion.options.duration > nearMotion.options.duration, 'дальний слой медленнее ближнего — глубина');
+    assert.match(farMotion.keyframes[0].transform, /-33\.333%/);
+    assert.match(nearMotion.keyframes[1].transform, /translate3d\(7px/, 'ближний раскачивается сильнее');
     tick(40);
-    assert.equal(fx.stats().frames, 0, 'композитор двигает слой без рисования JS-кадров');
-    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'атлас рисуется только при монтаже');
-    const upload = canvasCtx.log.find(c => c[0] === 'drawImage');
-    assert.equal(upload[5], 306, 'атлас содержит три плитки по 102 пикселя');
-    assert.deepEqual(upload.slice(-4), [0, 0, 960, 540], 'атлас растёт на всю ширину слоя');
-    const atlas = upload[1].getContext('2d');
-    const centers = atlas.log.flatMap(([op], i) => op === 'beginPath' ? [atlas.log[i + 1][1]] : []);
-    const bands = [0, 1, 2].map(i => centers.filter(x => Math.floor(x / (upload[1].width / 3)) === i).length);
-    assert.equal(centers.length * 2, 28, 'плотность двух видимых плиток сохранена');
-    assert.ok(Math.min(...bands) >= 3 && Math.max(...bands) - Math.min(...bands) <= 2,
-      'равномерное покрытие атласа с ненулевой плотностью в центре');
-    assert.ok(atlas.alphas.every(a => a >= 0.45), 'нет почти прозрачной левой половины');
-    assert.equal(canvasCtx.calls.filter(c => c === 'arc' || c === 'createRadialGradient').length, 0);
+    assert.equal(fx.stats().frames, 0, 'композитор двигает оба слоя без JS-кадров');
     scroll = true;
     fx.wake();
     tick(40);
-    assert.equal(animation.playState, 'paused');
+    assert.deepEqual(motions.map((m) => m.playState), ['paused', 'paused'], 'пауза держит оба слоя');
     scroll = false;
     fx.wake();
     tick(40);
-    assert.equal(animation.playState, 'running');
-    assert.equal(starts, 1, 'возврат оживляет то же движение вместо пересоздания');
-    assert.equal(canvasCtx.calls.filter(c => c === 'drawImage').length, 1, 'возврат не перерисовывает атлас');
-    animation.currentTime = 4200;
+    assert.deepEqual(motions.map((m) => m.playState), ['running', 'running']);
+    assert.equal(motions.length, 2, 'возврат оживляет те же движения');
+    farMotion.currentTime = 4200;
     fx.bulbs(layer, false);
-    assert.equal(animation.playState, 'idle');
-    assert.deepEqual([canvas.width, canvas.height], [960, 360], 'сбой WebP возвращает весь слой без второго холста');
-    assert.equal(layer.children.length, 1);
+    assert.deepEqual(motions.map((m) => m.playState), ['idle', 'idle']);
+    assert.deepEqual([far.width, far.height], [960, 360], 'сбой WebP возвращает весь слой');
+    assert.equal(layer.children.length, 1, 'и снимает ближний слой');
+    assert.deepEqual([near.width, near.height], [0, 0], 'память ближнего слоя отдана');
     fx.bulbs(layer, true);
     tick(40);
-    assert.equal(animation.currentTime, 4200, 'пересборка подхватывает фазу снега');
+    assert.equal(motions[2].currentTime, 4200, 'пересборка подхватывает фазу снега');
     fx.unmountAll();
+    assert.equal(layer.children.length, 0, 'снятие слоя убирает оба холста');
   });
 });
 
