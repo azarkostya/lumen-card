@@ -50,15 +50,8 @@
         'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%)';
       r.push('html body .lumen-backdrop.lumen-theme--halloween .lumen-fx,html body .lumen-hero.lumen-theme--halloween .lumen-fx{background-image:none}');
       r.push('html body .lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene,html body .lumen-hero.lumen-theme--halloween .lumen-fx.lumen-fx--scene,html body .lumen-hero .lumen-fx.lumen-fx--halloween{background-image:' + mist + '}');
-      /* В Apple TV у всех подарков графитовая обёртка и белые ленты. */
-      var wraps = ['#28282A,#1A1A1C', '#2D2D2F,#1C1C1E', '#323234,#202022', '#363638,#242426'];
-      for (var i = 0; i < wraps.length; i++) {
-        r.push('html body .lumen-main .card .lumen-advent__door--wrap-' + i + '{background:linear-gradient(150deg,' + wraps[i] + ');color:#FFFFFF}');
-      }
-      r.push('html body .lumen-main .card .lumen-advent__bow{color:#FFFFFF}');
-      r.push('html body .lumen-main .card.lumen-advent-card--final .lumen-advent__door{background:linear-gradient(150deg,#363638,#1C1C1E 55%,#303032);color:#FFFFFF}');
       r.push('html body .lumen-main .card.lumen-advent-card--final .lumen-advent__note{background:#1C1C1E;color:#FFFFFF}');
-      r.push('html body .lumen-main .card.lumen-advent-card--final .lumen-advent__num,html body .lumen-main .card.lumen-advent-card--final .lumen-advent__star{color:#FFFFFF}');
+      r.push('html body .lumen-main .card.lumen-advent-card--final .lumen-advent__num{color:#FFFFFF}');
       r.push('html body .lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#FFFFFF}');
       r.push('html body .lumen-main .lumen-advent-card--final .card__age{color:#FFFFFF}');
       return r.join('\n');

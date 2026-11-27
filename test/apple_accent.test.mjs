@@ -181,9 +181,12 @@ test('Apple TV: 31-е без золота; CSS-гирлянды «рождест
 });
 
 test('Apple TV: все подарки адвента графитовые с белой лентой', () => {
-  const doors = apple.css.split('\n').filter((line) => line.startsWith('html body .lumen-main') && line.includes('lumen-advent__door--wrap-'));
-  assert.equal(doors.length, 4);
-  assert.ok(doors.every((line) => /background:linear-gradient/.test(line) && [...line.matchAll(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/gi)].every((color) =>
-    Math.max(...color.slice(1).map((hex) => parseInt(hex, 16))) - Math.min(...color.slice(1).map((hex) => parseInt(hex, 16))) <= 2)));
-  assert.match(apple.css, /html body[^\n]+lumen-advent__bow[^\n]+color:#FFFFFF/);
+  const doors = apple.css.split('\n').filter((line) => /lumen-advent__door--wrap-[0-3]\{/.test(line));
+  assert.equal(doors.length, 8, 'четыре обычных и четыре приглушённых варианта');
+  assert.equal(doors.filter((line) => decodeURIComponent(line).includes('opacity=".63"')).length, 4);
+  assert.ok(doors.every((line) => {
+    const svg = decodeURIComponent(line);
+    return svg.includes('stroke="#FFFFFF"') && [...svg.matchAll(/stop-color="#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/gi)].every((color) =>
+      Math.max(...color.slice(1).map((hex) => parseInt(hex, 16))) - Math.min(...color.slice(1).map((hex) => parseInt(hex, 16))) <= 2);
+  }));
 });

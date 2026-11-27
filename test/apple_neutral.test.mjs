@@ -70,10 +70,11 @@ const LUMEN_SAMPLES = {
    «Досмотреть»: остаток под постером, толще полоса; мета героя 1.14em. Поиск серии: метки и цель в шапке раздач.
    В раунде 2 подпись серии в Lumen разделена на название и строку метаданных;
    статичная зимняя сцена и отключение снежного слоя при листании.
+   Раунд 3: цельный фон обёртки адвента.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '06490494bcb89a95a825ba6777b8883319ec648039749f88b42addf5835c498a',
-  black_solid: 'f96f59329340a90f57d4e45aa0430fea0ed60c02737d75be27657026c9ca9611'
+  warm: '49c800a79df64e2d83a0b5c2171fbb9285c7ad5284ab20b01ca332cf8a1e0cc4',
+  black_solid: 'aa9ce37769b99c54fb78c2099b69f6e971ac80a06ca362499998d16f8a71da0b'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {
