@@ -1349,13 +1349,13 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     const far = layer.children[0];
     assert.deepEqual([far.width, far.height], [960, 360], 'запасной гирлянде нужен весь слой');
     fx.bulbs(layer, true);
-    assert.deepEqual([far.width, far.height], [960, 540], 'дальний слой — три плитки в DPR 1');
+    assert.deepEqual([far.width, far.height], [960, 720], 'дальний слой — две плитки во всю полосу, DPR 1');
     tick(40);
     assert.equal(layer.children.length, 2, 'первый кадр обоих слоёв виден сразу, даже под паузой');
     const near = layer.children[1];
     assert.match(near.className, /lumen-fx__canvas--winter.*lumen-fx__canvas--near/, 'ближний слой прячется вместе с дальним при листании');
-    assert.deepEqual([near.width, near.height], [1440, 810], 'ближний слой — в DPR слоя (до 1,5), чтобы не мылило');
-    assert.ok((far.width * far.height + near.width * near.height) * 4 / 1024 ** 2 < 7, 'память двух слоёв до 7 МиБ');
+    assert.deepEqual([near.width, near.height], [1440, 1080], 'ближний слой — в DPR слоя (до 1,5), чтобы не мылило');
+    assert.ok((far.width * far.height + near.width * near.height) * 4 / 1024 ** 2 < 9, 'память двух слоёв до 9 МиБ');
     const farCtx = all.find((c) => c.canvas === far);
     const nearCtx = all.find((c) => c.canvas === near);
     for (const ctx of [farCtx, nearCtx]) {
@@ -1366,10 +1366,10 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     assert.ok(farCtx.calls.filter((c) => c === 'createRadialGradient').length > 3 * nearCtx.calls.filter((c) => c === 'createRadialGradient').length,
       'дальних точек намного больше, чем ближних хлопьев');
     assert.ok(nearCtx.calls.indexOf('stroke') !== -1 && farCtx.calls.indexOf('stroke') === -1, 'кристаллы — только на переднем плане');
-    /* Три формы кристаллов по кругу (владелец, 27.11; звезды-искры нет): у
-       пластинки есть заливка контура — closePath, у классической и ветвистой — нет. */
-    assert.equal(nearCtx.calls.filter((c) => c === 'stroke').length, 3 * 10, 'десять кристаллов с лучами, по три копии');
-    assert.equal(nearCtx.calls.filter((c) => c === 'closePath').length, 3 * 3, 'пластинка — каждый третий кристалл');
+    /* Восемь форм, каждая дважды (владелец, 27.11: без звезды и «гаек»): у
+       трёх пластинок есть залитый контур — closePath, у дендритов нет. */
+    assert.equal(nearCtx.calls.filter((c) => c === 'stroke').length, 2 * 16, 'шестнадцать кристаллов с лучами, по две копии');
+    assert.equal(nearCtx.calls.filter((c) => c === 'closePath').length, 2 * 6, 'три пластинки по два кристалла');
     assert.equal(motions.length, 0, 'под паузой анимация не создаётся');
     scroll = false;
     fx.wake();
@@ -1379,7 +1379,8 @@ test('Снег в два слоя: дальний в DPR 1, ближний в DP
     assert.equal(farMotion.el, far);
     assert.equal(nearMotion.el, near);
     assert.ok(farMotion.options.duration > nearMotion.options.duration, 'дальний слой медленнее ближнего — глубина');
-    assert.match(farMotion.keyframes[0].transform, /-33\.333%/);
+    assert.match(farMotion.keyframes[0].transform, /,-50%,/, 'петля — сдвиг на одну плитку из двух');
+    assert.match(farMotion.keyframes[farMotion.keyframes.length - 1].transform, /^translate3d\(0px,0%,0\)$/, 'и конец петли там, откуда видна первая плитка');
     assert.match(nearMotion.keyframes[1].transform, /translate3d\(7px/, 'ближний раскачивается сильнее');
     tick(40);
     assert.equal(fx.stats().frames, 0, 'композитор двигает оба слоя без JS-кадров');
