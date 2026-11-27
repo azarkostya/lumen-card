@@ -10,6 +10,7 @@
       [/(?:^|[\s._/[(])(\d{1,2})x(\d{1,3})(?:\s*-\s*(\d{1,3}))?(?![\w]|\s*-\s*\d)/gi, 0]
     ];
     var SEASON_SPAN = /(?:^|[\s._/[(])(\d{1,2})\s*-\s*(\d{1,2})x(\d{1,3})\s*-\s*(\d{1,3})(?:\s+из\s+(\d{1,3}))?(?![\w]|\s*-\s*\d)/gi;
+    var SEASON_SPAN_RU = /[[(]\s*(\d{1,2})\s*-\s*(\d{1,2})\s+сезон(?:ы|а|ов)?\s*:\s*(\d{1,3})\s*-\s*(\d{1,3})\s+сери(?:я|и|й)\s+из\s+(\d{1,3})\s*[\])]/gi;
     var EPISODES_ONLY = /[[(]\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s+из\s+(\d{1,3})\s*[\])]/gi;
     var SEASONS_ONLY = /\[\s*s(\d{1,2})(?:\s*-\s*s?(\d{1,2}))?\s*\]/gi;
 
@@ -46,11 +47,12 @@
       }
       /* Сезоны и серии в сквозной записи — общие диапазоны, без
          соответствия «сезон → серии». Скрываем этот кусок от одиночного x. */
-      title = title.replace(SEASON_SPAN, function (text, start, end, first, last, total) {
+      function addSpan(text, start, end, first, last, total) {
         if (!+start || +start >= +end) invalid = true;
         else add(seasonsBetween(+start, +end), +first, +last, total ? +total : null);
         return ' ';
-      });
+      }
+      title = title.replace(SEASON_SPAN, addSpan).replace(SEASON_SPAN_RU, addSpan);
       for (var i = 0; i < SEASON_RANGES.length; i++) {
         var rule = SEASON_RANGES[i];
         rule[0].lastIndex = 0;
@@ -76,7 +78,9 @@
     }
 
     function verdict(parsed, target) {
-      if (!parsed || !parsed.known || parsed.seasons.length !== 1 || !target || !(target.season > 0) || !(target.episode > 0)) return 'unknown';
+      if (!parsed || !parsed.known || !parsed.seasons.length || !target || !(target.season > 0) || !(target.episode > 0)) return 'unknown';
+      /* Сквозной диапазон подтверждает серию сезона только для полного набора. */
+      if (parsed.seasons.length > 1 && (parsed.from !== 1 || parsed.to !== parsed.total)) return 'unknown';
       if (parsed.seasons.indexOf(Number(target.season)) === -1) return 'other_season';
       if (target.episode > parsed.to) return 'upto';
       if (target.episode >= parsed.from) return 'has';

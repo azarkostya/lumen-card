@@ -606,6 +606,38 @@ test('bench: полный прогон — одиннадцать стадий, 
   assert.equal(e.toggles[e.toggles.length - 1], 'content');
 });
 
+test('bench: «Назад» через popstate закрывает таблицу даже при пустой истории', () => {
+  const e = makeEnv();
+  const state = { route: 'main' };
+  const pushes = [];
+  const controller = e.win.Lampa.Controller;
+  e.win.history = {
+    length: 1,
+    state,
+    pushState(...args) { pushes.push(args); this.length++; },
+    back() {
+      if (this.length < 2) return;
+      // Activity обрабатывает popstate и передаёт «Назад» текущему контроллеру.
+      e.controllers[controller.enabled().name].back();
+    }
+  };
+  const showResult = () => {
+    e.api.start();
+    e.advance(LEAVE + 10);
+    e.api.stop();
+    assert.equal(controller.enabled().name, 'lumen_bench');
+  };
+  showResult();
+  assert.deepEqual(pushes, [[state, '']], 'запасная запись сохраняет текущее состояние и URL');
+  e.win.history.back();
+  assert.equal(e.body.some((node) => node.className === 'lumen-bench'), false);
+  assert.equal(controller.enabled().name, 'content');
+  showResult();
+  assert.equal(pushes.length, 1, 'история уже есть, повторный запуск не накапливает записи');
+  e.body.find((node) => node.className === 'lumen-bench').onclick();
+  assert.equal(controller.enabled().name, 'content');
+});
+
 test('bench: любая клавиша прерывает — клавиша проглочена, набранное показано, уборка та же', () => {
   const e = makeEnv();
   e.api.start();

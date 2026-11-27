@@ -206,3 +206,13 @@ test('v2 торренты: экран «фильтр ничего не дал» 
     assert.ok(empty.indexOf('padding:1.4em ' + pad[1] + ' 1.4em ' + pad[3] + ' !important') >= 0, empty);
   }
 });
+
+test('чипы диапазона и искомой серии не оставляют место под пустую пиктограмму', () => {
+  for (const css of [lumen, apple]) {
+    for (const chip of ['lumen-ep-range', 'lumen-ep-verdict']) {
+      const selector = 'body.lumen-torrents-on .activity.lumen-torrents .torrent-list .torrent-item .torrent-item__ffprobe > .' + chip + '::before';
+      assert.match(rule(css, selector), /content:none\s*!important/);
+      assert.match(rule(css, selector), /display:none/);
+    }
+  }
+});
