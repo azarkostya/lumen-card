@@ -14530,7 +14530,91 @@ ctx.stroke();
 }
 return sheet.canvas;
 }
+var SNOW_FAR={count:110,r0:1.1,r1:2.3,a0:0.45,a1:0.85,crystals:0};
+var SNOW_NEAR={count:22,r0:3.2,r1:6,a0:0.55,a1:0.9,crystals:4};
+function rgbaOf(hex,alpha){
+var n=parseInt(hex.slice(1),16);
+return'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+alpha+')';
+}
+function snowDisc(ctx,x,y,r,alpha,color){
+if(typeof ctx.createRadialGradient==='function'&&typeof ctx.arc==='function'){
+var g=ctx.createRadialGradient(x,y,0,x,y,r);
+g.addColorStop(0,rgbaOf(color,alpha));
+g.addColorStop(0.45,rgbaOf(color,alpha*0.75));
+g.addColorStop(1,rgbaOf(color,0));
+ctx.fillStyle=g;
+ctx.beginPath();
+ctx.arc(x,y,r,0,6.2832);
+ctx['fill']();
+}else if(typeof ctx.fillRect==='function'){
+ctx.globalAlpha=alpha;
+ctx.fillStyle=color;
+ctx.fillRect(x-r/2,y-r/2,r,r);
+ctx.globalAlpha=1;
+}
+}
+function snowCrystal(ctx,x,y,r,alpha,color){
+if(typeof ctx.moveTo!=='function')return;
+var flake=FLAKES[2];
+var k=r/10;
+ctx.globalAlpha=alpha;
+ctx.strokeStyle=color;
+ctx.lineWidth=0.8;
+ctx.lineCap='round';
+ctx.beginPath();
+for(var j=0;j<flake.length;j++){
+var q=flake[j];
+ctx.moveTo(x+q[0]*k,y+q[1]*k);
+ctx.lineTo(x+q[2]*k,y+q[3]*k);
+}
+ctx.stroke();
+ctx.globalAlpha=1;
+}
+function snowLayer(ctx,w,h,scale,rnd,spec,color){
+if(typeof ctx.setTransform==='function')ctx.setTransform(scale,0,0,scale,0,0);
+ctx.globalCompositeOperation='source-over';
+if(typeof ctx.clearRect==='function')ctx.clearRect(0,0,w,h);
+var tile=h/3;
+for(var i=0;i<spec.count+spec.crystals;i++){
+var crystal=i>=spec.count;
+var x=snowX(i,crystal?spec.crystals:spec.count,w,rnd);
+var y=rnd()*tile;
+var r=crystal?rand(rnd,6,9):rand(rnd,spec.r0,spec.r1);
+var alpha=crystal?rand(rnd,0.55,0.75):rand(rnd,spec.a0,spec.a1);
+for(var k=0;k<3;k++){
+if(crystal)snowCrystal(ctx,x,y+k*tile,r,alpha,color);
+else snowDisc(ctx,x,y+k*tile,r,alpha,color);
+}
+}
+}
+function nearCanvas(inst){
+if(inst.near)return inst.near;
+try{
+var d=window.document;
+var canvas=d&&d.createElement?d.createElement('canvas'):null;
+var ctx=canvas&&canvas.getContext?canvas.getContext('2d'):null;
+if(!ctx||typeof canvas.animate!=='function')return null;
+canvas.className=inst.surface.className+' lumen-fx__canvas--near';
+inst.near=canvas;
+inst.nearCtx=ctx;
+return canvas;
+}catch(e){
+return null;
+}
+}
+function dropNear(inst){
+var canvas=inst.near;
+if(!canvas)return;
+inst.near=null;
+inst.nearCtx=null;
+try{if(canvas.parentNode)canvas.parentNode.removeChild(canvas);}catch(e){}
+try{canvas.width=canvas.height=0;}catch(e2){}
+}
 function cancelSnowBand(inst){
+if(inst.nearAnimation){
+inst.nearAnimation.cancel();
+inst.nearAnimation=null;
+}
 if(!inst.bandAnimation)return;
 var time=inst.bandAnimation.currentTime;
 if(typeof time==='number'&&isFinite(time))inst.snowTime=time;
@@ -14538,6 +14622,8 @@ inst.bandAnimation.cancel();
 inst.bandAnimation=null;
 }
 function pauseSnowBand(inst){
+var near=inst.nearAnimation;
+if(near&&near.playState!=='paused')near.pause();
 var animation=inst.bandAnimation;
 if(animation&&animation.playState!=='paused')animation.pause();
 }
@@ -14561,33 +14647,67 @@ if(typeof inst.ctx.setTransform==='function')inst.ctx.setTransform(inst.S,0,0,in
 if(canvas.style){
 canvas.style.height=tiled?'150%':'';
 }
+if(!tiled){
+dropNear(inst);
+return;
+}
+var near=nearCanvas(inst);
+if(!near)return;
+inst.nearRes=dpr();
+var nw=Math.max(1,Math.round(inst.bandW*inst.S*inst.nearRes));
+var nh=Math.max(1,Math.round(inst.bandH*inst.S*inst.nearRes));
+if(near.width!==nw||near.height!==nh){
+near.width=nw;
+near.height=nh;
+}
+if(near.style)near.style.height='150%';
 }
 function paintSnowBand(inst){
 if(inst.winterPainted)return;
-inst.ctx.globalCompositeOperation='copy';
-inst.bandCopy=true;
-inst.ctx.drawImage(inst.sprites.band,0,0,TILE_W,3*TILE_H,0,0,inst.bandW,inst.bandH);
+var color=snowColor(inst.snowCold);
+var rnd=winterRandom();
+inst.bandCopy=false;
+snowLayer(inst.ctx,inst.bandW,inst.bandH,inst.S,rnd,SNOW_FAR,color);
+if(inst.near&&inst.nearCtx){
+snowLayer(inst.nearCtx,inst.bandW,inst.bandH,inst.S*inst.nearRes,rnd,SNOW_NEAR,color);
+var parent=inst.surface.parentNode;
+if(parent&&inst.near.parentNode!==parent)parent.appendChild(inst.near);
+}
 inst.winterPainted=true;
 stat_steps++;
+}
+function bandMotion(canvas,sway,duration){
+var animation=canvas.animate([
+{transform:'translate3d(0,-33.333%,0)'},
+{transform:'translate3d('+sway+'px,-22.222%,0)'},
+{transform:'translate3d('+(-sway)+'px,-11.111%,0)'},
+{transform:'translate3d(0,0,0)'}
+],{duration:duration,iterations:Infinity});
+return animation&&typeof animation.pause==='function'&&
+typeof animation.play==='function'&&typeof animation.cancel==='function'?animation:null;
 }
 function playSnowBand(inst){
 var animation=inst.bandAnimation;
 if(animation){
 if(animation.playState==='paused')animation.play();
+if(inst.nearAnimation&&inst.nearAnimation.playState==='paused')inst.nearAnimation.play();
 return true;
 }
 try{
-animation=inst.surface.animate([
-{transform:'translate3d(0,-33.333%,0)'},
-{transform:'translate3d(3px,-22.222%,0)'},
-{transform:'translate3d(-3px,-11.111%,0)'},
-{transform:'translate3d(0,0,0)'}
-],{duration:inst.snowCold?9570:7845,iterations:Infinity});
-if(animation&&typeof animation.pause==='function'&&
-typeof animation.play==='function'&&typeof animation.cancel==='function'){
+animation=bandMotion(inst.surface,2,inst.snowCold?13000:11000);
+if(animation){
 inst.bandAnimation=animation;
 if(inst.snowTime>0)animation.currentTime=inst.snowTime;
 paintSnowBand(inst);
+if(inst.near&&inst.near.parentNode){
+var near=bandMotion(inst.near,7,inst.snowCold?7800:6500);
+if(near){
+if(inst.snowTime>0)near.currentTime=inst.snowTime;
+inst.nearAnimation=near;
+}else{
+dropNear(inst);
+}
+}
 return true;
 }
 }catch(e){}
@@ -15725,6 +15845,7 @@ var i=instances.indexOf(inst);
 if(i!==-1)instances.splice(i,1);
 if(inst.keep)carry={name:inst.name,w:inst.w,h:inst.h,at:nowMs(),particles:inst.particles,still:inst.still,snowCold:inst.snowCold,snowTime:inst.snowTime};
 if(inst.sprites&&!spritesUsed(inst.sprites))closeSprites(inst.sprites);
+dropNear(inst);
 try{
 if(inst.surface.parentNode)inst.surface.parentNode.removeChild(inst.surface);
 }catch(e){
@@ -16094,8 +16215,8 @@ return false;
 }
 var style='warm';
 if(LC.pref('lumen_flat',false)){
-style=LC.pref('lumen_fx_garland_apple','velvet');
-if(['velvet','velvet2','velvet3','cold','cold2'].indexOf(style)===-1)style='velvet';
+style=LC.pref('lumen_fx_garland_apple','rosa');
+if(['rosa','velvet','velvet2','velvet3','cold','cold2'].indexOf(style)===-1)style='rosa';
 }
 if(pack&&pack.style===style)return true;
 unmount();
@@ -30908,6 +31029,7 @@ lumen_dev_date_1205:{ru:'5 декабря',en:'5 December',uk:'5 грудня'},
 lumen_dev_date_1224:{ru:'24 декабря',en:'24 December',uk:'24 грудня'},
 lumen_dev_date_1231:{ru:'31 декабря',en:'31 December',uk:'31 грудня'},
 lumen_dev_date_0101:{ru:'1 января',en:'1 January',uk:'1 січня'},
+lumen_fx_garland_rosa:{ru:'Роса',en:'Dew',uk:'Роса'},
 lumen_fx_garland_velvet:{ru:'Бархат',en:'Velvet',uk:'Оксамит'},
 lumen_fx_garland_velvet2:{ru:'Ёлка',en:'Christmas tree',uk:'Ялинка'},
 lumen_fx_garland_velvet3:{ru:'Пастель',en:'Pastel',uk:'Пастель'},
@@ -32510,7 +32632,7 @@ var MORE=[
 {name:'lumen_hide_shots',type:'trigger','default':false,label:'lumen_hide_shots_name',descr:'lumen_hide_shots_descr'},
 {name:'lumen_hide_head_icons',type:'trigger','default':false,label:'lumen_hide_head_icons_name',descr:'lumen_hide_head_icons_descr'},
 {name:'lumen_group_dev',type:'title',label:'lumen_group_dev'},
-{name:'lumen_fx_garland_apple',type:'select',values:['velvet','velvet2','velvet3','cold','cold2'],vprefix:'lumen_fx_garland_','default':'velvet',label:'lumen_fx_garland_apple_name',descr:'lumen_fx_garland_apple_descr'},
+{name:'lumen_fx_garland_apple',type:'select',values:['rosa','velvet','velvet2','velvet3','cold','cold2'],vprefix:'lumen_fx_garland_','default':'rosa',label:'lumen_fx_garland_apple_name',descr:'lumen_fx_garland_apple_descr'},
 {name:'lumen_dev_date',type:'select',values:['off','1201','1205','1224','1231','0101'],vprefix:'lumen_dev_date_','default':'off',label:'lumen_dev_date_name',descr:'lumen_dev_date_descr'},
 {name:'lumen_region_unblock',type:'trigger','default':false,label:'lumen_region_unblock_name',descr:'lumen_region_unblock_descr'},
 {name:'lumen_debug_hud',type:'trigger','default':false,label:'lumen_debug_hud_name',descr:'lumen_debug_hud_descr'},
@@ -32972,7 +33094,7 @@ var TRIES=12;
 var NOTES={
 '1.5.0':{
 ru:[
-'Новый год. Снежинки и гирлянда появляются при открытии, Apple TV получил цветной бархат, а в адвенте каждый день ждёт фильм-подарок.',
+'Новый год. Снежинки и гирлянда появляются при открытии, в Apple TV — бархатные шары на провисающей нити с огоньками, а в адвенте каждый день ждёт фильм-подарок.',
 'Досмотреть. Остаток времени под постером, давние недосмотры скрываются, досмотренное исчезает сразу.',
 'Досмотрели фильм? После внешнего плеера Lampa может предложить отметить фильм просмотренным.',
 'Моя раздача. Удерживайте OK на раздаче, чтобы закрепить её и потом открыть прямо из карточки.',
@@ -32982,7 +33104,7 @@ ru:[
 'Настройки. Пункты собраны по разделам, можно скрыть Shots и лишние значки шапки, а «Что нового» открыть повторно.'
 ],
 en:[
-'New Year. Snowflakes and garlands appear as you open the screen, Apple TV has coloured velvet ornaments, and Advent reveals a film each day.',
+'New Year. Snow and garlands appear at once, Apple TV gets velvet baubles on a draped string of lights, and Advent reveals a film each day.',
 'Continue Watching. See time left under the poster, hide older entries and clear finished titles right away.',
 'Did you finish the movie? After an external player closes, Lampa may offer to mark the film as watched.',
 'My pinned torrent. Hold OK on a torrent to pin it, then open it directly from the title page.',
@@ -32992,7 +33114,7 @@ en:[
 'Settings. Options are grouped by topic, with controls for hiding Shots and extra icons or reopening What’s New.'
 ],
 uk:[
-'Новий рік. Сніжинки й гірлянда з’являються одразу, Apple TV отримав кольоровий оксамит, а в адвенті щодня відкривається фільм-подарунок.',
+'Новий рік. Сніжинки й гірлянда з’являються одразу, в Apple TV — оксамитові кулі на провислій нитці з вогниками, а в адвенті щодня відкривається фільм-подарунок.',
 'Додивитися. Залишок часу під постером, давні записи приховуються, а переглянуте зникає одразу.',
 'Додивилися фільм? Після зовнішнього плеєра Lampa може запропонувати позначити фільм як переглянутий.',
 'Моя роздача. Утримуйте OK на роздачі, щоб закріпити її та потім відкривати прямо з картки.',
