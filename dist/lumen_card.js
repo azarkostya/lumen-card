@@ -1297,9 +1297,6 @@ css.push('.lumen-hero .lumen-garland--cold.lumen-garland--rosa.has-glow:not(.is-
 css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
 css.push('.lumen-hero.lumen-theme--newyear .lumen-fx,.lumen-backdrop.lumen-theme--christmas .lumen-fx{contain:paint}');
 css.push('.lumen-backdrop .lumen-fx__still,.lumen-hero .lumen-fx__still{position:absolute;top:0;left:0;width:100%;height:100%}');
-css.push('.lumen-hero.lumen-winter-scroll .lumen-fx__canvas--winter,.lumen-hero.lumen-winter-scroll .lumen-fx__still,'+
-'.lumen-hero.lumen-hero--compact .lumen-fx__still,.lumen-hero.lumen-winter-scroll .lumen-garland__a,'+
-'.lumen-hero.lumen-winter-scroll .lumen-garland__b{visibility:hidden;-webkit-transition:none;transition:none}');
 css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
 css.push('.lumen-backdrop .lumen-fx__canvas--scene,.lumen-hero .lumen-fx__canvas--scene{opacity:1}');
 var MIST='176,168,196';
@@ -1784,7 +1781,6 @@ css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,
 css.push('body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active,body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active{-webkit-transition:none;transition:none}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
 css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx{opacity:1}');
-css.push('.lumen-hero.lumen-hero--compact.lumen-theme--newyear .lumen-fx canvas{opacity:0}');
 var garlandScale=heroSize==='large'?'':' scale(.75)';
 if(garlandScale){
 css.push('.lumen-hero .lumen-fx .lumen-garland{top:1.2vw;-webkit-transform:translateY(0)'+garlandScale+';transform:translateY(0)'+garlandScale+';-webkit-transform-origin:top center;transform-origin:top center}');
@@ -11887,9 +11883,6 @@ warn('hero: player unlisten failed',e);
 }
 }
 var FX_CALM_MS=1500;
-var WINTER_SCROLL_MS=360;
-var WINTER_CALM_MS=1000;
-var WINTER_SAME_STEP_MS=80;
 var FX_SAFE={left:0,top:0.4,right:0.5,bottom:1,floor:0.15,feather:0.08};
 var benchPreset=null;
 var benchHeld=false;
@@ -11927,12 +11920,20 @@ if(vh>0&&w>0&&h>0)return{width:w,height:Math.round(h*vh/100)};
 }catch(e){}
 return null;
 }
-function clearFx(){
+function snowOff(theme){
+if(!theme||!theme.holiday||theme.preset!=='winter')return false;
+try{
+return typeof LC.pref==='function'&&!LC.pref('lumen_fx_snow',true);
+}catch(e){
+return false;
+}
+}
+function clearFx(now){
 if(state){state.fxKey=null;state.fxWinter=false;}
 var host=fxHost();
 if(host){
 try{if(LC.garland)LC.garland.unmount(host);}catch(eGarland){warn('hero: garland unmount failed',eGarland);}
-try{if(LC.fx)LC.fx.unmount(host);}catch(e){warn('hero: fx unmount failed',e);}
+try{if(LC.fx)LC.fx.unmount(host,now===true);}catch(e){warn('hero: fx unmount failed',e);}
 }
 if(state&&state.node&&LC.themes){
 try{state.node.removeClass(LC.themes.classNames());}catch(e2){warn('hero: fx class failed',e2);}
@@ -11940,48 +11941,9 @@ try{state.node.removeClass(LC.themes.classNames());}catch(e2){warn('hero: fx cla
 }
 function fxPaused(){
 if(!state)return false;
-if(state.compact||state.parked)return true;
-if(state.fxWinter)return state.fxCalmTimer!==null;
-return!!(state.trailer||Date.now()-state.focusAt<FX_CALM_MS);
-}
-function pauseWinterScroll(){
-var now=Date.now();
-var gap=now-(state.fxArrowAt||0);
-state.fxArrowAt=now;
-if(state.fxCalmTimer===null&&(gap<WINTER_SAME_STEP_MS||gap>=BURST_GAP))return;
-var wasCalm=state.fxCalmTimer===null;
-stopTimer('fxCalmTimer');
-state.fxCalmTimer=setTimeout(function(){
-if(!state)return;
-state.fxCalmTimer=null;
-if(LC.fx&&LC.fx.wake)LC.fx.wake();
-},WINTER_CALM_MS);
-if(wasCalm&&LC.fx&&LC.fx.wake)LC.fx.wake();
-if(!state.fxScrolling){
-state.fxScrolling=true;
-state.node.addClass('lumen-winter-scroll');
-}
-stopTimer('fxScrollTimer');
-state.fxScrollTimer=setTimeout(function(){
-if(!state)return;
-state.fxScrollTimer=null;
-state.fxScrolling=false;
-state.node.removeClass('lumen-winter-scroll');
-},WINTER_SCROLL_MS);
-}
-function onWinterScroll(e){
-if(!state||!state.fxWinter||state.parked||!e)return;
-var target=e.target;
-var tag=target&&target.tagName;
-if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||
-(target&&target.isContentEditable))return;
-if(e.type==='wheel'){
-if(!state.root[0].contains(target))return;
-}else{
-var code=e.keyCode||e.which;
-if(code<37||code>40||!code)return;
-}
-pauseWinterScroll();
+if(state.parked)return true;
+if(state.fxWinter)return false;
+return!!(state.compact||state.trailer||Date.now()-state.focusAt<FX_CALM_MS);
 }
 function applyFx(force,box){
 if(!state||state.parked)return;
@@ -11996,17 +11958,18 @@ try{theme=LC.themes.forMovie(state.details);}catch(e){warn('hero: fx theme faile
 }
 }
 var key=theme&&theme.holiday?fxKeyOf(theme):null;
+var noSnow=snowOff(theme);
 if(!force&&key&&state.fxKey===key){
 var live=fxHost();
-if(live&&(fxLive(live,theme.preset)||
-(theme.id==='newyear'&&LC.garland&&LC.motionMode()==='off'))){
+if(live&&(noSnow?(theme.id==='newyear'&&LC.garland&&!fxLive(live,theme.preset)):
+(fxLive(live,theme.preset)||(theme.id==='newyear'&&LC.garland&&LC.motionMode()==='off')))){
 if(theme.id==='newyear'&&LC.garland)LC.garland.mount(live,{paused:fxPaused});
 return;
 }
 }
 if(!force&&key&&state.fxTimer)return;
 if(!box&&key)box=fxBox();
-clearFx();
+clearFx(noSnow);
 if(!theme)return;
 state.fxWinter=theme.preset==='winter';
 if(theme.id){
@@ -12015,7 +11978,7 @@ try{state.node.addClass('lumen-theme--'+theme.id);}catch(e2){}
 var host=fxHost();
 if(!host)return;
 try{
-var made=LC.fx.mount(host,theme.preset,{
+var made=noSnow?null:LC.fx.mount(host,theme.preset,{
 width:box?box.width:0,
 height:box?box.height:0,
 color:theme.id&&LC.themes?LC.themes.particleColor(theme):'#FFFFFF',
@@ -13131,12 +13094,6 @@ if(!state||state.parked)return;
 try{
 var el=e&&e.target;
 if(!el||!el.classList||!el.classList.contains('card'))return;
-if(state.fxWinter&&el!==state.fxFocusEl){
-if((state.fxFocusEl||state.focusEl)&&(!state.fxScrolling||!LC.focus.remote(e))){
-pauseWinterScroll();
-}
-state.fxFocusEl=el;
-}
 onFocus(el);
 }catch(err){
 warn('hero: focus listener failed',err);
@@ -13148,11 +13105,6 @@ var node=root&&root[0];
 if(!node)return;
 state.focusHandler=onFocusEvent;
 if(!LC.focus.capture(node,state.focusHandler))state.focusHandler=null;
-if(state.hostClass===MAIN_HOST&&typeof document.addEventListener==='function'){
-document.addEventListener('keydown',onWinterScroll,true);
-document.addEventListener('wheel',onWinterScroll,true);
-state.fxInputBound=true;
-}
 }catch(e){
 warn('hero: listen failed',e);
 }
@@ -13160,10 +13112,6 @@ warn('hero: listen failed',e);
 function unlistenFocus(s){
 if(!s)return;
 try{
-if(s.fxInputBound){
-document.removeEventListener('keydown',onWinterScroll,true);
-document.removeEventListener('wheel',onWinterScroll,true);
-}
 if(s.focusHandler)LC.focus.release(s.root&&s.root[0],s.focusHandler);
 }catch(e){
 warn('hero: unlisten failed',e);
@@ -13300,12 +13248,7 @@ fixedCompact:!!opts.compact,
 compact:!!opts.compact,
 fxKey:null,
 fxTimer:null,
-fxScrollTimer:null,
-fxCalmTimer:null,
-fxFocusEl:null,
-fxInputBound:false,
-fxWinter:false,
-fxScrolling:false
+fxWinter:false
 };
 if(opts.compact)setCompact(true);
 if(hostClass===MAIN_HOST){
@@ -13362,7 +13305,7 @@ state=null;
 gen++;
 unlistenFocus(s);
 prefetch('stop');
-var timers=['timer','swapTimer','loadTimer','trailerTimer','lqipTimer','titleTimer','frameWait','lookTimer','holdTimer','burstTimer','fxTimer','fxScrollTimer','fxCalmTimer'];
+var timers=['timer','swapTimer','loadTimer','trailerTimer','lqipTimer','titleTimer','frameWait','lookTimer','holdTimer','burstTimer','fxTimer'];
 for(var i=0;i<timers.length;i++){
 try{if(s[timers[i]])clearTimeout(s[timers[i]]);}catch(eT){}
 }
@@ -13403,10 +13346,6 @@ if(garlandHost&&LC.garland)LC.garland.unmount(garlandHost);
 cancelTrailer();
 stopTimer('timer');
 stopTimer('fxTimer');
-stopTimer('fxScrollTimer');
-stopTimer('fxCalmTimer');
-state.fxScrolling=false;
-state.node.removeClass('lumen-winter-scroll');
 state.fxKey=null;
 markBurst(false);
 state.focusEl=null;
@@ -16144,12 +16083,12 @@ inst.stillDone=false;
 }
 wake();
 }
-function unmount(layer){
+function unmount(layer,now){
 var node=nodeOf(layer);
 if(!node)return;
 var inst=find(node);
 if(!inst)return;
-if(inst.ctx&&lingerOk(inst)){
+if(!now&&inst.ctx&&lingerOk(inst)){
 if(!inst.leaving)inst.leaving=nowMs();
 pauseSnowBand(inst);
 return;
@@ -31176,6 +31115,12 @@ lumen_fx_garland_velvet2:{ru:'Ёлка',en:'Christmas tree',uk:'Ялинка'},
 lumen_fx_garland_velvet3:{ru:'Пастель',en:'Pastel',uk:'Пастель'},
 lumen_fx_garland_cold:{ru:'Подвесы',en:'Pendants',uk:'Підвіси'},
 lumen_fx_garland_cold2:{ru:'Струна',en:'String',uk:'Струна'},
+lumen_fx_snow_name:{ru:'Снег',en:'Snow',uk:'Сніг'},
+lumen_fx_snow_descr:{
+ru:'Снегопад на главной в праздники. Гирлянда остаётся.',
+en:'Snowfall on the home screen during the holidays. The garland stays.',
+uk:'Снігопад на головній у свята. Гірлянда лишається.'
+},
 lumen_fx_garland_static_name:{ru:'Гирлянда без анимаций',en:'Garland without animations',uk:'Гірлянда без анімацій'},
 lumen_fx_garland_static_descr:{
 ru:'Показывать неподвижную гирлянду, когда анимации выключены.',
@@ -32226,7 +32171,7 @@ if(name==='lumen_resume'||name==='lumen_resume_ttl'||name==='lumen_watch_ask'){
 try{if(name==='lumen_resume'&&LC.resume&&!LC.pref('lumen_resume',true))LC.resume.cancel();}catch(eResume){}
 return true;
 }
-if(name==='lumen_fx'||name==='lumen_fx_garland_static'||name==='lumen_fx_garland_apple'||name==='lumen_dev_date'){
+if(name==='lumen_fx'||name==='lumen_fx_snow'||name==='lumen_fx_garland_static'||name==='lumen_fx_garland_apple'||name==='lumen_dev_date'){
 try{if(LC.applyFxPref)LC.applyFxPref();}catch(eFx){}
 return true;
 }
@@ -32760,6 +32705,7 @@ var MORE=[
 {name:'lumen_resume_ttl',type:'select',values:['2','6','12','24'],vsuffix:'lumen_resume_ttl_suffix','default':'6',label:'lumen_resume_ttl_name',descr:'lumen_resume_ttl_descr'},
 {name:'lumen_group_ambient',type:'title',label:'lumen_group_ambient'},
 {name:'lumen_fx',type:'select',values:['seasonal','off'],vprefix:'lumen_fx_','default':'seasonal',label:'lumen_fx_name',descr:'lumen_fx_descr'},
+{name:'lumen_fx_snow',type:'trigger','default':true,label:'lumen_fx_snow_name',descr:'lumen_fx_snow_descr'},
 {name:'lumen_fx_garland_static',type:'trigger','default':false,label:'lumen_fx_garland_static_name',descr:'lumen_fx_garland_static_descr'},
 {name:'lumen_ambient',type:'trigger','default':false,label:'lumen_ambient_name',descr:'lumen_ambient_descr'},
 {name:'lumen_ambient_source',type:'select',values:['curated','current'],vprefix:'lumen_ambient_source_','default':'curated',label:'lumen_ambient_source_name',descr:'lumen_ambient_source_descr'},
@@ -33024,6 +32970,7 @@ if(name==='lumen_fx_garland_static'){
 if(LC.pref('lumen_fx','seasonal')==='off')return'lumen_idle_garland_fx_off';
 return LC.motionMode()==='off'?'':'lumen_idle_garland_motion';
 }
+if(name==='lumen_fx_snow')return LC.pref('lumen_fx','seasonal')==='off'?'lumen_idle_garland_fx_off':'';
 if(name==='lumen_fx_heavy')return LC.motionMode()==='full'?'':'lumen_idle_need_full';
 if(name==='lumen_moods')return LC.pref('lumen_hero_size','large')==='off'?'':'lumen_idle_need_no_hero';
 }catch(e){}
@@ -33035,7 +32982,7 @@ lumen_flat:['lumen_accent_auto','lumen_accent_scope'],
 lumen_torrents:['lumen_ts_resume_focus'],
 lumen_style:['lumen_accent_auto','lumen_accent_scope'],
 lumen_motion:['lumen_accent_auto','lumen_fx_heavy','lumen_fx_garland_static'],
-lumen_fx:['lumen_fx_garland_static'],
+lumen_fx:['lumen_fx_snow','lumen_fx_garland_static'],
 lumen_hero_size:['lumen_moods'],
 torrserver_url_two:['lumen_ts_auto']
 };
