@@ -7,8 +7,18 @@
   /* не открывали больше суток.                                             */
   /*                                                                       */
   /* «Открывали» — запускали воспроизведение. Сам TorrServer хранит только  */
-  /* timestamp добавления, поэтому момент запуска модуль помнит сам:        */
-  /* ключ lumen_tsclean_played — { 'h:<хэш>': мс, 'm:tv:<id>': мс }.       */
+  /* timestamp добавления, поэтому момент запуска модуль помнит сам — по   */
+  /* серверу (ключ lumen_tsclean_servers):                                 */
+  /*   { '<адрес>': { t: мс, s: 1, m: { 'h:<хэш>': мс, 'm:tv:<id>': мс } } }*/
+  /* m — карта запусков этого сервера, t — когда сервер последний раз      */
+  /* видели (не больше MAX_SERVERS адресов, самые давние уходят), s — его   */
+  /* следующий проход посевной. Карта одна на всех (1.3) стиралась на чужом */
+  /* сервере: «Автовыбор TorrServer» (src/66_tsauto.js) переключает адрес,  */
+  /* проход на запасном выкидывал запуски основного, и основной потом       */
+  /* удалял только что открытое. Теперь проход чистит (prune) только карту  */
+  /* своего сервера, а открывали ли раздачу, решает по запускам всех       */
+  /* серверов (union): один TorrServer бывает и под двумя адресами.        */
+  /*                                                                       */
   /* Записи приходят из подписок «Вернуться к просмотру» (src/71_resume.js,  */
   /* одни подписки на плеер на весь плагин):                                */
   /*   - Player 'create' — любой запуск плеера Lampa (встроенный и внешний), */
@@ -18,23 +28,38 @@
   /*     а если у раздачи только ссылка на .torrent — по карточке: тот же   */
   /*     фильм или сериал в поле data раздачи (его пишет Lampa).            */
   /* Последнее открытие раздачи = max(timestamp·1000, по хэшу, по карточке). */
+  /* Запуск пишется в карту сервера, где раздачу открыли: Player 'create' — */
+  /* сервер из адреса потока (и текущий адрес, если он другой: лишняя       */
+  /* запись только продлевает), onenter — текущий адрес.                   */
   /*                                                                       */
   /* Никогда не удаляется: раздача не в состоянии «в базе» (stat 5,         */
   /* «Torrent in db») — то есть качается, предзагружается или отдаёт поток; */
   /* та, что сейчас в плеере Lampa; раздача без timestamp.                 */
   /*                                                                       */
   /* Посев: проход ничего не удаляет, а всё, что лежит в TorrServer,      */
-  /* записывает открытым в этот момент. Посевной проход — после каждого   */
-  /* включения пункта, после выключения плагина (deactivate) и старта     */
-  /* Lampa с выключенным плагином (markOff из LC.init) — в это время      */
-  /* запуски не писались; без карты вовсе; при раздач больше CAP; после   */
-  /* запуска при неверных часах. Иначе включение снесло бы всё, что       */
-  /* добавлено больше суток назад, вместе с сериалом, который смотрят.   */
+  /* записывает открытым в этот момент. Посевной проход — первый на каждом */
+  /* сервере после каждого включения пункта, после выключения плагина     */
+  /* (deactivate) и старта Lampa с выключенным плагином (markOff из        */
+  /* LC.init) — в это время запуски не писались; на сервере без своей      */
+  /* карты; при раздач больше CAP; после запуска при неверных часах. Иначе  */
+  /* включение снесло бы всё, что добавлено больше суток назад, вместе с   */
+  /* сериалом, который смотрят. Пометка — у каждого сервера своя: посев на  */
+  /* основном не снимает её с запасного.                                   */
+  /*                                                                       */
+  /* Обновление с 1.3: общая карта lumen_tsclean_played (и пометка         */
+  /* lumen_tsclean_seed) не переносится — она могла быть уже вычищена     */
+  /* проходом на другом сервере. Пока она есть, каждый сервер считается     */
+  /* непосеянным; первая запись нового ключа её обнуляет. Первый проход   */
+  /* на каждом сервере после обновления — посевной (ничего не удаляет).   */
+  /* Откат на 1.3 видит пустую старую карту — тоже посев.                  */
+  /*                                                                       */
+  /* Адрес сменился, пока шёл проход (ответ пришёл, а server() уже другой), */
+  /* — проход больше ничего не удаляет и карту не трогает.                 */
   /*                                                                       */
   /* Часы: раньше MIN_CLOCK (ТВ без батарейки часов до синхронизации) или  */
-  /* раньше самой поздней записи карты — проход пропускается, запуск не    */
-  /* пишется. Перед каждым rem раздача перепроверяется по свежей карте,   */
-  /* часам и плееру: план составлен до первого удаления.                  */
+  /* раньше самой поздней записи карт всех серверов — проход пропускается, */
+  /* запуск не пишется. Перед каждым rem раздача перепроверяется по свежей */
+  /* карте, часам, плееру и адресу: план составлен до первого удаления.    */
   /*                                                                       */
   /* Когда: через 30 с после включения плагина (главная уже на экране,      */
   /* старт слабого ТВ не делит сеть и CPU с очисткой), потом раз в 6 ч,      */
@@ -56,18 +81,26 @@
   /* «Очистить сейчас» (runNow) — проход сразу и Noty с числом удалённых.   */
   /*                                                                       */
   /* Чистые функции: hashOf, cardKey, movieOf, touch, lastSeen, removable,  */
-  /* plan, prune. Рантайм: install/uninstall (activate/deactivate), apply  */
-  /* (пункт настроек), onPlay/onStop/onTorrent (из src/71_resume.js),      */
-  /* run(done) — один проход.                                              */
+  /* plan, prune, seed, norm, serverOf, union, fit. Рантайм: install /      */
+  /* uninstall (activate/deactivate), apply (пункт настроек), onPlay /      */
+  /* onStop / onTorrent (из src/71_resume.js), run(done) — один проход.    */
   /* -------------------------------------------------------------------- */
 
   LC.tsclean = (function () {
 
-    var KEY = 'lumen_tsclean_played';
-    /* Пометка «следующий проход — посевной»: ставит включение пункта
-       (apply), снимает посевной проход. В Storage, а не в памяти: Lampa
-       могут перезапустить раньше первого прохода. */
+    /* Карты запусков по серверам. Пометка «следующий проход — посевной»
+       (s) — в той же записи сервера: ставят включение пункта (apply),
+       выключение плагина (markOff) и запуск при неверных часах — всем
+       серверам сразу, снимает посевной проход этого сервера. В Storage, а
+       не в памяти: Lampa могут перезапустить раньше первого прохода. */
+    var KEY = 'lumen_tsclean_servers';
+    /* 1.3: общая карта и общая пометка посева — только читаются (есть —
+       каждый сервер непосеянный) и обнуляются первой записью KEY. */
+    var LEGACY_KEY = 'lumen_tsclean_played';
     var SEED_KEY = 'lumen_tsclean_seed';
+    /* Адресов в KEY: основной, второй, приложение TorrServe и запас на
+       смену адреса. Ушедший сервер, вернувшись, получит посевной проход. */
+    var MAX_SERVERS = 4;
     var HOUR = 3600000;
     /* Сколько раздача может лежать неоткрытой — по умолчанию; срок
        выбирается пунктом lumen_tsclean_days (1 / 3 / 7 дней, idleMs). */
@@ -336,6 +369,61 @@
       return prune(touch(map, keys, now), list, now, []);
     }
 
+    /* Адрес сервера как ключ карты: без пробелов и «/» в конце, с
+       протоколом (без него — http://, как Utils.checkEmptyUrl у Lampa),
+       протокол и хост — строчными. '' — адреса нет. */
+    function norm(u) {
+      var s = str(u).replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
+      if (!s) return '';
+      if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
+      var m = /^(https?:\/\/[^\/?#]*)(.*)$/i.exec(s);
+      return m ? m[1].toLowerCase() + m[2] : s;
+    }
+
+    /* Сервер из адреса потока TorrServer (…/stream/<имя>?link=<хэш>,
+       …/play/<хэш>/N) — всё до /stream/ или /play/. '' — не поток. */
+    function serverOf(u) {
+      var s = str(u);
+      if (!/^https?:\/\//i.test(s) || !hashOf(s)) return '';
+      var m = /^(https?:\/\/[^?#]*?)\/(?:stream|play)\//i.exec(s);
+      return m ? norm(m[1]) : '';
+    }
+
+    /* Запуски всех серверов одной картой (по ключу — самое позднее время).
+       По ней решается, открывали ли раздачу: один TorrServer бывает под
+       двумя адресами (локальный и внешний), и запуск через один защищает
+       раздачу при проходе через другой. Чужая запись только продлевает;
+       чистит же проход только карту своего сервера (prune). */
+    function union(all) {
+      var out = {};
+      for (var k in (all || {})) {
+        if (!Object.prototype.hasOwnProperty.call(all, k)) continue;
+        var m = all[k] && all[k].m;
+        for (var j in (m || {})) {
+          if (!Object.prototype.hasOwnProperty.call(m, j)) continue;
+          var t = Number(m[j]);
+          if (isFinite(t) && t > 0 && !(out[j] >= t)) out[j] = t;
+        }
+      }
+      return out;
+    }
+
+    /* Не больше MAX_SERVERS записей: keep (сервер, который пишут сейчас)
+       остаётся всегда, остальные — по t, самые свежие. */
+    function fit(all, keep) {
+      var names = [];
+      var k;
+      for (k in (all || {})) if (Object.prototype.hasOwnProperty.call(all, k)) names.push(k);
+      names.sort(function (a, b) {
+        if (a === keep) return -1;
+        if (b === keep) return 1;
+        return all[b].t - all[a].t;
+      });
+      var out = {};
+      for (var i = 0; i < names.length && i < MAX_SERVERS; i++) out[names[i]] = all[names[i]];
+      return out;
+    }
+
     /* ------------------------------ рантайм ----------------------------- */
 
     var _on = false;
@@ -381,63 +469,126 @@
       return null;
     }
 
-    function load() {
+    function obj(v) {
+      return !!(v && typeof v === 'object' && !Array.isArray(v));
+    }
+
+    function read(key) {
       var st = storage();
-      if (!st) return {};
+      if (!st) return null;
       try {
-        var v = st.get(KEY, '');
+        var v = st.get(key, '');
         if (typeof v === 'string') v = v ? JSON.parse(v) : null;
-        return v && typeof v === 'object' ? v : {};
+        return v;
       } catch (e) {
-        return {};
+        return null;
       }
     }
 
-    /* Карта есть и читается. Ключа нет — модуль ещё ни разу не работал на
-       этом устройстве; значение испорчено (не JSON-объект) — запуски
-       неизвестны так же: оба случая — посевной проход. Пустой объект —
-       карта есть (проход всё удалил). */
-    function mapExists() {
+    /* Следы 1.3: общая карта или пометка посева. Любое непустое значение —
+       даже испорченное — значит, что запуски по серверам неизвестны. */
+    function legacy() {
       var st = storage();
       if (!st) return false;
       try {
-        var v = st.get(KEY, '');
-        if (typeof v === 'string') v = v ? JSON.parse(v) : null;
-        return !!(v && typeof v === 'object' && !Array.isArray(v));
+        var v = st.get(LEGACY_KEY, '');
+        if (v !== '' && v !== null && typeof v !== 'undefined') return true;
+        return !!st.get(SEED_KEY, '');
       } catch (e) {
-        return false;
+        return true;
       }
     }
 
-    function seedPending() {
-      var st = storage();
-      if (!st) return false;
-      try { return !!st.get(SEED_KEY, ''); } catch (e) { return false; }
-    }
-
-    function setSeed(on) {
-      var st = storage();
-      if (!st || typeof st.set !== 'function') return;
-      try { st.set(SEED_KEY, on ? '1' : '', true); } catch (e) { log('seed failed', e); }
+    /* Записи серверов (новые объекты; карты m — как в Storage, их не
+       меняем на месте). Ключа нет или значение испорчено — записей нет:
+       каждый сервер посевной. Есть следы 1.3 — у всех записей пометка
+       посева. */
+    function loadAll() {
+      var v = read(KEY);
+      var out = {};
+      if (!obj(v)) return out;
+      var old = legacy();
+      for (var k in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+        var ent = v[k];
+        if (!k || !obj(ent) || !obj(ent.m)) continue;
+        var t = Number(ent.t);
+        out[k] = { t: isFinite(t) && t > 0 ? t : 0, s: (ent.s || old) ? 1 : 0, m: ent.m };
+      }
+      return out;
     }
 
     /* Своя запись — без события 'change' (nolisten), как у «Вернуться к
-       просмотру» и «Что нового». */
-    function save(map) {
+       просмотру» и «Что нового». Записи без пометки — без поля s. Записан
+       новый ключ — следы 1.3 обнуляются (пометки посева уже в записях). */
+    function saveAll(all, keep) {
       var st = storage();
       if (!st || typeof st.set !== 'function') return;
-      try { st.set(KEY, map, true); } catch (e) { log('save failed', e); }
+      var fitted = fit(all, keep);
+      var out = {};
+      for (var k in fitted) {
+        if (!Object.prototype.hasOwnProperty.call(fitted, k)) continue;
+        var ent = fitted[k];
+        out[k] = ent.s ? { t: ent.t, s: 1, m: ent.m } : { t: ent.t, m: ent.m };
+      }
+      try {
+        var old = legacy();
+        st.set(KEY, out, true);
+        if (old) {
+          st.set(LEGACY_KEY, '', true);
+          st.set(SEED_KEY, '', true);
+        }
+      } catch (e) {
+        log('save failed', e);
+      }
     }
 
-    function remember(keys) {
+    /* Следующий проход на сервере key — посевной: записи нет вовсе или на
+       ней пометка. */
+    function seedPending(key) {
+      var ent = loadAll()[key];
+      return !ent || !!ent.s;
+    }
+
+    /* Пометка посева всем серверам: запуски за какое-то время не писались.
+       Серверы без записи посевные и так. */
+    function setSeed() {
+      var all = loadAll();
+      for (var k in all) if (Object.prototype.hasOwnProperty.call(all, k)) all[k].s = 1;
+      saveAll(all, '');
+    }
+
+    /* Часам можно верить по картам всех серверов. */
+    function clockAll(t, all) {
+      if (!clockOk(t, {})) return false;
+      for (var k in all) {
+        if (Object.prototype.hasOwnProperty.call(all, k) && !clockOk(t, all[k].m)) return false;
+      }
+      return true;
+    }
+
+    /* Запуск (keys) — в карты серверов servers. Записи сервера ещё нет —
+       она заводится с пометкой посева: о прошлых запусках на нём модуль
+       не знает. */
+    function remember(keys, servers) {
       var list = [];
-      for (var i = 0; i < keys.length; i++) if (keys[i]) list.push(keys[i]);
+      var i;
+      for (i = 0; i < keys.length; i++) if (keys[i]) list.push(keys[i]);
       if (!list.length) return;
       var t = now();
       /* Часы неверные — время запуска записать нечем; следующий проход с
          верными часами будет посевным (ничего не удалит). */
-      if (!isFinite(t) || t < MIN_CLOCK) { setSeed(true); return; }
-      save(touch(load(), list, t));
+      if (!isFinite(t) || t < MIN_CLOCK) { setSeed(); return; }
+      var all = loadAll();
+      var first = '';
+      for (i = 0; i < servers.length; i++) {
+        var key = servers[i];
+        if (!key) continue;
+        if (!first) first = key;
+        var ent = all[key];
+        all[key] = { t: t, s: ent ? ent.s : 1, m: touch(ent ? ent.m : {}, list, t) };
+      }
+      if (first) saveAll(all, first);
     }
 
     function activeCard() {
@@ -458,7 +609,10 @@
         if (!hash) return;
         _current = hash;
         var ck = cardKey(data.card || data.movie || activeCard());
-        remember(['h:' + hash, ck ? 'm:' + ck : '']);
+        /* Сервер — из адреса потока: «Автовыбор» мог сменить адрес между
+           открытием раздачи и стартом плеера. И текущий адрес — если адрес
+           потока записан иначе, чем server(), запуск не пропадёт. */
+        remember(['h:' + hash, ck ? 'm:' + ck : ''], [serverOf(data.url), norm(server())]);
       } catch (e) {
         log('play failed', e);
       }
@@ -476,7 +630,8 @@
         if (!element || typeof element !== 'object') return;
         var hash = hashOf(element.hash) || hashOf(element.MagnetUri) || hashOf(element.Link);
         var ck = cardKey(card);
-        remember([hash ? 'h:' + hash : '', ck ? 'm:' + ck : '']);
+        /* Раздачу Lampa отдаёт текущему адресу (или приложению TorrServe). */
+        remember([hash ? 'h:' + hash : '', ck ? 'm:' + ck : ''], [norm(server())]);
       } catch (e) {
         log('torrent failed', e);
       }
@@ -555,34 +710,47 @@
       };
       if (_running || !_on) { if (typeof done === 'function') done(null); return; }
       var url = server();
+      var key = norm(url);
       var n0 = net();
-      if (!url || !n0 || typeof n0.silent !== 'function') { if (typeof done === 'function') done(null); return; }
+      if (!key || !n0 || typeof n0.silent !== 'function') { if (typeof done === 'function') done(null); return; }
+      /* Адрес тот же, что у списка: «Автовыбор» и ручная смена
+         torrserver_use_link меняют его в любой момент. */
+      var same = function () { return norm(server()) === key; };
       _running = true;
       try {
         if (typeof n0.timeout === 'function') n0.timeout(LIST_TIMEOUT);
         n0.silent(url + '/torrents', function (list) {
           if (!on() || !Array.isArray(list)) { finish(null); return; }
+          /* Адрес сменился, пока шёл запрос: Lampa уже работает с другим
+             сервером — ни посева, ни удалений, ни записи. */
+          if (!same()) {
+            log('server changed, pass skipped');
+            finish(null);
+            return;
+          }
           var t = now();
+          var all = loadAll();
+          var ent = all[key];
           /* Неверные часы — ни посева, ни удалений: всё выглядело бы
              давним (или посев записал бы бессмысленное время). */
-          if (!clockOk(t, load())) {
+          if (!clockAll(t, all)) {
             log('clock looks wrong, pass skipped');
             finish(null);
             return;
           }
           /* Посевной проход: пункт только что включили (впервые или после
              перерыва — запуски за это время не записаны, если плагин был
-             выключен) или карты нет вовсе. Всё, что сейчас лежит в
-             TorrServer, считается открытым сейчас, и ничего не удаляется;
-             дальше — обычное правило суток. Иначе первый проход снёс бы
-             всё, что добавлено больше суток назад, включая сериал, который
-             смотрят прямо сейчас. */
+             выключен) или у этого сервера карты нет (новый адрес, обновление
+             с 1.3). Всё, что сейчас лежит в TorrServer, считается открытым
+             сейчас, и ничего не удаляется; дальше — обычное правило суток.
+             Иначе первый проход снёс бы всё, что добавлено больше суток
+             назад, включая сериал, который смотрят прямо сейчас. */
           /* Раздач больше CAP — карта не вместила бы все их запуски, и
              часть «открытых» выглядела бы неоткрытой. Такой проход только
-             сеет (что вмещается) и ничего не удаляет. */
-          if (seedPending() || !mapExists() || list.length > CAP) {
-            save(seed(load(), list, t));
-            if (list.length <= CAP) setSeed(false);
+             сеет (что вмещается), ничего не удаляет и пометку не снимает. */
+          if (!ent || ent.s || list.length > CAP) {
+            all[key] = { t: t, s: list.length > CAP ? (ent ? ent.s : 1) : 0, m: seed(ent ? ent.m : {}, list, t) };
+            saveAll(all, key);
             log((list.length > CAP ? 'too many torrents, seeded only ' : 'seeded ') + list.length);
             finish(0, true);
             return;
@@ -594,14 +762,28 @@
             var h = hashOf(list[i] && list[i].hash);
             if (h && !byHash[h]) byHash[h] = list[i];
           }
-          var queue = plan(list, load(), t, _current, rule);
+          var queue = plan(list, union(all), t, _current, rule);
           var removed = [];
           var next = function () {
+            /* Адрес сменился посреди удалений — остановка; карта этого
+               сервера не чистится (удалённое до смены уберёт из неё
+               следующий проход здесь же). */
+            if (!same()) {
+              log('server changed, removed ' + removed.length);
+              finish(removed.length);
+              return;
+            }
             /* Остановка: плагин или пункт выключили, пункт включили заново
                (seedPending — ждёт посев, старый план недействителен), открыли
                плеер. */
-            if (!on() || seedPending() || playerOpen() || !queue.length) {
-              save(prune(load(), list, now(), removed));
+            if (!on() || seedPending(key) || playerOpen() || !queue.length) {
+              var cur = loadAll();
+              var ce = cur[key];
+              if (ce) {
+                var tp = now();
+                cur[key] = { t: tp, s: ce.s, m: prune(ce.m, list, tp, removed) };
+                saveAll(cur, key);
+              }
               if (removed.length) log('removed ' + removed.length);
               finish(removed.length);
               return;
@@ -612,9 +794,9 @@
                только запись карты, без _current). Каждую — перепроверить по
                свежей карте и свежим часам. */
             var tnow = now();
-            var fresh = load();
+            var fresh = loadAll();
             if (LC.pins) rule.pins = LC.pins.protectedHashes();
-            if (!clockOk(tnow, fresh) || !removable(byHash[hash], fresh, tnow, _current, rule)) { next(); return; }
+            if (!clockAll(tnow, fresh) || !removable(byHash[hash], union(fresh), tnow, _current, rule)) { next(); return; }
             if (typeof n0.timeout === 'function') n0.timeout(REM_TIMEOUT);
             n0.silent(url + '/torrents', function () {
               removed.push(hash);
@@ -670,7 +852,7 @@
        стартовала с выключенным плагином. Пометка — в Storage: включить
        плагин могут и после перезапуска Lampa. */
     function markOff() {
-      setSeed(true);
+      setSeed();
     }
 
     function uninstall() {
@@ -689,7 +871,7 @@
       /* Включение — до проверки _on: пункт могут включить и при
          выключенном плагине. Lampa шлёт 'change' только на смену значения,
          так что enabled() здесь — переход выкл → вкл. */
-      if (enabled()) setSeed(true);
+      if (enabled()) setSeed();
       if (!_on) return;
       if (enabled()) { if (!_timer) wait(FIRST_DELAY); }
       else stopTimer();
@@ -728,7 +910,13 @@
       keepOf: keepOf,
       protectedSet: protectedSet,
       runNow: runNow,
+      LEGACY_KEY: LEGACY_KEY,
       SEED_KEY: SEED_KEY,
+      MAX_SERVERS: MAX_SERVERS,
+      norm: norm,
+      serverOf: serverOf,
+      union: union,
+      fit: fit,
       MAX_IDLE: MAX_IDLE,
       FIRST_DELAY: FIRST_DELAY,
       PERIOD: PERIOD,

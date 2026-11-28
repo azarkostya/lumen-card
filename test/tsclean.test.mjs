@@ -26,11 +26,15 @@ function withMovie(card) {
   return { data: JSON.stringify({ lampa: true, movie: card }) };
 }
 
+/* Адрес TorrServer по умолчанию в setup и ключ его карты. */
+const SRV = 'http://192.168.1.5:8090';
+
 function setup(opts) {
   opts = opts || {};
-  /* Карта уже есть (модуль работал раньше) — обычный проход; посевной
-     проверяют отдельные тесты (fresh). */
-  const store = Object.assign(opts.fresh ? {} : { lumen_tsclean_played: {} }, opts.storage || {});
+  /* Карта сервера уже есть (модуль работал раньше) — обычный проход;
+     посевной проверяют отдельные тесты (fresh). Карты по серверам —
+     lumen_tsclean_servers; раздельный учёт — test/tsclean_servers.test.mjs. */
+  const store = Object.assign(opts.fresh ? {} : { lumen_tsclean_servers: { [SRV]: { t: T0, m: {} } } }, opts.storage || {});
   const writes = [];
   const prefs = Object.assign({ lumen_tsclean: true, lumen_debug_hud: false }, opts.prefs || {});
   const fields = Object.assign({ internal_torrclient: true }, opts.fields || {});
@@ -86,7 +90,10 @@ function setup(opts) {
   }
   return {
     api, LC, store, writes, prefs, fields, reqs, timers, live, step, serve,
-    played: () => (store.lumen_tsclean_played || {}),
+    /* Карта запусков сервера SRV и его пометка посева (записи нет — тоже
+       посевной). */
+    played: () => { const all = store.lumen_tsclean_servers; return (all && all[SRV] && all[SRV].m) || {}; },
+    pending: () => { const all = store.lumen_tsclean_servers; return !(all && all[SRV]) || all[SRV].s === 1; },
     tick: (ms) => { clock += ms; },
     setPlayer: (v) => { player = v; },
     setActive: (a) => { active = a; },
@@ -424,8 +431,8 @@ test('tsclean: включение пункта (впервые) — посев �
   env.api.install();
   env.prefs.lumen_tsclean = true;
   env.api.apply();
-  assert.equal(env.store.lumen_tsclean_seed, '1');
-  assert.equal(env.writes.find((w) => w.k === 'lumen_tsclean_seed').nolisten, true);
+  assert.equal(env.pending(), true);
+  assert.equal(env.writes.find((w) => w.k === 'lumen_tsclean_servers').nolisten, true);
   /* Lampa перезапустилась до первого прохода: пометка в Storage. */
   env.api.uninstall();
   env.api.install();
@@ -433,7 +440,7 @@ test('tsclean: включение пункта (впервые) — посев �
   env.step();
   env.serve([tor(H, 300)]);
   assert.deepEqual(env.played(), { ['h:' + H]: T0 });
-  assert.equal(env.store.lumen_tsclean_seed, '', 'пометка снята');
+  assert.equal(env.pending(), false, 'пометка снята');
   /* Следующий проход — обычный. */
   env.tick(25 * HOUR);
   const res = [];
@@ -493,9 +500,9 @@ test('tsclean: плагин выключили и включили (пункт �
   env.api.install();
   env.api.run();
   env.serve([tor(H, 2)]);
-  assert.equal(env.store.lumen_tsclean_seed, undefined, 'обычная работа — пометки нет');
+  assert.equal(env.pending(), false, 'обычная работа — пометки нет');
   env.api.uninstall();
-  assert.equal(env.store.lumen_tsclean_seed, '1', 'выключение плагина помечает посев');
+  assert.equal(env.pending(), true, 'выключение плагина помечает посев');
   /* Пока плагин выключен, H2 смотрели (запись не дошла): добавлен 3 суток
      назад, H — давно. */
   env.tick(2 * 24 * HOUR);
@@ -506,7 +513,7 @@ test('tsclean: плагин выключили и включили (пункт �
   assert.equal(env.reqs.length, 0, 'ни одного rem');
   assert.deepEqual(res, [0]);
   assert.equal(env.played()['h:' + H2], T0 + 2 * 24 * HOUR);
-  assert.equal(env.store.lumen_tsclean_seed, '');
+  assert.equal(env.pending(), false);
 });
 
 test('tsclean: markOff (Lampa стартовала с выключенным плагином) — следующий проход посевной', () => {
@@ -577,7 +584,7 @@ test('tsclean: часы раньше MIN_CLOCK — ни прохода, ни з�
   env.api.install();
   env.api.onPlay({ torrent_hash: H });
   assert.deepEqual(env.played(), {}, 'запуск с неверными часами не пишется');
-  assert.equal(env.store.lumen_tsclean_seed, '1', '…но следующий проход — посевной');
+  assert.equal(env.pending(), true, '…но следующий проход — посевной');
   const res = [];
   env.api.run((n) => res.push(n));
   env.serve([tor(H, 1), tor(H2, 1)]);
@@ -591,7 +598,7 @@ test('tsclean: часы раньше MIN_CLOCK — ни прохода, ни з�
 });
 
 test('tsclean: часы ушли назад (запись карты в будущем) — проход пропускается', () => {
-  const env = setup({ storage: { lumen_tsclean_played: { ['h:' + H2]: T0 + 3 * HOUR } } });
+  const env = setup({ storage: { lumen_tsclean_servers: { [SRV]: { t: T0, m: { ['h:' + H2]: T0 + 3 * HOUR } } } } });
   env.api.install();
   const res = [];
   env.api.run((n) => res.push(n));
@@ -628,18 +635,20 @@ test('tsclean: раздач больше CAP — проход только се�
 
 /* Испорченная карта — не «пустая существующая», а «нет карты»: посев. */
 test('tsclean: карта в Storage испорчена — посевной проход, ничего не удаляется', () => {
-  for (const bad of ['{битый', '[1,2]', 'null', 42]) {
-    const env = setup({ storage: { lumen_tsclean_played: bad } });
+  const bads = ['{битый', '[1,2]', 'null', 42, '{}', { [SRV]: 5 }, { [SRV]: { t: T0, m: [1] } }, { [SRV]: { t: T0 } }];
+  for (const bad of bads) {
+    const env = setup({ storage: { lumen_tsclean_servers: bad } });
     env.api.install();
     const res = [];
     env.api.run((n) => res.push(n));
     env.serve([tor(H, 300)]);
-    assert.deepEqual(res, [0], String(bad));
+    assert.deepEqual(res, [0], JSON.stringify(bad));
     assert.equal(env.reqs.length, 0);
-    assert.deepEqual(env.played(), { ['h:' + H]: T0 }, String(bad));
+    assert.deepEqual(env.played(), { ['h:' + H]: T0 }, JSON.stringify(bad));
   }
-  /* Строка с целым JSON-объектом — карта есть, проход обычный. */
-  const ok = setup({ storage: { lumen_tsclean_played: '{}' } });
+  /* Строка с целым JSON-объектом и записью сервера — карта есть, проход
+     обычный. */
+  const ok = setup({ storage: { lumen_tsclean_servers: JSON.stringify({ [SRV]: { t: T0, m: {} } }) } });
   ok.api.install();
   const res = [];
   ok.api.run((n) => res.push(n));
