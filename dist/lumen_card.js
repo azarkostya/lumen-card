@@ -8043,7 +8043,10 @@ if(typeof restore!=='function')return 0;
 if(!root||typeof root.querySelectorAll!=='function')return 0;
 var nodes=root.querySelectorAll('.card');
 if(!nodes||!hasGone(nodes))return 0;
+var gen=LC.timelineGen;
+if(typeof gen==='number'&&root.lumen_cw_gen===gen)return 0;
 var fresh=continueItems();
+if(typeof gen==='number')root.lumen_cw_gen=gen;
 var back=pickReturned(nodes,fresh);
 if(!back.length)return 0;
 var rank=rankOf(fresh);
@@ -24186,11 +24189,18 @@ function scan(root){
 try{
 var nodes=root.find('.card');
 var shared=nodes.length?batch():null;
+var host=root[0];
+var gen=LC.timelineGen;
+var moved=typeof gen!=='number'||!host||host.lumen_badges_gen!==gen;
 for(var i=0;i<nodes.length;i++){
 var el=nodes[i];
-if(el&&el.lumen_badged&&tracksTimeline(el))refreshCard(el,shared);
-else decorate(el,null,null,shared);
+if(el&&el.lumen_badged&&tracksTimeline(el)){
+if(moved)refreshCard(el,shared);
+}else{
+decorate(el,null,null,shared);
 }
+}
+if(host&&typeof gen==='number')host.lumen_badges_gen=gen;
 if(enabled())stripLines(root[0]);
 }catch(e){
 warn('badges: scan failed',e);
@@ -31382,6 +31392,18 @@ copy.seen=now;
 next[pin.key]=copy;
 save(next);
 }
+function pinOf(card,season,element){
+var pin=find(card,season);
+if(isMine(pin,element))return pin;
+var base=keyOf(card);
+if(!base)return pin;
+var map=load();
+for(var key in map){
+if(!Object.prototype.hasOwnProperty.call(map,key))continue;
+if(key.indexOf(base+':s')===0&&isMine(map[key],element))return map[key];
+}
+return pin;
+}
 function onTorrent(e){
 if(!enabled()||!e||!e.element)return;
 var active=activity();
@@ -31394,7 +31416,7 @@ return;
 if(e.type!=='onlong'&&e.type!=='render')return;
 if(!card)return;
 var season=seasonOf(e.element);
-var pin=find(card,season);
+var pin=pinOf(card,season,e.element);
 var mine=isMine(pin,e.element);
 var box=e.item&&e.item.find('.torrent-item__ffprobe');
 function repaint(key){
@@ -32573,6 +32595,7 @@ return true;
 }
 if(name==='lumen_manifest_url'){
 try{if(window.Lampa&&Lampa.Storage)Lampa.Storage.set('lumen_manifest',null);}catch(e){}
+try{if(LC.prefs&&LC.prefs.rememberCatalog)LC.prefs.rememberCatalog();}catch(eMark){}
 try{if(LC.applyRowsPref)LC.applyRowsPref();}catch(eUrl){}
 return true;
 }
@@ -33391,12 +33414,19 @@ step(dropKpCache);
 step(function(){dropForeignCatalog(get);});
 };
 var MANIFEST_SRC='lumen_manifest_src';
+function catalogMark(){
+var src=String(LC.pref('lumen_manifest_url','')||(typeof LC.MANIFEST_URL==='string'?LC.MANIFEST_URL:'')||'');
+return src||'builtin';
+}
+LC.prefs.rememberCatalog=function(){
+try{Lampa.Storage.set(MANIFEST_SRC,catalogMark());}catch(e){}
+};
 function dropForeignCatalog(get){
 var custom=String(get('lumen_manifest_url')||'');
 var was=String(get(MANIFEST_SRC)||'');
 if(!custom&&!was)return;
-var src=String(LC.pref('lumen_manifest_url','')||(typeof LC.MANIFEST_URL==='string'?LC.MANIFEST_URL:'')||'');
-var mark=src||'builtin';
+var mark=catalogMark();
+var src=mark==='builtin'?'':mark;
 if(was===mark)return;
 if(was||custom!==src)Lampa.Storage.set('lumen_manifest',null);
 Lampa.Storage.set(MANIFEST_SRC,mark);
@@ -35911,7 +35941,9 @@ if(timeline_followed)return;
 timeline_followed=true;
 try{
 if(!window.Lampa||!Lampa.Timeline||!Lampa.Timeline.listener)return;
+LC.timelineGen=0;
 Lampa.Timeline.listener.follow('update',function(e){
+LC.timelineGen+=1;
 try{
 if(!activated)return;
 if(e&&e.data)LC.header.refreshEpisode(e.data.hash);
