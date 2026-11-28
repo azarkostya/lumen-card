@@ -111,6 +111,20 @@
       return afterEpisode(episodeProgress(card, view, hash));
     }
 
+    /* Цель поиска раздач (src/65_torrents.js, episodeContext) — не то же,
+       что nextEpisode: та отвечает «что после досмотренной» и до EP_DONE
+       даёт null, а раздачам нужна серия, которую человек будет смотреть.
+       Начатая и недосмотренная — она сама; досмотренная — следующая, если
+       last_episode_to_air её не опровергает. null — истории в последнем
+       сезоне нет или дальше эфира искать нечего: выбор оставляется
+       вызывающему (у раздач — последняя вышедшая серия). */
+    function searchEpisode(card, view, hash) {
+      var progress = episodeProgress(card, view, hash);
+      if (!progress) return null;
+      if ((Number(progress.view.percent) || 0) < EP_DONE) return { season: progress.season, episode: progress.episode };
+      return afterEpisode(progress);
+    }
+
     function episodeBadge(card, view, hash, words) {
       if (!card || !card.lumen_continue) return null;
       var progress = episodeProgress(card, view, hash);
@@ -928,6 +942,7 @@
       badgeFor: badgeFor,
       episodeBadge: episodeBadge,
       nextEpisode: nextEpisode,
+      searchEpisode: searchEpisode,
       refreshContinue: refreshContinue,
       countdown: countdown,
       decorate: decorate,

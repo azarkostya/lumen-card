@@ -637,6 +637,67 @@ test('цель серии в шапке и строках раздач учит�
   }
 });
 
+/* Аудит 2026-11-28: общая кнопка «Смотреть» открывала раздачи с целью
+   «последняя вышедшая серия», хотя начатая серия известна. nextEpisode —
+   продолжение ПОСЛЕ досмотра и до 95 % отдаёт null, а запасной вариант
+   брал last_episode_to_air. Цель поиска: выбор плитки → недосмотренная
+   серия → следующая вышедшая после досмотренной → последняя вышедшая
+   (только без пригодной истории). */
+test('цель поиска серии: начатая — она, досмотренная — следующая, без таймкода — последняя вышедшая', () => {
+  const { LC, t: torrents } = freshLC();
+  LC.epparse = load('64_epparse.js');
+  LC.badges = load('62_badges.js');
+  const movie = { id: 42, original_name: 'Series', number_of_seasons: 2, last_episode_to_air: { season_number: 2, episode_number: 12 } };
+  let viewed = {};
+  const listeners = {};
+  let current;
+  function native(className) {
+    const attrs = {};
+    return {
+      className, children: [], textContent: '',
+      appendChild(child) { this.children.push(child); },
+      insertBefore(child, before) { this.children.splice(this.children.indexOf(before), 0, child); },
+      querySelector(sel) { return this.children.find(c => c.className.split(/\s+/).includes(sel.slice(1))); },
+      getAttribute(name) { return attrs[name]; }, setAttribute(name, val) { attrs[name] = val; },
+      classList: { remove() {} }
+    };
+  }
+  globalThis.document = { createElement: () => native(''), body: { classList: { contains: () => true } } };
+  globalThis.Lampa = { Activity: { active: () => current }, Listener: { follow: (key, fn) => { listeners[key] = fn; } },
+    Timeline: { view: key => viewed[key] }, Utils: { hash: key => key } };
+  function seek(records, tile) {
+    viewed = records;
+    if (tile) torrents.selectEpisode(movie, 2, tile);
+    const head = native('explorer-card__head-body');
+    const root = Object.assign(new FakeEl(['activity']), { find: sel => sel === '.explorer-card__head-body' ? [head] : [] });
+    current = { component: 'torrents', movie: movie, activity: { render: () => root } };
+    listeners.activity({ type: 'start', component: 'torrents', object: current });
+    return head.children.map(c => c.textContent);
+  }
+  function verdict(title) {
+    const box = native('torrent-item__ffprobe');
+    box.appendChild(native('m-general'));
+    listeners.torrent({ type: 'render', item: { find: sel => sel === '.torrent-item__ffprobe' ? [box] : [] }, element: { Title: title } });
+    return box.children.filter(c => c.className.split(/\s+/).includes('lumen-ep-verdict')).map(c => c.textContent);
+  }
+  try {
+    torrents.install();
+    assert.deepEqual(seek({ '24Series': { percent: 50 } }), ['Ищем: S2·E4'], 'S2E4 на 50 % — ищем её, а не S2E12');
+    assert.deepEqual(verdict('Сериал (2 сезон: 1-4 серии из 12)'), ['E4 ✓'], 'галочки — для начатой серии');
+    assert.deepEqual(seek({ '24Series': { percent: 99 } }), ['Ищем: S2·E5'], 'досмотрена — следующая');
+    assert.deepEqual(seek({ '23Series': { percent: 100, updated: 1 }, '24Series': { percent: 30, updated: 2 } }), ['Ищем: S2·E4'],
+      'свежая начатая важнее досмотренной до неё');
+    const all = {};
+    for (let e = 1; e <= 12; e++) all['2' + e + 'Series'] = { percent: 100 };
+    assert.deepEqual(seek(all), ['Ищем: S2·E12'], 'досмотрена последняя вышедшая — дальше эфира не ищем');
+    assert.deepEqual(seek({}), ['Ищем: S2·E12'], 'без таймкода — последняя вышедшая');
+    assert.deepEqual(seek({ '24Series': { percent: 50 } }, 8), ['Ищем: S2·E8'], 'явная плитка важнее истории');
+  } finally {
+    delete globalThis.document;
+    delete globalThis.Lampa;
+  }
+});
+
 test('LC.injectCss пересобирает CSS пути через LC.applyTorrentsPref (смена акцента без перезагрузки)', () => {
   const { LC } = freshLC();
   let calls = 0;

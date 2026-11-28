@@ -590,7 +590,12 @@
     }
 
     /* Цель закреплена за экраном раздач, а выбор плитки одноразовый.
-       Повторная отрисовка при фильтрации использует ту же цель. */
+       Повторная отрисовка при фильтрации использует ту же цель.
+       Порядок: плитка серии → серия из истории (LC.badges.searchEpisode:
+       начатая — она, досмотренная — следующая вышедшая) → последняя
+       вышедшая, только когда история цели не дала. Прежде здесь стояла
+       nextEpisode — продолжение ПОСЛЕ досмотра, до 95 % она отдаёт null,
+       и общая «Смотреть» у начатой S2E4 искала S2E12 (аудит 2026-11-28). */
     function episodeContext(object, root) {
       var movie = object && (object.movie || object.card);
       if (!root || !root[0] || !movie || !LC.epparse) return null;
@@ -600,8 +605,8 @@
       pickedEpisode = null;
       if (!last && !movie.number_of_seasons && !movie.first_air_date && !movie.original_name) return null;
       var target = picked && picked.id === movie.id && (!picked.source || !movie.source || picked.source === movie.source) ? picked.target : null;
-      if (!target && LC.badges && typeof LC.badges.nextEpisode === 'function' && Lampa.Timeline && typeof Lampa.Timeline.view === 'function' && Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
-        target = LC.badges.nextEpisode(movie, function (h) { return Lampa.Timeline.view(h); }, function (key) { return Lampa.Utils.hash(key); });
+      if (!target && LC.badges && typeof LC.badges.searchEpisode === 'function' && Lampa.Timeline && typeof Lampa.Timeline.view === 'function' && Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
+        target = LC.badges.searchEpisode(movie, function (h) { return Lampa.Timeline.view(h); }, function (key) { return Lampa.Utils.hash(key); });
       }
       if (!target && last && last.season_number > 0 && last.episode_number > 0) {
         target = { season: +last.season_number, episode: +last.episode_number };
