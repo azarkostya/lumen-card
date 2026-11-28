@@ -511,7 +511,8 @@
            («Новинка», прогресс) на постере, ни рейтинга в подписи. */
         if (data.lumen_advent) return;
         var ctx = shared || batch();
-        var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, episode: episodeOf, words: ctx.words });
+        var badge = badgeOf(data, ctx);
+        el.lumen_badge_sig = badgeSig(badge);
         var view = $(el).find('.card__view');
         if (data.lumen_continue) {
           if (badge && badge.text) caption(el, badge, true);
@@ -618,13 +619,63 @@
       view.append(bar);
     }
 
+    function badgeOf(data, shared) {
+      return badgeFor(data, shared.today, { progress: progressOf, left: leftOf, episode: episodeOf, words: shared.words });
+    }
+
+    /* Отпечаток метки: decorate кладёт его на узел, чтобы возврат на
+       главную мог сверить метку с текущим Timeline, не трогая DOM. */
+    function badgeSig(badge) {
+      if (!badge) return '';
+      return badge.kind + '|' + badge.text + '|' + (Number(badge.percent) || 0) + '|' + (badge.left ? 1 : 0);
+    }
+
+    /* Снять с одной карточки всё, что поставил decorate, вместе с флагом. */
+    function clearCard(el) {
+      var q = $(el);
+      q.find('.lumen-badge').remove();
+      q.find('.lumen-badge-bar').remove();
+      q.find('.lumen-badge-cap').remove();
+      unrate(el);
+      el.lumen_badged = false;
+    }
+
+    /* Метка, которая может устареть, пока главная лежит в истории: прогресс
+       пишет плеер или отметка серий. Это ряд «Досмотреть» и карточки, на
+       которых уже стоит процент. Даты («Скоро», «Новинка») не пересчитываются:
+       сутки модуль сознательно не отслеживает (разбор в шапке файла). */
+    function tracksTimeline(el) {
+      var data = el && el.card_data;
+      if (!data || data.lumen_advent || typeof el.lumen_badge_sig !== 'string') return false;
+      return !!data.lumen_continue || el.lumen_badge_sig.indexOf('progress|') === 0;
+    }
+
+    /* Возврат на главную: Lampa достаёт её из истории готовой, ряды не
+       пересобираются, и флаг lumen_badged прежде прятал от scan новый
+       прогресс после плеера. Метка пересчитывается чистой badgeFor (кэш
+       серий mount уже сбросил), а узлы трогаются, только если отпечаток
+       разошёлся: на слабом ТВ на главной десятки карточек, и метку, которая
+       не изменилась, не перерисовываем. */
+    function refreshCard(el, shared) {
+      var data = el.card_data;
+      if (badgeSig(badgeOf(data, shared)) === el.lumen_badge_sig) return;
+      clearCard(el);
+      decorate(el, null, null, shared);
+    }
+
     /* Все карточки, уже лежащие в корне на момент монтирования (возврат на
-       главную: ряды построены, мутаций больше не будет). */
+       главную: ряды построены, мутаций больше не будет). Помеченные
+       карточки обходятся, кроме тех, чья метка зависит от Timeline
+       (tracksTimeline, refreshCard). */
     function scan(root) {
       try {
         var nodes = root.find('.card');
         var shared = nodes.length ? batch() : null;
-        for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null, shared);
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          if (el && el.lumen_badged && tracksTimeline(el)) refreshCard(el, shared);
+          else decorate(el, null, null, shared);
+        }
         if (enabled()) stripLines(root[0]);
       } catch (e) {
         warn('badges: scan failed', e);
@@ -783,7 +834,8 @@
       try {
         if (!root || !root.length) return;
         /* Кэш меток серий — на один показ главной: возврат на неё (тот же
-           корень) после плеера должен видеть новый прогресс. */
+           корень) после плеера должен видеть новый прогресс. Сами метки
+           таких карточек сверяет scan (refreshCard). */
         ep_cache = {};
         var want = mode();
         /* Тот же корень И тот же вид меток — повторное событие 'start' при
@@ -862,7 +914,10 @@
     }
 
     /* Ручная пачка отметок серии обновляет только одноимённую карточку
-       «Досмотреть», в том числе на ещё скрытом слое главной. */
+       «Досмотреть», в том числе на ещё скрытом слое главной.
+       Кэш меток серий (ep_cache) заполнен показом главной и сбрасывается
+       только в mount, а отметки ставятся из карточки, пока главная лежит в
+       истории, — без сброса записи decorate нарисовал бы прежнюю серию. */
     function refreshContinue(movie) {
       if (!movie || !movie.id) return;
       var nodes = document.querySelectorAll('.card');
@@ -872,9 +927,8 @@
         var card = el.card_data;
         if (!card || !card.lumen_continue || !(card.name || card.original_name || card.first_air_date) ||
             String(card.id) !== String(movie.id)) continue;
-        $(el).find('.lumen-badge,.lumen-badge-bar,.lumen-badge-cap').remove();
-        unrate(el);
-        el.lumen_badged = false;
+        if (card.id != null) delete ep_cache['i' + card.id];
+        clearCard(el);
         if (!shared) shared = batch();
         decorate(el, card, null, shared);
       }

@@ -1283,3 +1283,119 @@ test('decorate: метка серии в подписи, кэш на показ 
     delete globalThis.MutationObserver;
   }
 });
+
+/* «Просмотрено до этой серии» (src/85_header.js, markEpisodes): пачка
+   отметок пишет Timeline и зовёт refreshContinue, пока главная лежит под
+   карточкой. Кэш меток серий (ep_cache) заполнен первым показом главной —
+   refreshContinue обязан его обойти, иначе карточка «Досмотреть» снова
+   рисует старую серию, а возврат на главную её уже не перерисует: флаг
+   lumen_badged стоит. */
+function episodeRuntime(store, views) {
+  class FakeObserver { constructor() {} observe() {} disconnect() {} }
+  const Lampa = {
+    Activity: { active: () => null },
+    Utils: { hash: (k) => k },
+    Timeline: { view: (h) => { if (views) views.push(h); return store[h] || null; } }
+  };
+  globalThis.window = { Lampa: Lampa, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  return runtime({
+    Lampa: Lampa,
+    lang: (k) => ({
+      lumen_badge_left: 'Осталось {n} мин',
+      lumen_badge_ep_left: '{e} · {n} мин',
+      lumen_card_months_short: MONTHS.join(',')
+    })[k] || k
+  });
+}
+function cleanupEpisodeRuntime() {
+  delete globalThis.window;
+  delete globalThis.MutationObserver;
+  delete globalThis.document;
+}
+const continuePlate = (c) => c.find('.lumen-badge-cap--continue')[0];
+
+test('«Просмотрено до этой серии»: refreshContinue показывает новую серию, а не кэш первого показа главной', () => {
+  const store = { '24House': { percent: 40 } };
+  try {
+    const { api } = episodeRuntime(store);
+    const card = makeCard(Object.assign({}, SERIAL));
+    const other = makeCard({ id: 8, name: 'Друзья', original_name: 'Friends', number_of_seasons: 1, lumen_continue: true });
+    store['11Friends'] = { percent: 30 };
+    globalThis.document = { querySelectorAll: (sel) => (sel === '.card' ? [card, other] : []) };
+    const root = makeRoot([card, other]);
+    api.mount(root);
+    assert.equal(continuePlate(card).text(), 'S2·E4 ▶︎');
+    /* Открыли карточку сериала: главная ушла в историю. */
+    api.detach(makeRoot([]));
+    for (const e of [1, 2, 3, 4, 5, 6]) store['2' + e + 'House'] = { percent: 100 };
+    api.refreshContinue({ id: 7, name: 'Дом', original_name: 'House' });
+    assert.equal(continuePlate(card).text(), 'S2·E7', 'после E6 — следующая серия, не кэш');
+    assert.equal(card.find('.lumen-badge-cap').length, 1, 'старая метка снята, новая одна');
+    assert.equal(card.find('.card__age')[0].text(), '', 'подпись по-прежнему отдана метке');
+    assert.equal(continuePlate(other).text(), 'S1·E1 ▶︎', 'чужой сериал не трогается');
+    /* «Назад» на главную: метка остаётся свежей. */
+    api.mount(root);
+    assert.equal(card.find('.lumen-badge-cap').length, 1);
+    assert.equal(continuePlate(card).text(), 'S2·E7');
+  } finally {
+    cleanupEpisodeRuntime();
+  }
+});
+
+/* Тот же флаг lumen_badged и обычный просмотр в плеере: главная
+   возвращается из истории готовой (ряды не пересобираются), mount
+   сбрасывает кэш серий и проходит scan — а scan обходил помеченные
+   карточки молча, и метка «Досмотреть» оставалась той, что была до плеера.
+   Пересчёт — только у карточек, чья метка зависит от Timeline («Досмотреть»
+   и уже показанный прогресс); прочие не читают Timeline и не
+   перерисовываются: на слабом ТВ на главной десятки карточек. */
+test('возврат на главную после плеера: «Досмотреть» и прогресс пересчитаны, прочие карточки не тронуты', () => {
+  const store = {
+    '24House': { percent: 40 },
+    X: { percent: 43, time: 3000, duration: 6420 },
+    Y: { percent: 30 }
+  };
+  const views = [];
+  try {
+    const { api } = episodeRuntime(store, views);
+    const serial = makeCard(Object.assign({}, SERIAL));
+    const film = makeCard({ id: 9, title: 'Фильм', original_title: 'X', lumen_continue: true });
+    const started = makeCard({ id: 10, title: 'Начатый', original_title: 'Y', release_date: '2020-01-01' });
+    const soon = makeCard({ id: 11, title: 'Скоро', original_title: 'Z', release_date: '2026-12-17' });
+    const root = makeRoot([serial, film, started, soon]);
+    api.mount(root);
+    assert.equal(continuePlate(serial).text(), 'S2·E4 ▶︎');
+    assert.equal(continuePlate(film).text(), 'Осталось 57 мин');
+    assert.equal(started.find('.lumen-badge')[0].text(), '30 %');
+    const soonBadge = soon.find('.lumen-badge')[0];
+    assert.ok(soonBadge.hasClass('lumen-badge--soon'));
+
+    /* Карточка → плеер: серия досмотрена, фильм продвинулся, начатый
+       досмотрен. */
+    api.detach(makeRoot([]));
+    store['24House'] = { percent: 100 };
+    store.X = { percent: 80, time: 5136, duration: 6420 };
+    store.Y = { percent: 97 };
+    views.length = 0;
+    api.mount(root);
+
+    assert.equal(serial.find('.lumen-badge-cap').length, 1);
+    assert.equal(continuePlate(serial).text(), 'S2·E5', 'серия досмотрена — следующая');
+    assert.equal(film.find('.lumen-badge-cap').length, 1);
+    assert.equal(continuePlate(film).text(), 'Осталось 22 мин');
+    assert.equal(film.find('.lumen-badge-bar--continue').length, 1, 'полоса одна');
+    assert.equal(started.find('.lumen-badge').length, 0, 'досмотренный — без метки процента');
+    assert.equal(started.find('.lumen-badge-bar').length, 0, 'и без полосы');
+    assert.equal(soon.find('.lumen-badge')[0], soonBadge, 'метка даты не перерисована');
+    assert.equal(views.indexOf('Z'), -1, 'карточка без прогресса Timeline не читает');
+
+    /* Ничего не менялось — повторный возврат ничего не перерисовывает. */
+    const plate = continuePlate(film);
+    api.detach(makeRoot([]));
+    api.mount(root);
+    assert.equal(continuePlate(film), plate, 'та же метка — без перерисовки');
+  } finally {
+    cleanupEpisodeRuntime();
+  }
+});
