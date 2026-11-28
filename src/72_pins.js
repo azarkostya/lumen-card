@@ -16,17 +16,38 @@
       return (tv ? 'tv:' : 'movie:') + card.id + (tv && n > 0 ? ':s' + n : '');
     }
 
-    function seasonOf(element) {
-      var season = parseInt(element.season || element.Season, 10) || 0;
-      var title = String(element.Title || element.title || '');
-      var re = /(?:^|[^a-z0-9])(?:s(?:eason[ ._-]*)?|сезон[ ._-]*)(\d{1,3})(?=e\d|[^a-z0-9]|$)/gi;
+    /* Номер сезона в названии: «S02», «S02E05», «Season 2», «сезон 2»,
+       «Сезон: 2», «2 сезон». Диапазоны («S01-03», «1-3 сезон») и «2 сезона»
+       (число сезонов, а не номер) номером не считаются. */
+    var SEASON_RE = /(?:^|[^a-z0-9])(?:s|season[ ._-]*|сезон[ ._-]*:?[ ._-]*)(\d{1,2})(?=e\d|[^a-z0-9]|$)(?![ ._]*-[ ._]*\d)|(?:^|[^\d.,\/-])(\d{1,2})[ ._-]*сезон(?![а-яё])/gi;
+
+    /* Сезон по названию: сперва разбор серий (src/64_epparse.js), он знает
+       записи вида «5 сезон: 1-11 серии из 11»; несколько сезонов — сезон
+       неизвестен. Свой шаблон ловит короткие «S02» и «(2 сезон)» без серий.
+       Источники расходятся — неизвестен (-1). */
+    function titleSeason(title) {
+      var parsed = LC.epparse && LC.epparse.parse ? LC.epparse.parse(title) : null;
+      var seasons = parsed && parsed.seasons ? parsed.seasons : [];
+      if (seasons.length > 1) return -1;
+      var season = seasons.length ? Number(seasons[0]) || 0 : 0;
       var m;
-      while ((m = re.exec(title))) {
-        var n = Number(m[1]);
-        if (season && season !== n) return 0;
+      SEASON_RE.lastIndex = 0;
+      while ((m = SEASON_RE.exec(title))) {
+        var n = Number(m[1] || m[2]);
+        if (!n) continue;
+        if (season && season !== n) return -1;
         season = n;
       }
       return season;
+    }
+
+    /* Явный сезон раздачи — первым; название с другим номером — неизвестен. */
+    function seasonOf(element) {
+      if (!element) return 0;
+      var season = parseInt(element.season || element.Season, 10) || 0;
+      var found = titleSeason(String(element.Title || element.title || ''));
+      if (found < 0 || season && found && season !== found) return 0;
+      return season || found;
     }
 
     function slim(uri) {
@@ -77,13 +98,114 @@
       return String(value || '').replace(/<[^>]*>/g, '').replace(/(?:https?:\/\/|magnet:\?)[^\s]+/gi, '').trim().slice(0, 220);
     }
 
+    /* Сезон общей записи tv:<id> (сезон раздачи неизвестен). До правки
+       28.11 сюда же ложились раздачи, сезон которых старый шаблон не узнал
+       («5 сезон: …»): поля season у них нет — сезон из сохранённого названия. */
+    function entrySeason(pin) {
+      if (!pin) return 0;
+      if (typeof pin.season === 'number') return pin.season;
+      var n = titleSeason(String(pin.title || ''));
+      return n > 0 ? n : 0;
+    }
+
+    /* Закреп ровно для этого сезона: свой ключ, иначе общая запись того же
+       сезона или без сезона. Сезон неизвестен — только общая запись. */
+    function find(card, season) {
+      var base = keyOf(card);
+      if (!base) return null;
+      var map = load();
+      var n = parseInt(season, 10) || 0;
+      var exact = keyOf(card, n);
+      if (exact === base) return map[base] || null;
+      if (map[exact]) return map[exact];
+      var general = map[base];
+      var s = entrySeason(general);
+      return general && (!s || s === n) ? general : null;
+    }
+
+    /* Хэш раздачи по ссылке на .torrent. У такой строки парсера нет ни
+       магнета, ни поля hash; хэш TorrServer отдаёт Lampa уже после открытия
+       (Torrent hash() → SERVER.hash), и Lampa кладёт его в каждую строку окна
+       файлов: Listener 'torrent_file' render, element.torrent_hash
+       (app.min.js list$1). Ждём его после открытия строки по ссылке
+       ('torrent' onenter, его передаёт src/65_torrents.js) и после открытия
+       такого закрепа. Окно файлов закрыли (list_close), открыли другую
+       раздачу или прошло WAIT — ожидание снято: окно файлов, открытое по
+       хэшу из «Моих торрентов», чужой хэш ссылке не припишет; окно файлов
+       другой карточки (params.movie) — тоже. Узнанный хэш
+       пишется закрепам с этой ссылкой (их защищает автоочистка) и помнится
+       до конца сеанса — для закрепа, который сделают позже. */
+    var WAIT = 100000;
+    var KNOWN = 20;
+    var opening = null;
+    var known = [];
+    var following = false;
+
+    function followFiles() {
+      if (following) return;
+      var listener = Lampa.Listener;
+      if (!listener || typeof listener.follow !== 'function') return;
+      following = true;
+      listener.follow('torrent_file', onFile);
+    }
+
+    function expect(link, card) {
+      opening = link ? { link: link, card: card && card.id !== undefined && card.id !== null ? String(card.id) : '', at: Date.now() } : null;
+      if (opening) followFiles();
+    }
+
+    function knownHash(link) {
+      for (var i = known.length - 1; link && i >= 0; i--) if (known[i].link === link) return known[i].hash;
+      return '';
+    }
+
+    function learn(link, hash) {
+      known = known.filter(function (item) { return item.link !== link; }).concat([{ link: link, hash: hash }]).slice(-KNOWN);
+      var map = load();
+      var next = null;
+      Object.keys(map).forEach(function (key) {
+        var pin = map[key];
+        if (!pin || pin.magnet || pin.link !== link || pin.hash === hash) return;
+        if (!next) {
+          next = {};
+          Object.keys(map).forEach(function (k) { next[k] = map[k]; });
+        }
+        var copy = {};
+        Object.keys(pin).forEach(function (k) { copy[k] = pin[k]; });
+        copy.hash = hash;
+        next[key] = copy;
+      });
+      if (next) save(next);
+    }
+
+    function onFile(e) {
+      try {
+        if (!opening || !e) return;
+        if (e.type === 'list_close') { opening = null; return; }
+        var hash = e.type === 'render' && e.element ? hashOf(e.element.torrent_hash) : '';
+        if (!hash) return;
+        var link = opening.link;
+        var fresh = Date.now() - opening.at <= WAIT;
+        var movie = e.params && e.params.movie;
+        var same = !opening.card || !movie || movie.id === undefined || String(movie.id) === opening.card;
+        opening = null;
+        if (fresh && same && enabled()) learn(link, hash);
+      } catch (err) { warn('pin hash failed'); }
+    }
+
     function put(card, element, at) {
       if (!enabled() || !element) return false;
-      var key = keyOf(card, seasonOf(element));
+      var season = seasonOf(element);
+      var key = keyOf(card, season);
+      var base = keyOf(card);
       var media = itemLink(element);
       if (!key || !(media.magnet || media.link)) return false;
       var map = load();
-      var keys = Object.keys(map).filter(function (k) { return k !== key; });
+      /* Новый закреп сезона заменяет и общую запись того же сезона
+         (старый формат), иначе она осталась бы невидимой и неоткрепляемой. */
+      var keys = Object.keys(map).filter(function (k) {
+        return k !== key && !(k === base && key !== base && entrySeason(map[k]) === season);
+      });
       keys.sort(function (a, b) { return Number(map[b].at) - Number(map[a].at); });
       var next = {};
       for (var i = 0; i < Math.min(keys.length, CAP - 1); i++) next[keys[i]] = map[keys[i]];
@@ -91,8 +213,8 @@
       var tags = LC.torrents && LC.torrents.releaseTags ? LC.torrents.releaseTags(title, element.ffprobe) : {};
       var stamp = at || Date.now();
       next[key] = {
-        key: key, at: stamp, seen: stamp, magnet: media.magnet, link: media.magnet ? '' : media.link,
-        hash: hashOf(media.magnet) || hashOf(element.hash), title: title, quality: tags.res || '',
+        key: key, at: stamp, seen: stamp, season: key === base ? 0 : season, magnet: media.magnet, link: media.magnet ? '' : media.link,
+        hash: hashOf(media.magnet) || hashOf(element.hash) || (media.magnet ? '' : knownHash(media.link)), title: title, quality: tags.res || '',
         size: Number(element.size) || 0, seeds: Number(element.Seeders || element.seeders) || 0
       };
       save(next);
@@ -103,10 +225,10 @@
       if (!enabled()) return null;
       var base = keyOf(card);
       if (!base) return null;
+      if (season || base.indexOf('tv:') !== 0) return find(card, season);
       var map = load();
-      var preferred = keyOf(card, season || card.number_of_seasons);
-      if (map[preferred] || map[base]) return map[preferred] || map[base];
-      if (season || base.indexOf('tv:') !== 0) return null;
+      var last = find(card, card.number_of_seasons);
+      if (last || map[base]) return last || map[base];
       var newest = null;
       var keys = Object.keys(map);
       for (var i = 0; i < keys.length; i++) {
@@ -203,9 +325,11 @@
       var pin = get(card, season);
       if (pin && LC.resume && LC.resume.openTorrent) {
         var finish = watchFailure(fallback);
+        expect(pin.magnet ? '' : pin.link, card);
         try {
           if (LC.resume.openTorrent(pin, card)) { finish(); return true; }
         } catch (err) { warn('pin open failed'); }
+        opening = null;
         if (pending) pending();
       }
       fallback();
@@ -236,12 +360,18 @@
     }
 
     function onTorrent(e) {
-      if (!enabled() || !e || !e.element || (e.type !== 'onlong' && e.type !== 'render')) return;
+      if (!enabled() || !e || !e.element) return;
       var active = activity();
       var card = active && (active.movie || active.card);
+      if (e.type === 'onenter') {
+        var opened = itemLink(e.element);
+        expect(opened.magnet || hashOf(e.element.hash) ? '' : opened.link, card);
+        return;
+      }
+      if (e.type !== 'onlong' && e.type !== 'render') return;
       if (!card) return;
       var season = seasonOf(e.element);
-      var pin = get(card, season);
+      var pin = find(card, season);
       var mine = isMine(pin, e.element);
       var box = e.item && e.item.find('.torrent-item__ffprobe');
       function repaint(key) {
@@ -272,8 +402,13 @@
             var changed = mine ? drop(pin.key) : put(card, e.element);
             if (changed) {
               if (!mine && active.activity && active.activity.render) {
-                var chips = active.activity.render().find('.lumen-pin-tag[data-lumen-pin="' + key + '"]');
+                /* Отметка прежней раздачи этого ключа и записи, которую
+                   новый закреп заменил (общая запись того же сезона). */
+                var map = load();
+                var chips = active.activity.render().find('.lumen-pin-tag');
                 chips.each(function () {
+                  var owner = $(this).attr('data-lumen-pin');
+                  if (owner !== key && Object.prototype.hasOwnProperty.call(map, owner)) return;
                   var parent = $(this).parent();
                   $(this).remove();
                   if (parent.length && !parent[0].children.length) parent.addClass('hide');
