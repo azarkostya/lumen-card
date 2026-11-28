@@ -50,17 +50,37 @@ test('сквозной диапазон раздачи «Медленные ло
   assert.equal(api.verdict(parsed, { season: 6, episode: 36 }), 'unknown');
 });
 
-test('«(1-6 сезоны: 1-36 серии из 36)»: полный набор сезонов ручается за любую серию, неполный — нет', () => {
+/* «Из 36» — число серий на дату публикации раздачи, а не всего у сезонов.
+   Когда у сезона внутри диапазона выходит новая серия, старый пакет её не
+   содержит, но сквозной счёт «1-36 из 36» этого не выдаёт. Поэтому ни
+   полный, ни неполный многосезонный пакет не подтверждает серию сезона. */
+test('«(1-6 сезоны: 1-36 серии из 36)»: многосезонный пакет не ручается за серию сезона, даже полный', () => {
   const api = epparse();
   const [, full, partial] = data.acceptance;
   const parsedFull = api.parse(full.title);
   assert.deepEqual(exact(parsedFull), full.expected);
-  assert.equal(api.verdict(parsedFull, { season: 3, episode: 5 }), 'has');
-  assert.equal(api.verdict(parsedFull, { season: 6, episode: 6 }), 'has');
+  assert.equal(api.verdict(parsedFull, { season: 3, episode: 5 }), 'unknown');
+  assert.equal(api.verdict(parsedFull, { season: 6, episode: 6 }), 'unknown');
+  assert.equal(api.verdict(parsedFull, { season: 1, episode: 1 }), 'unknown');
   assert.equal(api.verdict(parsedFull, { season: 7, episode: 1 }), 'other_season');
   const parsedPartial = api.parse(partial.title);
   assert.deepEqual(exact(parsedPartial), partial.expected);
   assert.equal(api.verdict(parsedPartial, { season: 3, episode: 5 }), 'unknown');
   /* Сквозная запись цифрами с полным набором — то же правило. */
-  assert.equal(api.verdict(api.parse('Сериал [01-03x01-30 из 30]'), { season: 2, episode: 4 }), 'has');
+  assert.equal(api.verdict(api.parse('Сериал [01-03x01-30 из 30]'), { season: 2, episode: 4 }), 'unknown');
+});
+
+test('старый пакет «1-2 сезоны: 1-12 серии из 12» не получает галочку новой S2E7', () => {
+  const api = epparse();
+  const parsed = api.parse('Сериал (1-2 сезоны: 1-12 серии из 12) / WEB-DL (1080p)');
+  /* Пакет остаётся разобранным и подходящим по сезону: диапазон S1-2 виден. */
+  assert.deepEqual(exact(parsed), { seasons: [1, 2], from: 1, to: 12, total: 12, single: false, known: true });
+  assert.equal(api.verdict(parsed, { season: 2, episode: 7 }), 'unknown');
+  assert.equal(api.verdict(parsed, { season: 2, episode: 1 }), 'unknown');
+  assert.equal(api.verdict(parsed, { season: 1, episode: 6 }), 'unknown');
+  assert.equal(api.verdict(parsed, { season: 3, episode: 1 }), 'other_season');
+  /* Один сезон с явным диапазоном серий — покрытие доказано, галочка остаётся. */
+  assert.equal(api.verdict(api.parse('Сериал (2 сезон: 1-12 серии из 12) / WEB-DL (1080p)'), { season: 2, episode: 7 }), 'has');
+  assert.equal(api.verdict(api.parse('Сериал / Сезон: 2 / Серии: 1-12 из 12 [2026, WEB-DL 1080p]'), { season: 2, episode: 7 }), 'has');
+  assert.equal(api.verdict(api.parse('Сериал (2 сезон: 1-12 серии из 12)'), { season: 2, episode: 13 }), 'upto');
 });

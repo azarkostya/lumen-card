@@ -621,6 +621,9 @@ test('цель серии в шапке и строках раздач учит�
     const pack = 'Медленные лошади / Хромые лошади / Slow Horses [01-06x01-35 из 36] (2022-2026) WEB-DLRip | LostFilm';
     assert.deepEqual(row(pack, 'lumen-ep-range'), ['S1-6 1-35']);
     assert.deepEqual(row(pack, 'lumen-ep-verdict'), []);
+    const oldPack = 'Сериал (1-2 сезоны: 1-12 серии из 12) / WEB-DL (1080p)';
+    assert.deepEqual(row(oldPack, 'lumen-ep-range'), ['S1-2 1-12'], 'пакет сезонов остаётся с диапазоном');
+    assert.deepEqual(row(oldPack, 'lumen-ep-verdict'), [], 'без галочки новой S2E7');
     assert.deepEqual(row('Сериал [S02]', 'lumen-ep-verdict'), []);
     assert.equal(screen(movie).children[0].textContent, 'Ищем: S2·E5', 'ручная цель живёт только на старом экране');
     viewed = {};

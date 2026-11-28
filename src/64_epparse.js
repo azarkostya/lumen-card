@@ -80,14 +80,14 @@
     }
 
     /* Несколько сезонов со сквозным счётом серий: какая серия в каком
-       сезоне, неизвестно. Ручаться можно только за полный набор — серии
-       с первой по последнюю из объявленных («1-36 из 36»). Без последней
-       («01-35 из 36») недостающей может оказаться любая. */
+       сезоне, неизвестно. Даже полный набор («1-12 из 12») не ручается:
+       «из 12» — счёт на дату раздачи. Вышла новая S2E7 — старый пакет
+       её не содержит, а сквозные числа этого не выдают. Пакет остаётся
+       подходящим по сезону (диапазон виден), но серия не подтверждена. */
     function verdict(parsed, target) {
       if (!parsed || !parsed.known || !target || !(target.season > 0) || !(target.episode > 0)) return 'unknown';
       if (parsed.seasons.length > 1) {
-        if (parsed.seasons.indexOf(Number(target.season)) === -1) return 'other_season';
-        return parsed.from === 1 && parsed.total > 0 && parsed.to === parsed.total ? 'has' : 'unknown';
+        return parsed.seasons.indexOf(Number(target.season)) === -1 ? 'other_season' : 'unknown';
       }
       if (parsed.seasons.length !== 1) return 'unknown';
       if (parsed.seasons.indexOf(Number(target.season)) === -1) return 'other_season';
