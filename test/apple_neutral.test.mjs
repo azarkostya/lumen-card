@@ -74,10 +74,11 @@ const LUMEN_SAMPLES = {
    «Снег идёт всегда» (27.11.2026): сняты правила скрытия холстов снега при листании и в сжатом герое;
    гирлянда главной у верхнего края во всех стилях.
    Настройки Lumen: две устойчивые колонки, перенос длинного текста и высота строки без скачка фокуса.
+   Ревью беты 1.4: полоса прогресса «Досмотреть» и серии в фокусе — внутри кольца, в покое углы по скруглению кадра.
    Если Lumen меняют намеренно — пересчитать: LC_PRINT_SNAPSHOT=1 node test/apple_neutral.test.mjs */
 const LUMEN_SNAPSHOT = {
-  warm: '1d39d7c15bc9616bff14462d0addaaded6ae16262c883b2f26a9d678e37d4445',
-  black_solid: '937e8edac2af99b1f67cd0bce60c292e5d082b40a774ace601e3c7e72ae7a3c3'
+  warm: 'c2cec61c4891b0cc431ebf70501adb3f990143276f8b0898697a7326dc51b9bf',
+  black_solid: '6ed928a4695493af1fc88fa38a9aff645ee2be34c325ce6394acc8d85e6a5e90'
 };
 
 if (process.env.LC_PRINT_SNAPSHOT) {

@@ -670,6 +670,34 @@
     return 'content:"";display:block;position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;z-index:3;pointer-events:none;background:none;' + focusRingCss({ text: apple ? '#F2F2F3' : text });
   };
 
+  /* Ревью беты 1.4: полоса прогресса по нижней кромке картинки
+     («Досмотреть» на главной, серия в карточке) и кольцо фокуса внутри
+     кромки (накладка выше) — кольцо рисуется над картинкой, и полосу .26em
+     у самой кромки рамка .27em закрывала в фокусе целиком. Числа для обеих
+     полос (h — высота полосы, em):
+       corners — покой: нижние углы повторяют скругление картинки V2.rImg
+                 (у кадра нет overflow, и квадратные углы торчали за
+                 кромку): радиус картинки по горизонтали, высота полосы по
+                 вертикали — дуга кромки на высоте полосы;
+       inset   — фокус: отступ от кромки снизу и по бокам на рамку и
+                 волосяную линию — полоса встаёт внутрь кольца и с ним не
+                 пересекается;
+       lift    — то же для полосы, заданной top от нижней кромки (серия:
+                 top = −(inset + h));
+       round   — фокус: скруглённые концы, радиус — половина высоты.
+     Перехода геометрии нет: полоса встаёт на место вместе с классом
+     .focus, как и само кольцо. */
+  LC.edgeBar = function (h) {
+    var inset = FOCUS_RING + FOCUS_HAIR;
+    var r = emCss(V2.rImg);
+    return {
+      corners: 'border-radius:0 0 ' + r + ' ' + r + '/0 0 ' + emCss(h) + ' ' + emCss(h),
+      inset: emCss(inset),
+      lift: '-' + emCss(inset + h),
+      round: 'border-radius:' + emCss(h / 2)
+    };
+  };
+
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
      то есть 22.811 px при 1920 — отсюда правило единиц «px дизайна ÷ 22.811»).
@@ -6136,8 +6164,13 @@
     /* «Досмотреть»: статус заменяет год, геометрия ряда остаётся общей. */
     var continueAccent = liftTo(A, P.soft, P.text);
     css.push('.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue{font-weight:600;color:' + (APPLE ? '#F2F2F3' : continueAccent) + '}');
-    css.push('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue{left:0;right:0;bottom:0;height:.26em;border-radius:0}');
+    var continueBar = LC.edgeBar(0.26);
+    css.push('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue{left:0;right:0;bottom:0;height:.26em;' + continueBar.corners + '}');
     css.push('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div{border-radius:0;background:' + (APPLE ? '#FFFFFF' : continueAccent) + '}');
+    /* В фокусе — внутрь кольца постера (LC.edgeBar): то же условие .focus,
+       что у кольца (.lumen-main .card.focus .card__view:after). */
+    css.push('.lumen-main .card.focus .lumen-badge-bar.lumen-badge-bar--continue{left:' + continueBar.inset + ';right:' + continueBar.inset + ';bottom:' + continueBar.inset + ';' + continueBar.round + '}');
+    css.push('.lumen-main .card.focus .lumen-badge-bar.lumen-badge-bar--continue > div{' + continueBar.round + '}');
 
     /* --- Task 25: скелетоны ---
        Одно правило на все плашки плагина: описание героя до прихода деталей

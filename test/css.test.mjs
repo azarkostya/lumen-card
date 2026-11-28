@@ -6397,7 +6397,10 @@ test('Досмотреть: прежняя геометрия, подпись и
       assert.equal(decl(sel), findDecl(cssAll[Number(apple)], (rule) => rule === sel));
     }
     assert.match(decl('.lumen-main .card__age'), /font-size:1\.01em/);
-    assert.equal(decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue'), 'left:0;right:0;bottom:0;height:.26em;border-radius:0');
+    /* Нижние углы — по скруглению постера; в фокусе полоса встаёт внутрь
+       кольца (разбор — test/edge_bar.test.mjs). */
+    assert.equal(decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue'), 'left:0;right:0;bottom:0;height:.26em;border-radius:0 0 .46em .46em/0 0 .26em .26em');
+    assert.equal(decl('.lumen-main .card.focus .lumen-badge-bar.lumen-badge-bar--continue'), 'left:.36em;right:.36em;bottom:.36em;border-radius:.13em');
     const caption = decl('.lumen-main .card__age .lumen-badge-cap.lumen-badge-cap--continue');
     const fill = decl('.lumen-main .lumen-badge-bar.lumen-badge-bar--continue > div');
     assert.match(caption, /^font-weight:600;color:#[\da-f]{6}$/i);

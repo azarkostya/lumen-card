@@ -83,9 +83,17 @@
       if (!APPLE) {
         /* Метаданные под названием — статус просмотра не сжимает текст серии. */
         css.push('.lumen-card .lumen-episode__caption{margin-top:.09em}');
-        /* Полоса прогресса — 6 px акцентом по нижней кромке кадра, без трека. */
-        css.push('.lumen-card .lumen-episode__bar,.lumen-card .lumen-episode.focus .lumen-episode__bar{position:absolute;left:0;right:0;top:-.26em;height:.26em;margin:0;border-radius:0 0 .42em .42em;background:none}');
+        /* Полоса прогресса — 6 px акцентом по нижней кромке кадра, без трека;
+           нижние углы — по скруглению кадра (LC.edgeBar). */
+        var bar = LC.edgeBar(0.26);
+        css.push('.lumen-card .lumen-episode__bar,.lumen-card .lumen-episode.focus .lumen-episode__bar{position:absolute;left:0;right:0;top:-.26em;height:.26em;margin:0;' + bar.corners + ';background:none}');
         css.push('.lumen-card .lumen-episode__bar > div,.lumen-card .lumen-episode.focus .lumen-episode__bar > div{border-radius:0;background:' + A + '}');
+        /* В фокусе кольцо кадра (.lumen-episodes .lumen-episode.focus:after)
+           закрывало полосу у кромки целиком — она встаёт внутрь кольца со
+           скруглёнными концами. В Apple TV полоса и так в треке с полями
+           .61/.53em, кольцо её не задевает. */
+        css.push('.lumen-card .lumen-episodes .lumen-episode.focus .lumen-episode__bar{left:' + bar.inset + ';right:' + bar.inset + ';top:' + bar.lift + ';' + bar.round + '}');
+        css.push('.lumen-card .lumen-episodes .lumen-episode.focus .lumen-episode__bar > div{' + bar.round + '}');
       } else {
         /* A: название и длительность — двумя строками. */
         css.push('.lumen-card .lumen-episode__caption{margin-top:.09em;color:rgba(235,235,245,.64)}');
