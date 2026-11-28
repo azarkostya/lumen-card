@@ -1039,6 +1039,11 @@
     };
     var adventTimer = null;
     var adventClockInstalled = false;
+    /* Живые ряды адвента (Line Lampa) и день, на который собраны их
+       карточки: { line, key, wait }. Запись снимает onDestroy ряда; потолок —
+       страховка на случай, если destroy не придёт. */
+    var adventLines = [];
+    var ADVENT_LINES_MAX = 4;
     var ADVENT_TRANSLATION_LIMIT = 8;
     var ADVENT_WAIT = 4000;
 
@@ -1079,6 +1084,12 @@
       return new Date(now.getFullYear() + 1, 0, 1);
     }
 
+    /* Календарный день числом (20261231): «день сменился?» — одно
+       сравнение. */
+    function adventKey(d) {
+      return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    }
+
     function adventTitle(today) {
       var day = today.getDate();
       var head = adventWord('lumen_advent_title', 'Advent calendar');
@@ -1096,8 +1107,12 @@
       adventTimer = null;
     }
 
-    /* На других экранах остаётся лишь однократный будильник полуночи.
-       После полуночи возврат из плеера или скрытой вкладки приходит событием. */
+    /* Пока главная на экране, будильник стоит до ближайшей полуночи (31-го —
+       до 18:00, потом поминутно): в полночь заголовок и окошки ряда
+       переходят на новый день (adventSync). На других экранах остаётся лишь
+       однократный будильник новогодней полуночи. После полуночи возврат на
+       главную, из плеера или скрытой вкладки приходит событием — оно и
+       догоняет пропущенный день. */
     function refreshAdventClock(skipMain) {
       clearAdventClock();
       if (!adventClockInstalled) return;
@@ -1116,6 +1131,9 @@
             var label = adventTitle(now);
             if (title.textContent !== label) title.textContent = label;
           }
+          /* 1 января ряд не пересобирается: сезон кончился, ряд доживает
+             до следующего построения главной с заголовком без отсчёта. */
+          if (month === 11) adventSync(now);
         }
         if (month !== 11) {
           if (!newYear || !foreground || !Lampa.Noty || typeof Lampa.Noty.show !== 'function') return;
@@ -1126,8 +1144,8 @@
           }
           return;
         }
-        if (day === 30 && active && active.component === 'main') {
-          adventTimer = setTimeout(refreshAdventClock, new Date(now.getFullYear(), 11, 31) - now);
+        if (day < 31 && active && active.component === 'main') {
+          adventTimer = setTimeout(refreshAdventClock, new Date(now.getFullYear(), 11, day + 1) - now);
         } else if (day === 31) {
           var delay = adventMidnight(now) - now;
           if (active && active.component === 'main') {
@@ -1304,12 +1322,134 @@
 
     function adventLineCreate() {
       focusToday.call(this);
+      adventTrack(this);
       var node = this.html;
       var title = node && node.querySelector('.items-line__title');
       if (!title) return;
       title.classList.add('lumen-advent-title');
       var now = adventToday();
       if (now) title.textContent = adventTitle(now);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Аудит 2026-11-28: смена дня при живом ряде. Окошки (закрыто /       */
+    /* «Сегодня» / фильм дня) собираются один раз — при построении ряда, а */
+    /* главную Lampa сутками не пересоздаёт: «Назад» возвращает прежнюю    */
+    /* активность с прежними карточками. Было: вечером 30-го главная       */
+    /* открыта, наступило 31-е — отсчёт в заголовке пошёл, а подарок 31-го */
+    /* под замком и «Сегодня» у 30-го.                                     */
+    /*                                                                     */
+    /* Теперь refreshAdventClock (будильник полуночи, возврат на главную,  */
+    /* видимость вкладки, выход из плеера) сверяет день сборки ряда на     */
+    /* экране с сегодняшним — сравнение чисел, на каждом тике только оно.  */
+    /* Не совпал — тот же генератор ряда (makeAdventCall: запись открытых  */
+    /* окошек, переводы) даёт новые окошки, и ряд пересоздаёт свои         */
+    /* карточки штатным путём построения: emit('createAndAppend') — тот же */
+    /* вызов, которым Items ряда Lampa строит их в onCreate               */
+    /* (app.min.js:19025-19029): Card, onInstance главной (открытие фильма, */
+    /* app.min.js:37078-37091), наше оформление окошка. Старые карточки    */
+    /* уходят через destroy (их слушатели state:changed снимаются).        */
+    /* Пересборка — раз в сутки; ряды вне экрана догоняют на возврате.     */
+    /*                                                                     */
+    /* Фокус. В ряду (Controller.own — пульт; класс focus у карточки —    */
+    /* мышь) — та же позиция: окошек всегда 31, и прежнее остаётся        */
+    /* доступным (вчерашнее открыто, будущие — дверцы с уведомлением).     */
+    /* Пульту фокус возвращается на новый узел той же позиции. Вне ряда — */
+    /* как у свежего ряда: вход в него встанет на новое «Сегодня».         */
+    /* ------------------------------------------------------------------ */
+
+    function adventTrack(line) {
+      var key = line && line.data && line.data.lumen_advent_key;
+      if (!key) return;
+      for (var i = 0; i < adventLines.length; i++) {
+        if (adventLines[i].line === line) {
+          adventLines[i].key = key;
+          return;
+        }
+      }
+      adventLines.push({ line: line, key: key, wait: 0 });
+      if (adventLines.length > ADVENT_LINES_MAX) adventLines.shift();
+    }
+
+    function adventLineDestroy() {
+      for (var i = adventLines.length - 1; i >= 0; i--) {
+        if (adventLines[i].line === this) adventLines.splice(i, 1);
+      }
+    }
+
+    function adventSync(now) {
+      var key = adventKey(now);
+      var list = adventLines.slice();
+      for (var i = 0; i < list.length; i++) {
+        var rec = list[i];
+        if (rec.key === key || rec.wait === key) continue;
+        if (!LC.util.onScreen(rec.line.html)) continue;
+        adventRebuild(rec, key);
+      }
+    }
+
+    function adventRebuild(rec, key) {
+      rec.wait = key;
+      makeAdventCall()()(function (payload) {
+        if (rec.wait === key) rec.wait = 0;
+        /* Перевод фильма дня (не ru) ждёт до ADVENT_WAIT. Ушли за это время
+           с главной — ряд не трогаем: last у Lampa — карточка, с которой
+           ушли, и на возврате фокус встанет на неё; там же ряд и догонит
+           день (перевод уже в кэше — синхронно). */
+        if (adventLines.indexOf(rec) === -1 || !LC.util.onScreen(rec.line.html)) return;
+        /* Пустой ответ — уход с главной (bumpGen) или не декабрь. */
+        if (payload && payload.results && payload.results.length && payload.lumen_advent_key) adventRelayout(rec, payload);
+      });
+    }
+
+    /* Позиция карточки с фокусом мыши (класс focus Navigator), иначе -1. */
+    function adventPointed(items) {
+      for (var i = 0; i < items.length; i++) {
+        var node = items[i] && typeof items[i].render === 'function' ? items[i].render(true) : null;
+        if (node && node.classList && node.classList.contains('focus')) return i;
+      }
+      return -1;
+    }
+
+    function adventRelayout(rec, payload) {
+      var line = rec.line;
+      try {
+        var ctrl = window.Lampa && Lampa.Controller;
+        var own = !!(ctrl && typeof ctrl.own === 'function' && ctrl.own(line));
+        var old = line.items || [];
+        var pick = own ? line.active : adventPointed(old);
+        for (var i = 0; i < old.length; i++) {
+          try {
+            if (old[i] && typeof old[i].destroy === 'function') old[i].destroy();
+          } catch (eDrop) { }
+        }
+        line.items = [];
+        line.last = null;
+        line.active = 0;
+        line.data.results = payload.results;
+        line.data.title = payload.title;
+        rec.key = payload.lumen_advent_key;
+        var results = payload.results;
+        var view = line.view > 0 ? Math.min(line.view, results.length) : results.length;
+        for (var j = 0; j < view; j++) line.emit('createAndAppend', results[j]);
+        var body = line.scroll && typeof line.scroll.render === 'function' ? line.scroll.render(true) : null;
+        /* Постеры карточек Lampa ставит по 'visible' (ленивая загрузка). */
+        try {
+          if (body && Lampa.Layer && typeof Lampa.Layer.visible === 'function') Lampa.Layer.visible(body);
+        } catch (eLayer) { }
+        if (typeof pick === 'number' && pick >= 0 && pick < line.items.length) {
+          line.active = pick;
+          line.last = line.items[pick].render(true);
+        } else {
+          focusToday.call(line);
+        }
+        if (own && body && line.last) {
+          ctrl.collectionSet(body);
+          ctrl.collectionFocus(line.last, body);
+        }
+      } catch (e) {
+        warn('rows: advent rollover failed', e);
+      }
     }
 
     function adventLang() {
@@ -1410,7 +1550,9 @@
               title: adventTitle(today),
               lumen_personal: true,
               lumen_keep: true,
-              params: { items: { view: cards.length }, emit: { onCreate: adventLineCreate } }
+              /* День сборки окошек — по нему ряд узнаёт смену дня. */
+              lumen_advent_key: adventKey(today),
+              params: { items: { view: cards.length }, emit: { onCreate: adventLineCreate, onDestroy: adventLineDestroy } }
             });
           }
 

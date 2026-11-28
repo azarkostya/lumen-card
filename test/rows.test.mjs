@@ -216,8 +216,8 @@ function setupRows(opts) {
 
   /* Task 21: ряд адвента спрашивает дату и раскладку у LC.themes — модуль
      настоящий, дату подменяем хуком _now (как в живой проверке). */
-  var themes = opts.themes === null ? null : loadCtx('53_themes.js', {}).api;
-  if (themes && opts.now) themes._now = function () { return opts.now; };
+  var themes = opts.themes === null ? null : loadCtx('53_themes.js', opts.themesCtx || {}).api;
+  if (themes && opts.now && !opts.realClock) themes._now = function () { return opts.now; };
   var ctx = loadCtx('44_rows.js', {
     pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
     sources: fakeSources,
@@ -556,8 +556,55 @@ test('адвент 31 декабря: 17:59, 18:00 и 23:59', function () {
   assert.equal(adventPayload(s)[0].title, 'Адвент-календарь · до Нового года 0 ч 1 мин');
 });
 
-function adventClockHarness(t, instant, storage) {
-  var params = { manifest: XMAS_MANIFEST, now: instant, storage: storage };
+/* Живой ряд адвента как Line Lampa: модуль Items строит карточки в onCreate
+   через emit('createAndAppend') (app.min.js:19025-19029), params.emit ряда
+   встаёт ПОСЛЕ модулей (Utils.createInstance, :4705-4723), карточка — Card с
+   params.emit окошка. activity — узел .activity ряда для LC.util.onScreen. */
+function adventFakeCard(el) {
+  var classes = new Set();
+  var doors = [];
+  var age = { textContent: '' };
+  var node = {
+    day: el.day,
+    classList: { add: (c) => classes.add(c), contains: (c) => classes.has(c) },
+    querySelector: (q) => q === '.card__view' ? { insertAdjacentHTML: (w, h) => doors.push(h) } : (q === '.card__age' ? age : null)
+  };
+  var card = { data: el, classes: classes, doors: doors, age: age, destroyed: false, render: () => node, destroy() { card.destroyed = true; } };
+  el.params.emit.onCreate.call({ data: el, html: node });
+  return card;
+}
+
+function adventLine(payload, title, activity) {
+  var components = [];
+  var body = { kind: 'scroll' };
+  var line = {
+    data: payload, params: payload.params, items: [], active: 0, last: null,
+    view: payload.params.items.view,
+    html: {
+      querySelector: (sel) => sel === '.items-line__title' ? title : null,
+      closest: () => activity.node
+    },
+    scroll: { render: () => body },
+    use(m) { components.push(m); },
+    emit(name, ...args) {
+      var key = 'on' + name.charAt(0).toUpperCase() + name.slice(1);
+      components.slice().forEach((c) => { if (typeof c[key] === 'function') c[key].apply(line, args); });
+    },
+    destroy() { line.emit('destroy'); }
+  };
+  line.use({
+    onCreate() { this.data.results.slice(0, this.view).forEach((el) => this.emit('createAndAppend', el)); },
+    onCreateAndAppend(el) { this.items.push(adventFakeCard(el)); }
+  });
+  line.use(payload.params.emit);
+  line.emit('create');
+  return line;
+}
+
+function adventClockHarness(t, instant, storage, extra) {
+  extra = extra || {};
+  var params = { manifest: XMAS_MANIFEST, now: instant, storage: storage, themesCtx: extra.themesCtx, realClock: extra.realClock, tmdb: extra.tmdb };
+  if (extra.realClock) t.mock.timers.enable({ apis: ['Date'], now: +instant });
   var s = setupRows(params);
   var active = { component: 'main' };
   var playing = false;
@@ -594,12 +641,33 @@ function adventClockHarness(t, instant, storage) {
     if (originalDoc === undefined) delete globalThis.document;
     else globalThis.document = originalDoc;
   });
-  if (instant.getMonth() === 11 && (!storage || !storage.language || storage.language === 'ru')) {
+  /* Пульт: ряд в фокусе — Controller.own(line); вызовы контроллера и
+     Layer.visible пишутся в журнал. */
+  var owner = null;
+  var log = [];
+  s.Lampa.Controller = {
+    own: (link) => owner === link,
+    collectionSet: (body) => log.push(['set', body]),
+    collectionFocus: (target, body) => log.push(['focus', target, body])
+  };
+  s.Lampa.Layer = { visible: (body) => log.push(['visible', body]) };
+  var activity = { node: null };
+  var line = null;
+  var lang = storage && storage.language;
+  if (extra.line) {
+    var got = adventPayload(s);
+    line = adventLine(got[0], title, activity);
+  } else if (instant.getMonth() === 11 && (!lang || lang === 'ru')) {
     adventPayload(s)[0].params.emit.onCreate.call({ html: { querySelector: (sel) => sel === '.items-line__title' ? title : null } });
   }
   s.R.installDedupe();
+  function setNow(next) {
+    params.now = next;
+    if (extra.realClock) t.mock.timers.setTime(+next);
+  }
   return {
-    title: title, noty: s.Lampa.Noty.shown, pending: pending, rows: s.R,
+    title: title, noty: s.Lampa.Noty.shown, pending: pending, rows: s.R, s: s, line: line, log: log, activity: activity,
+    own: (link) => { owner = link; },
     go: (component) => {
       s.Lampa.Listener.send('activity', { type: 'init', component: component });
       active = { component: component };
@@ -611,11 +679,11 @@ function adventClockHarness(t, instant, storage) {
       for (;;) {
         const due = [...pending].filter(([, tick]) => tick.when <= +next).sort((a, b) => a[1].when - b[1].when)[0];
         if (!due) break;
-        params.now = new Date(due[1].when);
+        setNow(new Date(due[1].when));
         pending.delete(due[0]);
         due[1].cb();
       }
-      params.now = next;
+      setNow(next);
     }
   };
 }
@@ -678,6 +746,200 @@ test('адвент: после 00:30 отложенное поздравлени
   c.advance(new Date(2027, 0, 1, 0, 30));
   c.player(false);
   assert.deepEqual(c.noty, []);
+});
+
+/* Аудит 2026-11-28 (Codex): главная открыта вечером 30-го, наступает 31-е
+   без её пересоздания. Было: заголовок считал часы, а подарок 31-го — под
+   замком, «Сегодня» — у 30-го: окошки собирались один раз при построении. */
+test('адвент: смена дня при живом ряде — подарок нового дня открыт, «Сегодня» на новом дне', function (t) {
+  var storage = {};
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), storage, { line: true });
+  var line = c.line;
+  var before = line.items.slice();
+  assert.equal(before[30].data.lumen_advent.state, 'locked');
+  assert.equal(before[29].age.textContent, 'Сегодня');
+  assert.equal(line.last, before[29].render(true));
+  assert.deepEqual([...c.pending.values()].map((tick) => tick.when), [+new Date(2026, 11, 31)]);
+
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.ok(before.every((card) => card.destroyed), 'прежние карточки сняты штатно (destroy)');
+  assert.equal(line.items.length, 31);
+  var gift = line.items[30];
+  assert.equal(gift.data.lumen_advent.state, 'today');
+  assert.equal(gift.data.id, 43430, 'фильм дня — «Ирония судьбы»');
+  assert.equal(gift.data.params.emit.onlyEnter, undefined, 'OK открывает фильм, а не уведомление замка');
+  assert.equal(gift.age.textContent, 'Сегодня');
+  assert.ok(gift.classes.has('lumen-advent-card--today'));
+  assert.match(gift.doors[0], /lumen-advent__door--opening/, 'подарок открывается на глазах');
+  assert.equal(line.items[29].data.lumen_advent.state, 'open');
+  assert.equal(line.items[29].age.textContent, 'День 30');
+  assert.equal(line.items[29].data.id, before[29].data.id, 'вчерашний фильм остался на своём дне');
+  assert.equal(line.data.results[30], gift.data, 'данные ряда — новые окошки');
+  assert.equal(line.last, gift.render(true), 'фокус вне ряда: вход в ряд встанет на новое «Сегодня»');
+  assert.equal(line.active, 30);
+  assert.equal(storage.lumen_advent_open.d[31], 43430, 'открытое окошко записано');
+  assert.ok(c.log.some((e) => e[0] === 'visible'), 'постеры новых карточек — штатной ленивой загрузкой');
+  assert.ok(!c.log.some((e) => e[0] === 'set' || e[0] === 'focus'), 'чужой фокус не трогаем');
+
+  var same = line.items.slice();
+  c.advance(new Date(2026, 11, 31, 18));
+  assert.match(c.title.textContent, /6 ч 0 мин$/);
+  c.advance(new Date(2026, 11, 31, 18, 3));
+  assert.match(c.title.textContent, /5 ч 57 мин$/);
+  assert.deepEqual(line.items, same, 'поминутный отсчёт ряд не пересобирает');
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+});
+
+test('адвент: смена дня с фокусом в ряду — пульт остаётся на той же позиции', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), {}, { line: true });
+  var line = c.line;
+  c.own(line);
+  line.active = 29;
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+  assert.equal(line.active, 29, 'вчерашнее окошко осталось доступным — фокус на нём');
+  assert.equal(line.last, line.items[29].render(true));
+  var focus = c.log.filter((e) => e[0] === 'set' || e[0] === 'focus');
+  assert.deepEqual(focus.map((e) => e[0]), ['set', 'focus'], 'коллекция ряда — новые узлы, фокус — на новый узел');
+  assert.equal(focus[1][1], line.items[29].render(true));
+  assert.equal(focus[1][2], line.scroll.render(true));
+});
+
+test('адвент: смена дня под мышью — выбранное окошко остаётся выбранным, контроллер не трогаем', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), {}, { line: true });
+  var line = c.line;
+  line.items[25].render(true).classList.add('focus');
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+  assert.equal(line.active, 25);
+  assert.equal(line.last, line.items[25].render(true));
+  assert.ok(!c.log.some((e) => e[0] === 'set' || e[0] === 'focus'));
+});
+
+test('адвент: пропущенная полночь догоняется на возврате на главную', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 22), {}, { line: true });
+  var line = c.line;
+  c.go('full');
+  assert.equal(c.pending.size, 0, '30-го вне главной будильника нет');
+  c.advance(new Date(2026, 11, 31, 9));
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked', 'под карточкой фильма ряд не трогаем');
+  /* Вторая главная в стеке: этот ряд не на экране — ждёт своего возврата. */
+  c.activity.node = { classList: { contains: () => false } };
+  c.go('main');
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked');
+  c.activity.node = null;
+  c.go('main');
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+  assert.equal(line.items[29].age.textContent, 'День 30');
+});
+
+test('адвент: пропущенная полночь догоняется на показе скрытой вкладки', function (t) {
+  var d = adventClockHarness(t, new Date(2026, 11, 14, 23, 50), {}, { line: true });
+  d.hidden(true);
+  d.advance(new Date(2026, 11, 15, 8));
+  assert.equal(d.line.items[14].data.lumen_advent.state, 'locked');
+  d.hidden(false);
+  assert.equal(d.line.items[14].data.lumen_advent.state, 'today');
+  assert.equal(d.line.items[13].age.textContent, 'День 14');
+  assert.match(d.title.textContent, /до Нового года 17 дней$/);
+});
+
+test('адвент: будильник полуночи — каждый день декабря, только на главной; снимается при уходе и выключении', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 5, 23), {}, { line: true });
+  assert.deepEqual([...c.pending.values()].map((tick) => tick.when), [+new Date(2026, 11, 6)]);
+  c.advance(new Date(2026, 11, 6, 0, 0, 1));
+  assert.equal(c.line.items[5].data.lumen_advent.state, 'today');
+  assert.match(c.title.textContent, /до Нового года 26 дней$/);
+  assert.deepEqual([...c.pending.values()].map((tick) => tick.when), [+new Date(2026, 11, 7)]);
+  c.go('full');
+  assert.equal(c.pending.size, 0);
+  c.go('main');
+  assert.equal(c.pending.size, 1);
+  c.rows.uninstallDedupe();
+  assert.equal(c.pending.size, 0);
+});
+
+test('адвент: выброшенный ряд не пересобирается и не держится в памяти', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), {}, { line: true });
+  var line = c.line;
+  var cards = line.items.slice();
+  line.destroy();
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.ok(cards.every((card) => !card.destroyed));
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked');
+});
+
+test('адвент: при отладочной дате день фиксирован — в настоящую полночь ряд не пересобирается', function (t) {
+  var prefs = { lumen_dev_date: '1230' };
+  var c = adventClockHarness(t, new Date(2026, 11, 5, 23, 59, 30), {}, {
+    line: true, realClock: true,
+    themesCtx: { pref: (name, def) => (name in prefs ? prefs[name] : def) }
+  });
+  var line = c.line;
+  var cards = line.items.slice();
+  assert.equal(cards[29].data.lumen_advent.state, 'today', 'ряд собран на 30 декабря');
+  c.advance(new Date(2026, 11, 6, 0, 0, 1));
+  c.hidden(true);
+  c.hidden(false);
+  c.go('main');
+  assert.deepEqual(line.items, cards);
+  assert.ok(cards.every((card) => !card.destroyed));
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked');
+  assert.match(c.title.textContent, /до Нового года 2 дня$/);
+});
+
+test('адвент: в полночь Нового года ряд не пересобирается — сезон кончился, заголовок без отсчёта', function (t) {
+  var c = adventClockHarness(t, new Date(2026, 11, 31, 23, 59, 30), {}, { line: true });
+  var cards = c.line.items.slice();
+  c.advance(new Date(2027, 0, 1, 0, 0, 1));
+  c.go('main');
+  assert.equal(c.title.textContent, 'Адвент-календарь');
+  assert.deepEqual(c.line.items, cards);
+  assert.ok(cards.every((card) => !card.destroyed));
+  assert.equal(c.line.items[30].data.lumen_advent.state, 'today');
+});
+
+test('адвент uk: новый день ждёт перевода фильма дня одним запросом, потом ряд пересобирается', function (t) {
+  var list = loadCtx('53_themes.js', {}).api.ADVENT_LIST;
+  var cards = {};
+  for (var i = 0; i < 30; i++) cards[list[i]] = { id: list[i], title: 'Переклад ' + list[i] };
+  var storage = { language: 'uk', lumen_advent_cards: { y: 2026, lang: 'uk', cards: cards } };
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), storage, { line: true, tmdb: true });
+  var line = c.line;
+  assert.equal(c.s.tmdbCalls.length, 0, 'вчерашние дни — из кэша переводов');
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.equal(c.s.tmdbCalls.length, 1);
+  assert.equal(c.s.tmdbCalls[0].url, 'movie/43430');
+  c.hidden(true);
+  c.hidden(false);
+  assert.equal(c.s.tmdbCalls.length, 1, 'пока перевод в пути, второй пересборки нет');
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked');
+  translated(c.s.tmdbCalls[0]);
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+  assert.equal(line.items[30].data.title, 'Фильм 43430');
+  assert.equal(line.items[0].data.title, 'Переклад ' + list[0]);
+});
+
+test('адвент uk: перевод пришёл, когда главная уже скрыта, — ряд догоняет день на возврате', function (t) {
+  var list = loadCtx('53_themes.js', {}).api.ADVENT_LIST;
+  var cards = {};
+  for (var i = 0; i < 30; i++) cards[list[i]] = { id: list[i], title: 'Переклад ' + list[i] };
+  var storage = { language: 'uk', lumen_advent_cards: { y: 2026, lang: 'uk', cards: cards } };
+  var c = adventClockHarness(t, new Date(2026, 11, 30, 23, 59, 30), storage, { line: true, tmdb: true });
+  var line = c.line;
+  c.advance(new Date(2026, 11, 31, 0, 0, 1));
+  assert.equal(c.s.tmdbCalls.length, 1);
+  var left = line.items[12].render(true);
+  line.last = left;
+  c.activity.node = { classList: { contains: () => false } };
+  translated(c.s.tmdbCalls[0]);
+  assert.equal(line.items[30].data.lumen_advent.state, 'locked', 'скрытый ряд не пересобран');
+  assert.equal(line.last, left, 'карточка, с которой ушли, осталась фокусом ряда');
+  c.activity.node = null;
+  c.go('main');
+  assert.equal(c.s.tmdbCalls.length, 1, 'перевод взят из кэша');
+  assert.equal(line.items[30].data.lumen_advent.state, 'today');
+  assert.equal(line.items[30].data.title, 'Фильм 43430');
 });
 
 test('адвент: не в декабре ряда нет вовсе — ни запроса, ни описания', function () {
