@@ -1670,6 +1670,7 @@
        нового адреса (LC.applyRowsPref → LC.manifest.load → register). */
     if (name === 'lumen_manifest_url') {
       try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', null); } catch (e) {}
+      try { if (LC.prefs && LC.prefs.rememberCatalog) LC.prefs.rememberCatalog(); } catch (eMark) {}
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
       return true;
     }

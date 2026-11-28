@@ -671,11 +671,23 @@
       try {
         var nodes = root.find('.card');
         var shared = nodes.length ? batch() : null;
+        /* Метки от Timeline сверяются, только если с прошлого прохода
+           этого корня была новая запись Timeline (LC.timelineGen,
+           src/90_runtime.js): иначе на каждом возврате на главную —
+           перебор серий у каждого сериала «Досмотреть». Нет счётчика
+           (подписки нет) — сверяем всегда. */
+        var host = root[0];
+        var gen = LC.timelineGen;
+        var moved = typeof gen !== 'number' || !host || host.lumen_badges_gen !== gen;
         for (var i = 0; i < nodes.length; i++) {
           var el = nodes[i];
-          if (el && el.lumen_badged && tracksTimeline(el)) refreshCard(el, shared);
-          else decorate(el, null, null, shared);
+          if (el && el.lumen_badged && tracksTimeline(el)) {
+            if (moved) refreshCard(el, shared);
+          } else {
+            decorate(el, null, null, shared);
+          }
         }
+        if (host && typeof gen === 'number') host.lumen_badges_gen = gen;
         if (enabled()) stripLines(root[0]);
       } catch (e) {
         warn('badges: scan failed', e);

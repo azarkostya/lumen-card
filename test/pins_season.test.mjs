@@ -143,3 +143,36 @@ test('закрепы старого формата: общий ключ без �
   assert.equal(P.get(affair, 4).hash, 'b'.repeat(40));
   assert.equal(P.get(affair, 3).hash, 'e'.repeat(40));
 });
+
+/* Ревью фиксов 2026-11-28: бета до разбора сезонов через epparse клала
+   многосезонный пакет под первый номер («tv:<id>:s1»). Сейчас сезон такой
+   строки неизвестен (0), и закреп должен находиться перебором записей
+   сезонов: отметка «Моя» в списке и «Открепить» по удержанию OK. */
+test('старый закреп многосезонного пакета под «:s1» отмечается и открепляется', () => {
+  const pack = 'The Affair S01-03 1080p';
+  const store = {
+    lumen_pins: {
+      'tv:6789:s1': { key: 'tv:6789:s1', at: 1, seen: 1, season: 1, magnet: magnet('c'), link: '', hash: 'c'.repeat(40), title: pack, quality: '', size: 0, seeds: 0 }
+    }
+  };
+  const { P } = run(store);
+  assert.equal(P.seasonOf({ Title: pack }), 0, 'диапазон сезонов — сезон неизвестен');
+  const menu = [];
+  P.onTorrent({ type: 'onlong', element: { Title: pack, MagnetUri: magnet('c'), viewed: true }, menu });
+  assert.equal(menu.length, 1);
+  assert.equal(menu[0].title, 'lumen_pins_unpin', 'старый закреп узнан');
+  menu[0].onSelect();
+  assert.deepEqual(Object.keys(store.lumen_pins), [], 'снята именно запись «:s1», дубля нет');
+});
+
+test('перебор сезонов не выдаёт чужую раздачу за свою', () => {
+  const store = {
+    lumen_pins: {
+      'tv:6789:s1': { key: 'tv:6789:s1', at: 1, seen: 1, season: 1, magnet: magnet('c'), link: '', hash: 'c'.repeat(40), title: 'The Affair S01', quality: '', size: 0, seeds: 0 }
+    }
+  };
+  const { P } = run(store);
+  const menu = [];
+  P.onTorrent({ type: 'onlong', element: { Title: 'The Affair S01-03 1080p', MagnetUri: magnet('d'), viewed: true }, menu });
+  assert.equal(menu[0].title, 'lumen_pins_pin', 'другая раздача — «Закрепить»');
+});

@@ -835,7 +835,15 @@
         if (!root || typeof root.querySelectorAll !== 'function') return 0;
         var nodes = root.querySelectorAll('.card');
         if (!nodes || !hasGone(nodes)) return 0;
+        /* Убранная карточка возвращается только новой записью Timeline
+           (onTimeline снимает метку). Без неё свежий состав тот же, а
+           continues на слабом ТВ — десятки мс до первого кадра на каждом
+           возврате: после первого досмотренного фильма убранный узел в
+           ряду есть всегда. Счётчик — на корне: у другого экрана свой. */
+        var gen = LC.timelineGen;
+        if (typeof gen === 'number' && root.lumen_cw_gen === gen) return 0;
         var fresh = continueItems();
+        if (typeof gen === 'number') root.lumen_cw_gen = gen;
         var back = pickReturned(nodes, fresh);
         if (!back.length) return 0;
         var rank = rankOf(fresh);

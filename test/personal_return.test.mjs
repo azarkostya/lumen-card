@@ -99,7 +99,8 @@ function setup(order) {
   globalThis.Lampa = Lampa;
   globalThis.document = { body: { contains: (n) => row.contains(n) || n === elsewhere } };
   const menu = load('63_cardmenu.js');
-  const personal = loadCtx('45_personal.js', { lang: (k) => k, pref: (k, d) => d, cardmenu: menu }).api;
+  const ctx = loadCtx('45_personal.js', { lang: (k) => k, pref: (k, d) => d, cardmenu: menu });
+  const personal = ctx.api;
 
   const describeRow = () => personal.describe().find((d) => d.id === 'continue');
   const fresh = () => { let got = null; describeRow().call({}, 'main')((p) => { got = p.results; }); return got; };
@@ -110,7 +111,7 @@ function setup(order) {
   row.appendChild(fakeNode('more', null, ['selector']));
   const names = () => row.children.map((c) => c.name);
   const node = (id) => row.children.find((c) => c.card_data && c.card_data.id === id);
-  return { st, row, store, start, timeline, personal, menu, main, fresh, names, node, elsewhere };
+  return { st, row, store, start, timeline, personal, menu, main, fresh, names, node, elsewhere, LC: ctx.LC };
 }
 
 function cleanup() {
@@ -237,4 +238,28 @@ test('pickReturned: только убранные карточки «Досмо�
   assert.deepEqual(P.pickReturned(nodes, fresh).map((b) => [b.el.id, b.at]), [['other', 0], ['film', 2]], 'сериал с тем же id не путается с фильмом, видимая и чужая — мимо');
   assert.deepEqual(P.pickReturned(nodes, []), []);
   assert.deepEqual(P.pickReturned(null, fresh), []);
+});
+
+/* Ревью фиксов 2026-11-28: после первого досмотренного фильма убранный узел
+   в ряду есть всегда, и без счётчика каждый возврат собирал свежий состав
+   (continues — десятки мс на слабом ТВ). Счётчик записей Timeline
+   (LC.timelineGen, src/90_runtime.js): нет новой записи — нечего и
+   возвращать. */
+test('«Досмотреть»: без новой записи Timeline возврат свежий состав не собирает', () => {
+  const s = setup([42, 14]);
+  try {
+    s.LC.timelineGen = 3;
+    const el = hideFromMenu(s);
+    s.st.continuesCalls = 0;
+    assert.equal(s.personal.onMainStart(s.main), 0);
+    assert.equal(s.st.continuesCalls, 1, 'первый возврат с убранной карточкой — сверка');
+    assert.equal(s.personal.onMainStart(s.main), 0);
+    assert.equal(s.st.continuesCalls, 1, 'записей Timeline не было — continues не зовётся');
+
+    resume(s);
+    s.LC.timelineGen += 1;
+    assert.equal(s.personal.onMainStart(s.main), 1, 'новая запись — карточка вернулась');
+    assert.equal(s.st.continuesCalls, 2);
+    assert.notEqual(el.style.display, 'none');
+  } finally { cleanup(); }
 });

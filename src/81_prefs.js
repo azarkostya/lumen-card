@@ -678,14 +678,27 @@
      сохранённый адрес, а не то, что отдаёт LC.pref на этом канале. */
   var MANIFEST_SRC = 'lumen_manifest_src';
 
+  /* Метка действующего адреса каталога. Без адреса каталог встроенный;
+     метка не бывает пустой, иначе «метки нет» и «адреса нет» не
+     различить. */
+  function catalogMark() {
+    var src = String(LC.pref('lumen_manifest_url', '') || (typeof LC.MANIFEST_URL === 'string' ? LC.MANIFEST_URL : '') || '');
+    return src || 'builtin';
+  }
+
+  /* Ручная правка «Своего каталога» (src/80_settings.js) сама сбрасывает
+     кэш и грузит каталог заново — метка запоминает новый адрес, иначе
+     следующий старт сбросил бы уже свежий кэш ещё раз. */
+  LC.prefs.rememberCatalog = function () {
+    try { Lampa.Storage.set(MANIFEST_SRC, catalogMark()); } catch (e) { }
+  };
+
   function dropForeignCatalog(get) {
     var custom = String(get('lumen_manifest_url') || '');
     var was = String(get(MANIFEST_SRC) || '');
     if (!custom && !was) return;
-    var src = String(LC.pref('lumen_manifest_url', '') || (typeof LC.MANIFEST_URL === 'string' ? LC.MANIFEST_URL : '') || '');
-    /* Без адреса каталог встроенный; метка не бывает пустой, иначе
-       «метки нет» и «адреса нет» не различить. */
-    var mark = src || 'builtin';
+    var mark = catalogMark();
+    var src = mark === 'builtin' ? '' : mark;
     if (was === mark) return;
     if (was || custom !== src) Lampa.Storage.set('lumen_manifest', null);
     Lampa.Storage.set(MANIFEST_SRC, mark);

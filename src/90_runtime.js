@@ -566,7 +566,13 @@
     timeline_followed = true;
     try {
       if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
+      /* Счётчик записей Timeline. Возврат на главную сверяет с ним
+         метки «Досмотреть» (LC.badges) и убранные карточки ряда
+         (LC.personal): нет новой записи — нечего и пересчитывать. Пока
+         подписки нет, счётчика тоже нет, и модули считают каждый раз. */
+      LC.timelineGen = 0;
       Lampa.Timeline.listener.follow('update', function (e) {
+        LC.timelineGen += 1;
         try {
           /* Ревью Task 10 (п.4): иначе запись просмотра возвращала бы на
              карточки класс lumen-continue и переменную --lumen-play-label уже

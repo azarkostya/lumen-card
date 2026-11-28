@@ -1399,3 +1399,34 @@ test('возврат на главную после плеера: «Досмот
     cleanupEpisodeRuntime();
   }
 });
+
+/* Ревью фиксов 2026-11-28: без новой записи Timeline возврат на главную
+   метки «Досмотреть» не пересчитывает — на слабом ТВ это перебор серий
+   каждого сериала на каждом возврате. Счётчик LC.timelineGen ведёт
+   подписка на Timeline (src/90_runtime.js); у каждого корня свой. */
+test('возврат на главную без записи Timeline: метки не пересчитываются, с записью — пересчитываются', () => {
+  const store = { '24House': { percent: 40 } };
+  const views = [];
+  try {
+    const { api, LC } = episodeRuntime(store, views);
+    LC.timelineGen = 0;
+    const serial = makeCard(Object.assign({}, SERIAL));
+    const root = makeRoot([serial]);
+    api.mount(root);
+    assert.equal(continuePlate(serial).text(), 'S2·E4 ▶︎');
+
+    api.detach(makeRoot([]));
+    views.length = 0;
+    api.mount(root);
+    assert.equal(views.length, 0, 'записей не было — Timeline не читается');
+
+    api.detach(makeRoot([]));
+    store['24House'] = { percent: 100 };
+    LC.timelineGen += 1;
+    api.mount(root);
+    assert.ok(views.length > 0, 'новая запись — пересчёт');
+    assert.equal(continuePlate(serial).text(), 'S2·E5');
+  } finally {
+    cleanupEpisodeRuntime();
+  }
+});

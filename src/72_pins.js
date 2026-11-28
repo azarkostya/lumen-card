@@ -359,6 +359,25 @@
       save(next);
     }
 
+    /* Закреп этой строки. Сперва — по сезону строки (find); не её —
+       перебираем записи сезонов сериала: бета до разбора сезонов через
+       epparse клала многосезонный пакет («S01-03», «Сезон 1-2») под
+       первый номер, «tv:<id>:s1», а сейчас сезон такой строки неизвестен
+       (0) и find смотрит только общую запись. Без перебора закреп не
+       отмечался в списке и не откреплялся. */
+    function pinOf(card, season, element) {
+      var pin = find(card, season);
+      if (isMine(pin, element)) return pin;
+      var base = keyOf(card);
+      if (!base) return pin;
+      var map = load();
+      for (var key in map) {
+        if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
+        if (key.indexOf(base + ':s') === 0 && isMine(map[key], element)) return map[key];
+      }
+      return pin;
+    }
+
     function onTorrent(e) {
       if (!enabled() || !e || !e.element) return;
       var active = activity();
@@ -371,7 +390,7 @@
       if (e.type !== 'onlong' && e.type !== 'render') return;
       if (!card) return;
       var season = seasonOf(e.element);
-      var pin = find(card, season);
+      var pin = pinOf(card, season, e.element);
       var mine = isMine(pin, e.element);
       var box = e.item && e.item.find('.torrent-item__ffprobe');
       function repaint(key) {

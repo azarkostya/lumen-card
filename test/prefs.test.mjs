@@ -1195,6 +1195,28 @@ test('1.5: миграция сбрасывает кэш каталога, ког
   assert.equal(plain.lumen_manifest, cache);
 });
 
+/* Ревью фиксов 2026-11-28: ручная правка «Своего каталога» на бете сама
+   сбрасывает кэш и грузит каталог заново — метка должна запомнить новый
+   адрес, иначе следующий старт сбросил бы свежий кэш ещё раз. */
+test('1.5: правка «Своего каталога» запоминает действующий адрес — следующий старт кэш не сбрасывает', () => {
+  const BETA = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@beta/';
+  const OLD = 'https://example.test/a.json';
+  const NEW = 'https://example.test/b.json';
+  const store = { lumen_manifest_url: OLD, lumen_manifest_src: OLD };
+  const lc = { assetUrl: (p) => BETA + p, MANIFEST_URL: 'https://azarkostya.github.io/lumen-card/manifest.json' };
+  withPrefs({ store, writes: [], lc }, (LC) => {
+    store.lumen_manifest_url = NEW;
+    LC.prefs.rememberCatalog();
+  });
+  assert.equal(store.lumen_manifest_src, NEW);
+  const fresh = { at: 2, data: { collections: [] } };
+  store.lumen_manifest = fresh;
+  const writes = [];
+  withPrefs({ store, writes, lc }, (LC) => LC.migratePrefs());
+  assert.deepEqual(writes.filter((w) => /^lumen_manifest/.test(w[0])), [], 'свежий кэш на месте');
+  assert.equal(store.lumen_manifest, fresh);
+});
+
 /* Частичный выбор дочитывается местами чтения — сверка по исходникам:
    каждый старый ключ из MERGED по-прежнему читается рядом с новым. */
 test('1.0.2: места чтения дочитывают старые ключи слитых пунктов', () => {
