@@ -2405,6 +2405,27 @@
     }
   }
 
+  /* Приоритет Lampa помнит хэшем outerHTML кнопки (full_btn_priority,
+     Buttons.onGroupButtons). До 28.11 кнопка «Моя раздача» была без
+     selector: приоритет, выбранный тогда, переводится на новую разметку. */
+  function keepPinPriority(button) {
+    try {
+      if (typeof Lampa === 'undefined' || !Lampa) return;
+      var storage = Lampa.Storage;
+      var utils = Lampa.Utils;
+      if (!storage || !utils || typeof utils.hash !== 'function') return;
+      var saved = String(storage.get('full_btn_priority', '') || '');
+      if (!saved) return;
+      var copy = button.clone().removeClass('focus');
+      var now = String(utils.hash(copy.prop('outerHTML')));
+      if (saved !== now && saved === String(utils.hash(copy.removeClass('selector').prop('outerHTML')))) {
+        storage.set('full_btn_priority', now);
+      }
+    } catch (err) {
+      warn('pin priority failed');
+    }
+  }
+
   function renderPins(root, movie, on) {
     if (!LC.pins) return;
     var container = root.find('.buttons--container');
@@ -2421,9 +2442,13 @@
       return;
     }
     if (!button.length) {
-      button = $('<div class="full-start__button view--lumen-pin"><svg><use xlink:href="#sprite-torrent"></use></svg><span></span></div>');
+      /* selector обязателен: приоритетную кнопку Lampa клонирует в верхний
+         ряд (Buttons.onPriorityButton), а пульт ходит только по .selector
+         (Controller.collectionSet). */
+      button = $('<div class="full-start__button selector view--lumen-pin"><svg><use xlink:href="#sprite-torrent"></use></svg><span></span></div>');
       button.find('span').text(LC.lang('lumen_pins_open'));
       container.prepend(button);
+      keepPinPriority(button);
     }
     button.data('subtitle', LC.pins.subtitle(pin));
     button.off('hover:enter.lumenPins').on('hover:enter.lumenPins', function () {
