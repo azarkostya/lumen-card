@@ -760,12 +760,99 @@
       } catch (e) { }
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Аудит Codex 28.11.2026: убранная карточка возвращается в уже        */
+    /* нарисованный ряд.                                                   */
+    /*                                                                     */
+    /* Сценарий: карточку убрали меню («Убрать из «Досмотреть»») или ушла  */
+    /* досмотренной, потом фильм нашли поиском и смотрят снова. Свежая     */
+    /* запись Timeline снимает метку (onTimeline), свежий ряд карточку уже */
+    /* показывает — но «Назад» достаёт главную готовой, и в нарисованном   */
+    /* ряду узел так и стоял с display:none и без .selector.               */
+    /* На том же 'start' главной (onMainStart) после уборки досмотренного  */
+    /* ряд сверяется со СВЕЖИМ составом — тем же continueItems, что отдаёт */
+    /* makeContinueCall: убранный узел, чья карточка в нём снова есть,     */
+    /* возвращает LC.cardmenu.restoreToRow на место по свежему порядку.    */
+    /* Пересборку главной (Activity.replace) не зовём: она заново тянет    */
+    /* сетевые ряды и сбрасывает прокрутку ради одной карточки.            */
+    /* Свежий состав собирается, только если в ряду есть убранный узел:    */
+    /* обычный возврат на главную continues не зовёт.                      */
+    /*                                                                     */
+    /* Чего это не лечит: ряд, снятый целиком (последняя карточка ушла,    */
+    /* removeEmptyContinueLine), — возвращать некуда, он вернётся со       */
+    /* следующей сборкой главной.                                          */
+    /* ------------------------------------------------------------------ */
+
+    /* Чистая часть: из узлов карточек — убранные из ряда «Досмотреть»
+       (lumen_continue, display:none), чья карточка есть в свежем составе
+       fresh. Сравнение по hiddenKey: id у фильма и сериала может совпасть.
+       Результат — [{el, at}] по возрастанию at, места в fresh. */
+    function pickReturned(nodes, fresh) {
+      var out = [];
+      if (!nodes || !fresh || !fresh.length) return out;
+      var rank = rankOf(fresh);
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        var card = el && el.card_data;
+        if (!card || !card.lumen_continue) continue;
+        if (!el.style || el.style.display !== 'none') continue;
+        var at = rank(card);
+        if (at >= 0) out.push({ el: el, at: at });
+      }
+      out.sort(function (a, b) { return a.at - b.at; });
+      return out;
+    }
+
+    /* rank(card) → место карточки в списке list по hiddenKey, или −1. */
+    function rankOf(list) {
+      var order = {};
+      for (var i = 0; i < list.length; i++) {
+        var key = hiddenKey(list[i]);
+        if (key && !Object.prototype.hasOwnProperty.call(order, key)) order[key] = i;
+      }
+      return function (card) {
+        var k = hiddenKey(card);
+        return k && Object.prototype.hasOwnProperty.call(order, k) ? order[k] : -1;
+      };
+    }
+
+    /* Есть ли среди узлов убранная карточка «Досмотреть». */
+    function hasGone(nodes) {
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el && el.card_data && el.card_data.lumen_continue && el.style && el.style.display === 'none') return true;
+      }
+      return false;
+    }
+
+    /* Возвращает в нарисованные ряды «Досмотреть» внутри root убранные
+       карточки, которые свежий состав снова показывает. Число вернувшихся. */
+    function sweepReturned(root) {
+      var n = 0;
+      try {
+        var restore = LC.cardmenu && LC.cardmenu.restoreToRow;
+        if (typeof restore !== 'function') return 0;
+        if (!root || typeof root.querySelectorAll !== 'function') return 0;
+        var nodes = root.querySelectorAll('.card');
+        if (!nodes || !hasGone(nodes)) return 0;
+        var fresh = continueItems();
+        var back = pickReturned(nodes, fresh);
+        if (!back.length) return 0;
+        var rank = rankOf(fresh);
+        for (var i = 0; i < back.length; i++) if (restore(back[i].el, rank)) n++;
+      } catch (e) { }
+      return n;
+    }
+
     /* Из LC.onActivityEvent (src/90_runtime.js): 'start' главной. Только
-       её собственный слайд — ряды других экранов не перебираются. */
+       её собственный слайд — ряды других экранов не перебираются. Сначала
+       уходит досмотренное, потом возвращается снова начатое. Число
+       убранных и вернувшихся карточек. */
     function onMainStart(object) {
       try {
         var slide = object && object.activity && typeof object.activity.render === 'function' ? object.activity.render(true) : null;
-        return sweepFinished(slide && typeof slide.querySelectorAll === 'function' ? slide : null);
+        var root = slide && typeof slide.querySelectorAll === 'function' ? slide : null;
+        return sweepFinished(root) + sweepReturned(root);
       } catch (e) {
         return 0;
       }
@@ -855,6 +942,16 @@
       return out;
     }
 
+    /* Состав ряда «Досмотреть» — его отдаёт makeContinueCall, по нему же
+       сверяет нарисованный ряд sweepReturned. */
+    function continueItems() {
+      var items = markContinue(continuesList());
+      /* 1.3: прерванный просмотр — первым, с меткой «Вернуться»
+         (LC.resume.raise, src/71_resume.js); клик по нему штатный. */
+      try { if (LC.resume && typeof LC.resume.raise === 'function') items = LC.resume.raise(items); } catch (eResume) {}
+      return items;
+    }
+
     /* «Досмотреть»: continuesList() вызывается при каждом call, без сети. */
     function makeContinueCall() {
       return function (params, screen) {
@@ -864,10 +961,7 @@
           /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
           var resolve = makeResolver(call);
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-          var items = markContinue(continuesList());
-          /* 1.3: прерванный просмотр — первым, с меткой «Вернуться»
-             (LC.resume.raise, src/71_resume.js); клик по нему штатный. */
-          try { if (LC.resume && typeof LC.resume.raise === 'function') items = LC.resume.raise(items); } catch (eResume) {}
+          var items = continueItems();
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
           return { cancel: function () {} };
@@ -1277,6 +1371,9 @@
       onFinished: onFinished,
       onMainStart: onMainStart,
       sweepFinished: sweepFinished,
+      /* Аудит Codex 28.11: снова начатая карточка возвращается в ряд. */
+      pickReturned: pickReturned,
+      sweepReturned: sweepReturned,
       bumpGen: bumpGen,
       describe: describe
     };

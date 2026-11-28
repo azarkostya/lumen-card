@@ -622,6 +622,12 @@
       return false;
     }
 
+    /* Видимая карточка ряда: только карточки — «Ещё» (модуль More Lampa)
+       тоже .selector, но без card_data. */
+    function shownCard(c) {
+      return !!(c && c.card_data && c.classList && c.classList.contains('selector') && !(c.style && c.style.display === 'none'));
+    }
+
     /* opts.background — убирает не человек из меню, а LC.personal
        (досмотренный фильм, src/45_personal.js): фокус пульта в этот момент
        может стоять в ЛЮБОМ ряду или на другом экране. */
@@ -639,9 +645,7 @@
         for (var i = 0; i < kids.length; i++) {
           var c = kids[i];
           if (c === el) { seen = true; continue; }
-          /* Только карточки: «Ещё» (модуль More Lampa) — тоже .selector, но
-             без card_data. */
-          if (!c.card_data || !c.classList || !c.classList.contains('selector') || c.style.display === 'none') continue;
+          if (!shownCard(c)) continue;
           if (seen) { if (!next) next = c; } else prev = c;
         }
         var target = next || prev;
@@ -688,6 +692,54 @@
         return true;
       } catch (e) {
         warn('cardmenu: row remove failed', e);
+        return false;
+      }
+    }
+
+    /* Обратное к removeFromRow: убранная карточка снова в ряду (LC.personal
+       на возврате главной, src/45_personal.js — фильм снова смотрят).
+       Видна, с .selector, и встаёт по rank(card) → место в свежем составе
+       ряда: перед первой видимой карточкой с большим местом, иначе — за
+       последней видимой (перед «Ещё»). Коллекцию пульта пересобираем по
+       правилу фонового removeFromRow — только если фокус пульта в ЭТОМ
+       ряду на экране активной активности; фокус возвращаем на ту же
+       карточку, чтобы Line пересчитал прокрутку под сдвинутый ряд. Ряд без
+       фокуса Lampa пересоберёт сама, когда пульт в него войдёт
+       (Line.toggle → collectionSet). */
+    function restoreToRow(el, rank) {
+      try {
+        var row = el && el.parentNode;
+        if (!row || !row.children || typeof row.insertBefore !== 'function') return false;
+        if (typeof document !== 'undefined' && document.body && typeof document.body.contains === 'function' && !document.body.contains(el)) return false;
+        var own = typeof rank === 'function' ? rank(el.card_data) : -1;
+        var kids = row.children;
+        var before = null;
+        var last = null;
+        for (var i = 0; i < kids.length; i++) {
+          var c = kids[i];
+          if (c === el || !shownCard(c)) continue;
+          if (own >= 0 && rank(c.card_data) > own) { before = c; break; }
+          last = c;
+        }
+        var ref = before || (last ? last.nextSibling : (kids[0] || null));
+        el.style.display = '';
+        el.classList.add('selector');
+        if (ref !== el) row.insertBefore(el, ref || null);
+        var C = window.Lampa && Lampa.Controller;
+        var en = null;
+        try { en = C && typeof C.enabled === 'function' ? C.enabled() : null; } catch (e3) { }
+        if (C && en && en.name === 'items_line' && onActiveScreen(el) && typeof C.collectionSet === 'function' && window.$) {
+          var $box = $(el).closest('.scroll');
+          var boxEl = $box && $box.length ? $box[0] : null;
+          var navEl = navFocused();
+          if (boxEl && navEl && typeof boxEl.contains === 'function' && boxEl.contains(navEl)) {
+            C.collectionSet($box);
+            if (typeof C.collectionFocus === 'function') C.collectionFocus(navEl, $box);
+          }
+        }
+        return true;
+      } catch (e) {
+        warn('cardmenu: row restore failed', e);
         return false;
       }
     }
@@ -980,6 +1032,7 @@
 
     return {
       removeFromRow: removeFromRow,
+      restoreToRow: restoreToRow,
       mediaOf: mediaOf,
       watchKey: watchKey,
       isCardMenu: isCardMenu,
