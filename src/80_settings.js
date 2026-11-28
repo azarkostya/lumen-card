@@ -2110,6 +2110,13 @@
       if (written.length && LC.applyPresetChanges) LC.applyPresetChanges(written);
       if (written.indexOf('lumen_font') !== -1) refreshFontPreview();
       syncStyle();
+      /* Ревью 1.5: пометки «Не действует» у зависимых пунктов открытого
+         экрана. refreshIdle('lumen_style') в начале applyPrefChange видел
+         ещё прежний набор, а записи выше идут с nolisten и своих событий
+         не поднимают, — без этого прохода «Цвет из кадра» и «Где применять
+         цвет» меняли пометку только при повторном входе в «Дизайн». */
+      refreshIdle('lumen_style');
+      for (var r = 0; r < written.length; r++) refreshIdle(written[r]);
       /* Подтверждение — перечнем того, что изменилось, названиями самих
          пунктов раздела: так видно, куда идти, если что-то не понравилось.
          Показывается и когда менять было нечего: молчащий выбор выглядит
@@ -2147,11 +2154,11 @@
   }
 
   /* Настройки для проверки сборки видны на beta и локальном стенде.
-     Pages, теги выпуска и запасной адрес загрузчика ведут в обычное меню. */
+     Pages, теги выпуска и запасной адрес загрузчика ведут в обычное меню.
+     Канал определяет одна функция (LC.prefs.devChannel, src/81_prefs.js):
+     по ней же LC.pref держит ключи раздела инертными вне беты. */
   function showDiagnostics() {
-    var base = typeof LC.assetUrl === 'function' ? LC.assetUrl('') : '';
-    return /^https:\/\/cdn\.jsdelivr\.net\/gh\/azarkostya\/lumen-card@beta\/$/i.test(base) ||
-      /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i.test(base);
+    return !!(LC.prefs && typeof LC.prefs.devChannel === 'function' && LC.prefs.devChannel());
   }
 
   function diagnosticEntry(entry) {

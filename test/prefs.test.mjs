@@ -800,7 +800,7 @@ test('1.0.2: описание «Шрифта» говорит про интер�
    анимаций, Storage.get — значения настроек, Platform.is — платформу.
    globalThis.window ставится только на время вызова fn. */
 function withPrefs(opts, fn) {
-  const LC = {};
+  const LC = Object.assign({}, opts.lc || {});
   const store = opts.store || {};
   const writes = opts.writes || [];
   const Lampa = {
@@ -1157,6 +1157,42 @@ test('после 1.0.2: кэша Кинопоиска нет — миграци�
   withPrefs({ store: { lumen_kp_key: 'K' }, writes, localStorage: ls }, (LC) => LC.migratePrefs());
   assert.deepEqual(writes, []);
   assert.deepEqual(ls.removed, []);
+});
+
+/* 1.5: «Свой каталог» вне беты инертен (LC.pref), а кэш каталога не помнит
+   адреса, с которого пришёл. Сменился действующий адрес — кэш прежнего
+   каталога сбрасывается одной записью, сам пункт не стирается. */
+test('1.5: миграция сбрасывает кэш каталога, когда действующий адрес сменился', () => {
+  const PAGES = 'https://azarkostya.github.io/lumen-card/';
+  const BETA = 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@beta/';
+  const CUSTOM = 'https://example.test/manifest.json';
+  const cache = { at: 1, data: { collections: [] } };
+  const on = (base) => ({ assetUrl: (p) => base + p, MANIFEST_URL: PAGES + 'manifest.json' });
+  const run = (base, store) => {
+    const writes = [];
+    withPrefs({ store, writes, lc: on(base) }, (LC) => { LC.migratePrefs(); LC.migratePrefs(); });
+    return writes;
+  };
+
+  /* Обновление с 1.3.1 на релиз: адрес вписан, но не действует. */
+  const upgraded = { lumen_manifest_url: CUSTOM, lumen_manifest: cache };
+  assert.deepEqual(run(PAGES, upgraded), [['lumen_manifest', null], ['lumen_manifest_src', PAGES + 'manifest.json']]);
+  assert.equal(upgraded.lumen_manifest_url, CUSTOM, 'свой адрес сохраняется для беты');
+
+  /* Тот же профиль на бете: кэш — со своего адреса, сбрасывать нечего. */
+  const beta = { lumen_manifest_url: CUSTOM, lumen_manifest: cache };
+  assert.deepEqual(run(BETA, beta), [['lumen_manifest_src', CUSTOM]]);
+  assert.equal(beta.lumen_manifest, cache);
+
+  /* С беты на релиз и обратно — по сбросу на каждый переход. */
+  assert.deepEqual(run(PAGES, beta), [['lumen_manifest', null], ['lumen_manifest_src', PAGES + 'manifest.json']]);
+  assert.deepEqual(run('http://127.0.0.1:8767/', beta), [['lumen_manifest', null], ['lumen_manifest_src', CUSTOM]]);
+
+  /* Своего адреса нет — кэш с адреса по умолчанию, шаг молчит. */
+  const plain = { lumen_manifest: cache };
+  assert.deepEqual(run(PAGES, plain), []);
+  assert.deepEqual(run(BETA, plain), []);
+  assert.equal(plain.lumen_manifest, cache);
 });
 
 /* Частичный выбор дочитывается местами чтения — сверка по исходникам:

@@ -468,6 +468,38 @@
       return overrides ? overrides[name] : undefined;
     }
 
+    /* 1.5: раздел «Для разработчика» (MORE) живёт ТОЛЬКО на бете — решение
+       владельца: дата праздников, частота кадров, тест быстродействия,
+       регион и свой каталог в релиз не идут никогда. Сборка одна на оба
+       канала, поэтому канал — по адресу, с которого она загружена
+       (LC.assetUrl, src/00_head.js): точная ветка beta на jsDelivr или
+       локальный стенд (loopback). Всё прочее — Pages, @main, теги выпуска,
+       неизвестный адрес и отсутствие LC.assetUrl (модуль загружен без
+       00_head.js — тесты) — релиз: ошибка в эту сторону лишь прячет
+       отладку, в обратную — показала бы её зрителю.
+       Одна точка на оба места: видимость раздела (showDiagnostics,
+       src/80_settings.js) и чтение его ключей (LC.pref ниже). */
+    var DEV_BASE = /^https:\/\/cdn\.jsdelivr\.net\/gh\/azarkostya\/lumen-card@beta\/$/i;
+    var DEV_LOOPBACK = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i;
+
+    function devChannel() {
+      var base = '';
+      try { base = typeof LC.assetUrl === 'function' ? String(LC.assetUrl('') || '') : ''; } catch (e) { base = ''; }
+      return DEV_BASE.test(base) || DEV_LOOPBACK.test(base);
+    }
+
+    /* Ключи раздела MORE. На релизном канале они инертны: LC.pref отдаёт
+       значение по умолчанию, что бы ни лежало в Storage. Пункты, включённые
+       в 1.3.1 (тогда раздел видели все) или на бете, иначе работали бы
+       дальше без пункта, которым их выключить. Storage не стирается:
+       вернувшись на бету, человек увидит свои значения. */
+    var DEV_KEYS = {};
+    for (var d = 0; d < MORE.length; d++) DEV_KEYS[MORE[d].name] = true;
+
+    function devOnly(name) {
+      return typeof name === 'string' && Object.prototype.hasOwnProperty.call(DEV_KEYS, name);
+    }
+
     return {
       LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
       motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
@@ -475,7 +507,8 @@
       PRESET_KEYS: PRESET_KEYS, presetValues: presetValues, styleOf: styleOf, MERGED: MERGED, mergedOn: mergedOn,
       SECTIONS: SECTIONS,
       normalize: normalize, override: override, clearOverride: clearOverride,
-      overridden: overridden, overrideOf: overrideOf
+      overridden: overridden, overrideOf: overrideOf,
+      devChannel: devChannel, devOnly: devOnly
     };
   })();
 
@@ -500,9 +533,13 @@
     return platform;
   };
 
-  /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
+  /* Читает настройку плагина из Lampa.Storage с нормализацией булевых.
+     Подмена самотеста (LC.prefs.override) решает первой, как и раньше;
+     ключ раздела «Для разработчика» вне беты и стенда — значение по
+     умолчанию без чтения Storage (LC.prefs.devOnly/devChannel выше). */
   LC.pref = function (name, def) {
     if (LC.prefs.overridden(name)) return LC.prefs.normalize(LC.prefs.overrideOf(name), def);
+    if (LC.prefs.devOnly(name) && !LC.prefs.devChannel()) return def;
     var value;
     try {
       if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
@@ -623,7 +660,36 @@
       if (off('lumen_minimap') && off('lumen_fastscroll') && !off('lumen_remote_boost')) Lampa.Storage.set('lumen_remote_boost', 'false');
     });
     step(dropKpCache);
+    step(function () { dropForeignCatalog(get); });
   };
+
+  /* 1.5: кэш каталога подборок (lumen_manifest, src/42_manifest.js) не
+     помнит, с какого адреса пришёл. «Свой каталог» вне беты инертен
+     (LC.prefs.devOnly), и действующий адрес меняется без правки пункта:
+     обновление с 1.3.1, где адрес мог вписать любой, или переход с беты
+     на релиз и обратно. Кэш прежнего каталога тогда не годится — как и
+     при правке адреса руками (applyPrefChange, src/80_settings.js), — иначе
+     чужой каталог держался бы до 12 ч, а без сети и дольше. Действующий
+     адрес помнит lumen_manifest_src. Без своего адреса и без метки шаг
+     молчит: кэш у такого профиля — с адреса по умолчанию. Первый запуск
+     с меткой сбрасывает кэш, только если свой адрес лежит, но не
+     действует.
+     get — сырое чтение Storage из LC.migratePrefs: миграции нужен
+     сохранённый адрес, а не то, что отдаёт LC.pref на этом канале. */
+  var MANIFEST_SRC = 'lumen_manifest_src';
+
+  function dropForeignCatalog(get) {
+    var custom = String(get('lumen_manifest_url') || '');
+    var was = String(get(MANIFEST_SRC) || '');
+    if (!custom && !was) return;
+    var src = String(LC.pref('lumen_manifest_url', '') || (typeof LC.MANIFEST_URL === 'string' ? LC.MANIFEST_URL : '') || '');
+    /* Без адреса каталог встроенный; метка не бывает пустой, иначе
+       «метки нет» и «адреса нет» не различить. */
+    var mark = src || 'builtin';
+    if (was === mark) return;
+    if (was || custom !== src) Lampa.Storage.set('lumen_manifest', null);
+    Lampa.Storage.set(MANIFEST_SRC, mark);
+  }
 
   /* После 1.0.2: подборки Кинопоиска сняты (src/42_manifest.js, RETIRED), а
      их кэш остался в localStorage и занимает квоту, нужную отзывам:

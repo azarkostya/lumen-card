@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 /* Task 10: регистрация раздела «Lumen Card» в Lampa.SettingsApi — полный
    список пунктов экрана 09, русские подписи и описания, значения по
@@ -1039,6 +1039,69 @@ test('диагностика регистрируется только с точ
   }
 });
 
+/* Решение владельца 1.5: раздел «Для разработчика» — только бета. На релизе
+   пункта нет, значит и сохранённое значение (включённое в 1.3.1, когда
+   раздел видели все, или на бете) не должно действовать: LC.pref отдаёт
+   значение по умолчанию. Storage при этом не трогается. */
+test('ключи «Для разработчика» вне беты и стенда инертны, Storage не стирается', () => {
+  const saved = {
+    lumen_debug_hud: 'true',
+    lumen_manifest_url: 'https://example.test/manifest.json',
+    lumen_dev_date: '1205',
+    lumen_region_unblock: 'true',
+    lumen_flat: 'true'
+  };
+  const cases = [
+    ['beta', BETA_ASSETS, true],
+    ['локальный IP', 'http://127.0.0.1:8767/', true],
+    ['localhost', 'http://localhost:8767/lumen/', true],
+    ['main CDN', 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@main/', false],
+    ['Pages', 'https://azarkostya.github.io/lumen-card/', false],
+    ['версионный тег', 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@v1.5.0/', false],
+    ['ветка с похожим именем', 'https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@beta-preview/', false],
+    ['неизвестный источник', '', false],
+    ['без assetUrl', null, false]
+  ];
+  for (const [label, assetBase, dev] of cases) {
+    const env = setup({ assetBase, storage: saved });
+    const { LC } = env;
+    assert.equal(LC.prefs.devChannel(), dev, label + ': канал');
+    assert.equal(LC.pref('lumen_debug_hud', false), dev, label + ': частота кадров');
+    assert.equal(LC.pref('lumen_manifest_url', ''), dev ? saved.lumen_manifest_url : '', label + ': свой каталог');
+    assert.equal(LC.pref('lumen_dev_date', 'off'), dev ? '1205' : 'off', label + ': пробная дата');
+    assert.equal(LC.pref('lumen_region_unblock', false), dev, label + ': регион');
+    assert.equal(LC.pref('lumen_flat', false), true, label + ': обычные пункты читаются как всегда');
+    assert.deepEqual(env.storage, saved, label + ': сохранённые значения на месте');
+
+    /* Подмена самотеста (src/69_bench.js) решает первой — как и раньше. */
+    LC.prefs.override({ lumen_dev_date: '1231' });
+    assert.equal(LC.pref('lumen_dev_date', 'off'), '1231', label + ': подмена');
+    LC.prefs.clearOverride();
+    assert.equal(LC.pref('lumen_dev_date', 'off'), dev ? '1205' : 'off', label + ': без подмены');
+  }
+  /* Раздел — ровно таблица MORE, ничего лишнего. */
+  const more = setup().LC.prefs.LIST.filter((e) => e.section === 'more').map((e) => e.name);
+  const LC = setup().LC;
+  for (const name of more) assert.equal(LC.prefs.devOnly(name), true, name);
+  for (const name of ['lumen_flat', 'lumen_kp_key', 'lumen_more', '', undefined]) {
+    assert.equal(LC.prefs.devOnly(name), false, String(name));
+  }
+});
+
+/* Сторож: ключи раздела читаются только через LC.pref — прямое чтение
+   Storage/localStorage обошло бы инертность на релизе. */
+test('ключи «Для разработчика» нигде не читаются в обход LC.pref', () => {
+  const keys = setup().LC.prefs.LIST.filter((e) => e.section === 'more' && e.type !== 'title' && e.type !== 'button')
+    .map((e) => e.name);
+  assert.ok(keys.length >= 4);
+  const direct = new RegExp('(?:Storage\\.(?:get|field|cache)|localStorage\\.getItem|localStorage\\[)\\(?\\s*[\'"](?:' + keys.join('|') + ')[\'"]');
+  const files = readdirSync(new URL('../src/', import.meta.url)).filter((f) => /\.js$/.test(f));
+  for (const f of files) {
+    const src = readFileSync(new URL('../src/' + f, import.meta.url), 'utf8');
+    assert.equal(direct.exec(src), null, f);
+  }
+});
+
 /* Стенд 960×540@2: Lampa ставит фокус по last_index, но ленту к строке не
    прокручивает — строка под фокусом оставалась ниже кромки экрана. «Назад»
    повторяет фокус той же строки штатным Controller.collectionFocus, и
@@ -1565,6 +1628,38 @@ test('пометка гирлянды обновляется при измене
     env.Storage.set('lumen_fx', 'seasonal');
     assert.deepEqual(row.kids, [], 'при выключенных анимациях статичная гирлянда действует');
     assert.equal(env.storage.lumen_fx_garland_static, 'true');
+  });
+});
+
+/* Ревью 1.5: «Стиль» пишет набор (lumen_flat и др.) с nolisten уже ПОСЛЕ
+   refreshIdle('lumen_style') в начале applyPrefChange — пометки зависимых
+   пунктов открытого «Дизайна» читали прежние значения и обновлялись только
+   при повторном входе на экран. */
+test('1.5: смена «Стиля» сразу перерисовывает пометки зависимых пунктов открытого экрана', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const rows = { lumen_accent_auto: fakeRow(), lumen_accent_scope: fakeRow() };
+  const idle = (reason) => env.LC.lang('lumen_idle_prefix') + ': ' + env.LC.lang(reason);
+  const notes = (name) => rows[name].kids.map((note) => note.t);
+  withQuery(rows, () => {
+    for (const name of Object.keys(rows)) paramOf(env.params, name).onRender(rows[name]);
+    assert.deepEqual(notes('lumen_accent_auto'), [], 'Lumen: цвет из кадра действует');
+    assert.deepEqual(notes('lumen_accent_scope'), []);
+
+    env.Storage.set('lumen_style', 'appletv');
+    assert.equal(env.storage.lumen_flat, 'true', 'набор Apple TV записан');
+    for (const name of Object.keys(rows)) {
+      assert.deepEqual(notes(name), [idle('lumen_idle_flat')], 'Apple TV: ' + name);
+      assert.ok(rows[name].classes.indexOf('lumen-pref--idle') !== -1, name);
+    }
+
+    env.Storage.set('lumen_style', 'lumen');
+    assert.equal(env.storage.lumen_flat, 'false', 'набор Lumen записан');
+    for (const name of Object.keys(rows)) {
+      assert.deepEqual(notes(name), [], 'Lumen: ' + name);
+      assert.equal(rows[name].classes.indexOf('lumen-pref--idle'), -1, name);
+    }
   });
 });
 
