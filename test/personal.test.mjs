@@ -1040,3 +1040,47 @@ test('«Досмотреть»: штатный таймлайн без карт�
   s.api.onTimeline({ hash: 's2e3', road: { percent: 50, updated: now } });
   assert.equal(storage.lumen_cw_seen.tv_42, now);
 });
+
+/* Настоящая Lampa отдаёт строку из одних цифр ЧИСЛОМ: Storage.get
+   (app.min.js:48433-48434 — parseInt при /^\d+$/), и это касается и
+   дефолта вызова. Проверено живьём: Storage.get('lumen_cw_days', '30') → 30.
+   LC.pref тип не меняет (src/81_prefs.js, normalize), поэтому срок
+   приходил в dropStale числом, сравнение со строками его не узнавало,
+   и фильтр не включался никогда. Моки выше отдают строки и этого не видят. */
+function lampaStorageValue(raw, empty) {
+  const value = raw || empty || '';
+  if (value == 'true' || value == 'false') return value == 'true';
+  if (/^\d+$/.test(value)) return parseInt(value, 10);
+  return value;
+}
+
+test('«Досмотреть»: срок работает, когда Lampa отдаёт его числом (14, 30, 90 и «Выкл»)', (t) => {
+  const day = 86400000;
+  const started = 1000 * day;
+  let now = started;
+  t.mock.method(Date, 'now', () => now);
+  const movie = { id: 42, original_title: 'Old film' };
+  const storage = {};
+  const raw = {};
+  const s = setupRuntime({ storage, continues: type => type === 'movie' ? [movie] : [] });
+  s.LC.pref = (k, d) => lampaStorageValue(raw[k], d);
+  assert.equal(typeof s.LC.pref('lumen_cw_days', '30'), 'number', 'мок ведёт себя как Lampa');
+  const hasRow = () => s.api.describe().some(row => row.id === 'continue');
+
+  assert.equal(hasRow(), true);
+  now += 30 * day - 1;
+  assert.equal(hasRow(), true, 'по умолчанию 30 дней — ещё в ряду');
+  now++;
+  assert.equal(hasRow(), false, 'по умолчанию 30 дней — срок вышел');
+  raw.lumen_cw_days = '90';
+  assert.equal(hasRow(), true, '90 дней');
+  raw.lumen_cw_days = '14';
+  assert.equal(hasRow(), false, '14 дней');
+  now = started + 14 * day - 1;
+  assert.equal(hasRow(), true, '14 дней — ещё в ряду');
+  now = started + 200 * day;
+  raw.lumen_cw_days = 'off';
+  assert.equal(hasRow(), true, '«Выкл» — срока нет');
+  raw.lumen_cw_days = '30';
+  assert.equal(hasRow(), false, '30 дней явно');
+});

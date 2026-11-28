@@ -287,7 +287,13 @@
       return key.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 64);
     }
 
+    /* days — значение настройки lumen_cw_days. Сравнение по строке:
+       Lampa.Storage.get отдаёт строку из одних цифр ЧИСЛОМ
+       (app.min.js:48433-48434, в том числе и дефолт вызова), LC.pref тип
+       не меняет — без String() срок 30 приходил числом и фильтр не
+       включался никогда. 'off' и прочее — срока нет. */
     function dropStale(items, seen, now, days) {
+      days = days == null ? '' : String(days);
       if (days !== '14' && days !== '30' && days !== '90') return items;
       var cutoff = now - Number(days) * DAY_MS;
       return items.filter(function (card) {
